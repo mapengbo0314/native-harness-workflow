@@ -35,7 +35,43 @@ def generate_plugin_manifest(
         ],
         "hooks": {
             "agent_dispatch": "src/interceptor.py:intercept_agent_dispatch"
-        }
+        },
+        "tools": [
+            {
+                "name": "Skill",
+                "description": "Invoke a specialized agent skill by name",
+                "entry_point": "src/tools.py:invoke_skill",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "description": "Name of the skill to invoke"
+                        }
+                    },
+                    "required": ["name"]
+                }
+            },
+            {
+                "name": "Task",
+                "description": "Invoke a subagent to perform a specific task",
+                "entry_point": "src/tools.py:invoke_task",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "agent_name": {
+                            "type": "string",
+                            "description": "Name of the subagent to invoke"
+                        },
+                        "prompt": {
+                            "type": "string",
+                            "description": "The prompt or instruction for the subagent"
+                        }
+                    },
+                    "required": ["agent_name", "prompt"]
+                }
+            }
+        ]
     }
 
     manifest_path = plugin_dir / "plugin.json"
@@ -297,6 +333,55 @@ class OrchestratorPlugin:
         
         # Route through orchestrator
         return self.dispatcher.dispatch_agent(agent_name, context)
+        
+    def read_skill(self, name: str) -> str:
+        """
+        Read skill markdown file.
+        
+        Args:
+            name: Name of the skill
+            
+        Returns:
+            Skill content or error message
+        """
+        # We need to find the skill either in .claude/skills or .gemini/skills or boilerplate-agent/skills
+        # Get project root (we are in .claude/plugin-generated/src)
+        project_root = Path(__file__).parent.parent.parent.parent
+        
+        # Look in possible locations
+        possible_paths = [
+            project_root / ".claude" / "skills" / name / "SKILL.md",
+            project_root / ".gemini" / "skills" / name / "SKILL.md",
+            project_root / "boilerplate-agent" / "skills" / name / "SKILL.md"
+        ]
+        
+        for skill_path in possible_paths:
+            if skill_path.exists():
+                with open(skill_path, "r") as f:
+                    return f.read()
+                    
+        return f"Error: Skill '{name}' not found."
+
+    def dispatch_task(self, agent_name: str, prompt: str) -> str:
+        """
+        Dispatch a task to an agent via the tool interface.
+        
+        Args:
+            agent_name: Name of the subagent
+            prompt: Task instruction
+            
+        Returns:
+            Result of the dispatch (simulation for now)
+        """
+        if not self.dispatcher.validate_against_rules(agent_name):
+            return f"PermissionError: Agent '{agent_name}' violates project rules"
+        
+        # Simulate dispatching or routing back to orchestrator
+        return (
+            f"Successfully routed task to {agent_name}.\\n"
+            f"Prompt received:\\n{prompt}\\n"
+            f"(Orchestrator validation passed)"
+        )
 
 
 # Plugin singleton
@@ -338,6 +423,35 @@ def intercept_agent_dispatch(agent_name: str, context: dict) -> dict:
     return plugin.intercept_agent_dispatch(agent_name, context)
 '''
     (src_dir / "interceptor.py").write_text(interceptor_content)
+
+    # Generate tools.py
+    tools_content = '''"""
+Plugin tools exposed to Claude Code.
+"""
+
+from .orchestrator_plugin import get_plugin
+
+
+def invoke_skill(name: str) -> str:
+    """
+    Tool function to load a specialized agent skill by name.
+    
+    This is registered in plugin.json tools.Skill.
+    """
+    plugin = get_plugin()
+    return plugin.read_skill(name)
+
+
+def invoke_task(agent_name: str, prompt: str) -> str:
+    """
+    Tool function to invoke a subagent to perform a specific task.
+    
+    This is registered in plugin.json tools.Task.
+    """
+    plugin = get_plugin()
+    return plugin.dispatch_task(agent_name, prompt)
+'''
+    (src_dir / "tools.py").write_text(tools_content)
 
     # Generate a stub for dispatcher.py in case generate_plugin_sources is called in isolation
     (src_dir / "dispatcher.py").write_text('"""Dispatcher stub"""\n')
