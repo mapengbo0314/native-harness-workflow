@@ -21,20 +21,33 @@ def generate_plugin_manifest(
         Path to the generated plugin.json
     """
     plugin_dir = Path(target_dir)
-    plugin_dir.mkdir(parents=True, exist_ok=True)
+    claude_plugin_dir = plugin_dir / ".claude-plugin"
+    claude_plugin_dir.mkdir(parents=True, exist_ok=True)
 
     manifest = {
         "name": "orchestrator-plugin",
         "description": f"Auto-generated orchestrator plugin for {project_name}",
         "version": plugin_version,
-        "author": "Harness Plugin Generator",
+        "author": {
+            "name": "Harness Plugin Generator"
+        },
         "entry_point": "src/orchestrator_plugin.py",
         "requirements": [
             "pydantic>=2.0",
             "typing_extensions"
         ],
         "hooks": {
-            "agent_dispatch": "src/interceptor.py:intercept_agent_dispatch"
+            "PreToolUse": [
+                {
+                    "matcher": "Task",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/src/interceptor.py\""
+                        }
+                    ]
+                }
+            ]
         },
         "tools": [
             {
@@ -74,9 +87,27 @@ def generate_plugin_manifest(
         ]
     }
 
-    manifest_path = plugin_dir / "plugin.json"
+    manifest_path = claude_plugin_dir / "plugin.json"
     with open(manifest_path, 'w') as f:
         json.dump(manifest, f, indent=2)
+        
+    marketplace = {
+        "name": "local-orchestrator-marketplace",
+        "owner": {
+            "name": "Local Project"
+        },
+        "plugins": [
+            {
+                "name": "orchestrator-plugin",
+                "version": plugin_version,
+                "source": "./"
+            }
+        ]
+    }
+    
+    marketplace_path = claude_plugin_dir / "marketplace.json"
+    with open(marketplace_path, 'w') as f:
+        json.dump(marketplace, f, indent=2)
 
     return str(manifest_path)
 

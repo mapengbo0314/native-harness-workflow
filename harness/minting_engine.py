@@ -351,7 +351,8 @@ echo "To install Skills for Claude Code workspace-wide, run these commands insid
 # Orchestrator Plugin Installation
 if [ -d ".claude/plugin-generated" ]; then
     echo "Installing orchestrator plugin..."
-    echo "  /plugin install orchestrator-plugin@.claude/plugin-generated --project"
+    echo "  /plugin marketplace add .claude/plugin-generated --scope project"
+    echo "  /plugin install orchestrator-plugin@local-orchestrator-marketplace --scope project"
 fi
 
 # MCP Configuration for Claude
