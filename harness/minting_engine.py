@@ -477,22 +477,22 @@ The Orchestrator agent and core rules are located in `{harness_prefix}/orchestra
   - Edit
   - Bash
   - Glob
-  - codegraph_search
-  - codegraph_explore
-  - codegraph_context
-  - codegraph_callers
-  - codegraph_impact"""
+  - mcp_codegraph_codegraph_search
+  - mcp_codegraph_codegraph_node
+  - mcp_codegraph_codegraph_context
+  - mcp_codegraph_codegraph_callers
+  - mcp_codegraph_codegraph_impact"""
             else:
                 tools_list = """  - read_file
   - grep_search
   - replace
   - run_shell_command
   - glob
-  - codegraph_search
-  - codegraph_explore
-  - codegraph_context
-  - codegraph_callers
-  - codegraph_impact"""
+  - mcp_codegraph_codegraph_search
+  - mcp_codegraph_codegraph_node
+  - mcp_codegraph_codegraph_context
+  - mcp_codegraph_codegraph_callers
+  - mcp_codegraph_codegraph_impact"""
             
             frontmatter = f"""---
 name: {safe_name}

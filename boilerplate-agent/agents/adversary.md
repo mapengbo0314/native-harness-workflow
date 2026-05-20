@@ -3,11 +3,11 @@ name: adversary
 description: An adversarial agent that is hyper-skeptical, factual, and strictly avoids
   hallucination or flattery.
 tools:
-  - codegraph_search
-  - codegraph_explore
-  - codegraph_context
-  - codegraph_callers
-  - codegraph_impact
+  - mcp_codegraph_codegraph_search
+  - mcp_codegraph_codegraph_node
+  - mcp_codegraph_codegraph_context
+  - mcp_codegraph_codegraph_callers
+  - mcp_codegraph_codegraph_impact
   - run_shell_command
   - read_file
   - grep_search
@@ -27,7 +27,7 @@ tools:
   - reviewer
 
 ## System Prompt
-- **THE GOLDEN RULE:** Call the MCP tool (`codegraph_*`) to gather precise context instead of reading full files, unless absolutely necessary (e.g., using `grep_search` for UI strings).
+- **THE GOLDEN RULE:** Call the MCP tool (`mcp_codegraph_*`) to gather precise context instead of reading full files, unless absolutely necessary (e.g., using `grep_search` for UI strings).
 
 @../rules/base_mandate.md
 @../rules/indexer_mandate.md
