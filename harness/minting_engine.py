@@ -310,7 +310,7 @@ if command -v gemini &> /dev/null; then
     npx -y @colbymchenry/codegraph init --index || true
 
     echo "Adding codegraph to Gemini CLI project MCP configuration..."
-    gemini mcp add codegraph npx -y @colbymchenry/codegraph mcp || true
+    gemini mcp add codegraph npx -y @colbymchenry/codegraph serve --mcp || true
 {mcp_installs}
 else
     echo "Warning: gemini command not found."
@@ -333,7 +333,7 @@ if command -v claude &> /dev/null; then
     npx -y @colbymchenry/codegraph init --index || true
 
     echo "Adding codegraph to Claude Code project MCP configuration..."
-    claude mcp add --scope project codegraph -- npx -y @colbymchenry/codegraph mcp || true
+    claude mcp add --scope project codegraph -- npx -y @colbymchenry/codegraph serve --mcp || true
 {mcp_installs}
 fi
 """,
@@ -413,7 +413,7 @@ The Orchestrator agent and core rules are located in `{harness_prefix}/orchestra
         "mcpServers": {
             "codegraph": {
                 "command": "npx",
-                "args": ["-y", "@colbymchenry/codegraph", "mcp"]
+                "args": ["-y", "@colbymchenry/codegraph", "serve", "--mcp"]
             }
         }
     }

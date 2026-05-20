@@ -113,8 +113,8 @@ Replace the old `indxr` bundle resolution logic with a check for CodeGraph:
 - [ ] **Step 1: Swap indxr for CodeGraph in `mcp.json` templates**
 
 In `harness/minting_engine.py`, replace `indxr` commands with `codegraph`:
-For Gemini: `gemini mcp add codegraph npx -y @colbymchenry/codegraph mcp || true`
-For Claude: `claude mcp add --scope project codegraph -- npx -y @colbymchenry/codegraph mcp || true`
+For Gemini: `gemini mcp add codegraph npx -y @colbymchenry/codegraph serve --mcp || true`
+For Claude: `claude mcp add --scope project codegraph -- npx -y @colbymchenry/codegraph serve --mcp || true`
 Update the `mcp_config` JSON template to use the new CodeGraph command.
 
 - [ ] **Step 2: Update `AGENTS.md` and tools lists**
