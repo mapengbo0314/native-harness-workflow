@@ -1,0 +1,27 @@
+{
+  "name": "orchestrator",
+  "description": "Senior Project Manager & Router that manages the Hub-and-Spoke model.",
+  "type": "router",
+  "version": "1.0",
+  "entrypoint": "orchestrator.md",
+  "skills": [
+    "diagnose",
+    "grill-me",
+    "grill-with-docs",
+    "improve-codebase-architecture",
+    "ddd-alignment",
+    "meta-learning"
+  ],
+  "related_agents": [
+    "planner",
+    "architect",
+    "implementer",
+    "reviewer",
+    "verifier",
+    "feature-fetcher",
+    "linter-agent",
+    "refactorer",
+    "performance-profiler",
+    "security-auditor"
+  ]
+}

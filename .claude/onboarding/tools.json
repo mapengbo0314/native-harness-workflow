@@ -1,0 +1,110 @@
+{
+  "categories": {
+    "frontend": [
+      {
+        "name": "nextjs",
+        "url": "https://raw.githubusercontent.com/PatrickJS/awesome-cursorrules/main/rules/cursorrules-cursor-ai-nextjs-14-tailwind-seo-setup/.cursorrules",
+        "keywords": [
+          "react",
+          "nextjs",
+          "next.js",
+          "frontend"
+        ]
+      },
+      {
+        "name": "playwright",
+        "command": "npx -y @modelcontextprotocol/server-playwright",
+        "type": "mcp",
+        "force_if_keywords": [
+          "frontend"
+        ],
+        "keywords": [
+          "react",
+          "nextjs",
+          "frontend",
+          "vue",
+          "svelte"
+        ]
+      },
+      {
+        "name": "playwright-interactive",
+        "url": "https://raw.githubusercontent.com/openai/skills/main/skills/.curated/playwright-interactive/SKILL.md",
+        "type": "skill",
+        "force_if_keywords": [
+          "frontend"
+        ],
+        "keywords": [
+          "react",
+          "nextjs",
+          "frontend",
+          "vue",
+          "svelte"
+        ]
+      }
+    ],
+    "backend": [
+      {
+        "name": "fastapi",
+        "url": "https://raw.githubusercontent.com/PatrickJS/awesome-cursorrules/main/rules/python-fastapi-cursorrules-prompt-file/.cursorrules",
+        "keywords": [
+          "fastapi",
+          "python backend"
+        ]
+      },
+      {
+        "name": "fetch",
+        "command": "npx -y @modelcontextprotocol/server-fetch",
+        "type": "mcp",
+        "keywords": [
+          "api",
+          "rest",
+          "graphql"
+        ]
+      }
+    ],
+    "database": [
+      {
+        "name": "postgres",
+        "command": "npx -y @modelcontextprotocol/server-postgres postgresql://postgres:postgres@localhost:5432/postgres",
+        "type": "mcp",
+        "keywords": [
+          "postgresql",
+          "postgres",
+          "sql"
+        ]
+      }
+    ],
+    "universal": [
+      {
+        "name": "git-mcp",
+        "command": "npx -y @modelcontextprotocol/server-git",
+        "type": "mcp",
+        "keywords": [
+          "git",
+          "version control"
+        ]
+      },
+      {
+        "name": "grill-with-docs",
+        "url": "https://raw.githubusercontent.com/mattpocock/skills/main/skills/engineering/grill-with-docs/SKILL.md",
+        "type": "skill",
+        "force_if_keywords": [
+          "",
+          "Unknown Stack",
+          "Frontend",
+          "Node.js",
+          "Python",
+          "Rust",
+          "Go",
+          "JVM",
+          "PHP"
+        ],
+        "keywords": [
+          "architecture",
+          "docs",
+          "design"
+        ]
+      }
+    ]
+  }
+}
