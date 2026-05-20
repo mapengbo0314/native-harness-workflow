@@ -4,6 +4,19 @@ import shutil
 import json
 import urllib.request
 from pathlib import Path
+from harness.plugin_generator import generate_orchestrator_plugin
+
+def should_generate_orchestrator_plugin(domain_content: str, platform_choice: str) -> bool:
+    """Detect if orchestrator-plugin is selected and platform is Claude Code."""
+    if platform_choice != "2":  # Only for Claude Code
+        return False
+
+    if not domain_content:
+        return False
+
+    # Check if orchestrator-plugin is selected (marked with [x])
+    return bool(re.search(r'- \[[xX]\]\s+orchestrator-plugin', domain_content))
+
 
 def parse_tool_checklists(domain_content: str) -> tuple[list[dict], list[dict]]:
     """Parses selected skills and MCPs from the ONBOARDING_DOMAIN.md content."""
@@ -239,6 +252,19 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
                     f.write("\n\n### STRICT INVARIANTS (Ghost Injection)\n" + invariants_text)
                     
         # --- End Ghost Injection ---
+
+        # --- Plugin Generation for Claude Code ---
+        if should_generate_orchestrator_plugin(domain_content, platform_choice):
+            try:
+                print("[HARNESS] Generating orchestrator plugin...")
+                plugin_dir = generate_orchestrator_plugin(
+                    project_path=str(project_path),
+                    project_name=os.path.basename(project_path)
+                )
+                print(f"[HARNESS] Plugin generated at {plugin_dir}")
+            except Exception as e:
+                print(f"[HARNESS] Warning: Failed to generate orchestrator plugin: {e}")
+        # --- End Plugin Generation ---
     else:
         print("Error: Boilerplate directory not found.")
         return
@@ -300,10 +326,7 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
         "gemini": f"""#!/usr/bin/env bash
 set -e
 cd {quoted_project_path}
-echo "=== Setting up Superpowers for Gemini CLI ==="
 if command -v gemini &> /dev/null; then
-    gemini extensions install https://github.com/obra/superpowers || true
-    gemini extensions install https://github.com/mattpocock/skills || true
 {skill_installs}
     
     echo "Ensuring CodeGraph is build..."
@@ -322,10 +345,14 @@ echo "To activate it, run Gemini from the project root and use '/mcp reload'."
 set -e
 cd {quoted_project_path}
 echo "=== Setting up Superpowers for Claude Code ==="
-echo "To install Superpowers and Skills for Claude Code workspace-wide, run these commands inside the Claude Code interface:"
-echo "  /plugin install superpowers@claude-plugins-official --project"
-echo "  /plugin install skills@mattpocock --project"
+echo "To install Skills for Claude Code workspace-wide, run these commands inside the Claude Code interface:"
 {skill_installs}
+
+# Orchestrator Plugin Installation
+if [ -d ".claude/plugin-generated" ]; then
+    echo "Installing orchestrator plugin..."
+    echo "  /plugin install orchestrator-plugin@.claude/plugin-generated --project"
+fi
 
 # MCP Configuration for Claude
 if command -v claude &> /dev/null; then
