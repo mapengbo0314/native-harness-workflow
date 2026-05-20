@@ -96,12 +96,11 @@ Replace the old `indxr` bundle resolution logic with a check for CodeGraph:
         print(f"\\nCodeGraph database not found. Building now...")
         try:
             subprocess.run(
-                ["npx", "-y", "@colbymchenry/codegraph", "build"], 
-                cwd=args.project_path, 
+                ["npx", "-y", "@colbymchenry/codegraph", "init", "--index"],
+                cwd=args.project_path,
                 check=True
             )
-        except subprocess.CalledProcessError as e:
-            print(f"\\nFailed to build CodeGraph: {e}")
+        except subprocess.CalledProcessError as e:            print(f"\\nFailed to build CodeGraph: {e}")
             sys.exit(1)
 ```
 
@@ -218,7 +217,7 @@ jobs:
         with:
           node-version: '20'
       - name: Build CodeGraph
-        run: npx -y @colbymchenry/codegraph build
+        run: npx -y @colbymchenry/codegraph init --index
 ```
 
 - [ ] **Step 2: Align Test Suite**

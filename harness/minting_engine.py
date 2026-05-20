@@ -307,7 +307,7 @@ if command -v gemini &> /dev/null; then
 {skill_installs}
     
     echo "Ensuring CodeGraph is build..."
-    npx -y @colbymchenry/codegraph build || true
+    npx -y @colbymchenry/codegraph init --index || true
 
     echo "Adding codegraph to Gemini CLI project MCP configuration..."
     gemini mcp add codegraph npx -y @colbymchenry/codegraph mcp || true
@@ -330,7 +330,7 @@ echo "  /plugin install skills@mattpocock --project"
 # MCP Configuration for Claude
 if command -v claude &> /dev/null; then
     echo "Ensuring CodeGraph is build..."
-    npx -y @colbymchenry/codegraph build || true
+    npx -y @colbymchenry/codegraph init --index || true
 
     echo "Adding codegraph to Claude Code project MCP configuration..."
     claude mcp add --scope project codegraph -- npx -y @colbymchenry/codegraph mcp || true

@@ -46,7 +46,7 @@ def main():
             env["npm_config_yes"] = "true"
             
             subprocess.run(
-                ["npx", "--yes", "@colbymchenry/codegraph", "build"], 
+                ["npx", "--yes", "@colbymchenry/codegraph", "init", "--index"],
                 cwd=args.project_path,
                 env=env,
                 check=True

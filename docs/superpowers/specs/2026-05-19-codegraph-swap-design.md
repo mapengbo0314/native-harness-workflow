@@ -16,7 +16,7 @@ To reduce bloat and prevent system confusion, the old NLP-based discovery tools 
 ## 2. CLI & CodeGraph Onboarding
 The entry point of the harness must guarantee that the CodeGraph database exists before agents are dispatched.
 - **Detection:** In `harness/cli.py`, check for the existence of `.codegraph/codegraph.db` in the project root.
-- **Auto-Initialization:** If the database does not exist, prompt the user and automatically execute the index builder: `npx -y @colbymchenry/codegraph build`.
+- **Auto-Initialization:** If the database does not exist, prompt the user and automatically execute the index builder: `npx -y @colbymchenry/codegraph init --index`.
 - **MCP Configuration:** Modify `mint_workspace` in `harness/minting_engine.py`. Instead of registering `indxr`, it must inject the CodeGraph MCP server command (`npx -y @colbymchenry/codegraph mcp`) into the platform's `mcp.json` file.
 
 ## 3. Orchestrator Rule Refactoring & Direct-Dispatch Matrix

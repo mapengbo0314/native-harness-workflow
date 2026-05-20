@@ -9,4 +9,4 @@ jobs:
         with:
           node-version: '20'
       - name: Build CodeGraph
-        run: npx -y @colbymchenry/codegraph build
+        run: npx -y @colbymchenry/codegraph init --index
