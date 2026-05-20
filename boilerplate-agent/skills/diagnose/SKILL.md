@@ -7,7 +7,7 @@ description: Disciplined diagnosis loop for hard bugs and performance regression
 
 A discipline for hard bugs. In a Hub-and-Spoke model, debugging is not a monolithic activity; it is divided across specialized agents to protect context windows.
 
-When exploring the codebase, use the `indxr` MCP server and project domain glossary to get a clear mental model of the relevant modules. 
+When exploring the codebase, use the `codegraph` MCP server and project domain glossary to get a clear mental model of the relevant modules. Call the MCP tool (codegraph_*) to gather precise context instead of reading full files, unless absolutely necessary (e.g., using grep_search for UI strings). 
 
 ## Checklist
 - Run the extraction hook: `python {{HARNESS_DIR}}/scripts/extract_stacktrace.py <logfile>` to isolate the error.
