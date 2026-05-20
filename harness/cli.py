@@ -13,8 +13,6 @@ def parse_args():
     parser.add_argument("--project-path", required=True, help="Path to the repository")
     parser.add_argument("--llm", required=True, choices=["gemini", "openai", "anthropic"], help="LLM provider")
     parser.add_argument("--model", help="Optional specific model to use (e.g., gemini-3.1-pro-preview, claude-3-5-sonnet-20241022)")
-    parser.add_argument("--bundle", help="Optional path to an existing .indxr directory or wiki")
-    parser.add_argument("--detailed", action="store_true", help="Include all wiki files for deeper context acquisition")
     return parser.parse_args()
 
 
@@ -39,7 +37,6 @@ def main():
     print("Pre-flight checks passed.")
     
     # --- CodeGraph Onboarding & Initialization ---
-    resolved_bundle_path = args.bundle
     codegraph_db_path = os.path.join(args.project_path, ".codegraph", "codegraph.db")
     if not os.path.exists(codegraph_db_path):
         print(f"\nCodeGraph database not found. Building now...")
@@ -77,10 +74,10 @@ def main():
         from harness.discovery_engine import acquire_mcp_context, generate_onboarding_domain_doc
         
         # Acquire context once
-        context_str = acquire_mcp_context(args.project_path, bundle_path=resolved_bundle_path, detailed=args.detailed)
+        context_str = acquire_mcp_context(args.project_path)
         if context_str is None:
-             context_str = "No codebase wiki found. Architecture unknown."
-             print("No usable .indxr/wiki found. Proceeding with empty context.")
+             context_str = "No codebase context found. Architecture unknown."
+             print("Proceeding with empty context.")
         
 
         # CLI Context Wizard (The 3 Questions)
@@ -156,7 +153,7 @@ def main():
         skills_to_install, mcps_to_install = parse_tool_checklists(domain_content)
 
         # We pass the cloned boilerplate_dir so minting engine doesn't have to clone again
-        mint_workspace(target_dir, selected_agents, args.project_path, platform_choice, args.model, resolved_bundle_path, boilerplate_dir)
+        mint_workspace(target_dir, selected_agents, args.project_path, platform_choice, args.model, boilerplate_dir)
 
         # Install tools
         install_workspace_tools(args.project_path, harness_folder, skills_to_install, mcps_to_install)
@@ -198,7 +195,7 @@ def main():
             counter += 1
 
         print(f"\n\n{counter}. [ACTION REQUIRED] Context Automation:")
-        print("   - The indxr GitHub Action (.github/workflows/update-indexer.yml) has been generated.")
+        print("   - The CodeGraph CI GitHub Action (.github/workflows/codegraph-ci.yml) has been generated.")
         print("   - To enable automated context updates on PRs, configure the following GitHub Secrets:")
         print("     - GEMINI_API_KEY, ANTHROPIC_API_KEY, or OPENAI_API_KEY")
         counter += 1

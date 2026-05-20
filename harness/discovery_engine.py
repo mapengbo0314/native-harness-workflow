@@ -4,52 +4,26 @@ import time
 import urllib.request
 import os
 
-def acquire_mcp_context(project_path: str, bundle_path: str = None, detailed: bool = False) -> str:
-    """Acquires project context from the core wiki files. Detailed mode reads everything."""
-
-    # Check bundle path first if provided
-    if bundle_path:
-        bundle_wiki_path = os.path.join(bundle_path, "wiki") if not bundle_path.endswith("wiki") else bundle_path
-        # If the user passed the path to the indxr folder itself
-        if not os.path.exists(bundle_wiki_path) and os.path.basename(bundle_path) == ".indxr":
-            bundle_wiki_path = os.path.join(bundle_path, "wiki")
-        elif not os.path.exists(bundle_wiki_path):
-             bundle_wiki_path = os.path.join(bundle_path, ".indxr", "wiki")
-
-        if os.path.exists(bundle_wiki_path):
-            wiki_path = bundle_wiki_path
-            print(f"Found existing wiki in bundle at {wiki_path}. Reading core architecture...")
-        else:
-            wiki_path = os.path.join(project_path, ".indxr", "wiki")
-    else:
-        wiki_path = os.path.join(project_path, ".indxr", "wiki")
-
+def acquire_mcp_context(project_path: str) -> str:
+    """Acquires project context using CodeGraph and domain documentation."""
+    
     context_parts = []
+    
+    # Priority 1: CONTEXT.md (The Wizard's output)
+    context_file = os.path.join(project_path, "docs", "domain", "CONTEXT.md")
+    if os.path.exists(context_file):
+        with open(context_file, "r") as f:
+            context_parts.append("=== PROJECT CORE CONTEXT ===\n" + f.read())
 
-    if os.path.exists(wiki_path):
-        if not bundle_path or wiki_path == os.path.join(project_path, ".indxr/wiki"):
-             print(f"Found existing .indxr/wiki at {wiki_path}. Reading context...")
+    # Priority 2: CodeGraph Symbols (Optional: If we want to seed with some high-level info)
+    # For now, we rely on the agents using the MCP tool themselves, but we can check if DB exists
+    codegraph_db = os.path.join(project_path, ".codegraph", "codegraph.db")
+    if os.path.exists(codegraph_db):
+        context_parts.append("\nCodeGraph index is available. Use `codegraph_explore` to map the architecture.")
 
-        # Read ONLY the index and architecture by default to avoid token explosion
-        # Detailed mode reads everything in the wiki
-        if detailed:
-            for root, _, files in os.walk(wiki_path):
-                for file in files:
-                    if file.endswith(".md"):
-                        p = os.path.join(root, file)
-                        with open(p, 'r') as f:
-                            context_parts.append(f"=== {file.upper()} ===\n" + f.read())
-        else:
-            for core_file in ["index.md", "architecture.md"]:
-                p = os.path.join(wiki_path, core_file)
-                if os.path.exists(p):
-                    with open(p, 'r') as f:
-                        context_parts.append(f"=== {core_file.upper()} ===\n" + f.read())
+    if context_parts:
+        return "\n\n".join(context_parts)
 
-        if context_parts:
-            return "\n\n".join(context_parts)
-
-    # Return None instead of a string if no wiki is found so caller can handle fallback
     return None
 
 
@@ -189,7 +163,8 @@ def discover_agents(context_str: str, feature_fetcher_yaml_path: str, llm_provid
         "3. 'zone': (Domain/Data/Handler/Core).\n"
         "4. 'system_prompt': A comprehensive, 300-500 word Markdown system prompt. This prompt MUST:\n"
         "   - Define their specific expertise relative to the project files.\n"
-        "   - Enforce the use of 'indxr' MCP tools and local skills.\n"
+        "   - Enforce a 'Graph-First' strategy. Before deep exploration, agents MUST use `codegraph_search` and `codegraph_explore`.\n"
+        "   - Enforce the use of 'codegraph' MCP tools (search, explore, context, callers) and local skills.\n"
         "   - Define their 'Goldfish' phase responsibilities.\n\n"
         "Return as JSON: {'agents': [{'name': '...', 'role': '...', 'zone': '...', 'system_prompt': '...'}]}"
     )
@@ -236,8 +211,9 @@ def discover_custom_agent(name: str, specs: str, context_str: str, ddd_context: 
         "=== TASK ===\n"
         "Generate a comprehensive, 300-500 word Markdown system prompt for this agent. The prompt MUST:\n"
         "1. Define their specific expertise relative to the project files.\n"
-        "2. Enforce the use of 'indxr' MCP tools and local skills.\n"
-        "3. Define their role in the Goldfish Protocol (Phase 3) and Implementation (Phase 4).\n"
+        "2. Enforce the use of 'codegraph' MCP tools and local skills.\n"
+        "3. Enforce a 'Graph-First' strategy using `codegraph_search` and `codegraph_explore`.\n"
+        "4. Define their role in the Goldfish Protocol (Phase 3) and Implementation (Phase 4).\n"
         "4. Incorporate the DDD context and ubiquitous language intrinsically.\n\n"
         "Return as JSON: {'name': '...', 'role': '...', 'zone': '...', 'system_prompt': '...'}"
     )

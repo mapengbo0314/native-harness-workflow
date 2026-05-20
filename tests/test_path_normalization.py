@@ -1,27 +1,29 @@
 
 import os
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, mock_open
 from pathlib import Path
 from harness.cli import main
 
 @patch('harness.cli.parse_args')
 @patch('harness.cli.os.path.abspath')
+@patch('harness.cli.os.makedirs')
+@patch('builtins.open', new_callable=mock_open)
 @patch('harness.minting_engine.mint_workspace')
 @patch('harness.minting_engine.install_workspace_tools')
 @patch('harness.minting_engine.synthesize_domain_sme_agent')
 @patch('harness.minting_engine.patch_orchestrator_rules')
 @patch('harness.minting_engine.wait_for_user_review_and_read_domain')
-@patch('harness.cli.run_ddd_grill')
 @patch('harness.discovery_engine.acquire_mcp_context')
 @patch('harness.discovery_engine.generate_onboarding_domain_doc')
 @patch('harness.cli.subprocess.run')
 @patch('builtins.input')
 @patch('getpass.getpass')
+@patch('shutil.which')
 def test_path_normalization_gemini(
-    mock_getpass, mock_input, mock_run, mock_generate_doc, mock_acquire, mock_discover, 
-    mock_grill, mock_wait, mock_patch, mock_synthesize, mock_install, 
-    mock_mint, mock_abspath, mock_parse
+    mock_which, mock_getpass, mock_input, mock_run, mock_generate_doc, mock_acquire, 
+    mock_wait, mock_patch, mock_synthesize, mock_install, 
+    mock_mint, mock_open, mock_makedirs, mock_abspath, mock_parse
 ):
     # Setup
     args = MagicMock()
@@ -29,11 +31,10 @@ def test_path_normalization_gemini(
     args.llm = "gemini"
     args.detailed = False
     args.ddd = False
-    args.bundle = None
     mock_parse.return_value = args
     
     mock_abspath.side_effect = lambda x: x # Keep it simple
-    mock_input.side_effect = ["1"] # Platform Choice 1 (Gemini)
+    mock_input.side_effect = ["Purpose", "Vocab", "Invariants", "1"] # Platform Choice 1 (Gemini)
     mock_getpass.return_value = "fake-key"
     mock_wait.return_value = "domain content"
     
@@ -53,21 +54,23 @@ def test_path_normalization_gemini(
 
 @patch('harness.cli.parse_args')
 @patch('harness.cli.os.path.abspath')
+@patch('harness.cli.os.makedirs')
+@patch('builtins.open', new_callable=mock_open)
 @patch('harness.minting_engine.mint_workspace')
 @patch('harness.minting_engine.install_workspace_tools')
 @patch('harness.minting_engine.synthesize_domain_sme_agent')
 @patch('harness.minting_engine.patch_orchestrator_rules')
 @patch('harness.minting_engine.wait_for_user_review_and_read_domain')
-@patch('harness.cli.run_ddd_grill')
 @patch('harness.discovery_engine.acquire_mcp_context')
 @patch('harness.discovery_engine.generate_onboarding_domain_doc')
 @patch('harness.cli.subprocess.run')
 @patch('builtins.input')
 @patch('getpass.getpass')
+@patch('shutil.which')
 def test_path_normalization_no_nesting_needed(
-    mock_getpass, mock_input, mock_run, mock_generate_doc, mock_acquire, mock_discover, 
-    mock_grill, mock_wait, mock_patch, mock_synthesize, mock_install, 
-    mock_mint, mock_abspath, mock_parse
+    mock_which, mock_getpass, mock_input, mock_run, mock_generate_doc, mock_acquire, 
+    mock_wait, mock_patch, mock_synthesize, mock_install, 
+    mock_mint, mock_open, mock_makedirs, mock_abspath, mock_parse
 ):
     # Setup
     args = MagicMock()
@@ -75,11 +78,10 @@ def test_path_normalization_no_nesting_needed(
     args.llm = "gemini"
     args.detailed = False
     args.ddd = False
-    args.bundle = None
     mock_parse.return_value = args
     
     mock_abspath.side_effect = lambda x: x
-    mock_input.side_effect = ["1"]
+    mock_input.side_effect = ["Purpose", "Vocab", "Invariants", "1"]
     mock_getpass.return_value = "fake-key"
     mock_wait.return_value = "domain content"
     

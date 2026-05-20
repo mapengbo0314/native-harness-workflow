@@ -18,7 +18,9 @@ IF A SKILL APPLIES TO YOUR TASK, YOU MUST USE IT BEFORE ACTING.
 
 ## Wiki Knowledge Base Integration
 
-The `codegraph` MCP server maintains an auto-updating codebase wiki. You MUST adopt a **Graph-First Strategy** approach. Before reading raw source files, always query the wiki. Call the MCP tool (codegraph_*) to gather precise context instead of reading full files, unless absolutely necessary (e.g., using grep_search for UI strings). You have access to exactly these tools:
-- `codegraph_wiki_search`: Search wiki by keyword/concept before reading raw source code.
-- `codegraph_wiki_read`: Read full content and metadata of a wiki page.
-- `codegraph_wiki_status`: Check wiki health, page count, and source file coverage.
+The `codegraph` MCP server provides deep structural analysis of the codebase. You MUST adopt a **Graph-First Strategy**. Before reading raw source files, always query the graph. Call the MCP tool (codegraph_*) to gather precise context instead of reading full files, unless absolutely necessary (e.g., using grep_search for UI strings). You have access to exactly these tools:
+- `codegraph_search`: Semantic and keyword search for symbols and code blocks.
+- `codegraph_explore`: Map the folder structure and identify key entry points.
+- `codegraph_context`: Retrieve the definition and surrounding context of a symbol.
+- `codegraph_callers`: Find all references and callers of a specific symbol.
+- `codegraph_impact`: Analyze the downstream impact of a change to a symbol.

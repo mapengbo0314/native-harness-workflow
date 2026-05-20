@@ -65,37 +65,9 @@ def test_discover_custom_agent(mock_query_llm):
     assert agent["name"] == "CustomAgent"
     assert "Custom Prompt" in agent["system_prompt"]
 
-def test_acquire_mcp_context_with_bundle():
-    with tempfile.TemporaryDirectory() as temp_dir:
-        bundle_dir = os.path.join(temp_dir, "my_bundle")
-        wiki_dir = os.path.join(bundle_dir, "wiki")
-        os.makedirs(wiki_dir)
-        with open(os.path.join(wiki_dir, "index.md"), "w") as f:
-            f.write("Bundle Index")
-        with open(os.path.join(wiki_dir, "architecture.md"), "w") as f:
-            f.write("Bundle Arch")
-
-        # project_path is dummy, it should prioritize bundle
-        context = acquire_mcp_context("/dummy/path", bundle_path=bundle_dir)
-        assert context is not None
-        assert "Bundle Index" in context
-        assert "Bundle Arch" in context
-
-def test_acquire_mcp_context_no_wiki():
-    context = acquire_mcp_context("/dummy/path", bundle_path=None)
+def test_acquire_mcp_context_no_context():
+    context = acquire_mcp_context("/dummy/path")
     assert context is None
-
-def test_acquire_mcp_context_bundle_indxr_path():
-    with tempfile.TemporaryDirectory() as temp_dir:
-        bundle_dir = os.path.join(temp_dir, ".indxr")
-        wiki_dir = os.path.join(bundle_dir, "wiki")
-        os.makedirs(wiki_dir)
-        with open(os.path.join(wiki_dir, "index.md"), "w") as f:
-            f.write("Indxr Index")
-            
-        context = acquire_mcp_context("/dummy/path", bundle_path=bundle_dir)
-        assert context is not None
-        assert "Indxr Index" in context
 
 def test_generate_onboarding_domain_doc(tmp_path):
     project_path = str(tmp_path)
