@@ -27,12 +27,9 @@ def test_mcp_config_filename_gemini():
         with open(target_dir / "mcp.json", "r") as f:
             config = json.load(f)
             assert "mcpServers" in config
-            assert "indxr" in config["mcpServers"]
-            command_args = " ".join(config["mcpServers"]["indxr"]["args"])
-            # The command inside bash -c should use an absolute path, not just 'indxr'
-            assert " && indxr " not in command_args
-            assert "bin/indxr" in command_args or shutil.which("indxr") in command_args
-
+            assert "codegraph" in config["mcpServers"]
+            command_args = " ".join(config["mcpServers"]["codegraph"]["args"])
+            assert "@colbymchenry/codegraph" in command_args
 def test_mcp_config_filename_claude():
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
@@ -70,11 +67,7 @@ def test_setup_harness_contains_mcp_instructions_claude():
         setup_script = target_dir / "scripts" / "setup_harness.sh"
         assert setup_script.exists()
         content = setup_script.read_text()
-        assert "claude mcp add --scope project indxr" in content
-        assert "--env GEMINI_API_KEY" in content
-        # It should not just use 'indxr' in the bash -c portion
-        assert "&& indxr " not in content
-        assert "bin/indxr" in content or (shutil.which("indxr") and shutil.which("indxr") in content)
+        assert "claude mcp add --scope project codegraph" in content
 
 def test_setup_harness_contains_mcp_instructions_gemini():
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -95,7 +88,4 @@ def test_setup_harness_contains_mcp_instructions_gemini():
         setup_script = target_dir / "scripts" / "setup_harness.sh"
         assert setup_script.exists()
         content = setup_script.read_text()
-        assert "gemini mcp add indxr bash -c" in content
-        assert "/mcp reload" in content
-        assert "&& indxr " not in content
-        assert "bin/indxr" in content or (shutil.which("indxr") and shutil.which("indxr") in content)
+        assert "gemini mcp add codegraph npx" in content

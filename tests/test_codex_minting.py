@@ -52,7 +52,7 @@ def test_mint_workspace_codex_manifest():
         assert "description: \"Manages infrastructure\"" in content
         assert "model: \"test-model-123\"" in content
         assert "sandbox_mode: \"workspace-write\"" in content
-        assert "mcp_servers: [\"indxr\"]" in content
+        assert "mcp_servers: [\"codegraph\"]" in content
         assert "You are an InfraManager." in content
         
         # Check second agent (ReaderAgent)

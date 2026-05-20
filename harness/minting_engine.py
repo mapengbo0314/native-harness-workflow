@@ -115,7 +115,7 @@ def process_includes(content: str, current_file_path: str, target_root: Path, to
             
     return "\n".join(new_lines)
 
-def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: str, platform_choice: str, model_choice: str = None, bundle_override: str = None, boilerplate_dir: str = None, ddd_context: dict = None):
+def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: str, platform_choice: str, model_choice: str = None, boilerplate_dir: str = None, ddd_context: dict = None):
     """Copies boilerplate, injects styled configs, and writes setup prerequisites."""
     target_path = Path(target_dir)
     target_dir_name = target_path.name
@@ -215,50 +215,34 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
                                 f.write(new_content)
                     except Exception as e:
                         print(f"Warning: Failed to process includes in {filepath}: {e}")
+
+        # --- Ghost Injection for implementer.md ---
+        context_file = os.path.join(project_path, "docs", "domain", "CONTEXT.md")
+        invariants_text = ""
+        if not os.path.exists(context_file):
+            os.makedirs(os.path.dirname(context_file), exist_ok=True)
+            with open(context_file, "w") as f:
+                f.write("# Project Context\n\n## Purpose\n\n## Ubiquitous Language\n\n## Strict Invariants\n")
+        
+        try:
+            with open(context_file, "r") as f:
+                c_text = f.read()
+                if "## Strict Invariants" in c_text:
+                    invariants_text = c_text.split("## Strict Invariants")[1].strip()
+        except Exception as e:
+            print(f"Warning: Failed to read CONTEXT.md for Ghost Injection: {e}")
+        
+        if invariants_text:
+            implementer_path = target_path / "agents" / "implementer.md"
+            if implementer_path.exists():
+                with open(implementer_path, "a") as f:
+                    f.write("\n\n### STRICT INVARIANTS (Ghost Injection)\n" + invariants_text)
+                    
+        # --- End Ghost Injection ---
     else:
         print("Error: Boilerplate directory not found.")
         return
 
-    # Save DDD context if provided
-    if ddd_context:
-        print(f"Saving DDD context to {target_path / 'ddd_context.json'}")
-        with open(target_path / "ddd_context.json", "w") as f:
-            json.dump(ddd_context, f, indent=2)
-
-        # Write DDD markdown files
-        ddd_dir = target_path / "ddd"
-        ddd_dir.mkdir(parents=True, exist_ok=True)
-        
-        if "ubiquitous_language" in ddd_context:
-            with open(ddd_dir / "context.md", "w") as f:
-                f.write(ddd_context["ubiquitous_language"])
-        
-        if "translation_map" in ddd_context:
-            with open(ddd_dir / "translation_map.json", "w") as f:
-                json.dump(ddd_context["translation_map"], f, indent=2)
-
-    # Handle existing bundle / wiki migration
-    existing_wiki = False
-    if bundle_override:
-        # Determine where the .indxr folder is located based on the bundle argument
-        if os.path.isdir(bundle_override) and os.path.basename(bundle_override) == ".indxr":
-            source_indxr = bundle_override
-        elif os.path.isdir(bundle_override):
-            source_indxr = os.path.join(bundle_override, ".indxr")
-        else:
-            source_indxr = os.path.join(os.path.dirname(bundle_override), ".indxr")
-            
-        target_indxr = os.path.join(project_path, ".indxr")
-        
-        if os.path.exists(source_indxr) and os.path.abspath(source_indxr) != os.path.abspath(target_indxr):
-            print(f"Migrating existing wiki database from {source_indxr} to {target_indxr}...")
-            if os.path.exists(target_indxr):
-                shutil.rmtree(target_indxr)
-            shutil.copytree(source_indxr, target_indxr)
-            
-        if os.path.exists(os.path.join(target_indxr, "wiki")):
-            existing_wiki = True
-            
     # Generate specialized setup_harness.sh (Prerequisites)
     # Generate Segregated Setup Scripts
     project_root = Path(project_path)
@@ -285,25 +269,13 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
     import shlex
     escaped_project_path = os.path.abspath(project_path)
     quoted_project_path = shlex.quote(escaped_project_path)
-    indxr_abs_path = shutil.which("indxr") or "~/.cargo/bin/indxr"
     
-    key_check_snippet = """
-# Check for indxr API keys
-if [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$OPENAI_API_KEY" ]; then
-    echo "⚠️  Warning: indxr requires an ANTHROPIC_API_KEY or OPENAI_API_KEY for background wiki updates."
-    echo "Background auto-indexing will be disabled until a key is exported in your terminal."
-    echo "Example: export ANTHROPIC_API_KEY='sk-ant-...' "
-    echo ""
-fi
-"""
-
-    # Prepare tool installation snippets
+    # Tool installation snippets
     skill_installs = ""
     mcp_installs = ""
     
     if active_platform == "gemini":
         for s in selected_skills:
-            # Only install as a Gemini extension if it's explicitly marked as an extension
             if s.get('type') == 'extension':
                 skill_installs += f"    gemini extensions install {s['url']} || true\n"
         for m in selected_mcps:
@@ -328,16 +300,17 @@ fi
         "gemini": f"""#!/usr/bin/env bash
 set -e
 cd {quoted_project_path}
-{key_check_snippet}
 echo "=== Setting up Superpowers for Gemini CLI ==="
 if command -v gemini &> /dev/null; then
     gemini extensions install https://github.com/obra/superpowers || true
     gemini extensions install https://github.com/mattpocock/skills || true
 {skill_installs}
     
-    echo "Adding indxr to Gemini CLI project MCP configuration..."
-    indxr_serve_args_str="serve --watch --wiki-auto-update --all-tools"
-    gemini mcp add indxr bash -c "cd {quoted_project_path} && {indxr_abs_path} $indxr_serve_args_str" -e GEMINI_API_KEY=\\$GEMINI_API_KEY -e ANTHROPIC_API_KEY=\\$ANTHROPIC_API_KEY -e OPENAI_API_KEY=\\$OPENAI_API_KEY || true
+    echo "Ensuring CodeGraph is build..."
+    npx -y @colbymchenry/codegraph init --index || true
+
+    echo "Adding codegraph to Gemini CLI project MCP configuration..."
+    gemini mcp add codegraph npx -y @colbymchenry/codegraph serve --mcp || true
 {mcp_installs}
 else
     echo "Warning: gemini command not found."
@@ -348,7 +321,6 @@ echo "To activate it, run Gemini from the project root and use '/mcp reload'."
         "claude": f"""#!/usr/bin/env bash
 set -e
 cd {quoted_project_path}
-{key_check_snippet}
 echo "=== Setting up Superpowers for Claude Code ==="
 echo "To install Superpowers and Skills for Claude Code workspace-wide, run these commands inside the Claude Code interface:"
 echo "  /plugin install superpowers@claude-plugins-official --project"
@@ -357,16 +329,17 @@ echo "  /plugin install skills@mattpocock --project"
 
 # MCP Configuration for Claude
 if command -v claude &> /dev/null; then
-    echo "Adding indxr to Claude Code project MCP configuration..."
-    indxr_serve_args_str="serve --watch --wiki-auto-update --all-tools"
-    claude mcp add --scope project indxr --env GEMINI_API_KEY=\\$GEMINI_API_KEY --env ANTHROPIC_API_KEY=\\$ANTHROPIC_API_KEY --env OPENAI_API_KEY=\\$OPENAI_API_KEY -- bash -c "cd {quoted_project_path} && {indxr_abs_path} $indxr_serve_args_str" || true
+    echo "Ensuring CodeGraph is build..."
+    npx -y @colbymchenry/codegraph init --index || true
+
+    echo "Adding codegraph to Claude Code project MCP configuration..."
+    claude mcp add --scope project codegraph -- npx -y @colbymchenry/codegraph serve --mcp || true
 {mcp_installs}
 fi
 """,
         "cursor": f"""#!/usr/bin/env bash
 set -e
 cd {quoted_project_path}
-{key_check_snippet}
 echo "=== Setting up Superpowers for Cursor ==="
 echo "To install Superpowers and Skills for Cursor, run these commands inside the Cursor Agent chat:"
 echo "  /add-plugin superpowers"
@@ -376,9 +349,8 @@ echo "  /add-plugin mattpocock/skills"
         "codex": f"""#!/usr/bin/env bash
 set -e
 cd {quoted_project_path}
-{key_check_snippet}
 echo "=== Setting up Superpowers for Codex ==="
-echo "Please add indxr MCP to your Codex configuration."
+echo "Please add codegraph MCP to your Codex configuration."
 """
     }
 
@@ -436,23 +408,12 @@ The Orchestrator agent and core rules are located in `{harness_prefix}/orchestra
         
     print("\nTo install skills & MCPs, run the setup_harness.sh script inside your platform's hidden folder (e.g. `sh .gemini/scripts/setup_harness.sh`).")
 
-    # Create an MCP config that points to the indxr server running in the project root
-    indxr_serve_args = ["serve", "--watch", "--wiki-auto-update", "--all-tools"]
-    if model_choice:
-        indxr_serve_args.extend(["--wiki-model", model_choice])
-    
-    indxr_serve_cmd = " ".join(indxr_serve_args)
-
+    # Create an MCP config for CodeGraph
     mcp_config = {
         "mcpServers": {
-            "indxr": {
-                "command": "bash",
-                "args": ["-c", f"cd '{escaped_project_path}' && {indxr_abs_path} {indxr_serve_cmd}"],
-                "env": {
-                    "GEMINI_API_KEY": "$GEMINI_API_KEY",
-                    "ANTHROPIC_API_KEY": "$ANTHROPIC_API_KEY",
-                    "OPENAI_API_KEY": "$OPENAI_API_KEY"
-                }
+            "codegraph": {
+                "command": "npx",
+                "args": ["-y", "@colbymchenry/codegraph", "serve", "--mcp"]
             }
         }
     }
@@ -486,26 +447,12 @@ The Orchestrator agent and core rules are located in `{harness_prefix}/orchestra
                 
             model_val = model_choice if model_choice else "claude-3-5-sonnet-20241022"
             
-            yaml_block = f"```yaml\ndescription: \"{agent['role']}\"\nmodel: \"{model_val}\"\nsandbox_mode: \"{sandbox_mode}\"\nmcp_servers: [\"indxr\"]\n```"
+            yaml_block = f"```yaml\ndescription: \"{agent['role']}\"\nmodel: \"{model_val}\"\nsandbox_mode: \"{sandbox_mode}\"\nmcp_servers: [\"codegraph\"]\n```"
             
             system_prompt = agent.get("system_prompt", f"# {agent['name']}\n\n{agent['role']}")
             
-            # Append DDD logic
-            ddd_section = ""
-            if ddd_context:
-                ddd_section = f"""
-## Domain-Driven Design (DDD) Context
-This project uses Domain-Driven Design principles.
-At the beginning of any new session or task involving domain logic, you MUST use the `read_file` tool to load `{target_path.name}/ddd/context.md`.
-
-You MUST refer to the following DDD documentation:
-- `context.md`: Defines the core domain terms and their meanings.
-- `translation_map.json`: Maps domain concepts to implementation details.
-
-Ensure your implementation aligns with these definitions.
-"""
             
-            agents_md_content += f"## {safe_name}\n{yaml_block}\n\n{system_prompt}\n{ddd_section}\n\n"
+            agents_md_content += f"## {safe_name}\n{yaml_block}\n\n{system_prompt}\n\n"
             
         agents_file_path = target_path / "AGENTS.md"
         
@@ -530,24 +477,22 @@ Ensure your implementation aligns with these definitions.
   - Edit
   - Bash
   - Glob
-  - mcp_indxr_find
-  - mcp_indxr_summarize
-  - mcp_indxr_explain_symbol
-  - mcp_indxr_get_public_api
-  - mcp_indxr_get_file_summary
-  - mcp_indxr_read_source"""
+  - codegraph_search
+  - codegraph_explore
+  - codegraph_context
+  - codegraph_callers
+  - codegraph_impact"""
             else:
                 tools_list = """  - read_file
   - grep_search
   - replace
   - run_shell_command
   - glob
-  - mcp_indxr_find
-  - mcp_indxr_summarize
-  - mcp_indxr_explain_symbol
-  - mcp_indxr_get_public_api
-  - mcp_indxr_get_file_summary
-  - mcp_indxr_read_source"""
+  - codegraph_search
+  - codegraph_explore
+  - codegraph_context
+  - codegraph_callers
+  - codegraph_impact"""
             
             frontmatter = f"""---
 name: {safe_name}
@@ -558,20 +503,6 @@ tools:
 """
             system_prompt = agent.get("system_prompt", f"# {agent['name']}\n\n{agent['role']}")
             
-            # Append DDD logic
-            ddd_section = ""
-            if ddd_context:
-                ddd_section = f"""
-## Domain-Driven Design (DDD) Context
-This project uses Domain-Driven Design principles.
-At the beginning of any new session or task involving domain logic, you MUST use the `read_file` tool to load `{target_path.name}/ddd/context.md`.
-
-You MUST refer to the following DDD documentation:
-- `context.md`: Defines the core domain terms and their meanings.
-- `translation_map.json`: Maps domain concepts to implementation details.
-
-Ensure your implementation aligns with these definitions.
-"""
 
             # Determine the correct include syntax based on platform
             include_pointer = ""
@@ -579,7 +510,7 @@ Ensure your implementation aligns with these definitions.
                 # Fallback for cursor/agents where include syntax might not be natively supported
                 include_pointer = "<!-- Core Mandates should be read from ../rules/base_mandate.md -->\n\n"
 
-            final_content = frontmatter + include_pointer + system_prompt + "\n" + ddd_section
+            final_content = frontmatter + include_pointer + system_prompt + "\n"
             
             # Final post-processing for placeholders and includes
             final_content = final_content.replace("{{HARNESS_DIR}}", target_dir_name)
@@ -670,7 +601,7 @@ You are the definitive authority on the business logic, ubiquitous language, and
 description: "Subject Matter Expert and Guardian. Consult this agent before modifying core logic."
 model: "{model_val}"
 sandbox_mode: "read-only"
-mcp_servers: ["indxr"]
+mcp_servers: ["codegraph"]
 ```"""
             
             sme_section = f"""

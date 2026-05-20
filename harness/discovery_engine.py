@@ -4,52 +4,26 @@ import time
 import urllib.request
 import os
 
-def acquire_mcp_context(project_path: str, bundle_path: str = None, detailed: bool = False) -> str:
-    """Acquires project context from the core wiki files. Detailed mode reads everything."""
-
-    # Check bundle path first if provided
-    if bundle_path:
-        bundle_wiki_path = os.path.join(bundle_path, "wiki") if not bundle_path.endswith("wiki") else bundle_path
-        # If the user passed the path to the indxr folder itself
-        if not os.path.exists(bundle_wiki_path) and os.path.basename(bundle_path) == ".indxr":
-            bundle_wiki_path = os.path.join(bundle_path, "wiki")
-        elif not os.path.exists(bundle_wiki_path):
-             bundle_wiki_path = os.path.join(bundle_path, ".indxr", "wiki")
-
-        if os.path.exists(bundle_wiki_path):
-            wiki_path = bundle_wiki_path
-            print(f"Found existing wiki in bundle at {wiki_path}. Reading core architecture...")
-        else:
-            wiki_path = os.path.join(project_path, ".indxr", "wiki")
-    else:
-        wiki_path = os.path.join(project_path, ".indxr", "wiki")
-
+def acquire_mcp_context(project_path: str) -> str:
+    """Acquires project context using CodeGraph and domain documentation."""
+    
     context_parts = []
+    
+    # Priority 1: CONTEXT.md (The Wizard's output)
+    context_file = os.path.join(project_path, "docs", "domain", "CONTEXT.md")
+    if os.path.exists(context_file):
+        with open(context_file, "r") as f:
+            context_parts.append("=== PROJECT CORE CONTEXT ===\n" + f.read())
 
-    if os.path.exists(wiki_path):
-        if not bundle_path or wiki_path == os.path.join(project_path, ".indxr/wiki"):
-             print(f"Found existing .indxr/wiki at {wiki_path}. Reading context...")
+    # Priority 2: CodeGraph Symbols (Optional: If we want to seed with some high-level info)
+    # For now, we rely on the agents using the MCP tool themselves, but we can check if DB exists
+    codegraph_db = os.path.join(project_path, ".codegraph", "codegraph.db")
+    if os.path.exists(codegraph_db):
+        context_parts.append("\nCodeGraph index is available. Use `codegraph_explore` to map the architecture.")
 
-        # Read ONLY the index and architecture by default to avoid token explosion
-        # Detailed mode reads everything in the wiki
-        if detailed:
-            for root, _, files in os.walk(wiki_path):
-                for file in files:
-                    if file.endswith(".md"):
-                        p = os.path.join(root, file)
-                        with open(p, 'r') as f:
-                            context_parts.append(f"=== {file.upper()} ===\n" + f.read())
-        else:
-            for core_file in ["index.md", "architecture.md"]:
-                p = os.path.join(wiki_path, core_file)
-                if os.path.exists(p):
-                    with open(p, 'r') as f:
-                        context_parts.append(f"=== {core_file.upper()} ===\n" + f.read())
+    if context_parts:
+        return "\n\n".join(context_parts)
 
-        if context_parts:
-            return "\n\n".join(context_parts)
-
-    # Return None instead of a string if no wiki is found so caller can handle fallback
     return None
 
 
@@ -189,7 +163,8 @@ def discover_agents(context_str: str, feature_fetcher_yaml_path: str, llm_provid
         "3. 'zone': (Domain/Data/Handler/Core).\n"
         "4. 'system_prompt': A comprehensive, 300-500 word Markdown system prompt. This prompt MUST:\n"
         "   - Define their specific expertise relative to the project files.\n"
-        "   - Enforce the use of 'indxr' MCP tools and local skills.\n"
+        "   - Enforce a 'Graph-First' strategy. Before deep exploration, agents MUST use `codegraph_search` and `codegraph_explore`.\n"
+        "   - Enforce the use of 'codegraph' MCP tools (search, explore, context, callers) and local skills.\n"
         "   - Define their 'Goldfish' phase responsibilities.\n\n"
         "Return as JSON: {'agents': [{'name': '...', 'role': '...', 'zone': '...', 'system_prompt': '...'}]}"
     )
@@ -211,52 +186,7 @@ def discover_agents(context_str: str, feature_fetcher_yaml_path: str, llm_provid
         print(f"ERROR: Failed to parse LLM response as JSON: {e}\nResponse:\n{response_text}")
         return [{"name": "Architect", "role": "General architecture and design", "zone": "Core"}]
 
-def discover_ddd_context(context_str: str, llm_provider: str, api_key: str, model: str = None) -> dict:
-    """Extracts DDD context using remote skills and deterministic questions."""
-    print("Loading skills for DDD alignment...")
-    grill_me_skill = fetch_skill("grill-me", "https://raw.githubusercontent.com/mattpocock/skills/main/skills/productivity/grill-me/SKILL.md")
-    grill_with_docs_skill = fetch_skill("grill-with-docs", "https://raw.githubusercontent.com/mattpocock/skills/main/skills/engineering/grill-with-docs/SKILL.md")
-    agentic_eval_skill = fetch_skill("agentic-eval", "https://raw.githubusercontent.com/github/awesome-copilot/main/skills/agentic-eval/SKILL.md")
-    prompt_engineer_skill = fetch_skill("prompt-engineer", "https://raw.githubusercontent.com/Jeffallan/claude-skills/main/skills/prompt-engineer/SKILL.md")
 
-    prompt = (
-        "You are a strict Domain-Driven Design architect. Analyze the project context and execute the provided skills.\n\n"
-        "AVOID TECHNICAL PEDANTRY: Do not ask about technical naming (e.g., 'spend vs cost') or implementation details (e.g., 'dataframe skeletons') unless they represent a fundamental business misunderstanding.\n\n"
-        "=== DETERMINISTIC DDD FRAMEWORK ===\n"
-        "Focus your analysis and questions on these 5 core areas:\n"
-        "1. UBIQUITOUS LANGUAGE: What is the exact vocabulary business experts use? Are there overloaded terms across contexts?\n"
-        "2. CORE DOMAIN: What is the single core capability that provides primary value/competitive advantage?\n"
-        "3. AGGREGATES & INVARIANTS: What data MUST be updated together in a single transaction to maintain business rules?\n"
-        "4. DOMAIN EVENTS: Who needs to know when a significant action is completed? (Eventual consistency needs)\n"
-        "5. CONTEXT MAPPING: Who dictates the shape of the data contract when interacting with external/other systems?\n\n"
-        "Apply the 'agentic-eval' and 'prompt-engineer' skills to self-critique your domain definitions.\n\n"
-        "=== GRILL-WITH-DOCS SKILL ===\n"
-        f"{grill_with_docs_skill}\n\n"
-        "=== GRILL-ME SKILL ===\n"
-        f"{grill_me_skill}\n\n"
-        "Your task:\n"
-        "1. Draft a context definition (context.md style) structured by the 5 Deterministic DDD areas.\n"
-        "2. Identify genuine domain ambiguities that cannot be resolved by reading the code.\n"
-        "3. Generate 3-5 sharp questions that force the user to define business boundaries, NOT implementation details.\n\n"
-        "Your response MUST be in JSON format with exactly these keys:\n"
-        "- 'context_draft': A string containing the drafted domain context.\n"
-        "- 'questions': A list of strings representing alignment questions.\n"
-        "- 'legacy_hints': A dictionary containing hints about legacy components.\n\n"
-        f"PROJECT CONTEXT:\n{context_str}"
-    )    
-    response_text = query_llm(prompt, llm_provider, api_key, model)
-
-    
-    try:
-        cleaned = response_text.replace("```json", "").replace("```", "").strip()
-        start_idx = cleaned.find("{")
-        end_idx = cleaned.rfind("}") + 1
-        if start_idx != -1 and end_idx != 0:
-            cleaned = cleaned[start_idx:end_idx]
-        return json.loads(cleaned)
-    except json.JSONDecodeError as e:
-        print(f"ERROR: Failed to parse DDD LLM response as JSON: {e}")
-        return {"context_draft": "", "questions": [], "legacy_hints": {}}
 
 def discover_custom_agent(name: str, specs: str, context_str: str, ddd_context: dict, llm_provider: str, api_key: str, model: str = None) -> dict:
     """Generates a system prompt for a custom user-defined agent."""
@@ -281,8 +211,9 @@ def discover_custom_agent(name: str, specs: str, context_str: str, ddd_context: 
         "=== TASK ===\n"
         "Generate a comprehensive, 300-500 word Markdown system prompt for this agent. The prompt MUST:\n"
         "1. Define their specific expertise relative to the project files.\n"
-        "2. Enforce the use of 'indxr' MCP tools and local skills.\n"
-        "3. Define their role in the Goldfish Protocol (Phase 3) and Implementation (Phase 4).\n"
+        "2. Enforce the use of 'codegraph' MCP tools and local skills.\n"
+        "3. Enforce a 'Graph-First' strategy using `codegraph_search` and `codegraph_explore`.\n"
+        "4. Define their role in the Goldfish Protocol (Phase 3) and Implementation (Phase 4).\n"
         "4. Incorporate the DDD context and ubiquitous language intrinsically.\n\n"
         "Return as JSON: {'name': '...', 'role': '...', 'zone': '...', 'system_prompt': '...'}"
     )

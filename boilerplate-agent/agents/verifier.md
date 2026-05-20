@@ -3,6 +3,11 @@ name: verifier
 description: The specialized tool for final QA, edge-case testing, transcript fidelity
   checks, and robustness verification.
 tools:
+  - codegraph_search
+  - codegraph_explore
+  - codegraph_context
+  - codegraph_callers
+  - codegraph_impact
   - run_shell_command
   - read_file
   - grep_search
@@ -23,6 +28,7 @@ tools:
   - adversary
 
 ## System Prompt
+- **THE GOLDEN RULE:** Call the MCP tool (`codegraph_*`) to gather precise context instead of reading full files, unless absolutely necessary (e.g., using `grep_search` for UI strings).
 
 @../rules/base_mandate.md
 @../rules/indexer_mandate.md

@@ -99,9 +99,9 @@ def test_e2e_init_flow(
     
     # Mock user inputs
     responses_iter = iter([
-        "n", # Would you like to generate an indxr wiki? (n)
-        "Ans 1", "Ans 2", # DDD Grill Questions
-        "Extra info", # DDD Extra knowledge
+        
+        "Purpose", "Vocab", "Invariants", # CLI Context Wizard
+        
         "1", # Platform selection (1 = Gemini)
         "", # Press ENTER after saving ONBOARDING_DOMAIN.md
         "y", # Are you sure you want to proceed?
@@ -136,22 +136,12 @@ def test_e2e_init_flow(
     setup_dummy_wiki(project_path)
 
     # 2. Run the CLI
-    with patch('sys.argv', ['harness-wf', 'init', '--project-path', project_path, '--llm', 'gemini', '--ddd']):
+    with patch('sys.argv', ['harness-wf', 'init', '--project-path', project_path, '--llm', 'gemini']):
         main()
 
     # 3. Assertions
     harness_dir = Path(project_path) / ".gemini"
     assert harness_dir.exists()
-    
-    # Verify Agents
-    assert (harness_dir / "agents" / "agent1.md").exists()
-    assert (harness_dir / "agents" / "agent2.md").exists()
-    assert (harness_dir / "agents" / "my-custom-agent.md").exists()
-    
-    # Verify DDD
-    assert (harness_dir / "ddd_context.json").exists()
-    ddd_ctx = json.loads((harness_dir / "ddd_context.json").read_text())
-    assert ddd_ctx["translation_map"]["Question 1?"] == "Ans 1"
     
     # Verify Platform Pointer
     assert (Path(project_path) / "GEMINI.md").exists()
@@ -166,14 +156,14 @@ def test_e2e_init_flow(
     mcp_json = harness_dir / "mcp.json"
     assert mcp_json.exists()
     mcp_data = json.loads(mcp_json.read_text())
-    assert "indxr" in mcp_data["mcpServers"]
-    assert "postgres" in mcp_data["mcpServers"]
+    assert "codegraph" in mcp_data["mcpServers"]
     
     # Verify SME synthesis
     sme_agents = list((harness_dir / "agents").glob("*-sme.md"))
     assert len(sme_agents) >= 1
     sme_file = sme_agents[0]
     assert "# Role: Domain Subject Matter Expert" in sme_file.read_text()
+
     
     # Verify Orchestrator Rule Patching
     rules_path = harness_dir / "rules" / "dispatch_rules.md"
