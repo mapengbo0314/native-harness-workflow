@@ -44,9 +44,14 @@ def main():
     if not os.path.exists(codegraph_db_path):
         print(f"\nCodeGraph database not found. Building now...")
         try:
+            # Force non-interactive npm to prevent hidden prompts
+            env = os.environ.copy()
+            env["npm_config_yes"] = "true"
+            
             subprocess.run(
-                ["npx", "-y", "@colbymchenry/codegraph", "build"], 
-                cwd=args.project_path, 
+                ["npx", "--yes", "@colbymchenry/codegraph", "build"], 
+                cwd=args.project_path,
+                env=env,
                 check=True
             )
         except subprocess.CalledProcessError as e:
