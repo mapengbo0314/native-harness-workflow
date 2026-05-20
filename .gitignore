@@ -37,3 +37,5 @@ requirements_lock.txt
 designs/
 depreicated_indexing/
 depreciated_indexing/
+archive/
+.codegraph/

@@ -136,7 +136,7 @@ def test_e2e_init_flow(
     setup_dummy_wiki(project_path)
 
     # 2. Run the CLI
-    with patch('sys.argv', ['harness-wf', 'init', '--project-path', project_path, '--llm', 'gemini', '--ddd']):
+    with patch('sys.argv', ['harness-wf', 'init', '--project-path', project_path, '--llm', 'gemini']):
         main()
 
     # 3. Assertions

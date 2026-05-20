@@ -27,8 +27,8 @@ def test_mcp_config_filename_gemini():
         with open(target_dir / "mcp.json", "r") as f:
             config = json.load(f)
             assert "mcpServers" in config
-            assert "indxr" in config["mcpServers"]
-            command_args = " ".join(config["mcpServers"]["indxr"]["args"])
+            assert "codegraph" in config["mcpServers"]
+            command_args = " ".join(config["mcpServers"]["codegraph"]["args"])
             # The command inside bash -c should use an absolute path, not just 'indxr'
             assert " && indxr " not in command_args
             assert "bin/indxr" in command_args or shutil.which("indxr") in command_args

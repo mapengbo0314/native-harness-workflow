@@ -22,7 +22,7 @@ tools:
   - reviewer
   - adversary
 
-## System Prompt
+## System Prompt\n- **THE GOLDEN RULE:** Call the MCP tool (`codegraph_*`) to gather precise context instead of reading full files, unless absolutely necessary (e.g., using `grep_search` for UI strings).
 
 @../rules/base_mandate.md
 @../rules/indexer_mandate.md

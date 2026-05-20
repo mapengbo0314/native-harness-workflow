@@ -14,34 +14,16 @@ def parse_args():
     parser.add_argument("--llm", required=True, choices=["gemini", "openai", "anthropic"], help="LLM provider")
     parser.add_argument("--model", help="Optional specific model to use (e.g., gemini-3.1-pro-preview, claude-3-5-sonnet-20241022)")
     parser.add_argument("--bundle", help="Optional path to an existing .indxr directory or wiki")
-    parser.add_argument("--ddd", action="store_true", help="Enable DDD Onboarding sequence")
     parser.add_argument("--detailed", action="store_true", help="Include all wiki files for deeper context acquisition")
     return parser.parse_args()
 
-def run_ddd_grill(ddd_context: dict) -> dict:
-    """Interactively grill the user with alignment questions."""
-    print("\n=== DDD Alignment Grill ===")
-    questions = ddd_context.get("questions", [])
-    answers = {}
-    
-    if not questions:
-        print("No alignment questions generated.")
-    else:
-        for i, q in enumerate(questions):
-            print(f"\n[{i+1}/{len(questions)}] {q}")
-            ans = input("> ").strip()
-            answers[q] = ans
-            
-    # Enhancement: Extra question for general domain knowledge
-    print("\n[Extra] Are there any other domain specific knowledge you would like to pass in?")
-    extra_knowledge = input("> ").strip()
-    if extra_knowledge:
-        answers["__additional_domain_knowledge__"] = extra_knowledge
-        
-    return answers
 
 def main():
     args = parse_args()
+
+    if not shutil.which("npx"):
+        print("\nError: 'npx' command not found. Node.js is required to use CodeGraph.")
+        sys.exit(1)
     
     api_key_env_var = f"{args.llm.upper()}_API_KEY"
     api_key = os.environ.get(api_key_env_var)
@@ -51,109 +33,25 @@ def main():
         api_key = os.environ.get("GOOGLE_API_KEY")
         
     if not api_key:
-        print(f"Environment variable {api_key_env_var} not found.")
+        print(f"\nEnvironment variable {api_key_env_var} not found.")
         api_key = getpass.getpass(prompt=f"Enter your {args.llm} API Key: ")
         
     print("Pre-flight checks passed.")
     
-    # --- New: Fast Path Bundle Resolution & Fallback ---
-    resolved_bundle_path = None
-    if args.bundle:
-        resolved_bundle_path = os.path.abspath(args.bundle)
-
-    # Check for index existence
-    index_found = False
-    
-    # 1. Check bundle if provided
-    if resolved_bundle_path:
-        base_name = os.path.basename(resolved_bundle_path)
-        if base_name == "wiki":
-            if os.path.exists(os.path.join(resolved_bundle_path, "index.md")):
-                index_found = True
-        elif base_name == ".indxr":
-            if os.path.exists(os.path.join(resolved_bundle_path, "INDEX.md")) or os.path.exists(os.path.join(resolved_bundle_path, "wiki", "index.md")):
-                index_found = True
-        else:
-            bundle_indxr = os.path.join(resolved_bundle_path, ".indxr")
-            if os.path.exists(os.path.join(bundle_indxr, "INDEX.md")) or os.path.exists(os.path.join(bundle_indxr, "wiki", "index.md")):
-                index_found = True
-            elif os.path.exists(os.path.join(resolved_bundle_path, "INDEX.md")):
-                index_found = True
-
-    # 2. Check project path
-    project_indxr = os.path.join(args.project_path, ".indxr")
-    if not index_found and (os.path.exists(os.path.join(project_indxr, "INDEX.md")) or os.path.exists(os.path.join(project_indxr, "wiki", "index.md"))):
-        index_found = True
-
-    if not index_found:
-        print("\nNo existing indxr database found.")
-        choice = input("Would you like to generate one now using 'indxr wiki generate'? (Y/n): ").strip().lower()
-        if choice in ['', 'y', 'yes']:
-            print("Generating indxr wiki...")
-            
-            # Prepare environment variables for indxr
-            env = os.environ.copy()
-            if args.llm == "anthropic":
-                env["ANTHROPIC_API_KEY"] = api_key
-            elif args.llm == "openai":
-                env["OPENAI_API_KEY"] = api_key
-            elif args.llm == "gemini":
-                 # Pass GOOGLE_API_KEY to the indexer as it might support it now.
-                 env["GOOGLE_API_KEY"] = api_key
-                 # Clarify the warning: indexer performs best with Anthropic or OpenAI
-                 if not env.get("ANTHROPIC_API_KEY") and not env.get("OPENAI_API_KEY"):
-                      print("Notice: 'indxr' performs best with ANTHROPIC_API_KEY or OPENAI_API_KEY for wiki generation.")
-                      print("Attempting with GOOGLE_API_KEY...")
-            
-            # Execute indxr in the project directory
-            os.makedirs(args.project_path, exist_ok=True)
-            try:
-                if shutil.which("npx"):
-                    result = subprocess.run(
-                        ["npx", "--yes", "indxr", "wiki", "generate"], 
-                        cwd=args.project_path, 
-                        env=env,
-                        check=False
-                    )
-                    if result.returncode != 0:
-                        print("npx failed, attempting global indxr...")
-                        subprocess.run(
-                            ["indxr", "wiki", "generate"], 
-                            cwd=args.project_path, 
-                            env=env,
-                            check=True
-                        )
-                else:
-                    subprocess.run(
-                        ["indxr", "wiki", "generate"], 
-                        cwd=args.project_path, 
-                        env=env,
-                        check=True
-                    )
-            except subprocess.CalledProcessError as e:
-                print(f"\nFailed to generate indxr wiki: {e}")
-                print("\033[91mWARNING: Index generation failed. Proceeding without a codebase index will lead to hallucinated workspace context.\033[0m")
-                choice = input("Do you want to continue anyway? (y/N): ").strip().lower()
-                if choice != 'y':
-                    print("Aborting.")
-                    sys.exit(1)
-            except FileNotFoundError:
-                print(f"\nError: Neither 'npx' nor 'indxr' command found.")
-                print("\033[91mWARNING: Index generation failed. Proceeding without a codebase index will lead to hallucinated workspace context.\033[0m")
-                choice = input("Do you want to continue anyway? (y/N): ").strip().lower()
-                if choice != 'y':
-                    print("Aborting.")
-                    sys.exit(1)
-            except Exception as e:
-                print(f"\nError running indexer: {e}")
-                print("\033[91mWARNING: Index generation failed. Proceeding without a codebase index will lead to hallucinated workspace context.\033[0m")
-                choice = input("Do you want to continue anyway? (y/N): ").strip().lower()
-                if choice != 'y':
-                    print("Aborting.")
-                    sys.exit(1)
-        else:
-             print("Proceeding without codebase index. Architecture context will be severely limited.")
-    # --- End Fast Path ---
+    # --- CodeGraph Onboarding & Initialization ---
+    resolved_bundle_path = args.bundle
+    codegraph_db_path = os.path.join(args.project_path, ".codegraph", "codegraph.db")
+    if not os.path.exists(codegraph_db_path):
+        print(f"\nCodeGraph database not found. Building now...")
+        try:
+            subprocess.run(
+                ["npx", "-y", "@colbymchenry/codegraph", "build"], 
+                cwd=args.project_path, 
+                check=True
+            )
+        except subprocess.CalledProcessError as e:
+            print(f"\nFailed to build CodeGraph: {e}")
+            sys.exit(1)
 
     print("Stage 1: Cloning boilerplate for discovery...")
     repo_url = "https://github.com/mapengbo0314/e2g.git"
@@ -162,7 +60,7 @@ def main():
         try:
             subprocess.run(["git", "clone", "--depth", "1", repo_url, temp_dir], check=True, capture_output=True)
         except subprocess.CalledProcessError as e:
-            print(f"Error: Failed to clone boilerplate repository: {e.stderr.decode() if e.stderr else str(e)}")
+            print(f"\nError: Failed to clone boilerplate repository: {e.stderr.decode() if e.stderr else str(e)}")
             sys.exit(1)
         except FileNotFoundError:
             print("Error: 'git' command not found. Please install Git.")
@@ -171,7 +69,7 @@ def main():
         boilerplate_dir = os.path.join(temp_dir, "boilerplate-agent")
         
         print("Stage 2: Dynamic Context Acquisition")
-        from harness.discovery_engine import discover_ddd_context, acquire_mcp_context, generate_onboarding_domain_doc
+        from harness.discovery_engine import acquire_mcp_context, generate_onboarding_domain_doc
         
         # Acquire context once
         context_str = acquire_mcp_context(args.project_path, bundle_path=resolved_bundle_path, detailed=args.detailed)
@@ -179,18 +77,19 @@ def main():
              context_str = "No codebase wiki found. Architecture unknown."
              print("No usable .indxr/wiki found. Proceeding with empty context.")
         
-        final_ddd_context = None
-        if args.ddd:
-            print("\nStage 2.5: DDD Onboarding Context Extraction")
-            ddd_context_raw = discover_ddd_context(context_str, args.llm, api_key, args.model)
-            grill_answers = run_ddd_grill(ddd_context_raw)
-            
-            final_ddd_context = {
-                "ubiquitous_language": ddd_context_raw.get("context_draft", ""),
-                "translation_map": grill_answers,
-                "legacy_hints": ddd_context_raw.get("legacy_hints", {}),
-                "additional_domain_knowledge": grill_answers.get("__additional_domain_knowledge__", "")
-            }
+
+        # CLI Context Wizard (The 3 Questions)
+        print("\n--- Project Context Setup ---")
+        purpose = input("1. In 1-2 sentences, what is the core purpose of this project?\n> ")
+        vocab = input("2. What are 2-3 specific vocabulary terms (Ubiquitous Language) used in this codebase?\n> ")
+        invariants = input("3. Are there any strict architectural rules or invariants? (e.g., 'Never delete users, only deactivate')\n> ")
+        
+        # Save to docs/domain/CONTEXT.md
+        context_dir = os.path.join(args.project_path, "docs", "domain")
+        os.makedirs(context_dir, exist_ok=True)
+        with open(os.path.join(context_dir, "CONTEXT.md"), "w") as f:
+            f.write(f"# Project Context\n\n## Purpose\n{purpose}\n\n## Ubiquitous Language\n{vocab}\n\n## Strict Invariants\n{invariants}\n")
+
 
         selected_agents = []
 
@@ -221,7 +120,7 @@ def main():
         abs_project_path = os.path.abspath(args.project_path)
         path_parts = Path(abs_project_path).parts
         if path_parts and path_parts[-1] in possible_harness_folders:
-            print(f"Notice: You pointed to a harness folder '{path_parts[-1]}'. Backtracking to project root: {os.path.dirname(abs_project_path)}")
+            print(f"\nNotice: You pointed to a harness folder '{path_parts[-1]}'. Backtracking to project root: {os.path.dirname(abs_project_path)}")
             args.project_path = os.path.dirname(abs_project_path)
 
         target_dir = os.path.join(args.project_path, harness_folder)
@@ -252,7 +151,7 @@ def main():
         skills_to_install, mcps_to_install = parse_tool_checklists(domain_content)
 
         # We pass the cloned boilerplate_dir so minting engine doesn't have to clone again
-        mint_workspace(target_dir, selected_agents, args.project_path, platform_choice, args.model, resolved_bundle_path, boilerplate_dir, ddd_context=final_ddd_context)
+        mint_workspace(target_dir, selected_agents, args.project_path, platform_choice, args.model, resolved_bundle_path, boilerplate_dir)
 
         # Install tools
         install_workspace_tools(args.project_path, harness_folder, skills_to_install, mcps_to_install)
@@ -267,24 +166,24 @@ def main():
         sme_agent_name = synthesize_domain_sme_agent(args.project_path, domain_content, harness_folder, platform_choice=platform_choice, model_choice=args.model)
         patch_orchestrator_rules(args.project_path, sme_agent_name, harness_folder, target_syntax=target_syntax)
 
-        print(f"\n{'='*60}")
+        print(f"\n\n{'='*60}")
         print("🚀 ONBOARDING COMPLETE")
-        print(f"{'='*60}")
+        print(f"\n{'='*60}")
         
         counter = 1
-        print(f"\n{counter}. Workspace Minted: {target_dir}")
+        print(f"\n\n{counter}. Workspace Minted: {target_dir}")
         counter += 1
         
         if sme_agent_name:
-            print(f"{counter}. Domain SME Created: @{sme_agent_name}")
+            print(f"\n{counter}. Domain SME Created: @{sme_agent_name}")
             counter += 1
         
         if skills_to_install:
-            print(f"{counter}. Local Skills Installed: {', '.join([s['name'] for s in skills_to_install])}")
+            print(f"\n{counter}. Local Skills Installed: {', '.join([s['name'] for s in skills_to_install])}")
             counter += 1
         
         if mcps_to_install:
-            print(f"{counter}. MCP Tools Configured: {', '.join([m['name'] for m in mcps_to_install])}")
+            print(f"\n{counter}. MCP Tools Configured: {', '.join([m['name'] for m in mcps_to_install])}")
             print("\n[ACTION REQUIRED] MCP Authorization:")
             if platform_choice == "1":
                 print("   - In Gemini CLI, you will be prompted to 'Allow' each tool on first use.")
@@ -293,17 +192,17 @@ def main():
             print("   - Review your workspace mcp.json to verify the command paths.")
             counter += 1
 
-        print(f"\n{counter}. [ACTION REQUIRED] Context Automation:")
+        print(f"\n\n{counter}. [ACTION REQUIRED] Context Automation:")
         print("   - The indxr GitHub Action (.github/workflows/update-indexer.yml) has been generated.")
         print("   - To enable automated context updates on PRs, configure the following GitHub Secrets:")
         print("     - GEMINI_API_KEY, ANTHROPIC_API_KEY, or OPENAI_API_KEY")
         counter += 1
 
         if sme_agent_name:
-            print(f"\n{counter}. Context: The @{sme_agent_name} is now the gateway for all planning.")
-            print(f"   Dispatch rules in {harness_folder}/rules/dispatch_rules.md have been updated.")
+            print(f"\n\n{counter}. Context: The @{sme_agent_name} is now the gateway for all planning.")
+            print(f"\n   Dispatch rules in {harness_folder}/rules/dispatch_rules.md have been updated.")
             
-        print(f"{'='*60}\n")
+        print(f"\n{'='*60}\n")
 
 if __name__ == "__main__":
     main()

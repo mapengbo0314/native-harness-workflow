@@ -3,7 +3,7 @@ import tempfile
 from harness.discovery_engine import acquire_mcp_context
 import pytest
 from unittest import mock
-from harness.discovery_engine import discover_agents, discover_ddd_context, discover_custom_agent, generate_onboarding_domain_doc
+from harness.discovery_engine import discover_agents, discover_custom_agent, generate_onboarding_domain_doc
 
 @mock.patch("harness.discovery_engine.fetch_remote_skill")
 @mock.patch("harness.discovery_engine.query_llm")
@@ -64,28 +64,6 @@ def test_discover_custom_agent(mock_query_llm):
     agent = discover_custom_agent("CustomAgent", "Custom Specs", "Context", {"ubiquitous_language": "foo"}, "gemini", "key")
     assert agent["name"] == "CustomAgent"
     assert "Custom Prompt" in agent["system_prompt"]
-
-@mock.patch("harness.discovery_engine.fetch_remote_skill")
-@mock.patch("harness.discovery_engine.query_llm")
-def test_discover_ddd_context(mock_query_llm, mock_fetch_skill):
-    mock_fetch_skill.return_value = "Mocked skill"
-    
-    # Mock LLM response
-    mock_query_llm.return_value = '''
-    {
-      "context_draft": "Mocked Ubiquitous Language",
-      "questions": ["Question 1?", "Question 2?"],
-      "legacy_hints": {"deprecated": "old_module"}
-    }
-    '''
-    
-    result = discover_ddd_context("Mocked context", "gemini", "fake-key")
-    
-    assert result["context_draft"] == "Mocked Ubiquitous Language"
-    assert len(result["questions"]) == 2
-    assert "legacy_hints" in result
-    mock_query_llm.assert_called_once()
-
 
 def test_acquire_mcp_context_with_bundle():
     with tempfile.TemporaryDirectory() as temp_dir:

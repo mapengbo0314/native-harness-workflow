@@ -215,27 +215,35 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
                                 f.write(new_content)
                     except Exception as e:
                         print(f"Warning: Failed to process includes in {filepath}: {e}")
+
+        # --- Ghost Injection for implementer.md ---
+        context_file = os.path.join(project_path, "docs", "domain", "CONTEXT.md")
+        invariants_text = ""
+        if not os.path.exists(context_file):
+            os.makedirs(os.path.dirname(context_file), exist_ok=True)
+            with open(context_file, "w") as f:
+                f.write("# Project Context\n\n## Purpose\n\n## Ubiquitous Language\n\n## Strict Invariants\n")
+        
+        try:
+            with open(context_file, "r") as f:
+                c_text = f.read()
+                if "## Strict Invariants" in c_text:
+                    invariants_text = c_text.split("## Strict Invariants")[1].strip()
+        except Exception as e:
+            print(f"Warning: Failed to read CONTEXT.md for Ghost Injection: {e}")
+        
+        if invariants_text:
+            implementer_path = target_path / "agents" / "implementer.md"
+            if implementer_path.exists():
+                with open(implementer_path, "a") as f:
+                    f.write("\n\n### STRICT INVARIANTS (Ghost Injection)\n" + invariants_text)
+                    
+        # --- End Ghost Injection ---
     else:
         print("Error: Boilerplate directory not found.")
         return
 
     # Save DDD context if provided
-    if ddd_context:
-        print(f"Saving DDD context to {target_path / 'ddd_context.json'}")
-        with open(target_path / "ddd_context.json", "w") as f:
-            json.dump(ddd_context, f, indent=2)
-
-        # Write DDD markdown files
-        ddd_dir = target_path / "ddd"
-        ddd_dir.mkdir(parents=True, exist_ok=True)
-        
-        if "ubiquitous_language" in ddd_context:
-            with open(ddd_dir / "context.md", "w") as f:
-                f.write(ddd_context["ubiquitous_language"])
-        
-        if "translation_map" in ddd_context:
-            with open(ddd_dir / "translation_map.json", "w") as f:
-                json.dump(ddd_context["translation_map"], f, indent=2)
 
     # Handle existing bundle / wiki migration
     existing_wiki = False
@@ -335,8 +343,7 @@ if command -v gemini &> /dev/null; then
     gemini extensions install https://github.com/mattpocock/skills || true
 {skill_installs}
     
-    echo "Adding indxr to Gemini CLI project MCP configuration..."
-    indxr_serve_args_str="serve --watch --wiki-auto-update --all-tools"
+    echo "Adding codegraph to Gemini CLI project MCP configuration..."
     gemini mcp add indxr bash -c "cd {quoted_project_path} && {indxr_abs_path} $indxr_serve_args_str" -e GEMINI_API_KEY=\\$GEMINI_API_KEY -e ANTHROPIC_API_KEY=\\$ANTHROPIC_API_KEY -e OPENAI_API_KEY=\\$OPENAI_API_KEY || true
 {mcp_installs}
 else
@@ -357,8 +364,7 @@ echo "  /plugin install skills@mattpocock --project"
 
 # MCP Configuration for Claude
 if command -v claude &> /dev/null; then
-    echo "Adding indxr to Claude Code project MCP configuration..."
-    indxr_serve_args_str="serve --watch --wiki-auto-update --all-tools"
+    echo "Adding codegraph to Claude Code project MCP configuration..."
     claude mcp add --scope project indxr --env GEMINI_API_KEY=\\$GEMINI_API_KEY --env ANTHROPIC_API_KEY=\\$ANTHROPIC_API_KEY --env OPENAI_API_KEY=\\$OPENAI_API_KEY -- bash -c "cd {quoted_project_path} && {indxr_abs_path} $indxr_serve_args_str" || true
 {mcp_installs}
 fi
@@ -436,23 +442,12 @@ The Orchestrator agent and core rules are located in `{harness_prefix}/orchestra
         
     print("\nTo install skills & MCPs, run the setup_harness.sh script inside your platform's hidden folder (e.g. `sh .gemini/scripts/setup_harness.sh`).")
 
-    # Create an MCP config that points to the indxr server running in the project root
-    indxr_serve_args = ["serve", "--watch", "--wiki-auto-update", "--all-tools"]
-    if model_choice:
-        indxr_serve_args.extend(["--wiki-model", model_choice])
-    
-    indxr_serve_cmd = " ".join(indxr_serve_args)
-
+    # Create an MCP config for CodeGraph
     mcp_config = {
         "mcpServers": {
-            "indxr": {
-                "command": "bash",
-                "args": ["-c", f"cd '{escaped_project_path}' && {indxr_abs_path} {indxr_serve_cmd}"],
-                "env": {
-                    "GEMINI_API_KEY": "$GEMINI_API_KEY",
-                    "ANTHROPIC_API_KEY": "$ANTHROPIC_API_KEY",
-                    "OPENAI_API_KEY": "$OPENAI_API_KEY"
-                }
+            "codegraph": {
+                "command": "npx",
+                "args": ["-y", "@colbymchenry/codegraph", "mcp"]
             }
         }
     }
@@ -490,22 +485,8 @@ The Orchestrator agent and core rules are located in `{harness_prefix}/orchestra
             
             system_prompt = agent.get("system_prompt", f"# {agent['name']}\n\n{agent['role']}")
             
-            # Append DDD logic
-            ddd_section = ""
-            if ddd_context:
-                ddd_section = f"""
-## Domain-Driven Design (DDD) Context
-This project uses Domain-Driven Design principles.
-At the beginning of any new session or task involving domain logic, you MUST use the `read_file` tool to load `{target_path.name}/ddd/context.md`.
-
-You MUST refer to the following DDD documentation:
-- `context.md`: Defines the core domain terms and their meanings.
-- `translation_map.json`: Maps domain concepts to implementation details.
-
-Ensure your implementation aligns with these definitions.
-"""
             
-            agents_md_content += f"## {safe_name}\n{yaml_block}\n\n{system_prompt}\n{ddd_section}\n\n"
+            agents_md_content += f"## {safe_name}\n{yaml_block}\n\n{system_prompt}\n\n"
             
         agents_file_path = target_path / "AGENTS.md"
         
@@ -558,20 +539,6 @@ tools:
 """
             system_prompt = agent.get("system_prompt", f"# {agent['name']}\n\n{agent['role']}")
             
-            # Append DDD logic
-            ddd_section = ""
-            if ddd_context:
-                ddd_section = f"""
-## Domain-Driven Design (DDD) Context
-This project uses Domain-Driven Design principles.
-At the beginning of any new session or task involving domain logic, you MUST use the `read_file` tool to load `{target_path.name}/ddd/context.md`.
-
-You MUST refer to the following DDD documentation:
-- `context.md`: Defines the core domain terms and their meanings.
-- `translation_map.json`: Maps domain concepts to implementation details.
-
-Ensure your implementation aligns with these definitions.
-"""
 
             # Determine the correct include syntax based on platform
             include_pointer = ""
@@ -579,7 +546,7 @@ Ensure your implementation aligns with these definitions.
                 # Fallback for cursor/agents where include syntax might not be natively supported
                 include_pointer = "<!-- Core Mandates should be read from ../rules/base_mandate.md -->\n\n"
 
-            final_content = frontmatter + include_pointer + system_prompt + "\n" + ddd_section
+            final_content = frontmatter + include_pointer + system_prompt + "\n"
             
             # Final post-processing for placeholders and includes
             final_content = final_content.replace("{{HARNESS_DIR}}", target_dir_name)
@@ -670,7 +637,7 @@ You are the definitive authority on the business logic, ubiquitous language, and
 description: "Subject Matter Expert and Guardian. Consult this agent before modifying core logic."
 model: "{model_val}"
 sandbox_mode: "read-only"
-mcp_servers: ["indxr"]
+mcp_servers: ["codegraph"]
 ```"""
             
             sme_section = f"""
