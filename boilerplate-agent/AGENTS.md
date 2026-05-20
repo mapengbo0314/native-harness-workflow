@@ -2,7 +2,7 @@
 
 <EXTREMELY-IMPORTANT>
 You are operating within the Superpowers Agentic Harness.
-You MUST adhere to the `using-superpowers` state machine.
+You MUST adhere to the `using-harness-superpowers` state machine.
 You MUST allocate agents utilizng `{{HARNESS_DIR}}/orchestrator.md` to help route agents for the superpower harness.
 IF A SKILL APPLIES TO YOUR TASK, YOU MUST USE IT BEFORE ACTING.
 </EXTREMELY-IMPORTANT>
@@ -11,12 +11,14 @@ IF A SKILL APPLIES TO YOUR TASK, YOU MUST USE IT BEFORE ACTING.
 
 1. **Context First**: Always use the `codegraph` MCP server to query the codebase before proposing changes.
 2. **Strict Planning**: Never write production code without an approved plan.
-3. **Superpower Workflows**: You MUST utilize installed Superpower skills (e.g., brainstorming, writing-plans, test-driven-development) during execution.
+3. **Superpower Workflows**: You MUST utilize installed Superpower skills (e.g., harness-brainstorming, harness-writing-plans, harness-test-driven-development) during execution.
 4. **Local Skills**: You MUST refer to the local skills stored in `{{HARNESS_DIR}}/skills/` for your specific workflows.
 5. **Orchestrator Role**: To assume your primary role as the Orchestrator, you MUST read `{{HARNESS_DIR}}/orchestrator.md` and follow the workflows defined in `{{HARNESS_DIR}}/rules/dispatch_rules.md`.
 6. **Agent Discovery**: The Orchestrator routes tasks to specialized subagents located in `{{HARNESS_DIR}}/agents/`.
+7. **Superpower Agent Override**: If a superpower skill instructs you to use a generic agent (like `@generalist` or `Task tool (superpowers:implementer)`), you MUST IGNORE that mapping and instead dispatch to your local harness subagents (`@implementer`, `@planner`, etc.).
+8. **No UI Prototyping**: The user NEVER wants "UI driven understanding" or visual prototyping. When using skills like `harness-brainstorming`, automatically skip any UI phase and proceed with text/code-based architectural planning.
 
-## Wiki Knowledge Base Integration
+## CodeGraph Integration
 
 The `codegraph` MCP server provides deep structural analysis of the codebase. You MUST adopt a **Graph-First Strategy**. Before reading raw source files, always query the graph. Call the MCP tool (codegraph_*) to gather precise context instead of reading full files, unless absolutely necessary (e.g., using grep_search for UI strings). You have access to exactly these tools:
 - `codegraph_search`: Semantic and keyword search for symbols and code blocks.

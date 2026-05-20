@@ -128,10 +128,11 @@ def discover_agents(context_str: str, feature_fetcher_yaml_path: str, llm_provid
         print(f"Warning: Could not load feature-fetcher prompt: {e}")
 
     print("Loading skills for Agent Discovery...")
-    arch_skill = fetch_skill("improve-codebase-architecture", "https://raw.githubusercontent.com/mattpocock/skills/main/skills/engineering/improve-codebase-architecture/SKILL.md")
-    grill_docs_skill = fetch_skill("grill-with-docs", "https://raw.githubusercontent.com/mattpocock/skills/main/skills/engineering/grill-with-docs/SKILL.md")
-    agentic_eval_skill = fetch_skill("agentic-eval", "https://raw.githubusercontent.com/github/awesome-copilot/main/skills/agentic-eval/SKILL.md")
-    prompt_engineer_skill = fetch_skill("prompt-engineer", "https://raw.githubusercontent.com/Jeffallan/claude-skills/main/skills/prompt-engineer/SKILL.md")
+    # Local skills are assumed to be present in the workspace
+    arch_skill = "Improve Codebase Architecture: Analyze coupling and module boundaries."
+    grill_docs_skill = "Grill With Docs: Ensure code changes strictly follow CONTEXT.md invariants."
+    agentic_eval_skill = "Agentic Eval: Develop pipelines to test AI output."
+    prompt_engineer_skill = "Prompt Engineer: Refactor agent prompts for determinism."
 
     ddd_prompt_section = ""
     if ddd_context:

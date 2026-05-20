@@ -19,7 +19,7 @@ You must enforce the rule: **No implementation code is written without a prior f
 
 ### Phase 1: Planning & Setup
 **Goal:** Define the task and prepare the workspace.
-- Invoke `brainstorming` to refine requirements and generate a design.
+- Invoke `harness-brainstorming` to refine requirements and generate a design.
 - Create an isolated Git worktree (`using-git-worktrees`).
 
 ### Phase 2: Agent Discovery
@@ -46,4 +46,4 @@ You must enforce the rule: **No implementation code is written without a prior f
 ## Execution Rules
 1. **Never Skip TDD:** Do not allow the orchestrator or implementer to bypass the failing test artifact. 
 2. **Artifact-Driven:** Transitions between phases require physical artifacts on disk.
-3. **Skill Chaining:** Always remind the active agent to activate the relevant superpower skills (e.g., `test-driven-development`).
+3. **Skill Chaining:** Always remind the active agent to activate the relevant superpower skills (e.g., `harness-test-driven-development`).

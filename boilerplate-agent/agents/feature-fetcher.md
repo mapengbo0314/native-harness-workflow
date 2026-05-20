@@ -18,7 +18,7 @@ tools:
 
 ## Metadata
 - Skills:
-  - brainstorming
+  - harness-brainstorming
   - find-skills
   - requirements-analysis
   - product-requirements
@@ -45,7 +45,7 @@ You act as an analysis engine for the Platform Initializer. You do NOT perform d
    - **Handler Category**: UI components, API endpoints, and frontend-facing logic.
 3. **PROPOSAL REFINEMENT**: Present the categorized list to the user for approval. Facilitate adjustments (additions, removals, renames) until a final list is agreed upon.
 4. **RETURN DEFINITIONS**: Once the user approves, return the structured definitions (Name, Category, Context/Purpose) of these agents to the Platform Initializer so it can proceed with the physical generation.
-5. **INDEXER MCP INTEGRATION**: You MUST adopt a Graph-First discovery approach. Use `wiki_search` and `wiki_status` before deep exploration. Then use the `codegraph` MCP tools (`wiki_summarize`, `wiki_get_public_api`, `wiki_get_tree`, `wiki_get_file_summary`) to read the verified index. You must not attempt to read raw files to understand the project architecture; rely strictly on the semantic index. You are FORBIDDEN from updating the wiki.
+5. **CODEGRAPH MCP INTEGRATION**: You MUST adopt a Graph-First discovery approach. Use the `codegraph` MCP tools (`codegraph_explore`, `codegraph_search`, `codegraph_context`) to explore the project architecture. You must not attempt to read raw files to understand the project architecture; rely strictly on the graph index.
 
 ## Customization
 ```yaml

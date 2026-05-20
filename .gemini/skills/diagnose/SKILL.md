@@ -7,7 +7,7 @@ description: Disciplined diagnosis loop for hard bugs and performance regression
 
 A discipline for hard bugs. In a Hub-and-Spoke model, debugging is not a monolithic activity; it is divided across specialized agents to protect context windows.
 
-When exploring the codebase, use the `indxr` MCP server and project domain glossary to get a clear mental model of the relevant modules. 
+When exploring the codebase, use the `codegraph` MCP server and project domain glossary to get a clear mental model of the relevant modules. Call the MCP tool (codegraph_*) to gather precise context instead of reading full files, unless absolutely necessary (e.g., using grep_search for UI strings). 
 
 ## Checklist
 - Run the extraction hook: `python .gemini/scripts/extract_stacktrace.py <logfile>` to isolate the error.
@@ -16,13 +16,13 @@ When exploring the codebase, use the `indxr` MCP server and project domain gloss
 **Actor: `@orchestrator`**
 
 If a bug is reported, the Orchestrator MUST NOT delegate to the `@planner` immediately.
-1. The Orchestrator MUST route the task to the `@architect` sub-agent.
-2. The Orchestrator MUST instruct the `@architect` to activate the `diagnose` skill and produce a `artifacts/diagnosis_report.md`.
+1. The Orchestrator MUST route the task to the `@planner` sub-agent.
+2. The Orchestrator MUST instruct the `@planner` to activate the `diagnose` skill and produce a `artifacts/diagnosis_report.md`.
 
 ---
 
 ## Phase 1 — Build a feedback loop
-**Actor: `@architect`**
+**Actor: `@planner`**
 
 **This is the most critical phase.** If you have a fast, deterministic, agent-runnable pass/fail signal for the bug, you will find the cause. If you don't have one, no amount of staring at code will save you.
 
@@ -36,7 +36,7 @@ If a bug is reported, the Orchestrator MUST NOT delegate to the `@planner` immed
 ---
 
 ## Phase 2 — Reproduce
-**Actor: `@architect`**
+**Actor: `@planner`**
 
 Run the loop. Watch the bug appear.
 Confirm the failure is reproducible across multiple runs and captures the exact symptom.
@@ -44,14 +44,14 @@ Confirm the failure is reproducible across multiple runs and captures the exact 
 ---
 
 ## Phase 3 — Hypothesise
-**Actor: `@architect`**
+**Actor: `@planner`**
 
 Generate **3–5 ranked hypotheses** before testing any of them. Single-hypothesis generation anchors on the first plausible idea. Each hypothesis must be **falsifiable**: "If <X> is the cause, then <changing Y> will make the bug disappear."
 
 ---
 
 ## Phase 4 — Instrument & Conclude
-**Actor: `@architect`**
+**Actor: `@planner`**
 
 Each probe must map to a specific prediction from Phase 3. Change one variable at a time using targeted logs or debugger inspection. Tag debug logs (e.g., `[DEBUG-a4f2]`).
 

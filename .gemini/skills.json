@@ -1,5 +1,8 @@
 {
   "skills": {
+    "diagnose": {
+      "path": "diagnose/SKILL.md"
+    },
     "grill-me": {
       "path": "grill-me/SKILL.md"
     },
@@ -15,17 +18,41 @@
     "meta-learning": {
       "path": "meta-learning/SKILL.md"
     },
-    "dac-1-discovery": {
-      "path": "skills/dac-1-discovery/SKILL.md"
+    "using-harness-superpowers": {
+      "path": "using-harness-superpowers/SKILL.md"
     },
-    "dac-2-proposal": {
-      "path": "skills/dac-2-proposal/SKILL.md"
+    "harness-brainstorming": {
+      "path": "harness-brainstorming/SKILL.md"
     },
-    "dac-3-validation": {
-      "path": "skills/dac-3-validation/SKILL.md"
+    "harness-writing-plans": {
+      "path": "harness-writing-plans/SKILL.md"
     },
-    "dac-4-implementation": {
-      "path": "skills/dac-4-implementation/SKILL.md"
+    "harness-test-driven-development": {
+      "path": "harness-test-driven-development/SKILL.md"
+    },
+    "harness-subagent-driven-development": {
+      "path": "harness-subagent-driven-development/SKILL.md"
+    },
+    "harness-dispatching-parallel-agents": {
+      "path": "harness-dispatching-parallel-agents/SKILL.md"
+    },
+    "harness-executing-plans": {
+      "path": "harness-executing-plans/SKILL.md"
+    },
+    "harness-systematic-debugging": {
+      "path": "harness-systematic-debugging/SKILL.md"
+    },
+    "harness-finishing-a-development-branch": {
+      "path": "harness-finishing-a-development-branch/SKILL.md"
+    },
+    "harness-requesting-code-review": {
+      "path": "harness-requesting-code-review/SKILL.md"
+    },
+    "agentic-eval": {
+      "path": "agentic-eval/SKILL.md"
+    },
+    "prompt-engineer": {
+      "path": "prompt-engineer/SKILL.md"
     }
   }
 }

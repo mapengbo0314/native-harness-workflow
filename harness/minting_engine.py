@@ -690,13 +690,12 @@ def install_workspace_tools(target_dir: str, harness_folder_name: str, skills: l
     # Defensive copy and normalize
     skills_to_install = list(skills) if skills else []
     
-    # Guarantee superpowers is installed locally for all platforms
-    has_superpowers = any(s.get('name') == 'using-superpowers' for s in skills_to_install)
+    # Ensure the localized using-harness-superpowers is registered if needed
+    has_superpowers = any(s.get('name') == 'using-harness-superpowers' for s in skills_to_install)
     if not has_superpowers:
-        skills_to_install.append({
-            "name": "using-superpowers",
-            "url": "https://raw.githubusercontent.com/obra/superpowers/main/skills/using-superpowers/SKILL.md"
-        })
+        # We don't download it from github anymore, it's baked into the boilerplate!
+        # Just ensure it's recorded in the skills metadata if necessary
+        pass
     
     # Install Skills (using the new list)
     if skills_to_install:
