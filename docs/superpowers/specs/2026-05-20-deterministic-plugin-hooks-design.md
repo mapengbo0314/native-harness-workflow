@@ -1,116 +1,69 @@
-# Deterministic Plugin Hooks Design
+# Deterministic Plugin Hooks Design (V2: Context-Aware Lazy Loading)
 
 **Date:** 2026-05-20  
-**Status:** Draft  
-**Scope:** Enhancing the auto-generated Claude Code plugin to enforce deterministic harness behaviors via `SessionStart` and `UserPromptSubmit` hooks.
+**Status:** Approved  
+**Scope:** Enhancing the auto-generated Claude Code plugin to enforce deterministic harness behaviors via `PreToolUse` and `UserPromptSubmit` hooks, while optimizing token usage and developer experience.
 
 ## Problem Statement
 
-The embedded harness currently relies on LLM compliance to follow instructions defined in `AGENTS.md` and `orchestrator.md`. While the recently generated Claude Code plugin successfully exposes the `Skill` and `Task` tools and intercepts agent dispatches, there are still vulnerabilities:
+The embedded harness currently relies on LLM compliance to follow instructions defined in `AGENTS.md` and `orchestrator.md`. While the generated Claude Code plugin successfully exposes the `Skill` and `Task` tools, it lacks active enforcement.
 
-1.  **The "Competency Illusion"**: When Claude Code starts, it hasn't necessarily read the DDD `CONTEXT.md` or internalized the `orchestrator.md` rules before answering the first prompt. It *acts* ready, but isn't grounded.
-2.  **Hallucinated Routing**: When a user pastes a stack trace, Claude might try to fix the bug itself instead of strictly following "Branch A" (routing to `@implementer` with the `systematic-debugging` skill).
+An initial V1 design proposed using `SessionStart` to inject massive context payloads and hard-rewriting user prompts on error detection. This was rejected due to:
+1.  **Token Bloat**: Injecting the entire DDD dictionary and routing matrix on every session start wastes tokens for simple queries.
+2.  **Stale State**: Compiling live `.md` files into static `.json` files inside the plugin causes desynchronization when developers update the live workspace files.
+3.  **Loss of Agency**: Hard-rewriting prompts destroys user intent (e.g., asking a question about a stack trace vs. asking the AI to fix it).
 
 ## Goal
 
-Transform the `orchestrator-plugin` from a passive tool provider into an **active enforcer**. By leveraging Claude Code's native plugin hooks, we will write deterministic Python logic that automatically injects the necessary context on startup and rigidly intercepts and rewrites user prompts to force the LLM down the correct architectural paths.
+Create a "Perfect Harness" that mirrors the power of the Matt Pocock Superpowers plugin. The plugin will act as a silent, intelligent gateway that **lazy-loads** context only when needed, reads **live workspace files**, and uses **soft-enforcement** to guide the Orchestrator without hijacking the developer's intent.
 
 ---
 
-## Architecture Updates
+## Architecture Updates (The "Lazy Load" Model)
 
-The plugin generator (`harness/plugin_generator.py`) will be updated to output additional hook files and register them in the `plugin.json` manifest.
+### 1. Live File Reading (No More Stale JSON)
+We will delete the logic that copies `orchestrator.md` and `CONTEXT.md` into static JSON files. 
+Instead, the plugin's `dispatcher.py` and tools will read directly from the live workspace paths (e.g., `.claude/orchestrator.md`, `docs/domain/CONTEXT.md`). If the developer updates a ubiquitous term, the plugin uses it on the very next turn.
 
-### 1. Configuration Data Flow
+### 2. The `PreToolUse` Hook (Lazy Context Injection)
+Instead of a `SessionStart` hook that bloats the context window immediately, we will intercept the exact moment the Orchestrator tries to do complex work: when it invokes the `Task` tool.
 
-The generated plugin currently bundles:
--   `config/orchestrator.json`: Contains the full text of `orchestrator.md`.
--   `config/agents.json`: Contains the roster and instructions for all subagents.
--   `config/ddd-context.json`: Contains the ubiquitous language and strict invariants.
--   `config/rules.json`: Contains the core mandates.
+**Trigger:** `PreToolUse` (Matcher: `Task`)
+**Logic:**
+1.  When Claude Code attempts to dispatch a subagent (e.g., `@planner` or `@implementer`), the hook intercepts the call.
+2.  The hook reads the live `docs/domain/CONTEXT.md`.
+3.  It bundles the DDD Context, the strict invariants, and the requested Subagent's persona into the tool's execution context.
+**Benefit:** Claude Code remains incredibly fast and token-light for general chat. It only pays the "Context Tax" when it actually transitions into a specialized subagent to write code.
 
-The new hooks will read these static JSON files natively via Python, completely bypassing the need for the LLM to use the `Read` tool to learn about its environment.
+### 3. The `UserPromptSubmit` Hook (Intelligent Error Routing)
+We will leverage the existing `boilerplate-agent/scripts/extract_stacktrace.py` logic natively within the plugin.
 
-### 2. The `SessionStart` Hook (Context Injection)
-
-**Trigger:** Fires automatically when Claude Code is launched in the directory.
-
-**Logic (`src/hooks/session_start.py`):**
-1.  Reads `config/ddd-context.json`.
-2.  Reads `config/orchestrator.json`.
-3.  Reads `config/agents.json` to get the list of available subagents.
-4.  Constructs a massive "System Override" payload.
-5.  **Output:** Returns a modified system prompt (or an initial synthetic user message) that explicitly commands Claude: 
-    > *"SYSTEM OVERRIDE: You are the Orchestrator. Here is your DDD context: [...]. Your available subagents are: [...]. You must use the `Task` tool to delegate."*
-6.  **UX:** Prints a console message using ANSI formatting to let the user know the harness is locked and loaded.
-
-**Benefit:** Eliminates the "Competency Illusion". The AI is 100% grounded in the project's specific domain and routing rules before the user even types a single letter.
-
-### 3. The `UserPromptSubmit` Hook (Deterministic Routing)
-
-**Trigger:** Fires every time the user presses Enter, intercepting the raw text before it reaches the LLM.
-
+**Trigger:** `UserPromptSubmit`
 **Logic (`src/hooks/prompt_interceptor.py`):**
 1.  Receives the raw user prompt.
-2.  **Detection Rule 1: Stack Traces & Errors**
-    *   Uses Regex to look for common error signatures (`Traceback`, `Error:`, `Exception:`, `Panic:`).
-    *   If detected, it deterministically enforces **Branch A (Bug Fix / Diagnosis)** from the `orchestrator.md` matrix.
-    *   It silently appends a directive to the prompt:
-        > *"[PLUGIN ENFORCEMENT]: A stack trace was detected. DO NOT GUESS. You MUST immediately invoke `Skill(name="systematic-debugging")` and then use `Task(agent_name="implementer", prompt="...")` to resolve this."*
-3.  **Detection Rule 2: Ambiguous Architecture Requests**
-    *   If the user asks "How should we build X?"
-    *   It appends a directive enforcing **Branch B**:
-        > *"[PLUGIN ENFORCEMENT]: This is an architectural request. You MUST invoke `Task(agent_name="planner", ...)` before writing any code."*
+2.  Scans the text for error signatures (`Traceback`, `Panic:`, etc.) using the logic from `extract_stacktrace.py`.
+3.  **Soft Enforcement:** If an error is detected, it does *not* rewrite the user's prompt. Instead, it securely appends a `[System Note]` to the end of the prompt block:
+    > *"[System Note: A stack trace was detected in your input. If the user is reporting a bug, you MUST invoke `Skill("systematic-debugging")` before responding. If they are just asking an architectural question, answer normally.]"*
+4.  **UX Transparency:** Prints to the user's terminal: `[Harness] Auto-detected stack trace. Appended systematic-debugging guidance.`
 
-**Benefit:** Hardcodes the orchestrator's decision matrix. The LLM can no longer "forget" to use systematic debugging when it sees an error.
+**Benefit:** Retains developer agency while actively prompting the AI to use the Superpowers skills when things break.
+
+---
+
+## The Superpowers Synergy
+
+This architecture makes our plugin function identically to the Matt Pocock `superpowers` plugin, but customized for our Hub-and-Spoke model:
+1.  **Tool Exposure:** Just like the official plugin exposes `/skills`, our plugin exposes `Skill()` and `Task()`.
+2.  **Workflow Enforcement:** It forces the AI to use the `systematic-debugging` skill upon detecting errors.
+3.  **Native Integration:** It doesn't rely on the LLM "remembering" to use bash commands to read files; the Python plugin handles the file I/O safely and cleanly.
 
 ---
 
 ## Implementation Steps
 
-### Phase 1: Update Plugin Manifest
-Modify `generate_plugin_manifest` in `harness/plugin_generator.py` to add the new hooks to the `plugin.json` schema:
-
-```json
-"hooks": {
-  "SessionStart": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/src/hooks/session_start.py\""
-        }
-      ]
-    }
-  ],
-  "UserPromptSubmit": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/src/hooks/prompt_interceptor.py\""
-        }
-      ]
-    }
-  ],
-  "PreToolUse": [ ... existing interceptor ... ]
-}
-```
-
-### Phase 2: Create the Hook Scripts
-Update `generate_plugin_sources` to write out the new Python hook files inside a `src/hooks/` directory.
-
--   **`src/hooks/session_start.py`**: Needs to parse the JSON configs and output the system prompt modification payload expected by Claude Code.
--   **`src/hooks/prompt_interceptor.py`**: Needs to implement the regex logic and output the rewritten prompt string.
-
-### Phase 3: Test and Integrate
-1.  Regenerate the plugin locally.
-2.  Launch Claude Code to verify the `SessionStart` hook injects the context properly.
-3.  Paste a mock stack trace to verify the `UserPromptSubmit` hook rewrites the prompt and forces the `Skill` and `Task` tool invocations.
-
----
-
-## Future Extensibility
-Because we control the generation of the Python logic, we can easily add more deterministic rules later:
-*   **PreToolUse (Edit)**: Block file edits if `pytest` wasn't run recently (enforcing strict TDD).
-*   **PostToolUse (Task)**: Automatically run `benchmark_gate.py` to verify the subagent didn't break invariants.
+1.  **Refactor Config Export:** Remove the `export_orchestrator_config` JSON conversion from `harness/plugin_generator.py`.
+2.  **Update Dispatcher:** Rewrite `src/dispatcher.py` to parse the live `.claude/AGENTS.md` and `.claude/orchestrator.md` files dynamically.
+3.  **Build Hooks:** 
+    *   Create `src/hooks/prompt_interceptor.py` and port the `extract_stacktrace.py` logic into it.
+    *   Register the `UserPromptSubmit` hook in the `plugin.json` manifest.
+4.  **Update Task Tool:** Modify `src/tools.py:invoke_task` to read `docs/domain/CONTEXT.md` and bundle it with the subagent dispatch.
