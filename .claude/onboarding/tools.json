@@ -76,6 +76,19 @@
     ],
     "universal": [
       {
+        "name": "orchestrator-plugin",
+        "url": "local-plugin",
+        "type": "extension",
+        "force_if_keywords": [
+          ""
+        ],
+        "keywords": [
+          "claude",
+          "orchestrator",
+          "plugin"
+        ]
+      },
+      {
         "name": "git-mcp",
         "command": "npx -y @modelcontextprotocol/server-git",
         "type": "mcp",
