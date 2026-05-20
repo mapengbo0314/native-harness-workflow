@@ -252,25 +252,6 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
                     f.write("\n\n### STRICT INVARIANTS (Ghost Injection)\n" + invariants_text)
                     
         # --- End Ghost Injection ---
-
-        # --- Plugin Generation for Claude Code ---
-        domain_content = ""
-        domain_doc_path = os.path.join(project_path, "ONBOARDING_DOMAIN.md")
-        if os.path.exists(domain_doc_path):
-            with open(domain_doc_path, "r") as f:
-                domain_content = f.read()
-
-        if should_generate_orchestrator_plugin(domain_content, platform_choice):
-            try:
-                print("[HARNESS] Generating orchestrator plugin...")
-                plugin_dir = generate_orchestrator_plugin(
-                    project_path=str(project_path),
-                    project_name=os.path.basename(project_path)
-                )
-                print(f"[HARNESS] Plugin generated at {plugin_dir}")
-            except Exception as e:
-                print(f"[HARNESS] Warning: Failed to generate orchestrator plugin: {e}")
-        # --- End Plugin Generation ---
     else:
         print("Error: Boilerplate directory not found.")
         return

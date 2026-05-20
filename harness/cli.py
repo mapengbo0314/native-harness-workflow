@@ -168,6 +168,22 @@ def main():
         sme_agent_name = synthesize_domain_sme_agent(args.project_path, domain_content, harness_folder, platform_choice=platform_choice, model_choice=args.model)
         patch_orchestrator_rules(args.project_path, sme_agent_name, harness_folder, target_syntax=target_syntax)
 
+        # --- Plugin Generation for Claude Code ---
+        from harness.minting_engine import should_generate_orchestrator_plugin
+        from harness.plugin_generator import generate_orchestrator_plugin
+        
+        plugin_dir = None
+        if should_generate_orchestrator_plugin(domain_content, platform_choice):
+            try:
+                print(f"\n[{'='*60}]\n[HARNESS] Generating orchestrator plugin...")
+                plugin_dir = generate_orchestrator_plugin(
+                    project_path=str(args.project_path),
+                    project_name=os.path.basename(args.project_path)
+                )
+            except Exception as e:
+                print(f"[HARNESS] Warning: Failed to generate orchestrator plugin: {e}")
+        # --- End Plugin Generation ---
+
         print(f"\n\n{'='*60}")
         print("🚀 ONBOARDING COMPLETE")
         print(f"\n{'='*60}")
@@ -175,6 +191,10 @@ def main():
         counter = 1
         print(f"\n\n{counter}. Workspace Minted: {target_dir}")
         counter += 1
+        
+        if plugin_dir:
+            print(f"\n{counter}. Orchestrator Plugin Generated: {plugin_dir}")
+            counter += 1
         
         if sme_agent_name:
             print(f"\n{counter}. Domain SME Created: @{sme_agent_name}")
