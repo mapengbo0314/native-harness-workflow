@@ -217,6 +217,12 @@ def generate_orchestrator_plugin(
 
     # Generate plugin source files
     generate_plugin_sources(src_dir)
+    
+    # Copy dispatcher.py from harness directory
+    harness_module_dir = Path(__file__).parent
+    dispatcher_src = harness_module_dir / "dispatcher.py"
+    if dispatcher_src.exists():
+        shutil.copy(dispatcher_src, src_dir / "dispatcher.py")
 
     # Generate pyproject.toml
     generate_pyproject(plugin_dir)
@@ -232,16 +238,109 @@ def generate_plugin_sources(src_dir: Path) -> None:
     # Create __init__.py
     (src_dir / "__init__.py").write_text("")
 
-    # Stub files - will be replaced with full implementation in tasks 8-9
-    (src_dir / "orchestrator_plugin.py").write_text(
-        '"""Plugin entry point - stub for implementation"""\n'
-    )
-    (src_dir / "dispatcher.py").write_text(
-        '"""Dispatcher logic - stub for implementation"""\n'
-    )
-    (src_dir / "interceptor.py").write_text(
-        '"""Hook interception - stub for implementation"""\n'
-    )
+    # Generate orchestrator_plugin.py
+    orchestrator_plugin_content = '''"""
+Orchestrator Plugin for Claude Code.
+
+Enforces Hub-and-Spoke routing through the orchestrator.
+"""
+
+import json
+import os
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+# Import dispatcher (generated in same package)
+from .dispatcher import OrchestratorDispatcher
+
+
+class OrchestratorPlugin:
+    """
+    Main plugin class for Claude Code.
+    
+    Enforces that all agent dispatching goes through the project's orchestrator.
+    """
+    
+    def __init__(self):
+        """Initialize plugin with config from .claude/plugin-generated/config."""
+        plugin_dir = Path(__file__).parent.parent
+        config_dir = plugin_dir / "config"
+        self.dispatcher = OrchestratorDispatcher(str(config_dir))
+    
+    def initialize(self) -> bool:
+        """
+        Initialize plugin. Called when Claude Code loads the plugin.
+        
+        Returns:
+            True if initialization successful
+        """
+        return True
+    
+    def intercept_agent_dispatch(
+        self, 
+        agent_name: str, 
+        context: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Intercept agent dispatch and route through orchestrator.
+        
+        Args:
+            agent_name: Name of the agent being requested
+            context: Execution context
+            
+        Returns:
+            Dispatch result from orchestrator
+        """
+        # Validate rules
+        if not self.dispatcher.validate_against_rules(agent_name):
+            raise PermissionError(f"Agent '{agent_name}' violates project rules")
+        
+        # Route through orchestrator
+        return self.dispatcher.dispatch_agent(agent_name, context)
+
+
+# Plugin singleton
+_plugin_instance: Optional[OrchestratorPlugin] = None
+
+
+def get_plugin() -> OrchestratorPlugin:
+    """Get or create plugin instance."""
+    global _plugin_instance
+    if _plugin_instance is None:
+        _plugin_instance = OrchestratorPlugin()
+    return _plugin_instance
+
+
+def init() -> bool:
+    """
+    Plugin initialization hook. Called by Claude Code on startup.
+    """
+    plugin = get_plugin()
+    return plugin.initialize()
+'''
+    (src_dir / "orchestrator_plugin.py").write_text(orchestrator_plugin_content)
+
+    # Generate interceptor.py
+    interceptor_content = '''"""
+Hook interception for Claude Code agent dispatch.
+"""
+
+from .orchestrator_plugin import get_plugin
+
+
+def intercept_agent_dispatch(agent_name: str, context: dict) -> dict:
+    """
+    Hook function called when Claude Code dispatches an agent.
+    
+    This is registered in plugin.json hooks.agent_dispatch.
+    """
+    plugin = get_plugin()
+    return plugin.intercept_agent_dispatch(agent_name, context)
+'''
+    (src_dir / "interceptor.py").write_text(interceptor_content)
+
+    # Generate a stub for dispatcher.py in case generate_plugin_sources is called in isolation
+    (src_dir / "dispatcher.py").write_text('"""Dispatcher stub"""\n')
 
 
 def generate_pyproject(plugin_dir: Path) -> str:
