@@ -371,16 +371,27 @@ class OrchestratorPlugin:
             prompt: Task instruction
             
         Returns:
-            Result of the dispatch (simulation for now)
+            Result of the dispatch (subagent instructions + prompt)
         """
-        if not self.dispatcher.validate_against_rules(agent_name):
-            return f"PermissionError: Agent '{agent_name}' violates project rules"
+        try:
+            # Validate and route through dispatcher logic
+            dispatch_result = self.dispatcher.dispatch_agent(agent_name, {"prompt": prompt})
+        except Exception as e:
+            return f"Error dispatching task: {str(e)}"
+            
+        # Retrieve the agent's system instructions from the config
+        agents = self.dispatcher.agents_config.get("agents", {})
+        agent_data = agents.get(agent_name, {})
+        agent_source = agent_data.get("source", "No specific agent instructions found.")
         
-        # Simulate dispatching or routing back to orchestrator
         return (
-            f"Successfully routed task to {agent_name}.\\n"
-            f"Prompt received:\\n{prompt}\\n"
-            f"(Orchestrator validation passed)"
+            f"[ORCHESTRATOR APPROVED TASK DISPATCH]\\n"
+            f"You have been authorized to execute this task as: @{agent_name}\\n\\n"
+            f"=== AGENT PERSONA / INSTRUCTIONS ===\\n"
+            f"{agent_source}\\n\\n"
+            f"=== TASK TO EXECUTE ===\\n"
+            f"{prompt}\\n\\n"
+            f"Please execute the task following the agent persona instructions above."
         )
 
 
