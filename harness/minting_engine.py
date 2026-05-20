@@ -254,6 +254,12 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
         # --- End Ghost Injection ---
 
         # --- Plugin Generation for Claude Code ---
+        domain_content = ""
+        domain_doc_path = os.path.join(project_path, "ONBOARDING_DOMAIN.md")
+        if os.path.exists(domain_doc_path):
+            with open(domain_doc_path, "r") as f:
+                domain_content = f.read()
+
         if should_generate_orchestrator_plugin(domain_content, platform_choice):
             try:
                 print("[HARNESS] Generating orchestrator plugin...")
@@ -284,12 +290,6 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
     active_platform = platform_map.get(platform_choice, platform_choice).lower()
 
     # Get selected tools from the domain doc
-    domain_content = ""
-    domain_doc_path = os.path.join(project_path, "ONBOARDING_DOMAIN.md")
-    if os.path.exists(domain_doc_path):
-        with open(domain_doc_path, "r") as f:
-            domain_content = f.read()
-    
     selected_skills, selected_mcps = parse_tool_checklists(domain_content)
 
     import shlex

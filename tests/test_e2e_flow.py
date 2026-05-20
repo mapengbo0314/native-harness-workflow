@@ -80,14 +80,17 @@ def test_e2e_init_flow(
                 "zone": "Logic",
                 "system_prompt": "CustomPrompt"
             })
-        elif "Tool Scout" in prompt:
+        elif "Senior Architect" in prompt:
             return json.dumps({
-                "tech_stack": "Python, Pytest",
-                "skills": [{"name": "fastapi", "url": "https://dummy/fastapi.md"}],
+                "sme_name": "domain-sme",
+                "core_domain_value": "Value",
+                "invariants": ["Invariant 1"],
+                "glossary": {"Term": "Def"},
+                "domain_events": ["Event 1"],
+                "skills": [{"name": "fastapi", "url": "https://dummy/fastapi.md", "type": "extension"}],
                 "mcps": [{"name": "postgres", "command": "npx postgres"}]
             })
         return "{}"
-
     mock_query_llm.side_effect = mock_query_llm_side_effect
     mock_fetch_remote_skill.return_value = "Dummy skill content"
     
