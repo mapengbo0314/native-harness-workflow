@@ -19,7 +19,7 @@ def acquire_mcp_context(project_path: str) -> str:
     # For now, we rely on the agents using the MCP tool themselves, but we can check if DB exists
     codegraph_db = os.path.join(project_path, ".codegraph", "codegraph.db")
     if os.path.exists(codegraph_db):
-        context_parts.append("\nCodeGraph index is available. Use `codegraph_explore` to map the architecture.")
+        context_parts.append("\nCodeGraph index is available. Use `mcp_codegraph_codegraph_node` to map the architecture.")
 
     if context_parts:
         return "\n\n".join(context_parts)
@@ -163,7 +163,7 @@ def discover_agents(context_str: str, feature_fetcher_yaml_path: str, llm_provid
         "3. 'zone': (Domain/Data/Handler/Core).\n"
         "4. 'system_prompt': A comprehensive, 300-500 word Markdown system prompt. This prompt MUST:\n"
         "   - Define their specific expertise relative to the project files.\n"
-        "   - Enforce a 'Graph-First' strategy. Before deep exploration, agents MUST use `codegraph_search` and `codegraph_explore`.\n"
+        "   - Enforce a 'Graph-First' strategy. Before deep exploration, agents MUST use `mcp_codegraph_codegraph_search` and `mcp_codegraph_codegraph_node`.\n"
         "   - Enforce the use of 'codegraph' MCP tools (search, explore, context, callers) and local skills.\n"
         "   - Define their 'Goldfish' phase responsibilities.\n\n"
         "Return as JSON: {'agents': [{'name': '...', 'role': '...', 'zone': '...', 'system_prompt': '...'}]}"
@@ -212,7 +212,7 @@ def discover_custom_agent(name: str, specs: str, context_str: str, ddd_context: 
         "Generate a comprehensive, 300-500 word Markdown system prompt for this agent. The prompt MUST:\n"
         "1. Define their specific expertise relative to the project files.\n"
         "2. Enforce the use of 'codegraph' MCP tools and local skills.\n"
-        "3. Enforce a 'Graph-First' strategy using `codegraph_search` and `codegraph_explore`.\n"
+        "3. Enforce a 'Graph-First' strategy using `mcp_codegraph_codegraph_search` and `mcp_codegraph_codegraph_node`.\n"
         "4. Define their role in the Goldfish Protocol (Phase 3) and Implementation (Phase 4).\n"
         "4. Incorporate the DDD context and ubiquitous language intrinsically.\n\n"
         "Return as JSON: {'name': '...', 'role': '...', 'zone': '...', 'system_prompt': '...'}"
