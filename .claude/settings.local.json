@@ -6,7 +6,16 @@
       "mcp__codegraph__codegraph_context",
       "mcp__codegraph__codegraph_callers",
       "mcp__codegraph__codegraph_impact",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(python -m pytest tests/harness/test_plugin_generator.py -v)",
+      "Bash(python3 -m pytest tests/harness/test_plugin_generator.py -v --tb=line)",
+      "Bash(python3 *)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'feat\\(plugin-gen\\): implement orchestrator plugin generation system \\(tasks 1-11\\) *)",
+      "Bash(git push *)",
+      "Bash(gh pr *)",
+      "Bash(git checkout *)",
+      "Bash(git commit *)"
     ]
   }
 }
