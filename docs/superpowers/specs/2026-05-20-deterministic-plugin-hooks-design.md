@@ -65,12 +65,19 @@ flowchart TD
 
 ## The 5 Deterministic Hooks
 
-### 1. The "Branch A" Auto-Router (`UserPromptSubmit` Hook)
+### 1. The Full Matrix Auto-Router (`UserPromptSubmit` Hook)
 *   **Trigger**: Before the prompt hits the LLM.
-*   **Logic**: Uses logic from `extract_stacktrace.py` to scan for error signatures (`panic:`, `Traceback`, etc.). 
-*   **Action**: Compresses the error to save tokens. Appends a hidden system directive to the prompt:
-    > *[ROUTING OVERRIDE]: Confirmed Bug Fix. Do not output an intent analysis. You MUST use `Skill("systematic-debugging")` and `Task("implementer")`.*
-*   **Value**: Enables **Zero-Shot Routing**. Bypasses the LLM's slow decision matrix and forces immediate, correct delegation.
+*   **Logic**: Performs heuristic intent classification (using regex and keyword matching) to map the user's prompt to the 4 branches defined in `orchestrator.md`.
+*   **Actions based on Classification**:
+    *   **Branch A (Bug/Error)**: If a stack trace (`Traceback`, `panic:`) or bug keywords are detected, it compresses the trace and appends:
+        > *[ROUTING OVERRIDE: Branch A]: Confirmed Bug Fix. You MUST invoke `Skill("systematic-debugging")` and `Task("implementer")`.*
+    *   **Branch B (Feature Request)**: If creation keywords (`build`, `create`, `implement`) are detected, it appends:
+        > *[ROUTING OVERRIDE: Branch B]: Feature Request. You MUST invoke `Skill("harness-brainstorming")` and dispatch `Task("planner")` to write a spec before coding.*
+    *   **Branch C (Codebase Question)**: If question formats (`how does`, `where is`, `explain`) are detected:
+        > *[ROUTING OVERRIDE: Branch C]: Question/Retrieval. Answer directly using CodeGraph tools. DO NOT modify files or dispatch subagents.*
+    *   **Branch D (Surgical Edit)**: If isolated tweak keywords (`typo`, `rename`, `quick fix`) are detected:
+        > *[ROUTING OVERRIDE: Branch D]: Fast-path edit. Bypass planning workflows. Dispatch `Task("implementer")` directly.*
+*   **Value**: Replaces the expensive LLM `<thinking>` phase with instant, deterministic, Zero-Shot Routing across the entire project lifecycle.
 
 ### 2. The Strict TDD Enforcer (`PreToolUse` Hook)
 *   **Trigger**: When Claude tries to use the `Edit` tool.
