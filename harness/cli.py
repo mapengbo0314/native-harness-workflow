@@ -192,7 +192,11 @@ def main():
                 print("[HARNESS] Cleaned up redundant top-level folders for Claude plugin.")
                 
             except Exception as e:
-                print(f"[HARNESS] Warning: Failed to generate orchestrator plugin: {e}")
+                print(f"\n[HARNESS] ❌ ERROR: Failed to generate orchestrator plugin: {e}")
+                print("[HARNESS] Traceback for diagnosis:")
+                import traceback
+                traceback.print_exc()
+                sys.exit(1)
         # --- End Plugin Generation ---
 
         print(f"\n\n{'='*60}")

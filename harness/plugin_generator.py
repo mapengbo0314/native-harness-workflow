@@ -330,63 +330,94 @@ def generate_orchestrator_plugin(
     Returns:
         Path to the generated plugin directory
     """
-    project_path = Path(project_path)
-    plugin_dir = project_path / ".claude" / "plugin-generated"
+    try:
+        project_path = Path(project_path).resolve()
+        plugin_dir = project_path / ".claude" / "plugin-generated"
 
-    # Create directory structure
-    src_dir = plugin_dir / "src"
-    config_dir = plugin_dir / "config"
-    src_dir.mkdir(parents=True, exist_ok=True)
-    config_dir.mkdir(parents=True, exist_ok=True)
+        # Create directory structure
+        src_dir = plugin_dir / "src"
+        config_dir = plugin_dir / "config"
+        src_dir.mkdir(parents=True, exist_ok=True)
+        config_dir.mkdir(parents=True, exist_ok=True)
 
-    harness_dir = project_path / ".claude"
-    
-    # Resolve boilerplate dir
-    bp_dir = Path(boilerplate_dir) if boilerplate_dir else project_path / "boilerplate-agent"
-
-    # Try boilerplate first, then fallback to harness
-    agents_src = bp_dir / "agents" if bp_dir.exists() else harness_dir / "agents"
-    skills_src = bp_dir / "skills" if bp_dir.exists() else harness_dir / "skills"
-
-    # Generate manifest
-    generate_plugin_manifest(str(plugin_dir), project_name, plugin_version, skills_dir=skills_src)
-
-    # Export configs
-    if harness_dir.exists():
-        if (harness_dir / "orchestrator.md").exists():
-            export_orchestrator_config(harness_dir / "orchestrator.md", config_dir)
-        if (harness_dir / "rules").exists():
-            export_rules_config(harness_dir / "rules", config_dir)
-
-    # Deep copy agents and skills
-    if agents_src.exists():
-        shutil.copytree(agents_src, plugin_dir / "agents", dirs_exist_ok=True)
-        export_agents_config(plugin_dir / "agents", config_dir)
+        harness_dir = project_path / ".claude"
         
-    if skills_src.exists():
-        shutil.copytree(skills_src, plugin_dir / "skills", dirs_exist_ok=True)
+        # Resolve boilerplate dir
+        bp_dir = Path(boilerplate_dir).resolve() if boilerplate_dir else (project_path / "boilerplate-agent").resolve()
 
-    scripts_src = bp_dir / "scripts"
-    if scripts_src.exists():
-        shutil.copytree(scripts_src, plugin_dir / "scripts", dirs_exist_ok=True)
+        print(f"[HARNESS] Generating plugin at {plugin_dir}")
+        print(f"[HARNESS] Using boilerplate from {bp_dir}")
 
-    # Export DDD context
-    context_path = project_path / "docs" / "domain" / "CONTEXT.md"
-    export_ddd_context(context_path, config_dir)
+        # Try boilerplate first, then fallback to harness
+        agents_src = bp_dir / "agents"
+        if not agents_src.exists():
+            agents_src = harness_dir / "agents"
+            
+        skills_src = bp_dir / "skills"
+        if not skills_src.exists():
+            skills_src = harness_dir / "skills"
 
-    # Generate plugin source files
-    generate_plugin_sources(src_dir, skills_dir=skills_src)
-    
-    # Copy dispatcher.py from harness directory
-    harness_module_dir = Path(__file__).parent
-    dispatcher_src = harness_module_dir / "dispatcher.py"
-    if dispatcher_src.exists():
-        shutil.copy(dispatcher_src, src_dir / "dispatcher.py")
+        # Generate manifest
+        print(f"[HARNESS] Generating manifest...")
+        generate_plugin_manifest(str(plugin_dir), project_name, plugin_version, skills_dir=skills_src)
 
-    # Generate pyproject.toml
-    generate_pyproject(plugin_dir)
+        # Export configs
+        print(f"[HARNESS] Exporting configs...")
+        if harness_dir.exists():
+            if (harness_dir / "orchestrator.md").exists():
+                export_orchestrator_config(harness_dir / "orchestrator.md", config_dir)
+            if (harness_dir / "rules").exists():
+                export_rules_config(harness_dir / "rules", config_dir)
 
-    return str(plugin_dir)
+        # Deep copy agents and skills
+        if agents_src.exists():
+            print(f"[HARNESS] Copying agents from {agents_src}...")
+            shutil.copytree(agents_src, plugin_dir / "agents", dirs_exist_ok=True)
+            export_agents_config(plugin_dir / "agents", config_dir)
+        else:
+            print(f"[HARNESS] Warning: Agents source {agents_src} not found.")
+            
+        if skills_src.exists():
+            print(f"[HARNESS] Copying skills from {skills_src}...")
+            shutil.copytree(skills_src, plugin_dir / "skills", dirs_exist_ok=True)
+        else:
+            print(f"[HARNESS] Warning: Skills source {skills_src} not found.")
+
+        scripts_src = bp_dir / "scripts"
+        if scripts_src.exists():
+            print(f"[HARNESS] Copying scripts from {scripts_src}...")
+            shutil.copytree(scripts_src, plugin_dir / "scripts", dirs_exist_ok=True)
+        else:
+            print(f"[HARNESS] Warning: Scripts source {scripts_src} not found.")
+
+        # Export DDD context
+        context_path = project_path / "docs" / "domain" / "CONTEXT.md"
+        print(f"[HARNESS] Exporting DDD context from {context_path}...")
+        export_ddd_context(context_path, config_dir)
+
+        # Generate plugin source files
+        print(f"[HARNESS] Generating plugin sources...")
+        generate_plugin_sources(src_dir, skills_dir=skills_src)
+        
+        # Copy dispatcher.py from harness directory
+        harness_module_dir = Path(__file__).parent
+        dispatcher_src = harness_module_dir / "dispatcher.py"
+        if dispatcher_src.exists():
+            print(f"[HARNESS] Copying dispatcher.py...")
+            shutil.copy(dispatcher_src, src_dir / "dispatcher.py")
+        else:
+            print(f"[HARNESS] Warning: dispatcher.py not found at {dispatcher_src}")
+
+        # Generate pyproject.toml
+        generate_pyproject(plugin_dir)
+
+        print(f"[HARNESS] Plugin generation complete.")
+        return str(plugin_dir)
+    except Exception as e:
+        print(f"[HARNESS] ERROR during plugin generation: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 def generate_plugin_sources(src_dir: Path, skills_dir: Optional[Path] = None) -> None:

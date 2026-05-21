@@ -372,9 +372,9 @@ PY
 
 echo "Registering codegraph with Claude Code..."
 if command -v claude >/dev/null 2>&1; then
-    claude mcp add --scope project codegraph npx --yes @colbymchenry/codegraph serve --mcp || echo "Warning: Failed to add codegraph to Claude MCP"
+    claude mcp add --scope project codegraph npx @colbymchenry/codegraph serve --mcp || echo "Warning: Failed to add codegraph to Claude MCP"
 else
-    echo "Warning: 'claude' CLI not found. Run 'claude mcp add --scope project codegraph npx --yes @colbymchenry/codegraph serve --mcp' manually."
+    echo "Warning: 'claude' CLI not found. Run 'claude mcp add --scope project codegraph npx @colbymchenry/codegraph serve --mcp' manually."
 fi
 
 echo "Running generated plugin smoke test..."
