@@ -18,7 +18,7 @@ Rewrite `harness/plugin_generator.py` to match the V4 Deterministic Plugin Hooks
 3. Implement 5-Verb operational guardrails inside the generated code.
 4. Add tests to verify the content of the generated `dispatcher.py` meets the new requirements.
 
-## Task 3: Phase 3 - Standalone Hooks Execution
+## Task 3: Phase 3 - Standalone Hooks Execution (DONE)
 **Context:** Generate isolated hook scripts with cross-platform compatibility.
 **Steps:**
 1. Update the generator to create a new `src/hooks/` directory.

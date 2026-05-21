@@ -271,7 +271,13 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
     active_platform = platform_map.get(platform_choice, platform_choice).lower()
 
     # Get selected tools from the domain doc
-    selected_skills, selected_mcps = parse_tool_checklists(domain_content)
+    domain_content_str = ddd_context.get("source", "") if ddd_context else ""
+    if not domain_content_str:
+        domain_doc_path = os.path.join(project_path, "ONBOARDING_DOMAIN.md")
+        if os.path.exists(domain_doc_path):
+            with open(domain_doc_path, "r") as f:
+                domain_content_str = f.read()
+    selected_skills, selected_mcps = parse_tool_checklists(domain_content_str)
 
     import shlex
     escaped_project_path = os.path.abspath(project_path)
