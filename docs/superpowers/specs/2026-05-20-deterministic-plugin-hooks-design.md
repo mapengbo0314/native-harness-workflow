@@ -23,9 +23,17 @@ Create a **Zero-Config Portable Harness**. When a user selects "Claude Code" dur
 
 ---
 
+## The Standard Payload (From Boilerplate)
+
+The true value of the plugin is not just the framework, but the native "Superpowers" it injects. Previous iterations failed because they did not explicitly bundle the core procedures. The V4 plugin MUST bundle the following **authoritative standard payload** sourced directly from the `boilerplate-agent/` directory:
+
+1.  **Hub-and-Spoke Subagents:** `@orchestrator`, `@planner`, `@implementer`, `@reviewer`, `@verifier`, `@refactorer`, `@linter-agent`, `@security-auditor`, `@feature-fetcher`, `@harnesstdd`, etc.
+2.  **Core Harness Skills:** All `harness-*` prefix skills (e.g., `harness-brainstorming`, `harness-test-driven-development`, `harness-subagent-driven-development`), plus essential workflows like `diagnose`, `ddd-alignment`, `prompt-engineer`, and `meta-learning`.
+3.  **Governance Scripts:** Local Python evaluation scripts inside `boilerplate-agent/scripts` (e.g., `gatekeeper.py`, `extract_stacktrace.py`).
+
 ## The Self-Contained Architecture
 
-The plugin folder (`.claude/plugin-generated/`) now owns the entire project intelligence.
+The plugin folder (`.claude/plugin-generated/`) now owns the entire project intelligence, acting as the undisputed source of truth.
 
 ```text
 .claude/plugin-generated/
@@ -36,16 +44,16 @@ The plugin folder (`.claude/plugin-generated/`) now owns the entire project inte
 │   ├── hooks/                     # Executable hook scripts (e.g., prompt_interceptor.py)
 │   ├── tools.py                   # Handlers for dynamically registered skill tools and Task()
 │   └── dispatcher.py              # Orchestrator routing logic & Matrix classification
-├── agents/                        # Bundled subagent .md files
+├── agents/                        # The FULL suite of deep-copied boilerplate subagents
 │   ├── implementer.md
 │   ├── planner.md
+│   ├── verifier.md                # (And all others from boilerplate-agent/agents/)
 │   └── domain-sme.md              # Synthesized during init
-├── skills/                        # Deep-copied procedural workflows (including scripts/templates)
-│   ├── systematic-debugging/
-│   ├── brainstorming/
-│   │   ├── SKILL.md
-│   │   └── scripts/               # Preserved execution scripts
-│   └── test-driven-development/
+├── skills/                        # The FULL suite of deep-copied boilerplate skills
+│   ├── harness-brainstorming/     # MUST include all harness-* workflows
+│   ├── diagnose/
+│   ├── ddd-alignment/
+│   └── ...                        # (All other boilerplate skills + their scripts/templates)
 └── config/                        # Project-specific context
     ├── ddd-context.json           # Live DDD invariants
     └── rules.json                 # Core mandates
