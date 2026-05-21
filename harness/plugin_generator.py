@@ -8,7 +8,8 @@ from typing import Any, Dict, Optional
 def generate_plugin_manifest(
     target_dir: str,
     project_name: str,
-    plugin_version: str = "1.0.0"
+    plugin_version: str = "1.0.0",
+    skills_dir: Optional[Path] = None
 ) -> str:
     """Generate plugin.json manifest for the orchestrator plugin.
 
@@ -16,6 +17,7 @@ def generate_plugin_manifest(
         target_dir: Directory to generate plugin in (e.g., .claude/plugin-generated)
         project_name: Name of the project (for display)
         plugin_version: Version of the plugin
+        skills_dir: Optional path to skills directory to register dynamic tools
 
     Returns:
         Path to the generated plugin.json
@@ -23,6 +25,63 @@ def generate_plugin_manifest(
     plugin_dir = Path(target_dir)
     claude_plugin_dir = plugin_dir / ".claude-plugin"
     claude_plugin_dir.mkdir(parents=True, exist_ok=True)
+
+    tools = [
+        {
+            "name": "Skill",
+            "description": "Invoke a specialized agent skill by name",
+            "entry_point": "src/tools.py:invoke_skill",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Name of the skill to invoke"
+                    }
+                },
+                "required": ["name"]
+            }
+        },
+        {
+            "name": "Task",
+            "description": "Invoke a subagent to perform a specific task",
+            "entry_point": "src/tools.py:invoke_task",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "agent_name": {
+                        "type": "string",
+                        "description": "Name of the subagent to invoke"
+                    },
+                    "prompt": {
+                        "type": "string",
+                        "description": "The prompt or instruction for the subagent"
+                    }
+                },
+                "required": ["agent_name", "prompt"]
+            }
+        }
+    ]
+
+    if skills_dir and skills_dir.exists():
+        # Get top 10 skills
+        skill_dirs = [d for d in skills_dir.iterdir() if d.is_dir() and (d / "SKILL.md").exists()]
+        # Sort for determinism
+        skill_dirs.sort(key=lambda d: d.name)
+        top_skills = skill_dirs[:10]
+
+        for skill_dir in top_skills:
+            skill_name = skill_dir.name
+            safe_name = skill_name.replace('-', '_')
+            tools.append({
+                "name": f"skill_{safe_name}",
+                "description": f"Invoke the specialized '{skill_name}' skill directly.",
+                "entry_point": f"src/tools.py:invoke_specific_skill_{safe_name}",
+                "parameters": {
+                    "type": "object",
+                    "properties": {}
+                }
+            })
 
     manifest = {
         "name": "orchestrator-plugin",
@@ -37,54 +96,26 @@ def generate_plugin_manifest(
             "typing_extensions"
         ],
         "hooks": {
+            "UserPromptSubmit": [
+                {
+                    "type": "command",
+                    "command": "python -m src.hooks.prompt_interceptor"
+                }
+            ],
             "PreToolUse": [
                 {
-                    "matcher": "Task",
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/src/interceptor.py\""
-                        }
-                    ]
+                    "type": "command",
+                    "command": "python -m src.hooks.pre_tool_guard"
+                }
+            ],
+            "Stop": [
+                {
+                    "type": "command",
+                    "command": "python -m src.hooks.stop_monitor"
                 }
             ]
         },
-        "tools": [
-            {
-                "name": "Skill",
-                "description": "Invoke a specialized agent skill by name",
-                "entry_point": "src/tools.py:invoke_skill",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "name": {
-                            "type": "string",
-                            "description": "Name of the skill to invoke"
-                        }
-                    },
-                    "required": ["name"]
-                }
-            },
-            {
-                "name": "Task",
-                "description": "Invoke a subagent to perform a specific task",
-                "entry_point": "src/tools.py:invoke_task",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "agent_name": {
-                            "type": "string",
-                            "description": "Name of the subagent to invoke"
-                        },
-                        "prompt": {
-                            "type": "string",
-                            "description": "The prompt or instruction for the subagent"
-                        }
-                    },
-                    "required": ["agent_name", "prompt"]
-                }
-            }
-        ]
+        "tools": tools
     }
 
     manifest_path = claude_plugin_dir / "plugin.json"
@@ -265,11 +296,17 @@ def generate_orchestrator_plugin(
     src_dir.mkdir(parents=True, exist_ok=True)
     config_dir.mkdir(parents=True, exist_ok=True)
 
+    harness_dir = project_path / ".claude"
+    boilerplate_dir = project_path / "boilerplate-agent"
+
+    # Try boilerplate first, then fallback to harness
+    agents_src = boilerplate_dir / "agents" if boilerplate_dir.exists() else harness_dir / "agents"
+    skills_src = boilerplate_dir / "skills" if boilerplate_dir.exists() else harness_dir / "skills"
+
     # Generate manifest
-    generate_plugin_manifest(str(plugin_dir), project_name, plugin_version)
+    generate_plugin_manifest(str(plugin_dir), project_name, plugin_version, skills_dir=skills_src)
 
     # Export configs
-    harness_dir = project_path / ".claude"
     if harness_dir.exists():
         if (harness_dir / "orchestrator.md").exists():
             export_orchestrator_config(harness_dir / "orchestrator.md", config_dir)
@@ -277,14 +314,9 @@ def generate_orchestrator_plugin(
             export_rules_config(harness_dir / "rules", config_dir)
 
     # Deep copy agents and skills
-    boilerplate_dir = project_path / "boilerplate-agent"
-    
-    # Try boilerplate first, then fallback to harness
-    agents_src = boilerplate_dir / "agents" if boilerplate_dir.exists() else harness_dir / "agents"
     if agents_src.exists():
         shutil.copytree(agents_src, plugin_dir / "agents", dirs_exist_ok=True)
         
-    skills_src = boilerplate_dir / "skills" if boilerplate_dir.exists() else harness_dir / "skills"
     if skills_src.exists():
         shutil.copytree(skills_src, plugin_dir / "skills", dirs_exist_ok=True)
 
@@ -293,7 +325,7 @@ def generate_orchestrator_plugin(
     export_ddd_context(context_path, config_dir)
 
     # Generate plugin source files
-    generate_plugin_sources(src_dir)
+    generate_plugin_sources(src_dir, skills_dir=skills_src)
     
     # Copy dispatcher.py from harness directory
     harness_module_dir = Path(__file__).parent
@@ -307,7 +339,7 @@ def generate_orchestrator_plugin(
     return str(plugin_dir)
 
 
-def generate_plugin_sources(src_dir: Path) -> None:
+def generate_plugin_sources(src_dir: Path, skills_dir: Optional[Path] = None) -> None:
     """Generate plugin source files: orchestrator_plugin.py, dispatcher.py, interceptor.py."""
     src_dir = Path(src_dir)
     src_dir.mkdir(parents=True, exist_ok=True)
@@ -503,6 +535,24 @@ def invoke_task(agent_name: str, prompt: str) -> str:
     plugin = get_plugin()
     return plugin.dispatch_task(agent_name, prompt)
 '''
+
+    if skills_dir and skills_dir.exists():
+        # Get top 10 skills
+        skill_dirs = [d for d in skills_dir.iterdir() if d.is_dir() and (d / "SKILL.md").exists()]
+        skill_dirs.sort(key=lambda d: d.name)
+        top_skills = skill_dirs[:10]
+
+        for skill_dir in top_skills:
+            skill_name = skill_dir.name
+            safe_name = skill_name.replace('-', '_')
+            tools_content += f'''
+def invoke_specific_skill_{safe_name}() -> str:
+    """
+    Tool function to load the '{skill_name}' skill directly.
+    """
+    return invoke_skill("{skill_name}")
+'''
+
     (src_dir / "tools.py").write_text(tools_content)
 
     # Generate a stub for dispatcher.py in case generate_plugin_sources is called in isolation
