@@ -21,48 +21,44 @@ Create a "Perfect Harness" that translates markdown mandates into **executable P
 
 ## Architectural Lifecycle Diagram
 
-This diagram illustrates how the Python plugin intercepts Claude Code's native event lifecycle to enforce the harness deterministically.
+This diagram illustrates how the Python plugin intercepts Claude Code's native event lifecycle to enforce the harness deterministically. The layout represents the iterative "Agent Loop".
 
 ```mermaid
-graph TD
-    %% User Input Phase
-    User[User Input / Prompt] --> UPS[UserPromptSubmit Hook]
+flowchart TD
+    User([User Input]) --> UPS{UserPromptSubmit}
     
-    %% Branch A Routing
-    UPS -- "Detects Stack Trace" --> BranchA[Branch A: Fast-Path Router<br/>Compress trace, append instructions]
-    BranchA --> LLM
-    UPS -- "Clean Prompt" --> LLM[Claude LLM / Orchestrator]
+    %% Input Interception
+    UPS -- "Stack Trace" --> Compress[Compress & Append Routing] --> LLM
+    UPS -- "Clean" --> LLM((Claude LLM))
     
-    %% Tool Interception Phase
-    LLM -- "Attempts Read" --> PTU_Read[PreToolUse: Read]
-    PTU_Read -- "> 100 lines" --> BlockRead[Block! Suggest CodeGraph]
-    PTU_Read -- "Valid Read" --> ExecRead[Execute Read]
+    %% Tool Interception (Pre)
+    LLM -- "Call Tool" --> PreHook{PreToolUse}
     
-    LLM -- "Attempts Edit" --> PTU_Edit[PreToolUse: Edit]
-    PTU_Edit -- "No failing test run" --> BlockEdit[Block! Enforce TDD Mandate]
-    PTU_Edit -- "TDD Verified" --> ExecEdit[Execute Edit]
+    PreHook -- "Read >100L" --> BlockRead[Block: Use CodeGraph] --> LLM
+    PreHook -- "Edit w/o TDD" --> BlockEdit[Block: Run Tests First] --> LLM
+    PreHook -- "Task(Subagent)" --> Lazy[Lazy Load Context] --> Exec[Execute Tool]
+    PreHook -- "Valid Tool" --> Exec
     
-    LLM -- "Dispatches Subagent" --> PTU_Task[PreToolUse: Task]
-    PTU_Task --> LazyLoad[Lazy Load DDD Context &<br/>Subagent Persona]
-    LazyLoad --> ExecTask[Execute Task]
+    %% Tool Interception (Post)
+    Exec --> PostHook{PostToolUse}
+    PostHook -- "Planner Output" --> ArchGuard[Validate DDD] --> LLM
+    PostHook -- "Other Tools" --> LLM
     
-    %% Post Task Phase
-    ExecTask -- "@planner Finishes" --> PoTU_Task[PostToolUse: Task]
-    PoTU_Task --> DDDCheck[Domain Architect Guardrail:<br/>Verify DDD Alignment]
-    
-    %% Completion Phase
-    LLM -- "Attempts to Finish" --> Stop[Stop Hook]
-    Stop --> Gatekeeper[Automated Gatekeeper]
-    Gatekeeper -- "Tests Fail" --> RejectStop[Reject Stop, Force Fix]
-    Gatekeeper -- "Tests Pass" --> End[Session Complete]
+    %% Stop Interception
+    LLM -- "Attempt to Finish" --> StopHook{Stop Hook}
+    StopHook --> Gate[Run Gatekeeper]
+    Gate -- "Tests Fail" --> Reject[Block: Fix Errors] --> LLM
+    Gate -- "Tests Pass" --> Done([Session Complete])
 
-    classDef hook fill:#f9f,stroke:#333,stroke-width:2px;
-    classDef block fill:#f99,stroke:#333,stroke-width:2px;
-    classDef success fill:#9f9,stroke:#333,stroke-width:2px;
+    classDef hook fill:#f9f,stroke:#333,stroke-width:2px,color:#000;
+    classDef block fill:#f99,stroke:#333,stroke-width:2px,color:#000;
+    classDef agent fill:#9cf,stroke:#333,stroke-width:2px,color:#000;
+    classDef user fill:#ccc,stroke:#333,stroke-width:2px,color:#000;
     
-    class UPS,PTU_Read,PTU_Edit,PTU_Task,PoTU_Task,Stop hook;
-    class BlockRead,BlockEdit,RejectStop block;
-    class End,ExecRead,ExecEdit,ExecTask success;
+    class UPS,PreHook,PostHook,StopHook hook;
+    class BlockRead,BlockEdit,Reject block;
+    class LLM agent;
+    class User,Done user;
 ```
 
 ---
