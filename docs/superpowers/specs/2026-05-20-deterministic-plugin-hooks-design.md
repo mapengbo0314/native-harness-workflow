@@ -61,47 +61,40 @@ The plugin folder (`.claude/plugin-generated/`) now owns the entire project inte
 
 ---
 
-## Architectural Lifecycle Diagram (The Deterministic Loop)
+## The Sequential Runtime Flow (The "Straightjacket")
 
-```mermaid
-flowchart TD
-    User([User Input]) --> UPS{UserPromptSubmit Hook}
-    
-    %% Input Interception - Matrix Routing
-    UPS -- "Detected Stack Trace" --> BranchA[Branch A: Error Router<br/>Compress trace, force debugging] --> LLM
-    UPS -- "Build/Create Req" --> BranchB[Branch B: Feature Router<br/>Force Brainstorming + Planner] --> LLM
-    UPS -- "How/Where Question" --> BranchC[Branch C: Question Router<br/>Force CodeGraph/Direct Answer] --> LLM
-    UPS -- "Clean/Simple Prompt" --> LLM((Claude LLM / Orchestrator))
-    
-    %% Tool Interception (Pre)
-    LLM -- "Call Tool" --> PreHook{PreToolUse Hook}
-    
-    PreHook -- "Read >100L" --> BlockRead[Block! Enforce CodeGraph Search] --> LLM
-    PreHook -- "Edit w/o TDD" --> BlockEdit[Block! Enforce Failing Test] --> LLM
-    PreHook -- "Task(Subagent)" --> Lazy[Lazy Load Bundled Persona &<br/>DDD Context from Plugin] --> Exec[Execute Tool]
-    PreHook -- "Valid Tool" --> Exec
-    
-    %% Post Task Phase
-    Exec --> PostHook{PostToolUse Hook}
-    PostHook -- "Planner Output" --> ArchGuard[Domain Architect Guardrail:<br/>Verify Invariants] --> LLM
-    PostHook -- "Other Tools" --> LLM
-    
-    %% Stop Interception
-    LLM -- "Attempt to Finish" --> StopHook{Stop Hook}
-    StopHook --> Gate[Run Gatekeeper.py]
-    Gate -- "Tests Fail" --> Reject[Block! Force Fixes] --> LLM
-    Gate -- "Tests Pass" --> Done([Session Complete])
+By implementing these deterministic hooks, the plugin *becomes* the Harness. We effectively eliminate the need for an "outside harness" (like CLI wrappers or external babysitting scripts) during runtime. The outside harness (`harness-wf`) is relegated purely to a Build Tool used at Day 0. Once Claude Code starts, the Plugin is 100% in control.
 
-    classDef hook fill:#f9f,stroke:#333,stroke-width:2px,color:#000;
-    classDef block fill:#f99,stroke:#333,stroke-width:2px,color:#000;
-    classDef agent fill:#9cf,stroke:#333,stroke-width:2px,color:#000;
-    classDef user fill:#ccc,stroke:#333,stroke-width:2px,color:#000;
-    
-    class UPS,PreHook,PostHook,StopHook hook;
-    class BlockRead,BlockEdit,Reject block;
-    class LLM agent;
-    class User,Done user;
-```
+Here is the exact sequential connection of how a task flows deterministically through this new architecture:
+
+1.  **The Trigger (UserPromptSubmit Hook)**
+    *   *Action:* User pastes a stack trace and says "Fix this".
+    *   *Hook Interception:* The `UPS Hook` catches the text before the AI sees it. It identifies "Branch A: Bug Fix", compresses the stack trace to save tokens, and wraps the prompt in invisible system XML: `<matrix_route>CRITICAL DIRECTIVE: Bypass Planning. Dispatch @implementer immediately.</matrix_route>`.
+
+2.  **The Firewall (PreToolUse Hook - Orchestrator Phase)**
+    *   *Action:* The Orchestrator reads the prompt and attempts to use the `Edit` or `Bash` tool to fix the code directly.
+    *   *Hook Interception:* The `PreToolUse Hook` intercepts. It checks the active persona (Orchestrator) and blocks the execution natively.
+    *   *Result:* The hook returns a hard error: `[VIOLATION]: Orchestrators cannot write code. Use the Task() tool to delegate.`
+
+3.  **The Dispatch & Auto-Injection (PreToolUse Hook - Task Interception)**
+    *   *Action:* The Orchestrator complies and calls `Task("@implementer", "Fix the bug in main.py")`.
+    *   *Hook Interception:* The hook reaches into the bundled payload to grab the `@implementer` markdown rules. It also *mutates* the orchestrator's prompt, appending: `[MANDATORY]: Your first action MUST be to invoke skill_harnesstdd().`
+    *   *Result:* The subagent is launched, pre-loaded with its DDD context and forcibly instructed to use TDD.
+
+4.  **The TDD & CodeGraph Enforcement (PreToolUse Hook - Subagent Phase)**
+    *   *Action:* The `@implementer` attempts to use `Edit` without writing a test, or `Bash(grep)` without querying CodeGraph.
+    *   *Hook Interception:* The hook checks local session state.
+    *   *Result:* If a test hasn't failed first, it returns: `[TDD VIOLATION]: You must write and run a failing test before modifying production code.` If CodeGraph hasn't been used, it returns: `[EFFICIENCY VIOLATION]: Graph-First Strategy enforced. Query CodeGraph MCP before using grep.`
+
+5.  **The Verification Guardrail (Stop Hook)**
+    *   *Action:* The bug is fixed, tests pass, and the Orchestrator attempts to end the session.
+    *   *Hook Interception:* The `Stop Hook` intercepts the session termination. It checks for the existence of `artifacts/verification_report.md`.
+    *   *Result:* If missing, it returns: `[QA REQUIRED]: You cannot exit. Dispatch Task("@verifier") to perform robustness checks.`
+
+6.  **Final Exit & Governance**
+    *   *Action:* The `@verifier` finishes its report. The Orchestrator tries to exit again.
+    *   *Hook Interception:* The `Stop Hook` runs the bundled `gatekeeper.py` script locally to perform final validation.
+    *   *Result:* If `gatekeeper.py` passes, the session gracefully terminates.
 
 ---
 
