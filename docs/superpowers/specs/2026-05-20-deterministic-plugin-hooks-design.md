@@ -98,27 +98,26 @@ Here is the exact sequential connection of how a task flows deterministically th
 
 ---
 
-## Advanced Guardrails & Persistence (The Logic Engine)
+## Native Python Guardrails & Local Persistence
 
-To resolve the "State Blindness" and "Hostage Scenario" flaws, the V4 plugin leverages proven patterns from the `harness-mem` and `claude-code-harness` ecosystems, transforming the hooks into a high-performance, deterministic execution engine.
+To resolve "State Blindness" and "Hostage Scenarios" while maintaining a strictly "Zero-Config" and highly portable architecture, the plugin leverages a **Native Python + Local JSON** enforcement model. This explicitly rejects the use of external Go binaries or global SQLite databases, ensuring the harness remains perfectly isolated per developer and per Git branch.
 
-### 1. The Continuity Runtime (State Persistence)
-Instead of volatile local files, the plugin implements a project-scoped **SQLite Memory Store** (`~/.harness-mem/project.db`).
-*   **Persona Tracking:** The `Task()` tool writes the `active_persona` and `parent_task_id` to the DB.
-*   **Compliance Tracking:** Hooks query the DB to verify if a failing test has been recorded or if CodeGraph has been explored before allowing file modifications.
-*   **Session Continuity:** A `SessionStart` hook feeds the "Continuity Briefing" (WIP tasks, last decision) into the first turn, eliminating the "blank slate" problem.
+### 1. The Local JSON State Store (Per-Developer Isolation)
+State is tracked via a simple, git-ignored JSON file located at `.claude/plugin-generated/config/.harness_state.json`.
+*   **Persona Tracking:** The `Task()` tool writes the `active_persona` to this local JSON file. Hooks read this file to know who is executing tools.
+*   **Compliance Verification:** When the AI runs a test, the hook updates the JSON state. When the AI attempts to use `Edit`, the hook checks the JSON state to ensure a failing test was recently recorded.
+*   **Branch Isolation:** Because the file lives inside the project workspace (and is git-ignored), there is zero risk of state leaking across different Git branches or between different engineers working on the same repository.
 
-### 2. Go-Native Guardrail Engine (The Straightjacket)
-Critical enforcement logic is offloaded to a **Go-native binary** (integrated via Python `subprocess` calls in hooks) to ensure sub-10ms validation latency.
-*   **Hard Deny Rules:** Deterministic blocking of `sudo`, `.env` modifications, and `git push --force`.
-*   **Interactive Safeguards:** Forces an `ask_user` confirmation for high-risk commands like `rm -rf` or direct pushes to `main`.
-*   **5-Verb Operational Surface:** Restricts agents to a disciplined lifecycle: `/plan`, `/work`, `/review`, `/release`, `/setup`.
+### 2. Native Python Guardrail Engine (Zero-Latency Enforcement)
+Critical enforcement logic is implemented directly within the generated Python hook scripts, eliminating the 15-50ms latency penalty associated with spawning external binaries.
+*   **Hard Deny Rules:** Python natively inspects `Bash` tool payloads, blocking `sudo`, `.env` modifications, and `git push --force`.
+*   **Interactive Safeguards:** Python scripts intercept high-risk commands (e.g., `rm -rf`) and inject an `ask_user` tool call back to the AI, forcing human confirmation.
+*   **5-Verb Operational Surface:** The Python dispatcher restricts subagent intent to a disciplined lifecycle: `/plan`, `/work`, `/review`, `/release`, `/setup`.
 
 ### 3. Escape Hatches (Anti-Stall Logic)
 To prevent infinite retry loops and "hostage" terminal states:
-*   **Auto-Escalation Rule:** If a hook blocks a tool call 3 consecutive times, it automatically triggers a **Recovery Flow**, injecting an `ask_user` prompt to request human intervention.
-*   **PreCompact Guard:** Prevents Claude's automatic context compaction if a subagent is in a "WIP" state, ensuring the task context isn't truncated mid-flight.
-*   **Human Interrupt Awareness:** The `Stop` hook is programmed to detect SIGINT (Ctrl+C) and allows an immediate exit without blocking for QA, though it marks the session as "Incomplete" in the DB.
+*   **Auto-Escalation Rule:** The local JSON tracks hook rejections. If a hook blocks a tool 3 consecutive times, the Python script triggers a **Recovery Flow**, mutating the prompt to force the AI to `ask_user` for help.
+*   **Human Interrupt Awareness:** The `Stop` hook is designed to recognize human interruptions (SIGINT). If a user forces an exit, the hook bypasses QA guardrails but marks the local JSON session as "Incomplete."
 
 ---
 
