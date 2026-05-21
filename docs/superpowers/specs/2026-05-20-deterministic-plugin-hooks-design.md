@@ -98,6 +98,30 @@ Here is the exact sequential connection of how a task flows deterministically th
 
 ---
 
+## Advanced Guardrails & Persistence (The Logic Engine)
+
+To resolve the "State Blindness" and "Hostage Scenario" flaws, the V4 plugin leverages proven patterns from the `harness-mem` and `claude-code-harness` ecosystems, transforming the hooks into a high-performance, deterministic execution engine.
+
+### 1. The Continuity Runtime (State Persistence)
+Instead of volatile local files, the plugin implements a project-scoped **SQLite Memory Store** (`~/.harness-mem/project.db`).
+*   **Persona Tracking:** The `Task()` tool writes the `active_persona` and `parent_task_id` to the DB.
+*   **Compliance Tracking:** Hooks query the DB to verify if a failing test has been recorded or if CodeGraph has been explored before allowing file modifications.
+*   **Session Continuity:** A `SessionStart` hook feeds the "Continuity Briefing" (WIP tasks, last decision) into the first turn, eliminating the "blank slate" problem.
+
+### 2. Go-Native Guardrail Engine (The Straightjacket)
+Critical enforcement logic is offloaded to a **Go-native binary** (integrated via Python `subprocess` calls in hooks) to ensure sub-10ms validation latency.
+*   **Hard Deny Rules:** Deterministic blocking of `sudo`, `.env` modifications, and `git push --force`.
+*   **Interactive Safeguards:** Forces an `ask_user` confirmation for high-risk commands like `rm -rf` or direct pushes to `main`.
+*   **5-Verb Operational Surface:** Restricts agents to a disciplined lifecycle: `/plan`, `/work`, `/review`, `/release`, `/setup`.
+
+### 3. Escape Hatches (Anti-Stall Logic)
+To prevent infinite retry loops and "hostage" terminal states:
+*   **Auto-Escalation Rule:** If a hook blocks a tool call 3 consecutive times, it automatically triggers a **Recovery Flow**, injecting an `ask_user` prompt to request human intervention.
+*   **PreCompact Guard:** Prevents Claude's automatic context compaction if a subagent is in a "WIP" state, ensuring the task context isn't truncated mid-flight.
+*   **Human Interrupt Awareness:** The `Stop` hook is programmed to detect SIGINT (Ctrl+C) and allows an immediate exit without blocking for QA, though it marks the session as "Incomplete" in the DB.
+
+---
+
 ## Technical Revisions for V4 Implementation
 
 To ensure perfect integration with the harness, the following technical shifts from V3 are required:
@@ -108,13 +132,13 @@ To ensure perfect integration with the harness, the following technical shifts f
 2.  **Deep Copy Migration:** 
     *   `plugin_generator.py` must perform a recursive file tree copy (`shutil.copytree`) for the `skills/` and `agents/` directories, rather than just extracting markdown text. This prevents "lobotomizing" skills like `brainstorming` that rely on nested `scripts/` or HTML templates.
 3.  **Active Matrix Routing (The UPS Hook):** 
-    *   The `UserPromptSubmit` hook must implement heuristic classification.
-    *   It will analyze the user prompt and **inject hidden context**. For example, if a stack trace is detected (Branch A), the hook will prepend: `[ORCHESTRATOR ROUTE: BUG_FIX. SKIP PLANNING. USE SYSTEMATIC-DEBUGGING. GO STRAIGHT TO @IMPLEMENTER.]`
+    *   The `UserPromptSubmit` hook implements heuristic classification but uses **Strong Suggestions** rather than blind overrides.
+    *   Example: `[ORCHESTRATOR ROUTE ADVICE]: A stack trace was detected. If the user is asking to fix this bug, dispatch @implementer. Otherwise, answer the query.`
     *   It will also perform pre-emptive token compression (e.g., calling an `extract_stacktrace` utility) before passing the prompt to the LLM.
 4.  **Dynamic Skill Tools:** 
-    *   Instead of a single, generic `Skill` tool that requires the LLM to know the skill name, the manifest generator will scan the deep-copied `skills/` directory and dynamically generate first-class tools for each skill in `plugin.json` (e.g., `skill_tdd()`, `skill_brainstorming()`). This improves LLM discoverability and auto-completion.
+    *   Instead of a single, generic `Skill` tool, the manifest generator dynamically generates first-class tools for each skill in `plugin.json` (e.g., `skill_tdd()`, `skill_brainstorming()`). This improves LLM discoverability and auto-completion.
 5.  **CodeGraph Enforcement:** 
-    *   The `initialize` hook (or post-install script) must verify the presence of the `codegraph` MCP server in the host configuration, prompting installation if missing, enforcing the "Graph-First" strategy.
+    *   The `initialize` hook (or post-install script) verifies the presence of the `codegraph` MCP server in the host configuration, prompting installation if missing, enforcing the "Graph-First" strategy.
 
 ---
 
