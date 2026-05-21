@@ -66,12 +66,26 @@ class OrchestratorDispatcher:
             try:
                 with open(self.state_file, 'r') as f:
                     return json.load(f)
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, OSError, PermissionError):
                 pass
         return {"active_persona": "orchestrator", "tdd_status": "inactive"}
 
     def _save_state(self, state: Dict[str, Any], timeout: float = 5.0) -> None:
         """Save state to .harness_state.json atomically using a directory lock."""
+        import os
+        import time
+        import shutil
+
+        if self.lock_dir.exists():
+            try:
+                if time.time() - os.path.getmtime(self.lock_dir) > 10.0:
+                    try:
+                        self.lock_dir.rmdir()
+                    except OSError:
+                        shutil.rmtree(self.lock_dir, ignore_errors=True)
+            except OSError:
+                pass
+
         start_time = time.time()
         while True:
             try:

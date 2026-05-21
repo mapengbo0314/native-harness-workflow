@@ -320,6 +320,10 @@ def generate_orchestrator_plugin(
     if skills_src.exists():
         shutil.copytree(skills_src, plugin_dir / "skills", dirs_exist_ok=True)
 
+    scripts_src = boilerplate_dir / "scripts"
+    if scripts_src.exists():
+        shutil.copytree(scripts_src, plugin_dir / "scripts", dirs_exist_ok=True)
+
     # Export DDD context
     context_path = project_path / "docs" / "domain" / "CONTEXT.md"
     export_ddd_context(context_path, config_dir)
@@ -586,17 +590,18 @@ def log_action(hook_name, action, details=""):
     # Generate prompt_interceptor.py (UPS)
     prompt_interceptor_content = hook_header + '''
 import json
+import xml.sax.saxutils
 
 def intercept(user_input):
-    \"\"\"Intercept and sanitize user input.\"\"\"
+    """Intercept and sanitize user input."""
     log_action("prompt_interceptor", "intercept", f"Received input of length {len(user_input) if user_input else 0}")
-    
+
     if not user_input:
         return user_input
-        
+
     # XML sanitization
-    sanitized = str(user_input).replace('<', '&lt;').replace('>', '&gt;')
-    
+    sanitized = xml.sax.saxutils.escape(str(user_input))
+
     # Wrap in matrix route
     routed_input = f"<matrix_route>CRITICAL DIRECTIVE:\\n{sanitized}\\n</matrix_route>"
     log_action("prompt_interceptor", "intercept_complete", "Input sanitized and routed")
@@ -612,14 +617,36 @@ if __name__ == "__main__":
     # Generate pre_tool_guard.py (Firewall/TDD)
     pre_tool_guard_content = hook_header + '''
 import json
+from dispatcher import OrchestratorDispatcher
 
 def check_tool_use(tool_name, tool_args):
     \"\"\"Check if tool use is permitted.\"\"\"
     log_action("pre_tool_guard", "check", f"Tool: {tool_name}")
     
-    # This would typically interact with the dispatcher to check .harness_state.json
-    # For now, we just log and allow
-    log_action("pre_tool_guard", "allow", f"Tool {tool_name} allowed")
+    config_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../config'))
+    dispatcher = OrchestratorDispatcher(config_dir)
+    state = dispatcher._load_state()
+    
+    # Placeholder for TDD enforcement or other rules
+    # In a real scenario, this would check if the tool usage matches the plan/TDD status
+    is_rejected = False 
+    
+    if is_rejected:
+        rejections = state.get("consecutive_rejections", 0) + 1
+        state["consecutive_rejections"] = rejections
+        dispatcher._save_state(state)
+        
+        if rejections >= 3:
+            print("[ESCALATION]: You are stuck. Use ask_user to ask for human guidance.")
+            
+        log_action("pre_tool_guard", "reject", f"Tool {tool_name} rejected ({rejections} rejections)")
+        sys.exit(1)
+    else:
+        # Reset counter on successful tool validation
+        if state.get("consecutive_rejections", 0) > 0:
+            state["consecutive_rejections"] = 0
+            dispatcher._save_state(state)
+        log_action("pre_tool_guard", "allow", f"Tool {tool_name} allowed")
     return True
 
 if __name__ == "__main__":
@@ -632,11 +659,27 @@ if __name__ == "__main__":
     # Generate stop_monitor.py (Verification guardrail)
     stop_monitor_content = hook_header + '''
 import json
+import subprocess
 
 def on_stop(reason):
     \"\"\"Monitor session stop events.\"\"\"
     log_action("stop_monitor", "stop", f"Reason: {reason}")
-    # Verification checks could be run here, e.g. gatekeeper.py
+    
+    # Run gatekeeper phase 3
+    try:
+        # Go up to project root from .claude/plugin-generated/src/hooks
+        # Use ../scripts/gatekeeper.py as it is relative to the plugin root where hooks are usually invoked
+        result = subprocess.run(
+            ["python", "../scripts/gatekeeper.py", "--phase", "3"],
+            capture_output=True,
+            text=True
+        )
+        if result.returncode != 0:
+            print(f"[GATEKEEPER ERROR]: {result.stderr or result.stdout}")
+            sys.exit(1)
+    except Exception as e:
+        log_action("stop_monitor", "error", str(e))
+        
     return True
 
 if __name__ == "__main__":

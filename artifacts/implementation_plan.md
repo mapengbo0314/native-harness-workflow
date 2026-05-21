@@ -26,7 +26,7 @@ Rewrite `harness/plugin_generator.py` to match the V4 Deterministic Plugin Hooks
 3. Inject the Python import resolution headers (`sys.path.insert`) and XML sanitization logic into the generated scripts.
 4. Ensure executable bits/shebangs are properly handled (or cross-platform Python `-m` invocation is prepared for Phase 4).
 
-## Task 4: Phase 4 - Dynamic Manifest & Tiered Tools
+## Task 4: Phase 4 - Dynamic Manifest & Tiered Tools (DONE)
 **Context:** Update `plugin.json` generation.
 **Steps:**
 1. Modify `generate_plugin_manifest()` to dynamically scan the copied `skills/` folder.

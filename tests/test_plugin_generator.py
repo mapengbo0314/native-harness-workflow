@@ -39,10 +39,15 @@ class TestDeepCopyMigration:
             skill_dir = skills_src / "test-skill"
             skill_dir.mkdir()
             (skill_dir / "SKILL.md").write_text("# Test Skill")
-            
-            scripts_dir = skill_dir / "scripts"
-            scripts_dir.mkdir()
-            (scripts_dir / "helper.sh").write_text("#!/bin/bash\necho helper")
+
+            skills_scripts_dir = skill_dir / "scripts"
+            skills_scripts_dir.mkdir()
+            (skills_scripts_dir / "helper.sh").write_text("#!/bin/bash\necho helper")
+
+            # Create boilerplate-agent/scripts
+            root_scripts_dir = boilerplate_dir / "scripts"
+            root_scripts_dir.mkdir()
+            (root_scripts_dir / "gatekeeper.py").write_text("# Gatekeeper")
 
             # Create minimal .claude/orchestrator.md to avoid errors if needed
             harness_dir = project_path / ".claude"
@@ -56,12 +61,12 @@ class TestDeepCopyMigration:
             )
 
             plugin_path = Path(plugin_dir)
-            
+
             # Verify agents were copied
             agents_dest = plugin_path / "agents"
             assert agents_dest.exists()
             assert (agents_dest / "tester.md").exists()
-            
+
             # Verify skills were copied recursively
             skills_dest = plugin_path / "skills"
             assert skills_dest.exists()
@@ -69,6 +74,11 @@ class TestDeepCopyMigration:
             assert (skills_dest / "test-skill" / "scripts" / "helper.sh").exists()
             assert (skills_dest / "test-skill" / "scripts" / "helper.sh").read_text() == "#!/bin/bash\necho helper"
 
+            # Verify scripts were copied
+            scripts_dest = plugin_path / "scripts"
+            assert scripts_dest.exists()
+            assert (scripts_dest / "gatekeeper.py").exists()
+            assert (scripts_dest / "gatekeeper.py").read_text() == "# Gatekeeper"
 
 class TestTask1PluginManifest:
     """Task 1: Plugin manifest generation."""
@@ -384,5 +394,5 @@ class TestPhase3Hooks:
 
             # Check XML sanitization in prompt_interceptor.py
             interceptor_content = (hooks_dir / "prompt_interceptor.py").read_text()
-            assert ".replace('<', '&lt;').replace('>', '&gt;')" in interceptor_content
+            assert "xml.sax.saxutils.escape" in interceptor_content
             assert "<matrix_route>" in interceptor_content

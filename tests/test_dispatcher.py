@@ -41,9 +41,19 @@ def test_state_management_locking(tmp_path):
     # Manually create lock
     lock_path.mkdir()
     
-    # Attempting to save should raise an exception or handle it
+    # Attempting to save should raise an exception because the lock is fresh
     with pytest.raises(OSError, match="Could not acquire lock for state file"):
         dispatcher._save_state({"test": "data"}, timeout=0.1)
+
+    # Now simulate a stale lock (make it look 11 seconds old)
+    import time
+    stale_time = time.time() - 11
+    os.utime(lock_path, (stale_time, stale_time))
+
+    # Attempting to save should now succeed
+    dispatcher._save_state({"test": "data2"}, timeout=0.1)
+    state = dispatcher._load_state()
+    assert state == {"test": "data2"}
 
 def test_matrix_routing_classification(tmp_path):
     config_dir = tmp_path / "config"
