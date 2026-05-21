@@ -1,30 +1,35 @@
-# Implementation Plan: Fix Skill Installation Failures
+# Plugin Generator V4 Implementation Plan
 
-## Goal
-Fix incorrect URLs and installation logic to ensure skills and extensions are correctly installed without conflicts or 404s.
+## Overview
+Rewrite `harness/plugin_generator.py` to match the V4 Deterministic Plugin Hooks Design. This plan breaks the rewrite down into 4 test-driven phases.
 
-## Proposed Changes
+## Task 1: Phase 1 - Deep Copy Migration (DONE)
+**Context:** The previous `plugin_generator.py` performed shallow text extraction of `.md` files. We must now deep copy the `boilerplate-agent/agents` and `boilerplate-agent/skills` directories to preserve all scripts and templates.
+**Steps:**
+1. Write/update tests in `tests/test_plugin_generator.py` to assert that subdirectories inside `skills/` (like `scripts/`) are successfully copied to the `.claude/plugin-generated/skills/` directory.
+2. Modify `harness/plugin_generator.py` to replace the markdown extraction logic with `shutil.copytree` for both the `agents` and `skills` directories.
+3. Ensure the test passes.
 
-### 1. `boilerplate-agent/onboarding/tools.json`
-- Update `playwright-interactive` URL: `https://raw.githubusercontent.com/openai/skills/main/skills/.curated/playwright-interactive/SKILL.md`
-- Update `nextjs` URL: `https://raw.githubusercontent.com/PatrickJS/awesome-cursorrules/main/rules/nextjs-14-cursorrules-prompt-file/.cursorrules`
-- Update `fastapi` URL: `https://raw.githubusercontent.com/PatrickJS/awesome-cursorrules/main/rules/python-fastapi-cursorrules-prompt-file/.cursorrules`
+## Task 2: Phase 2 - Core Logic Engine (Dispatcher & State)
+**Context:** Implement the "Native Python Enforcement" and "Atomic State" logic.
+**Steps:**
+1. Update `generate_plugin_sources()` to generate a much smarter `src/dispatcher.py` that includes the atomic JSON state manager (using `os.mkdir` locks and `os.replace`).
+2. Implement Matrix Routing logic (parsing Branches A/B/C/D) inside the generated code.
+3. Implement 5-Verb operational guardrails inside the generated code.
+4. Add tests to verify the content of the generated `dispatcher.py` meets the new requirements.
 
-### 2. `harness/discovery_engine.py`
-- Update hardcoded URLs in `discover_agents` and `discover_ddd_context` to use `raw.githubusercontent.com`:
-  - `agentic-eval`: `https://raw.githubusercontent.com/github/awesome-copilot/main/skills/agentic-eval/SKILL.md`
-  - `prompt-engineer`: `https://raw.githubusercontent.com/Jeffallan/claude-skills/main/skills/prompt-engineer/SKILL.md`
+## Task 3: Phase 3 - Standalone Hooks Execution
+**Context:** Generate isolated hook scripts with cross-platform compatibility.
+**Steps:**
+1. Update the generator to create a new `src/hooks/` directory.
+2. Generate `prompt_interceptor.py` (UPS), `pre_tool_guard.py` (Firewall/TDD), and `stop_monitor.py` (Verification guardrail).
+3. Inject the Python import resolution headers (`sys.path.insert`) and XML sanitization logic into the generated scripts.
+4. Ensure executable bits/shebangs are properly handled (or cross-platform Python `-m` invocation is prepared for Phase 4).
 
-### 3. `harness/minting_engine.py`
-- Refactor `install_workspace_tools`:
-  - Ensure it respects the `type` field if available.
-- Refactor `mint_workspace` (setup script generation):
-  - In `scripts_to_generate["gemini"]`, filter `selected_skills` to only install those with `type: "extension"`.
-  - Do NOT install Markdown skills via `gemini extensions install`.
-  - Fix the redundant `using-superpowers` installation.
-
-## Verification Tasks
-- [ ] Run `python harness/cli.py init --project-path . --llm gemini --model gemini-3.1-pro-preview` (use a temp directory if possible).
-- [ ] Check `ONBOARDING_DOMAIN.md` for correct URLs.
-- [ ] Check `.gemini/scripts/setup_harness.sh` for correct installation commands.
-- [ ] Run `sh .gemini/scripts/setup_harness.sh` and verify no errors.
+## Task 4: Phase 4 - Dynamic Manifest & Tiered Tools
+**Context:** Update `plugin.json` generation.
+**Steps:**
+1. Modify `generate_plugin_manifest()` to dynamically scan the copied `skills/` folder.
+2. Register the "Top 10" skills as first-class tools (e.g., `skill_harnesstdd`), and register the remainder behind a wrapper.
+3. Register the Windows-compatible hook commands (e.g., `["python", "-m", "src.hooks.prompt_interceptor"]`).
+4. Validate the generated manifest structure in tests.

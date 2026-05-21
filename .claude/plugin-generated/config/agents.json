@@ -1,0 +1,45 @@
+{
+  "agents": {
+    "reviewer": {
+      "path": ".claude/agents/reviewer.md",
+      "source": "---\nname: reviewer\ndescription: Senior Software Engineer for identifying issues and ensuring high standards\ntools:\n  - mcp_codegraph_codegraph_search\n  - mcp_codegraph_codegraph_node\n  - mcp_codegraph"
+    },
+    "verifier": {
+      "path": ".claude/agents/verifier.md",
+      "source": "---\nname: verifier\ndescription: The specialized tool for final QA, edge-case testing, transcript fidelity\n  checks, and robustness verification.\ntools:\n  - mcp_codegraph_codegraph_search\n  - mcp_codeg"
+    },
+    "refactorer": {
+      "path": ".claude/agents/refactorer.md",
+      "source": "---\nname: refactorer\ndescription: Specialized in structural refactoring and technical debt reduction without\n  changing external behavior.\ntools:\n  - mcp_codegraph_codegraph_search\n  - mcp_codegraph_c"
+    },
+    "linter-agent": {
+      "path": ".claude/agents/linter-agent.md",
+      "source": "---\nname: linter-agent\ndescription: Specialized in fixing lint, type errors, and formatting issues.\ntools:\n  - mcp_codegraph_codegraph_search\n  - mcp_codegraph_codegraph_node\n  - mcp_codegraph_codegra"
+    },
+    "security-auditor": {
+      "path": ".claude/agents/security-auditor.md",
+      "source": "---\nname: security-auditor\ndescription: Performs deep security audits and vulnerability scanning.\ntools:\n  - mcp_codegraph_codegraph_search\n  - mcp_codegraph_codegraph_node\n  - mcp_codegraph_codegraph"
+    },
+    "feature-fetcher": {
+      "path": ".claude/agents/feature-fetcher.md",
+      "source": "---\nname: feature-fetcher\ndescription: 'The Agent Factory: Analyzes indices and proposes specialized domain\n  agents for SME approval.'\ntools:\n  - mcp_codegraph_codegraph_search\n  - mcp_codegraph_code"
+    },
+    "planner": {
+      "path": ".claude/agents/planner.md",
+      "source": "---\nname: planner\ndescription: The specialized tool for breaking down a design into a detailed, step-by-step\n  plan before execution.\ntools:\n  - mcp_codegraph_codegraph_search\n  - mcp_codegraph_codegr"
+    },
+    "adversary": {
+      "path": ".claude/agents/adversary.md",
+      "source": "---\nname: adversary\ndescription: An adversarial agent that is hyper-skeptical, factual, and strictly avoids\n  hallucination or flattery.\ntools:\n  - mcp_codegraph_codegraph_search\n  - mcp_codegraph_cod"
+    },
+    "performance-profiler": {
+      "path": ".claude/agents/performance-profiler.md",
+      "source": "---\nname: performance-profiler\ndescription: Identifies performance bottlenecks and suggests optimizations.\ntools:\n  - mcp_codegraph_codegraph_search\n  - mcp_codegraph_codegraph_node\n  - mcp_codegraph_"
+    },
+    "implementer": {
+      "path": ".claude/agents/implementer.md",
+      "source": "---\nname: implementer\ndescription: The specialized tool for TDD execution and production code changes. Delegate\n  to this sub-agent for implementation tasks.\ntools:\n  - mcp_codegraph_codegraph_search\n"
+    }
+  },
+  "count": 10
+}

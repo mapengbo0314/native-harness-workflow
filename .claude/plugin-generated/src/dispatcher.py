@@ -32,17 +32,7 @@ class OrchestratorDispatcher:
         if config_file.exists():
             with open(config_file, 'r') as f:
                 return json.load(f)
-                
-        # Fallback for deep copy migration
-        agents_dir = self.config_dir.parent / "agents"
-        agents = {}
-        if agents_dir.exists():
-            for agent_file in agents_dir.glob("*.md"):
-                agents[agent_file.stem] = {
-                    "path": str(agent_file),
-                    "source": agent_file.read_text()[:200]
-                }
-        return {"agents": agents}
+        return {"agents": {}}
 
     def _load_rules_config(self) -> Dict[str, Any]:
         """Load rules configuration."""

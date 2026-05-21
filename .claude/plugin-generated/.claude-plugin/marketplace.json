@@ -1,0 +1,13 @@
+{
+  "name": "local-orchestrator-marketplace",
+  "owner": {
+    "name": "Local Project"
+  },
+  "plugins": [
+    {
+      "name": "orchestrator-plugin",
+      "version": "1.0.0",
+      "source": "./"
+    }
+  ]
+}

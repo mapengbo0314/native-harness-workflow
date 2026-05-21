@@ -18,6 +18,58 @@ from harness.plugin_generator import (
 from harness.dispatcher import OrchestratorDispatcher
 
 
+class TestDeepCopyMigration:
+    """Phase 1: Deep Copy Migration tests."""
+
+    def test_generate_orchestrator_plugin_deep_copies_agents_and_skills(self):
+        """Test that agents and skills are recursively copied to the plugin directory."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_path = Path(tmpdir)
+            
+            # Create boilerplate-agent structure
+            boilerplate_dir = project_path / "boilerplate-agent"
+            boilerplate_dir.mkdir()
+            
+            agents_src = boilerplate_dir / "agents"
+            agents_src.mkdir()
+            (agents_src / "tester.md").write_text("# Tester Agent")
+            
+            skills_src = boilerplate_dir / "skills"
+            skills_src.mkdir()
+            skill_dir = skills_src / "test-skill"
+            skill_dir.mkdir()
+            (skill_dir / "SKILL.md").write_text("# Test Skill")
+            
+            scripts_dir = skill_dir / "scripts"
+            scripts_dir.mkdir()
+            (scripts_dir / "helper.sh").write_text("#!/bin/bash\necho helper")
+
+            # Create minimal .claude/orchestrator.md to avoid errors if needed
+            harness_dir = project_path / ".claude"
+            harness_dir.mkdir()
+            (harness_dir / "orchestrator.md").write_text("# Orchestrator")
+
+            # Call generate function
+            plugin_dir = generate_orchestrator_plugin(
+                project_path=str(project_path),
+                project_name="test-project"
+            )
+
+            plugin_path = Path(plugin_dir)
+            
+            # Verify agents were copied
+            agents_dest = plugin_path / "agents"
+            assert agents_dest.exists()
+            assert (agents_dest / "tester.md").exists()
+            
+            # Verify skills were copied recursively
+            skills_dest = plugin_path / "skills"
+            assert skills_dest.exists()
+            assert (skills_dest / "test-skill" / "SKILL.md").exists()
+            assert (skills_dest / "test-skill" / "scripts" / "helper.sh").exists()
+            assert (skills_dest / "test-skill" / "scripts" / "helper.sh").read_text() == "#!/bin/bash\necho helper"
+
+
 class TestTask1PluginManifest:
     """Task 1: Plugin manifest generation."""
 
@@ -125,14 +177,14 @@ class TestTask3PluginGeneration:
 
             # Verify structure
             plugin_path = Path(plugin_dir)
-            assert (plugin_path / "plugin.json").exists()
+            assert (plugin_path / ".claude-plugin" / "plugin.json").exists()
             assert (plugin_path / "src" / "orchestrator_plugin.py").exists()
             assert (plugin_path / "src" / "dispatcher.py").exists()
             assert (plugin_path / "src" / "interceptor.py").exists()
-            assert (plugin_path / "config" / "agents.json").exists()
             assert (plugin_path / "config" / "orchestrator.json").exists()
-            assert (plugin_path / "config" / "ddd-context.json").exists()
             assert (plugin_path / "config" / "rules.json").exists()
+            assert (plugin_path / "config" / "ddd-context.json").exists()
+            assert (plugin_path / "agents").exists()
             assert (plugin_path / "pyproject.toml").exists()
 
 
@@ -252,26 +304,25 @@ class TestIntegration:
             plugin_path = Path(plugin_dir)
 
             # Verify all expected files exist
-            assert (plugin_path / "plugin.json").exists()
+            assert (plugin_path / ".claude-plugin" / "plugin.json").exists()
             assert (plugin_path / "pyproject.toml").exists()
             assert (plugin_path / "src" / "__init__.py").exists()
             assert (plugin_path / "src" / "orchestrator_plugin.py").exists()
             assert (plugin_path / "src" / "dispatcher.py").exists()
             assert (plugin_path / "src" / "interceptor.py").exists()
             assert (plugin_path / "config" / "orchestrator.json").exists()
-            assert (plugin_path / "config" / "agents.json").exists()
+            assert (plugin_path / "agents").exists()
             assert (plugin_path / "config" / "rules.json").exists()
             assert (plugin_path / "config" / "ddd-context.json").exists()
 
             # Verify manifest content
-            with open(plugin_path / "plugin.json") as f:
+            with open(plugin_path / ".claude-plugin" / "plugin.json") as f:
                 manifest = json.load(f)
             assert manifest["version"] == "1.5.0"
 
-            # Verify agent config
-            with open(plugin_path / "config" / "agents.json") as f:
-                agent_config = json.load(f)
-            assert len(agent_config["agents"]) == 3
+            # Verify agents were deep copied
+            agents_copied = list((plugin_path / "agents").glob("*.md"))
+            assert len(agents_copied) == 3
 
             # Verify rule config
             with open(plugin_path / "config" / "rules.json") as f:

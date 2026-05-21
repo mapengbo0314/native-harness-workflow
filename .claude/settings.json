@@ -1,0 +1,19 @@
+{
+  "enabledPlugins": {
+    "orchestrator-plugin@local-orchestrator-marketplace": true
+  },
+  "extraKnownMarketplaces": {
+    "local-project-plugins": {
+      "source": {
+        "source": "directory",
+        "path": "/Users/pengbolicious/pengbo-apps/e-2-g"
+      }
+    },
+    "local-orchestrator-marketplace": {
+      "source": {
+        "source": "directory",
+        "path": "/Users/pengbolicious/pengbo-apps/e-2-g/.claude/plugin-generated"
+      }
+    }
+  }
+}

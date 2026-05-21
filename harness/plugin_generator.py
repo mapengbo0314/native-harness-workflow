@@ -273,10 +273,20 @@ def generate_orchestrator_plugin(
     if harness_dir.exists():
         if (harness_dir / "orchestrator.md").exists():
             export_orchestrator_config(harness_dir / "orchestrator.md", config_dir)
-        if (harness_dir / "agents").exists():
-            export_agents_config(harness_dir / "agents", config_dir)
         if (harness_dir / "rules").exists():
             export_rules_config(harness_dir / "rules", config_dir)
+
+    # Deep copy agents and skills
+    boilerplate_dir = project_path / "boilerplate-agent"
+    
+    # Try boilerplate first, then fallback to harness
+    agents_src = boilerplate_dir / "agents" if boilerplate_dir.exists() else harness_dir / "agents"
+    if agents_src.exists():
+        shutil.copytree(agents_src, plugin_dir / "agents", dirs_exist_ok=True)
+        
+    skills_src = boilerplate_dir / "skills" if boilerplate_dir.exists() else harness_dir / "skills"
+    if skills_src.exists():
+        shutil.copytree(skills_src, plugin_dir / "skills", dirs_exist_ok=True)
 
     # Export DDD context
     context_path = project_path / "docs" / "domain" / "CONTEXT.md"
