@@ -107,7 +107,7 @@ def process_includes(content: str, current_file_path: str, target_root: Path, to
                         include_content = f.read()
                         
                     # Apply placeholders and tool mappings to the included content FIRST
-                    include_content = include_content.replace("{{HARNESS_DIR}}", target_dir_name)
+                    include_content = include_content.replace(".claude", target_dir_name)
                     for old_tool, new_tool in tool_replacements.items():
                         include_content = include_content.replace(old_tool, new_tool)
                         
@@ -136,6 +136,14 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
     if target_path.exists():
         print(f"Warning: Target directory {target_dir} already exists. Minting may overwrite files.")
         
+    # Get selected tools from the domain doc to check if plugin is selected
+    domain_content_str = ddd_context.get("source", "") if ddd_context else ""
+    if not domain_content_str:
+        domain_doc_path = os.path.join(project_path, "ONBOARDING_DOMAIN.md")
+        if os.path.exists(domain_doc_path):
+            with open(domain_doc_path, "r") as f:
+                domain_content_str = f.read()
+    
     def ignore_patterns(dir_path, contents):
         ignored = ['.git', '__pycache__', '.DS_Store']
         return [i for i in contents if i in ignored or i.endswith('.log')]
@@ -185,7 +193,7 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
                         new_content = content
                         
                         # Handle placeholders
-                        new_content = new_content.replace("{{HARNESS_DIR}}", target_dir_name)
+                        new_content = new_content.replace(".claude", target_dir_name)
                         
                         if "@boilerplate-agent" in new_content:
                             new_content = new_content.replace("@boilerplate-agent", target_dir_name)
@@ -300,14 +308,29 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
         for s in selected_skills:
             if s.get('type') == 'extension':
                  skill_installs += f'echo "  /plugin install {s["name"]}@{s["url"]} --project"\n'
-        for m in selected_mcps:
-            cmd = m["command"]
-            if " " in cmd:
-                cmd = f'bash -c {shlex.quote(cmd)}'
-            mcp_installs += f'    claude mcp add {m["name"]} -- {cmd} || true\n'
+        # We handle MCP installs below by generating .mcp.json directly
     elif active_platform == "cursor":
         for s in selected_skills:
             skill_installs += f'echo "  /add-plugin {s["name"]} ({s["url"]})"\n'
+
+    import json
+    mcp_config_dict = {
+        "mcpServers": {
+            "codegraph": {
+                "command": "npx",
+                "args": ["-y", "@colbymchenry/codegraph", "serve", "--mcp"]
+            }
+        }
+    }
+    if active_platform == "claude":
+        for m in selected_mcps:
+            parts = m["command"].split(" ")
+            mcp_config_dict["mcpServers"][m["name"]] = {
+                "command": parts[0],
+                "args": parts[1:]
+            }
+    
+    mcp_json_str = json.dumps(mcp_config_dict, indent=2)
 
     scripts_to_generate = {
         "gemini": f"""#!/usr/bin/env bash
@@ -332,24 +355,161 @@ echo "To activate it, run Gemini from the project root and use '/mcp reload'."
 set -e
 cd {quoted_project_path}
 echo "=== Setting up Superpowers for Claude Code ==="
+PLUGIN_READY=0
+CODEGRAPH_READY=0
+
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "[ACTION REQUIRED] python3 is required but was not found."
+    exit 1
+fi
+
+python3 - <<'PY'
+import sys
+if sys.version_info < (3, 8):
+    raise SystemExit("[ACTION REQUIRED] Python 3.8+ is required.")
+print(f"Python runtime OK: {{sys.version.split()[0]}}")
+PY
+
+echo "Registering codegraph with Claude Code..."
+if command -v claude >/dev/null 2>&1; then
+    claude mcp add --scope project codegraph npx --yes @colbymchenry/codegraph serve --mcp || echo "Warning: Failed to add codegraph to Claude MCP"
+else
+    echo "Warning: 'claude' CLI not found. Run 'claude mcp add --scope project codegraph npx --yes @colbymchenry/codegraph serve --mcp' manually."
+fi
+
+echo "Running generated plugin smoke test..."
+python3 - <<'PY'
+import importlib
+import json
+import sys
+import subprocess
+from pathlib import Path
+
+plugin = Path(".claude/plugin-generated")
+required = [
+    plugin / ".claude-plugin" / "plugin.json",
+    plugin / "src" / "dispatcher.py",
+    plugin / "src" / "hooks" / "prompt_interceptor.py",
+    plugin / "src" / "hooks" / "pre_tool_guard.py",
+    plugin / "src" / "hooks" / "post_tool_monitor.py",
+    plugin / "src" / "hooks" / "precompact_monitor.py",
+    plugin / "src" / "hooks" / "stop_monitor.py",
+    plugin / "config" / "ddd-context.json",
+    plugin / "agents",
+    plugin / "skills",
+    plugin / "scripts" / "gatekeeper.py",
+    plugin / "src" / "hook_validator.py",
+]
+missing = [str(path) for path in required if not path.exists()]
+if missing:
+    print("[ACTION REQUIRED] Generated plugin payload is incomplete:")
+    for path in missing:
+        print(f"  - {{path}}")
+    raise SystemExit(1)
+
+sys.path.insert(0, str(plugin))
+importlib.import_module("src.dispatcher")
+json.loads((plugin / "config" / "ddd-context.json").read_text())
+print("Plugin payload structure OK.")
+
+print("Running hook validation...")
+validator = plugin / "src" / "hook_validator.py"
+result = subprocess.run([sys.executable, str(validator)], capture_output=True, text=True)
+print(result.stdout)
+if result.returncode != 0:
+    print(result.stderr)
+    print("[ACTION REQUIRED] Hook validation failed.")
+    raise SystemExit(1)
+print("Hook validation OK.")
+PY
+
 echo "To install Skills for Claude Code workspace-wide, run these commands inside the Claude Code interface:"
 {skill_installs}
 
 # Orchestrator Plugin Installation
 if [ -d ".claude/plugin-generated" ]; then
-    echo "Installing orchestrator plugin..."
-    echo "  /plugin marketplace add .claude/plugin-generated --scope project"
-    echo "  /plugin install orchestrator-plugin@local-orchestrator-marketplace --scope project"
+    echo "Checking for non-interactive Claude Code plugin install support..."
+    if command -v claude >/dev/null 2>&1 && claude plugin --help >/dev/null 2>&1; then
+        if claude plugin marketplace add "$PWD/.claude/plugin-generated" --scope project && claude plugin install orchestrator-plugin@local-orchestrator-marketplace --scope project; then
+            PLUGIN_READY=1
+            echo "Orchestrator plugin installed automatically."
+        else
+            echo "[ACTION REQUIRED] Automatic plugin installation failed."
+        fi
+    else
+        echo "[ACTION REQUIRED] Claude Code plugin CLI automation was not detected."
+    fi
+
+    if [ "$PLUGIN_READY" != "1" ]; then
+        echo "[ACTION REQUIRED] Open Claude Code in this repo and run:"
+        echo "  /plugin marketplace add \"\$PWD/.claude/plugin-generated\" --scope project"
+        echo "  /plugin install orchestrator-plugin@local-orchestrator-marketplace --scope project"
+        echo "Restart or reload Claude Code if hooks/tools do not appear immediately."
+    fi
 fi
 
-# MCP Configuration for Claude
-if command -v claude &> /dev/null; then
-    echo "Ensuring CodeGraph is build..."
-    npx -y @colbymchenry/codegraph init --index || true
+# MCP Configuration for Claude via .mcp.json
+echo "Ensuring CodeGraph is built..."
+npx -y @colbymchenry/codegraph init --index || true
 
-    echo "Adding codegraph to Claude Code project MCP configuration..."
-    claude mcp add --scope project codegraph -- npx -y @colbymchenry/codegraph serve --mcp || true
-{mcp_installs}
+echo "Generating repo-level .mcp.json..."
+cat << 'MCPJSON' > .mcp.json
+{mcp_json_str}
+MCPJSON
+CODEGRAPH_READY=1
+echo "✅ MCP servers configured in .mcp.json"
+
+
+python3 - <<PY
+import json
+import os
+import sys
+import time
+from pathlib import Path
+
+config = Path(".claude/plugin-generated/config")
+config.mkdir(parents=True, exist_ok=True)
+state_file = config / ".harness_state.json"
+tmp_file = config / ".harness_state.tmp.json"
+lock_dir = config / ".harness_state.json.lock"
+
+start = time.time()
+while True:
+    try:
+        lock_dir.mkdir()
+        break
+    except FileExistsError:
+        if time.time() - start > 5:
+            raise SystemExit("[ACTION REQUIRED] Could not acquire harness state lock.")
+        time.sleep(0.05)
+
+try:
+    state = {{}}
+    if state_file.exists():
+        try:
+            state = json.loads(state_file.read_text())
+        except json.JSONDecodeError:
+            state = {{}}
+    state.update({{
+        "setup_complete": True,
+        "python_version": sys.version.split()[0],
+        "codegraph_ready": os.environ.get("CODEGRAPH_READY", "$CODEGRAPH_READY") == "1",
+        "plugin_install_manual_steps_printed": os.environ.get("PLUGIN_READY", "$PLUGIN_READY") != "1",
+        "strict_enforcement_enabled": os.environ.get("CODEGRAPH_READY", "$CODEGRAPH_READY") == "1",
+    }})
+    tmp_file.write_text(json.dumps(state, indent=2))
+    os.replace(tmp_file, state_file)
+finally:
+    try:
+        lock_dir.rmdir()
+    except OSError:
+        pass
+PY
+
+if [ "$CODEGRAPH_READY" = "1" ]; then
+    echo "Harness setup complete. Strict enforcement is ready after plugin activation."
+else
+    echo "[ACTION REQUIRED] Harness setup did not complete CodeGraph readiness; strict enforcement remains disabled."
 fi
 """,
         "cursor": f"""#!/usr/bin/env bash
@@ -386,6 +546,7 @@ echo "Please add codegraph MCP to your Codex configuration."
     
 Please read `{harness_prefix}/AGENTS.md` for core repository instructions and routing rules.
 The Orchestrator agent and core rules are located in `{harness_prefix}/orchestrator.md`.
+Run `sh {harness_prefix}/scripts/setup_harness.sh` after `harness-wf init` to complete local tool, MCP, and plugin readiness checks.
 """
 
     if active_platform in ["cursor", "codex"]:
@@ -421,7 +582,7 @@ The Orchestrator agent and core rules are located in `{harness_prefix}/orchestra
         with open(copilot_dir / "copilot-instructions.md", "w") as f:
             f.write(pointer_content)
         
-    print("\nTo install skills & MCPs, run the setup_harness.sh script inside your platform's hidden folder (e.g. `sh .gemini/scripts/setup_harness.sh`).")
+    print(f"\nHarness files generated. Next: run `sh .{active_platform}/scripts/setup_harness.sh` from the project root to complete local setup.")
 
     # Create an MCP config for CodeGraph
     mcp_config = {
@@ -472,7 +633,7 @@ The Orchestrator agent and core rules are located in `{harness_prefix}/orchestra
         agents_file_path = target_path / "AGENTS.md"
         
         # Apply placeholders and includes
-        agents_md_content = agents_md_content.replace("{{HARNESS_DIR}}", target_dir_name)
+        agents_md_content = agents_md_content.replace(".claude", target_dir_name)
         agents_md_content = process_includes(agents_md_content, str(agents_file_path), target_path, tool_replacements, target_dir_name)
         
         with open(agents_file_path, 'w') as f:
@@ -528,7 +689,7 @@ tools:
             final_content = frontmatter + include_pointer + system_prompt + "\n"
             
             # Final post-processing for placeholders and includes
-            final_content = final_content.replace("{{HARNESS_DIR}}", target_dir_name)
+            final_content = final_content.replace(".claude", target_dir_name)
             final_content = process_includes(final_content, str(agent_file_path), target_path, tool_replacements, target_dir_name)
             
             with open(agent_file_path, 'w') as f:
@@ -627,7 +788,7 @@ mcp_servers: ["codegraph"]
 """
             new_content = existing_content.rstrip() + "\n\n" + sme_section.strip() + "\n"
             # Apply placeholders as Codex AGENTS.md might need them (consistent with mint_workspace)
-            new_content = new_content.replace("{{HARNESS_DIR}}", harness_folder_name)
+            new_content = new_content.replace(".claude", harness_folder_name)
             
             with open(agents_file_path, "w") as f:
                 f.write(new_content)

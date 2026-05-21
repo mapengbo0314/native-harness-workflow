@@ -66,8 +66,17 @@ def generate_plugin_manifest(
     if skills_dir and skills_dir.exists():
         # Get top 10 skills
         skill_dirs = [d for d in skills_dir.iterdir() if d.is_dir() and (d / "SKILL.md").exists()]
+        
+        core_skills = ["harness-test-driven-development", "diagnose", "harness-writing-plans"]
+        def sort_key(d):
+            try:
+                priority = core_skills.index(d.name)
+            except ValueError:
+                priority = len(core_skills)
+            return (priority, d.name)
+
         # Sort for determinism
-        skill_dirs.sort(key=lambda d: d.name)
+        skill_dirs.sort(key=sort_key)
         top_skills = skill_dirs[:10]
 
         for skill_dir in top_skills:
@@ -98,20 +107,52 @@ def generate_plugin_manifest(
         "hooks": {
             "UserPromptSubmit": [
                 {
-                    "type": "command",
-                    "command": "python -m src.hooks.prompt_interceptor"
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "PYTHONPATH=.claude/plugin-generated python3 -m src.hooks.prompt_interceptor"
+                        }
+                    ]
                 }
             ],
             "PreToolUse": [
                 {
-                    "type": "command",
-                    "command": "python -m src.hooks.pre_tool_guard"
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "PYTHONPATH=.claude/plugin-generated python3 -m src.hooks.pre_tool_guard"
+                        }
+                    ]
+                }
+            ],
+            "PostToolUse": [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "PYTHONPATH=.claude/plugin-generated python3 -m src.hooks.post_tool_monitor"
+                        }
+                    ]
+                }
+            ],
+            "PreCompact": [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "PYTHONPATH=.claude/plugin-generated python3 -m src.hooks.precompact_monitor"
+                        }
+                    ]
                 }
             ],
             "Stop": [
                 {
-                    "type": "command",
-                    "command": "python -m src.hooks.stop_monitor"
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "PYTHONPATH=.claude/plugin-generated python3 -m src.hooks.stop_monitor"
+                        }
+                    ]
                 }
             ]
         },
@@ -194,7 +235,7 @@ def export_agents_config(agents_dir: Path, config_dir: Path) -> str:
             with open(agent_file, 'r') as f:
                 agents[agent_name] = {
                     "path": str(agent_file),
-                    "source": f.read()[:200]  # First 200 chars
+                    "source": f.read()
                 }
 
     agents_json = {
@@ -275,7 +316,8 @@ def export_rules_config(rules_dir: Path, config_dir: Path) -> str:
 def generate_orchestrator_plugin(
     project_path: str,
     project_name: str,
-    plugin_version: str = "1.0.0"
+    plugin_version: str = "1.0.0",
+    boilerplate_dir: Optional[str] = None
 ) -> str:
     """Generate a complete orchestrator plugin for the project.
 
@@ -283,6 +325,7 @@ def generate_orchestrator_plugin(
         project_path: Root path of the project
         project_name: Name of the project
         plugin_version: Version of the plugin
+        boilerplate_dir: Optional path to boilerplate directory
 
     Returns:
         Path to the generated plugin directory
@@ -297,11 +340,13 @@ def generate_orchestrator_plugin(
     config_dir.mkdir(parents=True, exist_ok=True)
 
     harness_dir = project_path / ".claude"
-    boilerplate_dir = project_path / "boilerplate-agent"
+    
+    # Resolve boilerplate dir
+    bp_dir = Path(boilerplate_dir) if boilerplate_dir else project_path / "boilerplate-agent"
 
     # Try boilerplate first, then fallback to harness
-    agents_src = boilerplate_dir / "agents" if boilerplate_dir.exists() else harness_dir / "agents"
-    skills_src = boilerplate_dir / "skills" if boilerplate_dir.exists() else harness_dir / "skills"
+    agents_src = bp_dir / "agents" if bp_dir.exists() else harness_dir / "agents"
+    skills_src = bp_dir / "skills" if bp_dir.exists() else harness_dir / "skills"
 
     # Generate manifest
     generate_plugin_manifest(str(plugin_dir), project_name, plugin_version, skills_dir=skills_src)
@@ -316,11 +361,12 @@ def generate_orchestrator_plugin(
     # Deep copy agents and skills
     if agents_src.exists():
         shutil.copytree(agents_src, plugin_dir / "agents", dirs_exist_ok=True)
+        export_agents_config(plugin_dir / "agents", config_dir)
         
     if skills_src.exists():
         shutil.copytree(skills_src, plugin_dir / "skills", dirs_exist_ok=True)
 
-    scripts_src = boilerplate_dir / "scripts"
+    scripts_src = bp_dir / "scripts"
     if scripts_src.exists():
         shutil.copytree(scripts_src, plugin_dir / "scripts", dirs_exist_ok=True)
 
@@ -565,10 +611,14 @@ def invoke_specific_skill_{safe_name}() -> str:
     # Generate hooks directory and scripts
     hooks_dir = src_dir / "hooks"
     hooks_dir.mkdir(parents=True, exist_ok=True)
+    (hooks_dir / "__init__.py").write_text("")
     
     # Common header for all hook scripts
     hook_header = """import sys, os; sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import datetime
+import json
+from pathlib import Path
+from dispatcher import OrchestratorDispatcher
 
 def log_action(hook_name, action, details=""):
     \"\"\"Log action to harness.log.\"\"\"
@@ -585,109 +635,357 @@ def log_action(hook_name, action, details=""):
             f.write(f"[{timestamp}] [PID:{pid}] [{hook_name}] {action} - {details}\\n")
     except Exception:
         pass
+
+def get_config_dir():
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), '../../config'))
+
+def get_plugin_dir():
+    return Path(get_config_dir()).parent
+
+def get_project_root():
+    return get_plugin_dir().parent.parent
+
+def load_dispatcher():
+    return OrchestratorDispatcher(get_config_dir())
+
+def read_hook_payload():
+    if not sys.stdin.isatty():
+        raw = sys.stdin.read()
+        if raw.strip():
+            try:
+                return json.loads(raw)
+            except json.JSONDecodeError:
+                return {"raw": raw}
+    
+    # Fallback to argv for testing
+    if len(sys.argv) > 1:
+        return {"tool_name": sys.argv[1], "tool_args": sys.argv[2] if len(sys.argv) > 2 else ""}
+    return {}
+
+def extract_tool(payload):
+    tool_name = (
+        payload.get("tool_name")
+        or payload.get("tool")
+        or payload.get("name")
+        or ""
+    )
+    if isinstance(tool_name, dict):
+        tool_name = tool_name.get("name", "")
+    tool_args = (
+        payload.get("tool_args")
+        or payload.get("tool_input")
+        or payload.get("input")
+        or payload.get("arguments")
+        or {}
+    )
+    return str(tool_name), tool_args
+
+def stringify(value):
+    if isinstance(value, str):
+        return value
+    try:
+        return json.dumps(value, sort_keys=True)
+    except TypeError:
+        return str(value)
+
+def setup_ready(state):
+    return bool(state.get("setup_complete") and state.get("strict_enforcement_enabled"))
 """
 
     # Generate prompt_interceptor.py (UPS)
     prompt_interceptor_content = hook_header + '''
-import json
 import xml.sax.saxutils
 
+ROUTE_DIRECTIVES = {
+    "A": "CRITICAL DIRECTIVE: Bypass Planning. Dispatch @implementer immediately with diagnose skill.",
+    "B": "CRITICAL DIRECTIVE: Dispatch @planner to write a spec using harness-brainstorming.",
+    "C": "CRITICAL DIRECTIVE: Answer directly using CodeGraph context. Do not mutate files.",
+    "D": "CRITICAL DIRECTIVE: Dispatch @implementer directly without planning.",
+}
+
 def intercept(user_input):
-    """Intercept and sanitize user input."""
+    """Intercept, classify, and sanitize user input."""
     log_action("prompt_interceptor", "intercept", f"Received input of length {len(user_input) if user_input else 0}")
 
     if not user_input:
         return user_input
 
-    # XML sanitization
+    dispatcher = load_dispatcher()
+    branch = dispatcher.classify_intent(str(user_input))
+    directive = ROUTE_DIRECTIVES.get(branch, ROUTE_DIRECTIVES["B"])
     sanitized = xml.sax.saxutils.escape(str(user_input))
+    
+    state = dispatcher._load_state()
+    state["matrix_branch"] = branch
+    dispatcher._save_state(state)
 
-    # Wrap in matrix route
-    routed_input = f"<matrix_route>CRITICAL DIRECTIVE:\\n{sanitized}\\n</matrix_route>"
-    log_action("prompt_interceptor", "intercept_complete", "Input sanitized and routed")
+    routed_input = (
+        f"<matrix_route branch=\\"{branch}\\">{directive}</matrix_route>\\n"
+        f"<user_prompt>{sanitized}</user_prompt>"
+    )
+    log_action("prompt_interceptor", "intercept_complete", f"Input routed to Branch {branch}")
     return routed_input
 
 if __name__ == "__main__":
-    import sys
-    if len(sys.argv) > 1:
-        print(intercept(sys.argv[1]))
+    payload = read_hook_payload()
+    print(intercept(payload.get("prompt") or payload.get("user_input") or ""))
 '''
     (hooks_dir / "prompt_interceptor.py").write_text(prompt_interceptor_content)
 
     # Generate pre_tool_guard.py (Firewall/TDD)
     pre_tool_guard_content = hook_header + '''
-import json
-from dispatcher import OrchestratorDispatcher
+import re
+
+def is_grep_command(command):
+    return bool(re.search(r"(^|\\s)(grep|rg)(\\s|$)", command))
+
+def is_large_read(tool_args):
+    if not isinstance(tool_args, dict):
+        return False
+    limit = tool_args.get("limit") or tool_args.get("size") or 0
+    try:
+        return int(limit) > 20000
+    except (TypeError, ValueError):
+        return False
+
+def reject(dispatcher, state, message):
+    rejections = state.get("consecutive_rejections", 0) + 1
+    state["consecutive_rejections"] = rejections
+    dispatcher._save_state(state)
+    if rejections >= 3:
+        print("[ESCALATION]: You are stuck. Use ask_user to ask for human guidance.", file=sys.stderr)
+    print(message, file=sys.stderr)
+    log_action("pre_tool_guard", "reject", f"{message} ({rejections} rejections)")
+    sys.exit(1)
 
 def check_tool_use(tool_name, tool_args):
-    \"\"\"Check if tool use is permitted.\"\"\"
+    """Check if tool use is permitted."""
     log_action("pre_tool_guard", "check", f"Tool: {tool_name}")
-    
-    config_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../config'))
-    dispatcher = OrchestratorDispatcher(config_dir)
+    dispatcher = load_dispatcher()
     state = dispatcher._load_state()
+    tool_text = stringify(tool_args)
+    active_persona = state.get("active_persona", "orchestrator")
+
+    if not setup_ready(state):
+        # Allow but log if not set up
+        log_action("pre_tool_guard", "setup_not_ready", "Strict enforcement skipped")
+        return True
+
+    if tool_name in {"Bash", "run_shell_command"} and "sudo" in tool_text:
+        reject(dispatcher, state, "[VIOLATION]: sudo is not allowed from the harness runtime.")
     
-    # Placeholder for TDD enforcement or other rules
-    # In a real scenario, this would check if the tool usage matches the plan/TDD status
-    is_rejected = False 
-    
-    if is_rejected:
-        rejections = state.get("consecutive_rejections", 0) + 1
-        state["consecutive_rejections"] = rejections
-        dispatcher._save_state(state)
+    if ".env" in tool_text and tool_name in {"Bash", "run_shell_command", "Edit", "Write", "MultiEdit", "replace", "write_file", "write_to_file", "replace_file_content"}:
+        reject(dispatcher, state, "[VIOLATION]: Direct .env mutation is blocked.")
         
-        if rejections >= 3:
-            print("[ESCALATION]: You are stuck. Use ask_user to ask for human guidance.")
-            
-        log_action("pre_tool_guard", "reject", f"Tool {tool_name} rejected ({rejections} rejections)")
-        sys.exit(1)
-    else:
-        # Reset counter on successful tool validation
-        if state.get("consecutive_rejections", 0) > 0:
-            state["consecutive_rejections"] = 0
-            dispatcher._save_state(state)
-        log_action("pre_tool_guard", "allow", f"Tool {tool_name} allowed")
+    if tool_name in {"Bash", "run_shell_command"} and re.search(r"git\\s+push\\b[^\\n]*(--force|-f|--force-with-lease)", tool_text):
+        reject(dispatcher, state, "[VIOLATION]: Force-push is blocked.")
+        
+    if active_persona == "orchestrator" and tool_name in {"Edit", "Write", "MultiEdit", "replace", "write_file", "write_to_file", "replace_file_content"}:
+        reject(dispatcher, state, "[VIOLATION]: Orchestrators cannot write code. Use the Task() tool.")
+        
+    if active_persona == "implementer" and tool_name in {"Edit", "Write", "MultiEdit", "replace", "write_file", "write_to_file", "replace_file_content"} and not state.get("last_failing_test"):
+        reject(dispatcher, state, "[TDD VIOLATION]: You must write and run a failing test before modifying production code.")
+        
+    if tool_name in {"Bash", "run_shell_command"} and is_grep_command(tool_text) and not state.get("last_codegraph_use_at"):
+        reject(dispatcher, state, "[EFFICIENCY VIOLATION]: Graph-First Strategy strictly enforced. Query CodeGraph MCP before using grep.")
+        
+    if tool_name in {"Read", "read_file"} and is_large_read(tool_args) and not state.get("last_codegraph_use_at"):
+        reject(dispatcher, state, "[EFFICIENCY VIOLATION]: Use CodeGraph before massive Read calls.")
+
+    # Reset counter on successful tool validation
+    if state.get("consecutive_rejections", 0) > 0:
+        state["consecutive_rejections"] = 0
+        dispatcher._save_state(state)
+    log_action("pre_tool_guard", "allow", f"Tool {tool_name} allowed")
     return True
 
 if __name__ == "__main__":
-    import sys
-    if len(sys.argv) > 2:
-        check_tool_use(sys.argv[1], sys.argv[2])
+    payload = read_hook_payload()
+    tool_name, tool_args = extract_tool(payload)
+    check_tool_use(tool_name, tool_args)
 '''
     (hooks_dir / "pre_tool_guard.py").write_text(pre_tool_guard_content)
 
+    # Generate post_tool_monitor.py
+    post_tool_monitor_content = hook_header + '''
+import re
+
+TEST_COMMAND_RE = re.compile(r"\\b(pytest|unittest|npm\\s+test|pnpm\\s+test|yarn\\s+test|cargo\\s+test|go\\s+test|mvn\\s+test|gradle\\s+test)\\b")
+
+def extract_exit_code(payload):
+    for key in ("exit_code", "returncode", "status"):
+        if key in payload:
+            try:
+                return int(payload[key])
+            except (TypeError, ValueError):
+                return None
+    result = payload.get("result")
+    if isinstance(result, dict):
+        for key in ("exit_code", "returncode", "status"):
+            if key in result:
+                try:
+                    return int(result[key])
+                except (TypeError, ValueError):
+                    return None
+    return None
+
+def record_tool_result(payload):
+    dispatcher = load_dispatcher()
+    state = dispatcher._load_state()
+    tool_name, tool_args = extract_tool(payload)
+    tool_text = stringify(tool_args)
+    now = datetime.datetime.now().isoformat()
+
+    if "codegraph" in tool_name.lower():
+        state["last_codegraph_use_at"] = now
+        state["last_codegraph_tool"] = tool_name
+
+    if tool_name in {"Bash", "run_shell_command"} and TEST_COMMAND_RE.search(tool_text):
+        exit_code = extract_exit_code(payload)
+        test_record = {"command": tool_text, "exit_code": exit_code, "timestamp": now}
+        if exit_code is not None and exit_code != 0:
+            state["last_failing_test"] = test_record
+            state["tdd_status"] = "red"
+        elif exit_code == 0:
+            state["last_passing_test"] = test_record
+            if state.get("last_failing_test"):
+                state["tdd_status"] = "green"
+
+    dispatcher._save_state(state)
+    log_action("post_tool_monitor", "record", f"Tool {tool_name} result recorded")
+    return True
+
+if __name__ == "__main__":
+    record_tool_result(read_hook_payload())
+'''
+    (hooks_dir / "post_tool_monitor.py").write_text(post_tool_monitor_content)
+
+    # Generate precompact_monitor.py
+    precompact_monitor_content = hook_header + '''
+def build_reminder():
+    dispatcher = load_dispatcher()
+    state = dispatcher._load_state()
+    ddd_path = Path(get_config_dir()) / "ddd-context.json"
+    ddd_context = ""
+    if ddd_path.exists():
+        try:
+            ddd_context = json.loads(ddd_path.read_text()).get("source", "")
+        except json.JSONDecodeError:
+            ddd_context = ""
+    return (
+        "[HARNESS PERSONA REMINDER]\\n"
+        f"active_persona: {state.get('active_persona')}\\n"
+        f"matrix_branch: {state.get('matrix_branch')}\\n"
+        f"tdd_status: {state.get('tdd_status')}\\n"
+        f"verification_status: {state.get('verification_status', 'pending')}\\n"
+        "DDD Context:\\n"
+        f"{ddd_context[:2000]}"
+    )
+
+if __name__ == "__main__":
+    reminder = build_reminder()
+    log_action("precompact_monitor", "reminder", "Persona reminder emitted")
+    print(reminder)
+'''
+    (hooks_dir / "precompact_monitor.py").write_text(precompact_monitor_content)
+
     # Generate stop_monitor.py (Verification guardrail)
     stop_monitor_content = hook_header + '''
-import json
 import subprocess
 
 def on_stop(reason):
     \"\"\"Monitor session stop events.\"\"\"
     log_action("stop_monitor", "stop", f"Reason: {reason}")
+    dispatcher = load_dispatcher()
+    state = dispatcher._load_state()
     
-    # Run gatekeeper phase 3
-    try:
-        # Go up to project root from .claude/plugin-generated/src/hooks
-        # Use ../scripts/gatekeeper.py as it is relative to the plugin root where hooks are usually invoked
-        result = subprocess.run(
-            ["python", "../scripts/gatekeeper.py", "--phase", "3"],
-            capture_output=True,
-            text=True
-        )
-        if result.returncode != 0:
-            print(f"[GATEKEEPER ERROR]: {result.stderr or result.stdout}")
+    if not setup_ready(state):
+        return True
+
+    # Only enforce verification gate if implementation has started
+    if state.get("last_failing_test") or state.get("implementation_started"):
+        verification_report = get_project_root() / "artifacts" / "verification_report.md"
+        if not verification_report.exists():
+            print("[QA REQUIRED]: You cannot exit. Dispatch Task(\\"@verifier\\") to perform robustness checks.", file=sys.stderr)
             sys.exit(1)
-    except Exception as e:
-        log_action("stop_monitor", "error", str(e))
+
+        try:
+            gatekeeper = get_plugin_dir() / "scripts" / "gatekeeper.py"
+            if gatekeeper.exists():
+                result = subprocess.run(
+                    [sys.executable, str(gatekeeper), "--phase", "3"],
+                    capture_output=True,
+                    text=True
+                )
+                if result.returncode != 0:
+                    print(f"[GATEKEEPER ERROR]: {result.stderr or result.stdout}", file=sys.stderr)
+                    sys.exit(1)
+        except Exception as e:
+            log_action("stop_monitor", "error", str(e))
         
     return True
 
 if __name__ == "__main__":
-    import sys
     reason = sys.argv[1] if len(sys.argv) > 1 else "unknown"
     on_stop(reason)
 '''
     (hooks_dir / "stop_monitor.py").write_text(stop_monitor_content)
+
+    # Generate hook_validator.py
+    hook_validator_content = '''"""
+Validator for Claude Code orchestrator hooks.
+Tests each hook in isolation with mock payloads.
+"""
+import json
+import subprocess
+import sys
+import os
+from pathlib import Path
+
+def run_hook(hook_name, payload=None, args=None):
+    hook_path = Path(__file__).parent / "hooks" / f"{hook_name}.py"
+    cmd = [sys.executable, str(hook_path)]
+    if args:
+        cmd.extend(args)
+    
+    input_data = json.dumps(payload) if payload else ""
+    
+    result = subprocess.run(
+        cmd,
+        input=input_data,
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PYTHONPATH": str(Path(__file__).parent)}
+    )
+    return result
+
+def test_prompt_interceptor():
+    print("Testing prompt_interceptor...")
+    res = run_hook("prompt_interceptor", payload={"prompt": "build a new login page"})
+    if "<matrix_route branch=\\"B\\">" in res.stdout:
+        print("✅ prompt_interceptor OK")
+    else:
+        print(f"❌ prompt_interceptor FAILED: {res.stdout}")
+
+def test_pre_tool_guard():
+    print("Testing pre_tool_guard...")
+    # Test rejection of sudo
+    res = run_hook("pre_tool_guard", args=["Bash", "sudo rm -rf /"])
+    if "[VIOLATION]: sudo" in res.stderr:
+        print("✅ pre_tool_guard (sudo rejection) OK")
+    else:
+        print(f"❌ pre_tool_guard FAILED: {res.stderr}")
+
+def main():
+    print("=== Orchestrator Hook Validator ===")
+    test_prompt_interceptor()
+    test_pre_tool_guard()
+    # Add more tests as needed
+
+if __name__ == "__main__":
+    main()
+'''
+    (src_dir / "hook_validator.py").write_text(hook_validator_content)
 
 
 def generate_pyproject(plugin_dir: Path) -> str:

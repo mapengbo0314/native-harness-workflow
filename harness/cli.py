@@ -178,8 +178,19 @@ def main():
                 print(f"\n[{'='*60}]\n[HARNESS] Generating orchestrator plugin...")
                 plugin_dir = generate_orchestrator_plugin(
                     project_path=str(args.project_path),
-                    project_name=os.path.basename(args.project_path)
+                    project_name=os.path.basename(args.project_path),
+                    boilerplate_dir=boilerplate_dir
                 )
+                
+                # Post-generation cleanup for Claude: remove top-level agents and skills
+                # as they are now inside the plugin
+                harness_path = Path(target_dir)
+                for folder in ["agents", "skills"]:
+                    folder_path = harness_path / folder
+                    if folder_path.exists():
+                        shutil.rmtree(folder_path)
+                print("[HARNESS] Cleaned up redundant top-level folders for Claude plugin.")
+                
             except Exception as e:
                 print(f"[HARNESS] Warning: Failed to generate orchestrator plugin: {e}")
         # --- End Plugin Generation ---
