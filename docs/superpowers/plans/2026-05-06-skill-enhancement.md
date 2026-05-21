@@ -115,7 +115,7 @@ prompt_section_customization:
   - prompt_section:
       title: Indexer MCP Integration
       content: |
-        You have access to the codebase index via the `indxr` MCP server.
+        You have access to the codebase index via the `CodeGraph` MCP server.
         - Strategic Fetching: Use `find`, `summarize`, `get_file_summary` via MCP.
     insert_after_sections: Core Mandates
   - prompt_section:

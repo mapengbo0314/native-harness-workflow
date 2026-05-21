@@ -9,9 +9,9 @@ from pathlib import Path
 
 from harness.cli import main
 
-# Helper to create a dummy indxr wiki
+# Helper to create a dummy CodeGraph wiki
 def setup_dummy_wiki(project_path):
-    wiki_path = Path(project_path) / ".indxr" / "wiki"
+    wiki_path = Path(project_path) / ".codegraph" / "wiki"
     wiki_path.mkdir(parents=True, exist_ok=True)
     (wiki_path / "index.md").write_text("# Index\nDummy index content")
     (wiki_path / "architecture.md").write_text("# Architecture\nDummy architecture content")

@@ -16,14 +16,14 @@ The core capability is the **Harness Lifecycle**: The autonomous transformation 
 
 ## 3. Aggregates & Invariants (Transactional Boundaries)
 *   **Minting Transaction**: A Workspace must only be minted if Discovery has successfully categorized the tech stack and proposed a valid SME configuration.
-*   **Agent Identity**: An Agent's system prompt must always include the `indxr` MCP and local skill mandates to ensure operational consistency.
+*   **Agent Identity**: An Agent's system prompt must always include the `CodeGraph` MCP and local skill mandates to ensure operational consistency.
 
 ## 4. Domain Events & Coordination (Asynchrony)
 *   **DiscoveryCompleted**: Triggers the Minting Engine to present `ONBOARDING_DOMAIN.md` to the user.
 *   **MintingFinalized**: Signals that the Workspace is ready for active development.
 
 ## 5. Context Mapping (Contract Ownership)
-*   **Indxr MCP**: The Harness is a **Conformist** to the `indxr` protocol for codebase analysis.
+*   **CodeGraph MCP**: The Harness is a **Conformist** to the `CodeGraph` protocol for codebase analysis.
 *   **Boilerplate Template**: The Minting Engine treats the Boilerplate as an **Upstream/Supplier**.
 
 ## Key Relationships

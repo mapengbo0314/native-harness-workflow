@@ -15,10 +15,7 @@
       "Bash(git push *)",
       "Bash(gh pr *)",
       "Bash(git checkout *)",
-      "Bash(git commit *)",
-      "mcp__indxr__find",
-      "mcp__indxr__summarize",
-      "mcp__indxr__read"
+      "Bash(git commit *)"
     ]
   }
 }

@@ -15,12 +15,12 @@ IF A SKILL APPLIES TO YOUR TASK, YOU MUST USE IT BEFORE ACTING.
 4. **Local Skills**: You MUST refer to the local skills stored in `.claude/skills/` for your specific workflows.
 5. **Orchestrator Role**: To assume your primary role as the Orchestrator, you MUST read `.claude/orchestrator.md` and follow the workflows defined in `.claude/rules/dispatch_rules.md`.
 6. **Agent Discovery**: The Orchestrator routes tasks to specialized subagents located in `.claude/agents/`.
-7. **Superpower Agent Override**: If a superpower skill instructs you to use a generic agent (like `Task tool (general-purpose)` or `Task tool (superpowers:implementer)`), you MUST IGNORE that mapping and instead dispatch to your local harness subagents (`Task tool: implementer`, `Task tool: planner`, etc.).
+7. **Superpower Agent Override**: If a superpower skill instructs you to use a generic agent (like `@generalist` or `Task tool (superpowers:implementer)`), you MUST IGNORE that mapping and instead dispatch to your local harness subagents (`@implementer`, `@planner`, etc.).
 8. **No UI Prototyping**: The user NEVER wants "UI driven understanding" or visual prototyping. When using skills like `harness-brainstorming`, automatically skip any UI phase and proceed with text/code-based architectural planning.
 
 ## CodeGraph Integration
 
-The `codegraph` MCP server provides deep structural analysis of the codebase. You MUST adopt a **Graph-First Strategy**. Before reading raw source files, always query the graph. Call the MCP tool (codegraph_*) to gather precise context instead of reading full files, unless absolutely necessary (e.g., using grep_search for UI strings). You have access to exactly these tools:
+The `codegraph` MCP server provides deep structural analysis of the codebase. You MUST adopt a **Graph-First Strategy**. Before reading raw source files, always query the graph. Call the MCP tool (codegraph_*) to gather precise context instead of reading full files, unless absolutely necessary (e.g., using Grep for UI strings). You have access to exactly these tools:
 - `codegraph_search`: Semantic and keyword search for symbols and code blocks.
 - `codegraph_explore`: Map the folder structure and identify key entry points.
 - `codegraph_context`: Retrieve the definition and surrounding context of a symbol.

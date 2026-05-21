@@ -12,7 +12,14 @@ def test_state_management_atomic_write(tmp_path):
     
     # Initial state should be default
     state = dispatcher._load_state()
-    assert state == {"active_persona": "orchestrator", "tdd_status": "inactive"}
+    assert state == {
+        "active_persona": "orchestrator",
+        "tdd_status": "inactive",
+        "matrix_branch": None,
+        "consecutive_rejections": 0,
+        "setup_complete": False,
+        "strict_enforcement_enabled": False,
+    }
     
     # Save state
     new_state = {"active_persona": "implementer", "tdd_status": "active"}

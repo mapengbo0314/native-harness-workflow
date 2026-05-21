@@ -71,6 +71,29 @@ class TestDynamicManifest:
             skill_tools = [t for t in manifest["tools"] if t["name"].startswith("skill_")]
             assert len(skill_tools) == 10
 
+    def test_generate_plugin_manifest_prioritizes_core_skills(self):
+        """Test that mandatory workflow skills are registered before alphabetical fill."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            skills_dir = Path(tmpdir) / "skills"
+            skills_dir.mkdir()
+
+            skills = ["zzz-extra", "harness-test-driven-development", "diagnose", "aaa-extra"]
+            for skill in skills:
+                (skills_dir / skill).mkdir()
+                (skills_dir / skill / "SKILL.md").write_text(f"# {skill}")
+
+            manifest_path = generate_plugin_manifest(
+                str(Path(tmpdir) / "plugin"),
+                "test-project",
+                skills_dir=skills_dir,
+            )
+
+            with open(manifest_path, 'r') as f:
+                manifest = json.load(f)
+
+            skill_tools = [t["name"] for t in manifest["tools"] if t["name"].startswith("skill_")]
+            assert skill_tools[:2] == ["skill_harness_test_driven_development", "skill_diagnose"]
+
     def test_generate_plugin_manifest_includes_windows_compatible_hooks(self):
         """Test that manifest includes correct hook registrations."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -84,18 +107,24 @@ class TestDynamicManifest:
             
             # Check UserPromptSubmit
             assert "UserPromptSubmit" in hooks
-            assert hooks["UserPromptSubmit"][0]["type"] == "command"
-            assert "python -m src.hooks.prompt_interceptor" in hooks["UserPromptSubmit"][0]["command"]
+            assert hooks["UserPromptSubmit"][0]["hooks"][0]["type"] == "command"
+            assert "PYTHONPATH=.claude/plugin-generated python3 -m src.hooks.prompt_interceptor" in hooks["UserPromptSubmit"][0]["hooks"][0]["command"]
 
             # Check PreToolUse
             assert "PreToolUse" in hooks
-            assert hooks["PreToolUse"][0]["type"] == "command"
-            assert "python -m src.hooks.pre_tool_guard" in hooks["PreToolUse"][0]["command"]
+            assert hooks["PreToolUse"][0]["hooks"][0]["type"] == "command"
+            assert "PYTHONPATH=.claude/plugin-generated python3 -m src.hooks.pre_tool_guard" in hooks["PreToolUse"][0]["hooks"][0]["command"]
 
             # Check Stop
             assert "Stop" in hooks
-            assert hooks["Stop"][0]["type"] == "command"
-            assert "python -m src.hooks.stop_monitor" in hooks["Stop"][0]["command"]
+            assert hooks["Stop"][0]["hooks"][0]["type"] == "command"
+            assert "PYTHONPATH=.claude/plugin-generated python3 -m src.hooks.stop_monitor" in hooks["Stop"][0]["hooks"][0]["command"]
+
+            assert "PostToolUse" in hooks
+            assert "PYTHONPATH=.claude/plugin-generated python3 -m src.hooks.post_tool_monitor" in hooks["PostToolUse"][0]["hooks"][0]["command"]
+
+            assert "PreCompact" in hooks
+            assert "PYTHONPATH=.claude/plugin-generated python3 -m src.hooks.precompact_monitor" in hooks["PreCompact"][0]["hooks"][0]["command"]
 
     def test_generate_plugin_sources_creates_dynamic_skill_handlers(self):
         """Test that tools.py contains dynamic handlers for tiered skills."""

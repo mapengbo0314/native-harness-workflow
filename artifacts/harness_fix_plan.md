@@ -20,7 +20,7 @@
 
 4.  **Sync Documentation (`designs/harness/harness_init_architecture.md`)**:
     *   Update the document to reflect that skills are stored in platform-specific directories (e.g., `.{platform}/skills/`) rather than `_agents/skills/`.
-    *   Update the document to reflect the actual `indxr serve` command arguments (e.g., adding `--all-tools`).
+    *   Update the document to reflect the actual `CodeGraph serve` command arguments (e.g., adding `--all-tools`).
 
 ## Verification
 *   Ensure all modifications pass existing tests (if any) or do not introduce syntax errors.

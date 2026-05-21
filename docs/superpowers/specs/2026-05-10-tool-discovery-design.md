@@ -5,7 +5,7 @@
 **Topic:** Automating the discovery and local installation of specialized Skills and MCP tools during project onboarding.
 
 ## 1. Problem Statement
-Project onboarding currently provides a static set of boilerplate skills and one indxr MCP. It does not automatically find and install specialized tools (like `pytest-patterns` or `postgres-mcp`) that are relevant to the project's specific tech stack and domain. Furthermore, tools are often managed globally rather than locally at the workspace level.
+Project onboarding currently provides a static set of boilerplate skills and one CodeGraph MCP. It does not automatically find and install specialized tools (like `pytest-patterns` or `postgres-mcp`) that are relevant to the project's specific tech stack and domain. Furthermore, tools are often managed globally rather than locally at the workspace level.
 
 ## 2. Proposed Solution
 Enhance the **Discovery Engine** to search for and recommend Skills and MCP tools based on the detected tech stack. These recommendations will be presented to the user as editable checklists in the `ONBOARDING_DOMAIN.md` document. The **Minting Engine** will then handle the local installation (for skills) and ephemeral configuration (for MCPs) at the workspace level.
@@ -26,7 +26,7 @@ Enhance the **Discovery Engine** to search for and recommend Skills and MCP tool
 ### 3.2 `harness/minting_engine.py` Enhancement
 *   **Skill Downloader**: New logic to parse the selected skill URLs from the handshake doc and download them into the local workspace.
 *   **MCP Configurator**: New logic to generate the platform-specific `mcp.json` (Gemini, Claude, etc.) using `npx -y` or `uvx` for the selected tools.
-*   **Workspace-Level Scoping**: Ensure all configurations (including the indxr MCP) use local paths relative to the workspace root.
+*   **Workspace-Level Scoping**: Ensure all configurations (including the CodeGraph MCP) use local paths relative to the workspace root.
 
 ## 4. Platform Adaptation
 *   **Gemini**: Writes to `.gemini/mcp.json` and `.gemini/skills.json`.

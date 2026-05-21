@@ -10,9 +10,9 @@ import sys
 @patch('subprocess.run')
 @patch('builtins.print')
 def test_cli_indexer_failure_aborts(mock_print, mock_subprocess_run):
-    # Setup mock to raise CalledProcessError when calling indxr
+    # Setup mock to raise CalledProcessError when calling CodeGraph
     def mock_run(*args, **kwargs):
-        if "indxr" in args[0] or "npx" in args[0]:
+        if "CodeGraph" in args[0] or "npx" in args[0]:
             raise subprocess.CalledProcessError(1, args[0])
         return subprocess.CompletedProcess(args[0], 0)
     

@@ -57,7 +57,7 @@ def discover_agents(context_str: str, feature_fetcher_yaml_path: str, llm_provid
         "3. 'zone': (Domain/Data/Handler/Core).\\n"
         "4. 'system_prompt': A comprehensive, 300-500 word Markdown system prompt. This prompt MUST:\\n"
         "   - Define their specific expertise relative to the project files.\\n"
-        "   - Enforce the use of 'indxr' MCP tools and local skills.\\n"
+        "   - Enforce the use of 'CodeGraph' MCP tools and local skills.\\n"
         "   - Define their 'Goldfish' phase responsibilities.\\n\\n"
         "Return as JSON: {'agents': [{'name': '...', 'role': '...', 'zone': '...', 'system_prompt': '...'}]}"
     )

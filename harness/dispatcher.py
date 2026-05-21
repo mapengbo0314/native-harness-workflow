@@ -48,7 +48,7 @@ class OrchestratorDispatcher:
             for agent_file in agents_dir.glob("*.md"):
                 agents[agent_file.stem] = {
                     "path": str(agent_file),
-                    "source": agent_file.read_text()[:200]
+                    "source": agent_file.read_text()
                 }
         return {"agents": agents}
 
@@ -68,7 +68,14 @@ class OrchestratorDispatcher:
                     return json.load(f)
             except (json.JSONDecodeError, OSError, PermissionError):
                 pass
-        return {"active_persona": "orchestrator", "tdd_status": "inactive"}
+        return {
+            "active_persona": "orchestrator",
+            "tdd_status": "inactive",
+            "matrix_branch": None,
+            "consecutive_rejections": 0,
+            "setup_complete": False,
+            "strict_enforcement_enabled": False,
+        }
 
     def _save_state(self, state: Dict[str, Any], timeout: float = 5.0) -> None:
         """Save state to .harness_state.json atomically using a directory lock."""
@@ -175,6 +182,7 @@ class OrchestratorDispatcher:
         # Update state
         state = self._load_state()
         state["active_persona"] = agent_name
+        state["matrix_branch"] = intent_branch
         if agent_name == "implementer":
             state["tdd_status"] = "active"
         self._save_state(state)

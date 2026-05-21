@@ -12,7 +12,7 @@ The Agentic Harness was verified against Gemini CLI/Claude Code documentation an
 
 ### 2.2 Claude Tool Mapping
 - **Issue**: Specialized agents on Claude were missing search and indexer tools.
-- **Fix**: Updated `mint_workspace` to include `Glob` and 6 `mcp_indxr_*` tools in the Claude-specific tool list.
+- **Fix**: Updated `mint_workspace` to include `Glob` and 6 `mcp_codegraph_*` tools in the Claude-specific tool list.
 - **Verification**: Verified via source code review.
 
 ### 2.3 Robust Rule Patching

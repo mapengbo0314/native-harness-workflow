@@ -24,7 +24,7 @@ The newly added onboarding logic works as intended. Code analysis of `harness/cl
 
 ## 3. Edge Case Verification
 - **Missing API Keys:** `harness/cli.py` (L59) successfully prompts via `getpass` if the required `{LLM}_API_KEY` environment variable is not found. An invalid key results in a clean runtime exception handled gracefully by the script (verified via subprocess test logging `API_KEY_INVALID` and raising `RuntimeError: Gemini API call failed`).
-- **Failed Indexer Generation:** `harness/cli.py` (L122) catches `subprocess.CalledProcessError`, `FileNotFoundError`, and standard exceptions during `indxr wiki generate`. It warns the user ("Context will be severely limited.") and proceeds without crashing. 
+- **Failed Indexer Generation:** `harness/cli.py` (L122) catches `subprocess.CalledProcessError`, `FileNotFoundError`, and standard exceptions during `CodeGraph wiki generate`. It warns the user ("Context will be severely limited.") and proceeds without crashing. 
 - **No Agents Selected:** The CLI correctly evaluates the boolean `if not selected_agents:` (L208) and exits cleanly with `sys.exit(0)` and the message "No agents selected. Aborting." if the user types 'n' to all recommendations.
 - **Missing Tool JSONs:** `install_workspace_tools` manages file absence gracefully; if `skills.json` or `mcp.json` don't exist, it instantiates empty JSON structures and dumps the configured objects, preventing `FileNotFoundError` or decode failures.
 

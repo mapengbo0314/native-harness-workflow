@@ -5,7 +5,7 @@
 **Author**: Gemini CLI
 
 ## Problem Statement
-The current `indxr init` flow requires the user to select a target AI platform (Gemini, Claude, etc.). This adds unnecessary friction and creates a workspace that is only optimized for one tool. Since we have implemented a pointer-based architecture (`GEMINI.md` -> `AGENTS.md`), we can now generate pointers for ALL platforms simultaneously, making the workspace "omni-compatible" out of the box.
+The current `CodeGraph init` flow requires the user to select a target AI platform (Gemini, Claude, etc.). This adds unnecessary friction and creates a workspace that is only optimized for one tool. Since we have implemented a pointer-based architecture (`GEMINI.md` -> `AGENTS.md`), we can now generate pointers for ALL platforms simultaneously, making the workspace "omni-compatible" out of the box.
 
 ## Proposed Changes
 

@@ -120,7 +120,8 @@ class TestTask2ConfigExport:
         with tempfile.TemporaryDirectory() as tmpdir:
             agents_dir = Path(tmpdir) / "agents"
             agents_dir.mkdir()
-            (agents_dir / "planner.md").write_text("# Planner Agent")
+            full_planner = "# Planner Agent\n" + ("Full instructions.\n" * 30)
+            (agents_dir / "planner.md").write_text(full_planner)
             (agents_dir / "reviewer.md").write_text("# Reviewer Agent")
 
             config_dir = Path(tmpdir) / "config"
@@ -131,6 +132,7 @@ class TestTask2ConfigExport:
                 data = json.load(f)
                 assert "planner" in data["agents"]
                 assert "reviewer" in data["agents"]
+                assert data["agents"]["planner"]["source"] == full_planner
 
     def test_export_rules_config_scans_rule_files(self):
         """Test that rules.json is exported from rules directory."""
@@ -194,6 +196,7 @@ class TestTask3PluginGeneration:
             assert (plugin_path / "config" / "orchestrator.json").exists()
             assert (plugin_path / "config" / "rules.json").exists()
             assert (plugin_path / "config" / "ddd-context.json").exists()
+            assert (plugin_path / "config" / "agents.json").exists()
             assert (plugin_path / "agents").exists()
             assert (plugin_path / "pyproject.toml").exists()
 
@@ -377,7 +380,13 @@ class TestPhase3Hooks:
             assert hooks_dir.exists()
             assert hooks_dir.is_dir()
 
-            expected_hooks = ["prompt_interceptor.py", "pre_tool_guard.py", "stop_monitor.py"]
+            expected_hooks = [
+                "prompt_interceptor.py",
+                "pre_tool_guard.py",
+                "post_tool_monitor.py",
+                "precompact_monitor.py",
+                "stop_monitor.py",
+            ]
             for hook in expected_hooks:
                 hook_path = hooks_dir / hook
                 assert hook_path.exists(), f"{hook} should exist"
@@ -395,4 +404,13 @@ class TestPhase3Hooks:
             # Check XML sanitization in prompt_interceptor.py
             interceptor_content = (hooks_dir / "prompt_interceptor.py").read_text()
             assert "xml.sax.saxutils.escape" in interceptor_content
-            assert "<matrix_route>" in interceptor_content
+            assert "<matrix_route branch=" in interceptor_content
+            assert "classify_intent" in interceptor_content
+
+            pre_tool_content = (hooks_dir / "pre_tool_guard.py").read_text()
+            assert "Orchestrators cannot write code" in pre_tool_content
+            assert "TDD VIOLATION" in pre_tool_content
+
+            post_tool_content = (hooks_dir / "post_tool_monitor.py").read_text()
+            assert "last_failing_test" in post_tool_content
+            assert "last_codegraph_use_at" in post_tool_content

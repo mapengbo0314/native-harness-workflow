@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the legacy `indxr` and `ddd_context` modules with `@colbymchenry/codegraph` as the exclusive context engine. Implement the Direct-Dispatch Matrix, merge orchestrator rules, and introduce the CLI Context Wizard with "Ghost Injection."
+**Goal:** Replace the legacy `CodeGraph` and `ddd_context` modules with `@colbymchenry/codegraph` as the exclusive context engine. Implement the Direct-Dispatch Matrix, merge orchestrator rules, and introduce the CLI Context Wizard with "Ghost Injection."
 **Architecture:** Archive legacy functions, verify Node.js prerequisites, initialize CodeGraph DB, swap MCP configuration, merge `dispatch_rules.md` into `orchestrator.md`, deprecate and delete the `@architect` agent, and update remaining agent templates.
 **Tech Stack:** Python, Bash, Agent Markdown Profiles, `@colbymchenry/codegraph`.
 
@@ -11,7 +11,7 @@
 ### Task 1: Archive Legacy NLP & DDD Modules and Cleanup Dependencies
 
 **Files:**
-- Create: `archive/legacy_indxr/__init__.py`
+- Create: `archive/legacy_CodeGraph/__init__.py`
 - Modify: `harness/discovery_engine.py`
 - Modify: `harness/cli.py`
 - Modify: `harness/minting_engine.py`
@@ -22,9 +22,9 @@
 - [ ] **Step 1: Create archive directory and ignore it**
 
 ```bash
-mkdir -p archive/legacy_indxr
+mkdir -p archive/legacy_CodeGraph
 echo "archive/" >> .gitignore
-touch archive/legacy_indxr/__init__.py
+touch archive/legacy_CodeGraph/__init__.py
 ```
 
 - [ ] **Step 2: Ignore CodeGraph Database**
@@ -36,7 +36,7 @@ echo ".codegraph/" >> .gitignore
 
 - [ ] **Step 3: Relocate legacy functions**
 
-Move the `discover_ddd_context` function from `harness/discovery_engine.py` into a new file `archive/legacy_indxr/ddd_discovery.py`.
+Move the `discover_ddd_context` function from `harness/discovery_engine.py` into a new file `archive/legacy_CodeGraph/ddd_discovery.py`.
 Remove the function definition and its imports from `harness/discovery_engine.py`.
 
 - [ ] **Step 4: Remove DDD extraction from `cli.py`**
@@ -51,7 +51,7 @@ Remove `ddd_context` arguments from helper functions.
 - [ ] **Step 6: Clean up Python Dependencies**
 
 Open `requirements.txt` and `pyproject.toml`.
-Find and remove any dependencies explicitly related to `indxr` or the old semantic wiki parser.
+Find and remove any dependencies explicitly related to `CodeGraph` or the old semantic wiki parser.
 
 ### Task 2: CodeGraph CLI Onboarding & Prerequisites
 
@@ -88,7 +88,7 @@ In `harness/cli.py`, implement the new CLI Wizard to collect project invariants 
 
 - [ ] **Step 3: Auto-Initialize CodeGraph DB**
 
-Replace the old `indxr` bundle resolution logic with a check for CodeGraph:
+Replace the old `CodeGraph` bundle resolution logic with a check for CodeGraph:
 
 ```python
     codegraph_db_path = os.path.join(args.project_path, ".codegraph", "codegraph.db")
@@ -110,16 +110,16 @@ Replace the old `indxr` bundle resolution logic with a check for CodeGraph:
 - Modify: `harness/minting_engine.py`
 - Modify: `boilerplate-agent/onboarding/tools.json` (or equivalent skills registry)
 
-- [ ] **Step 1: Swap indxr for CodeGraph in `mcp.json` templates**
+- [ ] **Step 1: Swap CodeGraph for CodeGraph in `mcp.json` templates**
 
-In `harness/minting_engine.py`, replace `indxr` commands with `codegraph`:
+In `harness/minting_engine.py`, replace `CodeGraph` commands with `codegraph`:
 For Gemini: `gemini mcp add codegraph npx -y @colbymchenry/codegraph serve --mcp || true`
 For Claude: `claude mcp add --scope project codegraph -- npx -y @colbymchenry/codegraph serve --mcp || true`
 Update the `mcp_config` JSON template to use the new CodeGraph command.
 
 - [ ] **Step 2: Update `AGENTS.md` and tools lists**
 
-In `harness/minting_engine.py`, change `mcp_servers: ["indxr"]` to `mcp_servers: ["codegraph"]`.
+In `harness/minting_engine.py`, change `mcp_servers: ["CodeGraph"]` to `mcp_servers: ["codegraph"]`.
 Update the agent tools string to include the correct CodeGraph tools (e.g., `codegraph_search`, `codegraph_explore`, `codegraph_context`, `codegraph_callers`, `codegraph_impact`), while retaining `grep_search` / `Grep` for non-symbol text targets (like UI strings).
 
 - [ ] **Step 3: Force `grill-with-docs` installation**
@@ -182,7 +182,7 @@ For `@implementer`: "Once code is written, you MUST delegate verification to `@v
 
 - [ ] **Step 3: Update remaining Agent Prompts**
 
-For all remaining files in `boilerplate-agent/agents/`, replace "Wiki-First strategy" and `mcp_indxr_*` with the "Graph-First strategy" and `codegraph_*` tools. Ensure `grep_search` remains available. Embed the Golden Rule.
+For all remaining files in `boilerplate-agent/agents/`, replace "Wiki-First strategy" and `mcp_codegraph_*` with the "Graph-First strategy" and `codegraph_*` tools. Ensure `grep_search` remains available. Embed the Golden Rule.
 
 - [ ] **Step 4: Implement Ghost Injection**
 
@@ -223,7 +223,7 @@ jobs:
 - [ ] **Step 2: Align Test Suite**
 
 Update `tests/test_cli.py` to mock `shutil.which` (returning a valid path) and mock `builtins.input` with a `side_effect` list to handle the new CLI Wizard questions.
-Remove outdated tests in `tests/test_discovery_engine.py` and `tests/test_e2e_flow.py` that check for `ddd_context.json` or `.indxr`.
+Remove outdated tests in `tests/test_discovery_engine.py` and `tests/test_e2e_flow.py` that check for `ddd_context.json` or `.codegraph`.
 Add tests ensuring `CONTEXT.md` is created correctly and that Ghost Injection appends to the implementer's prompt.
 
 - [ ] **Step 3: Verify Tests**

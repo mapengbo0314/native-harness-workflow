@@ -1,0 +1,8 @@
+{
+  "setup_complete": true,
+  "python_version": "3.11.3",
+  "codegraph_ready": true,
+  "plugin_install_manual_steps_printed": false,
+  "strict_enforcement_enabled": true,
+  "matrix_branch": "B"
+}

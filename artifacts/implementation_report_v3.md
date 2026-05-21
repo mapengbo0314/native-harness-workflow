@@ -17,7 +17,7 @@ The final task for Codex CLI support involved modifying the agent generation log
      description: "..."
      model: "..."
      sandbox_mode: "..."
-     mcp_servers: ["indxr"]
+     mcp_servers: ["CodeGraph"]
      ```
    - Appends the agent's `system_prompt` and any `ddd_context` immediately following the YAML block.
 

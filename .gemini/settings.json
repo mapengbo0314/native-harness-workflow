@@ -1,11 +1,12 @@
 {
   "mcpServers": {
-    "indxr": {
-      "command": "/Users/pengbolicious/.cargo/bin/indxr",
+    "codegraph": {
+      "command": "npx",
       "args": [
+        "-y",
+        "@colbymchenry/codegraph",
         "serve",
-        "--all-tools",
-        "."
+        "--mcp"
       ]
     }
   }

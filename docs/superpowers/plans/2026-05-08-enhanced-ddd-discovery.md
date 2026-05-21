@@ -97,7 +97,7 @@ def discover_custom_agent(name: str, specs: str, context_str: str, ddd_context: 
         "=== TASK ===\n"
         "Generate a comprehensive, 300-500 word Markdown system prompt for this agent. The prompt MUST:\n"
         "1. Define their specific expertise relative to the project files.\n"
-        "2. Enforce the use of 'indxr' MCP tools and local skills.\n"
+        "2. Enforce the use of 'CodeGraph' MCP tools and local skills.\n"
         "3. Define their role in the Goldfish Protocol (Phase 3) and Implementation (Phase 4).\n"
         "4. Incorporate the DDD context and ubiquitous language intrinsically.\n\n"
         "Return as JSON: {'name': '...', 'role': '...', 'zone': '...', 'system_prompt': '...'}"

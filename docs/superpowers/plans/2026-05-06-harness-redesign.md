@@ -4,9 +4,9 @@
 
 **Goal:** Refactor `harness-wf init` to use dynamic MCP discovery, remove static JSON dependencies, fix workspace minting, and integrate Superpower workflows.
 
-**Architecture:** The CLI will clone the boilerplate first, spawn an `indxr serve` subprocess to dynamically fetch context via MCP, pass that to the feature-fetcher LLM prompt, and then mint a clean workspace containing fully styled `config.yaml` and `agent.json` files.
+**Architecture:** The CLI will clone the boilerplate first, spawn an `CodeGraph serve` subprocess to dynamically fetch context via MCP, pass that to the feature-fetcher LLM prompt, and then mint a clean workspace containing fully styled `config.yaml` and `agent.json` files.
 
-**Tech Stack:** Python 3.10+, `indxr` MCP server, `argparse`, `subprocess`.
+**Tech Stack:** Python 3.10+, `CodeGraph` MCP server, `argparse`, `subprocess`.
 
 ---
 
@@ -35,7 +35,7 @@ git rm harness/indexer_wrapper.py
 
 - [ ] **Step 3: Remove indexer_wrapper references from cli.py**
 
-Modify `harness/cli.py` to remove `check_indxr_installed` and `acquire_context` imports and calls. Leave the `argparse` and credential checking intact. 
+Modify `harness/cli.py` to remove `check_CodeGraph_installed` and `acquire_context` imports and calls. Leave the `argparse` and credential checking intact. 
 
 ```python
 import argparse
@@ -49,7 +49,7 @@ def parse_args():
     parser.add_argument("--project-path", required=True, help="Path to the repository")
     parser.add_argument("--llm", required=True, choices=["gemini", "openai", "anthropic"], help="LLM provider")
     parser.add_argument("--model", help="Optional specific model to use (e.g., gemini-1.5-flash, claude-3-5-sonnet-20241022)")
-    parser.add_argument("--bundle", help="Optional path to an existing indxr JSON bundle")
+    parser.add_argument("--bundle", help="Optional path to an existing CodeGraph JSON bundle")
     return parser.parse_args()
 
 def main():
@@ -92,11 +92,11 @@ import subprocess
 import time
 
 def acquire_mcp_context(project_path: str) -> str:
-    """Spawns indxr serve and fetches the project summary via MCP."""
-    print(f"Starting indxr MCP server for dynamic analysis on {project_path}...")
+    """Spawns CodeGraph serve and fetches the project summary via MCP."""
+    print(f"Starting CodeGraph MCP server for dynamic analysis on {project_path}...")
     
     proc = subprocess.Popen(
-        ["indxr", "serve", "--stdio", project_path],
+        ["CodeGraph", "serve", "--stdio", project_path],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -234,7 +234,7 @@ def parse_args():
     parser.add_argument("--project-path", required=True, help="Path to the repository")
     parser.add_argument("--llm", required=True, choices=["gemini", "openai", "anthropic"], help="LLM provider")
     parser.add_argument("--model", help="Optional specific model to use (e.g., gemini-1.5-flash, claude-3-5-sonnet-20241022)")
-    parser.add_argument("--bundle", help="Optional path to an existing indxr JSON bundle")
+    parser.add_argument("--bundle", help="Optional path to an existing CodeGraph JSON bundle")
     return parser.parse_args()
 
 def main():
@@ -348,37 +348,37 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
     # Handle existing bundle / wiki migration
     existing_wiki = False
     if bundle_override:
-        # Determine where the .indxr folder is located based on the bundle argument
-        if os.path.isdir(bundle_override) and os.path.basename(bundle_override) == ".indxr":
-            source_indxr = bundle_override
+        # Determine where the .codegraph folder is located based on the bundle argument
+        if os.path.isdir(bundle_override) and os.path.basename(bundle_override) == ".codegraph":
+            source_CodeGraph = bundle_override
         elif os.path.isdir(bundle_override):
-            source_indxr = os.path.join(bundle_override, ".indxr")
+            source_CodeGraph = os.path.join(bundle_override, ".codegraph")
         else:
-            source_indxr = os.path.join(os.path.dirname(bundle_override), ".indxr")
+            source_CodeGraph = os.path.join(os.path.dirname(bundle_override), ".codegraph")
             
-        target_indxr = os.path.join(project_path, ".indxr")
+        target_CodeGraph = os.path.join(project_path, ".codegraph")
         
-        if os.path.exists(source_indxr) and os.path.abspath(source_indxr) != os.path.abspath(target_indxr):
-            print(f"Migrating existing wiki database from {source_indxr} to {target_indxr}...")
-            if os.path.exists(target_indxr):
-                shutil.rmtree(target_indxr)
-            shutil.copytree(source_indxr, target_indxr)
+        if os.path.exists(source_CodeGraph) and os.path.abspath(source_CodeGraph) != os.path.abspath(target_CodeGraph):
+            print(f"Migrating existing wiki database from {source_CodeGraph} to {target_CodeGraph}...")
+            if os.path.exists(target_CodeGraph):
+                shutil.rmtree(target_CodeGraph)
+            shutil.copytree(source_CodeGraph, target_CodeGraph)
             
-        if os.path.exists(os.path.join(target_indxr, "wiki")):
+        if os.path.exists(os.path.join(target_CodeGraph, "wiki")):
             existing_wiki = True
             
     # Generate specialized setup_harness.sh (Prerequisites)
-    indxr_init_flag = ""
+    CodeGraph_init_flag = ""
     if platform_choice == "1":
         platform_name = "Gemini CLI"
     elif platform_choice == "2":
         platform_name = "Claude Code"
-        indxr_init_flag = " --claude"
+        CodeGraph_init_flag = " --claude"
     elif platform_choice == "3":
         platform_name = "Copilot CLI"
     elif platform_choice == "4":
         platform_name = "Cursor"
-        indxr_init_flag = " --cursor"
+        CodeGraph_init_flag = " --cursor"
     else:
         platform_name = "Generic / Custom"
 
@@ -426,13 +426,13 @@ echo "Please refer to https://github.com/obra/superpowers to manually install sk
 """
 
     setup_content += f"""
-# 2. Install indxr MCP Server
-echo "Installing indxr MCP Server..."
+# 2. Install CodeGraph MCP Server
+echo "Installing CodeGraph MCP Server..."
 if command -v cargo &> /dev/null; then
-    cargo install indxr --features wiki,http || true
-    indxr init{indxr_init_flag} || true
+    cargo install CodeGraph --features wiki,http || true
+    CodeGraph init{CodeGraph_init_flag} || true
 else
-    echo "Error: cargo required to install indxr. Visit https://rustup.rs/"
+    echo "Error: cargo required to install CodeGraph. Visit https://rustup.rs/"
 fi
 """
 
@@ -445,7 +445,7 @@ echo "Existing codebase wiki database detected. Skipping initial wiki generation
         setup_content += f"""
 # 3. Generate initial Codebase Wiki
 echo "Generating initial codebase wiki (this may take a moment)..."
-(cd "{os.path.abspath(project_path)}" && indxr wiki generate{" --model " + model_choice if model_choice else ""}) || echo "Warning: Wiki generation failed. You may need to run it manually."
+(cd "{os.path.abspath(project_path)}" && CodeGraph wiki generate{" --model " + model_choice if model_choice else ""}) || echo "Warning: Wiki generation failed. You may need to run it manually."
 """
 
     with open(setup_script_path, "w") as f:
@@ -456,25 +456,25 @@ echo "Generating initial codebase wiki (this may take a moment)..."
     rules_file = "GEMINI.md" if platform_choice == "1" else "CLAUDE.md" if platform_choice == "2" else "RULES.md"
     rules_content = f"""# Agentic Harness Rules for {platform_name}
 
-1. **Context First**: Always use the `indxr` MCP server to query the codebase before proposing changes.
+1. **Context First**: Always use the `CodeGraph` MCP server to query the codebase before proposing changes.
 2. **Strict Planning**: Never write production code without an approved plan in `workspace/artifacts/plan.md`.
 3. **Superpower Workflows**: You MUST utilize installed Superpower skills (e.g., brainstorming, writing-plans, test-driven-development) during execution.
 """
     with open(target_path / rules_file, "w") as f:
         f.write(rules_content)
 
-    # Create an MCP config that points to the indxr server running in the project root
-    indxr_serve_args = ["serve", "--stdio", "--watch", "--wiki-auto-update"]
+    # Create an MCP config that points to the CodeGraph server running in the project root
+    CodeGraph_serve_args = ["serve", "--stdio", "--watch", "--wiki-auto-update"]
     if model_choice:
-        indxr_serve_args.extend(["--wiki-model", model_choice])
+        CodeGraph_serve_args.extend(["--wiki-model", model_choice])
     
-    indxr_serve_cmd = " ".join(indxr_serve_args)
+    CodeGraph_serve_cmd = " ".join(CodeGraph_serve_args)
 
     mcp_config = {
         "mcpServers": {
-            "indxr": {
+            "CodeGraph": {
                 "command": "bash",
-                "args": ["-c", f"cd {os.path.abspath(project_path)} && indxr {indxr_serve_cmd}"],
+                "args": ["-c", f"cd {os.path.abspath(project_path)} && CodeGraph {CodeGraph_serve_cmd}"],
                 "env": {
                     "GEMINI_API_KEY": os.environ.get("GEMINI_API_KEY", ""),
                     "ANTHROPIC_API_KEY": os.environ.get("ANTHROPIC_API_KEY", ""),
@@ -523,7 +523,7 @@ prompt_section_customization:
   - prompt_section:
       title: Indexer MCP Integration
       content: |
-        You have access to the codebase index via the `indxr` MCP server.
+        You have access to the codebase index via the `CodeGraph` MCP server.
         - Strategic Fetching: Use `find`, `summarize`, `get_file_summary` via MCP.
     insert_after_sections: Core Mandates
   - prompt_section:

@@ -23,9 +23,9 @@ While the foundational engine logic exists in `harness/discovery_engine.py` and 
 *   **Actual State**: Both `discover_agents` and `discover_ddd_context` in `harness/discovery_engine.py` use a single `try/except` block for JSON parsing. There is **no retry logic** implemented.
 
 ### 4. Component Divergence
-*   **Indxr Arguments**: 
-    *   *Claim*: `indxr serve --watch --wiki-auto-update`
-    *   *Code*: `indxr serve --watch --wiki-auto-update --all-tools` (Minor discrepancy, but adds unmentioned flags).
+*   **CodeGraph Arguments**: 
+    *   *Claim*: `CodeGraph serve --watch --wiki-auto-update`
+    *   *Code*: `CodeGraph serve --watch --wiki-auto-update --all-tools` (Minor discrepancy, but adds unmentioned flags).
 *   **Skill Paths**:
     *   *Claim*: `_agents/skills/`
     *   *Code*: `.{platform}/skills/` (e.g., `.gemini/skills/`).

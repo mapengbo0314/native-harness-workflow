@@ -8,7 +8,7 @@ We will integrate a Domain-Driven Design (DDD) onboarding sequence into the `har
 
 ### 1. Discovery Phase (Architect)
 - The `discovery_engine` will be updated to include a "DDD Discovery" step.
-- The `architect` agent will use `indxr` output to identify core domain entities and potential conflicts between docs and code.
+- The `architect` agent will use `CodeGraph` output to identify core domain entities and potential conflicts between docs and code.
 - Output: A draft `ubiquitous_language.md`.
 
 - The user answers these questions in the CLI to resolve conflicts and define business rules.

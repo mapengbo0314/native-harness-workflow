@@ -9,7 +9,7 @@ This document outlines the architectural convergence of the **Superpowers** work
 
 | Phase | Superpowers (Dialogue) | Design-as-Code (Rigor) | **ADP Integration (The Reinforcement)** |
 | :--- | :--- | :--- | :--- |
-| **I. Discovery** | Context exploration & visual offer. | "Peanuts and Hay" model building. | **Reinforcement**: `mcp_indxr` context loading + mandatory `grill-with-docs` to align with existing ADRs/Domain logic. |
+| **I. Discovery** | Context exploration & visual offer. | "Peanuts and Hay" model building. | **Reinforcement**: `mcp_codegraph` context loading + mandatory `grill-with-docs` to align with existing ADRs/Domain logic. |
 | **II. Challenge** | Clarifying questions. | Mandatory pushback & alternatives. | **Human-in-the-Loop**: Invoke `grill-me` here. The agent *must* try to break the user's idea before accepting it. |
 | **III. Drafting** | Whole-spec proposal. | Section-by-section approval. | **Iterative Drafting**: Generate sections (Problem, Plan, Alternatives, Impl) with approval gates for each. |
 | **IV. Validation** | Self-review. | Goldfish Protocol (Subagents). | **The Gauntlet**: Dispatch `@adversary` and `@verifier`. Results are reviewed by the user before implementation. |

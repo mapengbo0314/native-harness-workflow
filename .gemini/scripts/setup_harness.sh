@@ -1,19 +1,13 @@
 #!/usr/bin/env bash
 set -e
 
-# Check for indxr API keys
-if [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$OPENAI_API_KEY" ]; then
-    echo "⚠️  Warning: indxr requires an ANTHROPIC_API_KEY or OPENAI_API_KEY for background wiki updates."
-    echo "Background auto-indexing will be disabled until a key is exported in your terminal."
-    echo "Example: export ANTHROPIC_API_KEY='sk-ant-...' "
-    echo ""
-fi
-
 echo "=== Setting up Superpowers for Gemini CLI ==="
 if command -v gemini &> /dev/null; then
-    echo "Adding indxr to Gemini CLI project MCP configuration..."
-    indxr_serve_args_str="serve --watch --wiki-auto-update --all-tools"
-    gemini mcp add indxr bash -c "cd '/Users/pengbolicious/pengbo-apps/e-2-g' && indxr $indxr_serve_args_str" -e GEMINI_API_KEY=\$GEMINI_API_KEY -e ANTHROPIC_API_KEY=\$ANTHROPIC_API_KEY -e OPENAI_API_KEY=\$OPENAI_API_KEY || true
+    echo "Ensuring CodeGraph is built..."
+    npx -y @colbymchenry/codegraph init --index || true
+
+    echo "Adding codegraph to Gemini CLI project MCP configuration..."
+    gemini mcp add codegraph npx -y @colbymchenry/codegraph serve --mcp || true
 else
     echo "Warning: gemini command not found."
 fi
@@ -28,4 +22,4 @@ else
 fi
 
 echo ""
-echo "Setup complete. To activate indxr in Gemini, run Gemini from the project root and use '/mcp reload'."
+echo "Setup complete. To activate codegraph in Gemini, run Gemini from the project root and use '/mcp reload'."

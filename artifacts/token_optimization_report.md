@@ -14,7 +14,7 @@ An evaluation of `harness/cli.py`, `discovery_engine.py`, and `minting_engine.py
 | `cli.py` (Success Summary) | **Terminal Output**: Prints the final success state and next steps. | 0 Tokens (stdout) | **Status: Optimal.** The success summary is concise, informative, and incurs no LLM cost. |
 
 ## 3. Analysis against the "Goldfish" Principle
-The current `cli.py` violates the "Verified Goldfish" mandate in its generation phase. By forcing the LLM to write 500-word system prompts for subagents, it encourages the creation of "mini-monoliths." Subagents should be extremely lean (`< 200 words`), relying entirely on the `indxr` MCP tools to fetch dynamic context when needed, rather than having static rules hardcoded into their system prompts.
+The current `cli.py` violates the "Verified Goldfish" mandate in its generation phase. By forcing the LLM to write 500-word system prompts for subagents, it encourages the creation of "mini-monoliths." Subagents should be extremely lean (`< 200 words`), relying entirely on the `CodeGraph` MCP tools to fetch dynamic context when needed, rather than having static rules hardcoded into their system prompts.
 
 ## 4. Numbered Implementation Plan
 
@@ -24,7 +24,7 @@ To implement these optimizations without losing functional context, the followin
    - *Example*: `"Grill with Docs: Challenge user definitions. Identify ambiguities. Ensure domain alignment."*
    - Inject these summaries instead of the full markdown files.
 2. **Merge Discovery Calls**: Refactor `cli.py` and `discovery_engine.py` to perform a single `generate_onboarding_blueprint` LLM call that returns a JSON object containing both the `agents` array and the `ddd_context` object.
-3. **Optimize Prompt Generation Constraints**: In the unified prompt, change the requirement from `"300-500 words"` to `"concise, high-signal system prompts (max 150 words). Mandate the use of 'indxr' for codebase discovery."`
+3. **Optimize Prompt Generation Constraints**: In the unified prompt, change the requirement from `"300-500 words"` to `"concise, high-signal system prompts (max 150 words). Mandate the use of 'CodeGraph' for codebase discovery."`
 4. **Deterministic SME Minting**: In `minting_engine.py`, rewrite `synthesize_domain_sme_agent` to use regular expressions to extract the `<invariants>` and `<glossary>` directly from `ONBOARDING_DOMAIN.md`. Eliminate the LLM call entirely.
 
 By implementing these changes, the initial Harness onboarding sequence will be 2-3x faster and save upwards of 20,000 tokens per initialization, drastically reducing the "Routing Tax" without compromising the quality of the generated agents.

@@ -11,7 +11,7 @@ The current onboarding process in the Agentic Harness is either too generic (pro
 Implement a **Phased Onboarding Workflow** that uses an interactive "Handshake" document (`ONBOARDING_DOMAIN.md`) to capture domain intelligence. This intelligence is then used to synthesize exactly **one custom @domain-sme agent** that acts as the project's architectural guardian.
 
 ### 2.1 The Phased Workflow (Approach 2: Paused Loop)
-1. **Discovery Phase**: The Harness scans the codebase using the `indxr` MCP server.
+1. **Discovery Phase**: The Harness scans the codebase using the `CodeGraph` MCP server.
 2. **Drafting Phase**: It generates `ONBOARDING_DOMAIN.md` containing:
     * Detected Tech Stack.
     * Proposed Domain SME Agent (Name, Invariants, Glossary).

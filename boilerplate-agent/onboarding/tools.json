@@ -90,7 +90,7 @@
       },
       {
         "name": "git-mcp",
-        "command": "npx -y @modelcontextprotocol/server-git",
+        "command": "npx -y @mseep/git-mcp-server",
         "type": "mcp",
         "keywords": [
           "git",
@@ -120,4 +120,5 @@
       }
     ]
   }
+} }
 }

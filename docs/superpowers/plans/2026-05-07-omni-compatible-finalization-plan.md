@@ -33,7 +33,7 @@ import re
 with open("harness/minting_engine.py", "r") as f:
     content = f.read()
 
-pattern = r"(# Create an MCP config that points to the indxr server running in the project root)"
+pattern = r"(# Create an MCP config that points to the CodeGraph server running in the project root)"
 new_logic = """    # Generate Platform Rules Pointers IN THE ROOT DIRECTORY
     pointer_content = \"\"\"# Agentic Harness
     
@@ -117,10 +117,10 @@ for skill_file in _agents/skills/*.md; do
 done
 # MCP Configuration for Claude
 if command -v claude &> /dev/null; then
-    echo "Adding indxr to Claude Code global MCP configuration..."
+    echo "Adding CodeGraph to Claude Code global MCP configuration..."
     escaped_project_path="{os.path.abspath(project_path).replace("'", "'\\\\''")}"
-    indxr_serve_args_str="serve --watch --wiki-auto-update"
-    claude mcp add indxr bash -c "cd '$escaped_project_path' && indxr $indxr_serve_args_str" || true
+    CodeGraph_serve_args_str="serve --watch --wiki-auto-update"
+    claude mcp add CodeGraph bash -c "cd '$escaped_project_path' && CodeGraph $CodeGraph_serve_args_str" || true
 fi
 \"\"\",
         ".cursor": \"\"\"#!/usr/bin/env bash
@@ -210,7 +210,7 @@ You have been delegated a specific task by the Orchestrator.
 3. Superpower Workflows: You MUST run `list_directory` on `{target_path.name}/skills/` at the start of your session to discover available local skills.
 
 ## Indexer MCP Integration
-You have access to the codebase index via the `indxr` MCP server.
+You have access to the codebase index via the `CodeGraph` MCP server.
 - Strategic Fetching: Use `find`, `summarize`, `get_file_summary` via MCP.
 \"\"\"
 

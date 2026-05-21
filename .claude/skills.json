@@ -7,7 +7,7 @@
       "path": "grill-me/SKILL.md"
     },
     "grill-with-docs": {
-      "path": "grill-with-docs/SKILL.md"
+      "path": "skills/grill-with-docs/SKILL.md"
     },
     "improve-codebase-architecture": {
       "path": "improve-codebase-architecture/SKILL.md"
@@ -53,6 +53,9 @@
     },
     "prompt-engineer": {
       "path": "prompt-engineer/SKILL.md"
+    },
+    "fastapi": {
+      "path": "skills/fastapi/SKILL.md"
     }
   }
 }

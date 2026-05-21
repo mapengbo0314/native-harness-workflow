@@ -1,7 +1,7 @@
 # CodeGraph MCP Full Swap Design
 
 ## Goal
-Replace the legacy `indxr` (Semantic Wiki) and `ddd_context` (Domain-Driven Design) modules with `@colbymchenry/codegraph` as the exclusive context engine for the Agentic Harness. This shift prioritizes token efficiency, deterministic symbol resolution (AST-based), and impact analysis over LLM-generated summaries. 
+Replace the legacy `CodeGraph` (Semantic Wiki) and `ddd_context` (Domain-Driven Design) modules with `@colbymchenry/codegraph` as the exclusive context engine for the Agentic Harness. This shift prioritizes token efficiency, deterministic symbol resolution (AST-based), and impact analysis over LLM-generated summaries. 
 
 ## The Golden Rule for Agents
 All agent system prompts must embed this core principle:
@@ -9,7 +9,7 @@ All agent system prompts must embed this core principle:
 
 ## 1. Legacy Archival
 To reduce bloat and prevent system confusion, the old NLP-based discovery tools will be isolated and removed from the active runtime:
-- **Archive:** Create `archive/legacy_indxr/` and add `archive/` to `.gitignore`.
+- **Archive:** Create `archive/legacy_CodeGraph/` and add `archive/` to `.gitignore`.
 - **Relocation:** Move functions related to `discover_ddd_context` and heavy LLM wiki parsing from `harness/discovery_engine.py` into the archive.
 - **Cleanup:** Remove `ddd_context` arguments and parsing logic from `harness/cli.py` and `harness/minting_engine.py`. Remove `ddd_context.json` generation entirely.
 
@@ -17,7 +17,7 @@ To reduce bloat and prevent system confusion, the old NLP-based discovery tools 
 The entry point of the harness must guarantee that the CodeGraph database exists before agents are dispatched.
 - **Detection:** In `harness/cli.py`, check for the existence of `.codegraph/codegraph.db` in the project root.
 - **Auto-Initialization:** If the database does not exist, prompt the user and automatically execute the index builder: `npx -y @colbymchenry/codegraph init --index`.
-- **MCP Configuration:** Modify `mint_workspace` in `harness/minting_engine.py`. Instead of registering `indxr`, it must inject the CodeGraph MCP server command (`npx -y @colbymchenry/codegraph serve --mcp`) into the platform's `mcp.json` file.
+- **MCP Configuration:** Modify `mint_workspace` in `harness/minting_engine.py`. Instead of registering `CodeGraph`, it must inject the CodeGraph MCP server command (`npx -y @colbymchenry/codegraph serve --mcp`) into the platform's `mcp.json` file.
 
 ## 3. Orchestrator Rule Refactoring & Direct-Dispatch Matrix
 To achieve maximum determinism, we are abolishing the separation between `orchestrator.md` and `dispatch_rules.md`. Forcing an LLM to read a secondary file to understand its state machine is an anti-pattern. We are merging them into a single, unified context window.
@@ -79,9 +79,9 @@ To guarantee that `grill-with-docs` (and other critical discovery skills) are av
 ## 4. Agent System Prompts Refactor & Architect Deprecation
 Update the boilerplate agent templates in `boilerplate-agent/agents/*.md`.
 - **Architect Deprecation:** Delete the `@architect` agent entirely (`boilerplate-agent/agents/architect.md`). With the introduction of deterministic CodeGraph tools (`codegraph_callers`, `codegraph_impact`), codebase navigation is no longer a multi-turn, complex investigation requiring a dedicated "reading" agent. The Architect's responsibilities are shifted: the **Orchestrator** handles high-level questioning, and the **Planner** handles deep dependency mapping during feature design.
-- Strip all mentions of the "Wiki-First strategy" and `mcp_indxr_*` tools from remaining agents.
+- Strip all mentions of the "Wiki-First strategy" and `mcp_codegraph_*` tools from remaining agents.
 - Introduce the "Graph-First strategy."
 - Explicitly list the available `codegraph_*` tools in the agent toolset constraints, paired with the Golden Rule.
 
 ## 5. Testing Impacts
-- Update `tests/test_cli.py`, `tests/test_discovery_engine.py`, and `tests/test_e2e_flow.py` to mock or expect CodeGraph initialization rather than `indxr` and `ddd_context.json`.
+- Update `tests/test_cli.py`, `tests/test_discovery_engine.py`, and `tests/test_e2e_flow.py` to mock or expect CodeGraph initialization rather than `CodeGraph` and `ddd_context.json`.

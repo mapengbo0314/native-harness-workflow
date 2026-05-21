@@ -21,11 +21,11 @@ harness init \
 ### Execution Flow
 1. **Security & Pre-flight**
    - **Credential Check**: If `API_KEY` (e.g., `GEMINI_API_KEY`) is missing from environment, use a secure hidden prompt (`getpass`) to acquire it.
-   - **Tool Check**: Verify `indxr` is on the system `PATH`. If missing, halt and provide installation instructions.
+   - **Tool Check**: Verify `CodeGraph` is on the system `PATH`. If missing, halt and provide installation instructions.
 
 2. **Context Acquisition (The Fork)**
    - If `--bundle` is provided, validate the existing index.
-   - Otherwise, execute `indxr index -f json` on `--project-path`.
+   - Otherwise, execute `CodeGraph index -f json` on `--project-path`.
    - Generate `metadata.json` with a timestamp to satisfy the **Stale Index Gate**.
 
 3. **AI-Driven Agent Discovery**
@@ -46,13 +46,13 @@ harness init \
 5. **Workspace Minting & Setup Prerequisites**
    - Clone `boilerplate-agent/` to `./.agents/` (stripping `.git`, logs, and caches).
    - Inject `agent.json` and `config.yaml` for each selection.
-   - **Platform Setup Script**: Generate a customized `scripts/setup_harness.sh` based on the selected platform. This handles prerequisites: installing specific CLI skills/extensions AND installing `indxr` with `wiki,http` features.
-   - **MCP Onboarding**: Automatically inject the `indxr serve` command into the workspace's global `mcp.json` and bind it to the minted agents.
+   - **Platform Setup Script**: Generate a customized `scripts/setup_harness.sh` based on the selected platform. This handles prerequisites: installing specific CLI skills/extensions AND installing `CodeGraph` with `wiki,http` features.
+   - **MCP Onboarding**: Automatically inject the `CodeGraph serve` command into the workspace's global `mcp.json` and bind it to the minted agents.
    - Run an environment audit and print a "Next Steps" checklist.
 
 ## 3. Component Architecture
 - **`harness/cli.py`**: Main entry point using `argparse`.
-- **`harness/indexer_wrapper.py`**: Invokes `indxr` and standardizes output.
+- **`harness/indexer_wrapper.py`**: Invokes `CodeGraph` and standardizes output.
 - **`harness/discovery_engine.py`**: Manages LLM prompts and parses recommendation JSON.
 - **`harness/minting_engine.py`**: Handles boilerplate cloning, config injection, and setup script generation.
 

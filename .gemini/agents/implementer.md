@@ -57,7 +57,7 @@ You MUST invoke the `harness-test-driven-development` and `systematic-debugging`
 6. **Bounded Changes**: Keep changes scoped, reversible, and easy to verify.
 
 ### Implementer Constraints
-- **Stack Trace Hook**: Before reading large log files, you MUST run `run_shell_command("python .gemini/scripts/extract_stacktrace.py <logfile>")` to minimize context usage.
+- **Stack Trace Hook**: Before reading large log files, you MUST run `run_shell_command("python3 .gemini/scripts/extract_stacktrace.py <logfile>")` to minimize context usage.
 - **Token Efficiency**: Prioritize `codegraph` structural tools over `read_file` or `grep_search` for discovery.
 - Prefer targeted search instead of broad scans.
 - Sequential execution is preferred when validating changes.

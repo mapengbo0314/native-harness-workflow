@@ -4,7 +4,7 @@
 
 **Goal:** Implement a fallback mechanism in `harness-wf init` to correctly resolve the `--bundle` path and prompt the user to generate an index if none exists.
 
-**Architecture:** We will intercept the initialization process in `cli.py` *before* hitting the discovery engine. We will check the provided bundle path or the default `.indxr` directory for wiki files. If missing, we prompt the user to run `indxr wiki generate` using the collected LLM credentials, and then pass the resolved bundle path down to the discovery engine.
+**Architecture:** We will intercept the initialization process in `cli.py` *before* hitting the discovery engine. We will check the provided bundle path or the default `.codegraph` directory for wiki files. If missing, we prompt the user to run `CodeGraph wiki generate` using the collected LLM credentials, and then pass the resolved bundle path down to the discovery engine.
 
 **Tech Stack:** Python, argparse, subprocess
 
@@ -50,25 +50,25 @@ def acquire_mcp_context(project_path: str, bundle_path: str = None) -> str:
     # Check bundle path first if provided
     if bundle_path:
         bundle_wiki_path = os.path.join(bundle_path, "wiki") if not bundle_path.endswith("wiki") else bundle_path
-        # If the user passed the path to the indxr folder itself
-        if not os.path.exists(bundle_wiki_path) and os.path.basename(bundle_path) == ".indxr":
+        # If the user passed the path to the CodeGraph folder itself
+        if not os.path.exists(bundle_wiki_path) and os.path.basename(bundle_path) == ".codegraph":
             bundle_wiki_path = os.path.join(bundle_path, "wiki")
         elif not os.path.exists(bundle_wiki_path):
-             bundle_wiki_path = os.path.join(bundle_path, ".indxr", "wiki")
+             bundle_wiki_path = os.path.join(bundle_path, ".codegraph", "wiki")
 
         if os.path.exists(bundle_wiki_path):
             wiki_path = bundle_wiki_path
             print(f"Found existing wiki in bundle at {wiki_path}. Reading core architecture...")
         else:
-            wiki_path = os.path.join(project_path, ".indxr", "wiki")
+            wiki_path = os.path.join(project_path, ".codegraph", "wiki")
     else:
-        wiki_path = os.path.join(project_path, ".indxr", "wiki")
+        wiki_path = os.path.join(project_path, ".codegraph", "wiki")
 
     context_parts = []
     
     if os.path.exists(wiki_path):
-        if not bundle_path or wiki_path == os.path.join(project_path, ".indxr", "wiki"):
-             print(f"Found existing .indxr/wiki at {wiki_path}. Reading core architecture...")
+        if not bundle_path or wiki_path == os.path.join(project_path, ".codegraph", "wiki"):
+             print(f"Found existing .codegraph/wiki at {wiki_path}. Reading core architecture...")
         
         # Read ONLY the index and architecture to avoid token explosion
         for core_file in ["index.md", "architecture.md"]:
@@ -119,22 +119,22 @@ Modify `harness/cli.py` inside `main()` immediately after setting up API keys, b
     
     # 1. Check bundle if provided
     if resolved_bundle_path:
-        bundle_indxr = resolved_bundle_path if os.path.basename(resolved_bundle_path) == ".indxr" else os.path.join(resolved_bundle_path, ".indxr")
-        if os.path.exists(os.path.join(bundle_indxr, "INDEX.md")) or os.path.exists(os.path.join(bundle_indxr, "wiki", "index.md")):
+        bundle_CodeGraph = resolved_bundle_path if os.path.basename(resolved_bundle_path) == ".codegraph" else os.path.join(resolved_bundle_path, ".codegraph")
+        if os.path.exists(os.path.join(bundle_CodeGraph, "INDEX.md")) or os.path.exists(os.path.join(bundle_CodeGraph, "wiki", "index.md")):
             index_found = True
         elif os.path.exists(os.path.join(resolved_bundle_path, "INDEX.md")) or os.path.exists(os.path.join(resolved_bundle_path, "wiki", "index.md")):
             index_found = True # Handle direct path to wiki dir
 
     # 2. Check project path
-    project_indxr = os.path.join(args.project_path, ".indxr")
-    if not index_found and (os.path.exists(os.path.join(project_indxr, "INDEX.md")) or os.path.exists(os.path.join(project_indxr, "wiki", "index.md"))):
+    project_CodeGraph = os.path.join(args.project_path, ".codegraph")
+    if not index_found and (os.path.exists(os.path.join(project_CodeGraph, "INDEX.md")) or os.path.exists(os.path.join(project_CodeGraph, "wiki", "index.md"))):
         index_found = True
 
     if not index_found:
-        print("\nNo existing indxr database found.")
-        choice = input("Would you like to generate one now using 'indxr wiki generate'? (Y/n): ").strip().lower()
+        print("\nNo existing CodeGraph database found.")
+        choice = input("Would you like to generate one now using 'CodeGraph wiki generate'? (Y/n): ").strip().lower()
         if choice in ['', 'y', 'yes']:
-            print("Generating indxr wiki...")
+            print("Generating CodeGraph wiki...")
             
             # Prepare environment variables with the collected API key
             env = os.environ.copy()
@@ -143,32 +143,32 @@ Modify `harness/cli.py` inside `main()` immediately after setting up API keys, b
             elif args.llm == "openai":
                 env["OPENAI_API_KEY"] = api_key
             elif args.llm == "gemini":
-                 # Currently indxr wiki generate requires ANTHROPIC or OPENAI, but we pass what we have.
-                 # If indxr adds Gemini support, this will be needed.
+                 # Currently CodeGraph wiki generate requires ANTHROPIC or OPENAI, but we pass what we have.
+                 # If CodeGraph adds Gemini support, this will be needed.
                  env["GEMINI_API_KEY"] = api_key
                  # Fallback warning if Gemini is selected for harness but indexer needs Anthropic
                  if not env.get("ANTHROPIC_API_KEY") and not env.get("OPENAI_API_KEY"):
-                      print("Warning: 'indxr wiki generate' currently requires ANTHROPIC_API_KEY or OPENAI_API_KEY.")
+                      print("Warning: 'CodeGraph wiki generate' currently requires ANTHROPIC_API_KEY or OPENAI_API_KEY.")
             
-            # Execute indxr in the project directory
+            # Execute CodeGraph in the project directory
             try:
-                # Use npx if indxr is not installed globally, fallback to global indxr if npx fails
+                # Use npx if CodeGraph is not installed globally, fallback to global CodeGraph if npx fails
                 result = subprocess.run(
-                    ["npx", "--yes", "indxr", "wiki", "generate"], 
+                    ["npx", "--yes", "CodeGraph", "wiki", "generate"], 
                     cwd=args.project_path, 
                     env=env,
                     check=False
                 )
                 if result.returncode != 0:
-                     # Fallback to global indxr
+                     # Fallback to global CodeGraph
                      subprocess.run(
-                        ["indxr", "wiki", "generate"], 
+                        ["CodeGraph", "wiki", "generate"], 
                         cwd=args.project_path, 
                         env=env,
                         check=True
                      )
             except subprocess.CalledProcessError as e:
-                print(f"\nFailed to generate indxr wiki: {e}")
+                print(f"\nFailed to generate CodeGraph wiki: {e}")
                 print("Context will be severely limited.")
             except Exception as e:
                 print(f"\nError running indexer: {e}")
@@ -187,7 +187,7 @@ Update the `acquire_mcp_context` call in `main()` to use the resolved bundle and
         context_str = acquire_mcp_context(args.project_path, bundle_path=resolved_bundle_path)
         if context_str is None:
              context_str = "No codebase wiki found. Architecture unknown."
-             print("No usable .indxr/wiki found. Proceeding with empty context.")
+             print("No usable .codegraph/wiki found. Proceeding with empty context.")
 ```
 
 Update the `mint_workspace` call in `main()` to use the resolved bundle:
@@ -217,15 +217,15 @@ We need to ensure `minting_engine.py` correctly handles the absolute path we are
 *(The existing logic in `minting_engine.py`:)*
 ```python
     if bundle_override:
-        # Determine where the .indxr folder is located based on the bundle argument
-        if os.path.isdir(bundle_override) and os.path.basename(bundle_override) == ".indxr":
-            source_indxr = bundle_override
+        # Determine where the .codegraph folder is located based on the bundle argument
+        if os.path.isdir(bundle_override) and os.path.basename(bundle_override) == ".codegraph":
+            source_CodeGraph = bundle_override
         elif os.path.isdir(bundle_override):
-            source_indxr = os.path.join(bundle_override, ".indxr")
+            source_CodeGraph = os.path.join(bundle_override, ".codegraph")
         else:
-            source_indxr = os.path.join(os.path.dirname(bundle_override), ".indxr")
+            source_CodeGraph = os.path.join(os.path.dirname(bundle_override), ".codegraph")
             
-        target_indxr = os.path.join(project_path, ".indxr")
+        target_CodeGraph = os.path.join(project_path, ".codegraph")
 ```
 *Self-Correction: The existing logic handles absolute paths perfectly because `os.path.join` on an absolute path drops previous segments, and since we are passing an absolute path from `cli.py`, this logic holds up.*
 

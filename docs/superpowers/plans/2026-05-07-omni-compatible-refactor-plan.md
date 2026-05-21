@@ -43,7 +43,7 @@ git commit -m "refactor: remove platform selection prompt from CLI"
 Update `def mint_workspace(...)` to remove the `platform_choice` parameter.
 
 - [x] **Step 2: Remove platform name logic**
-Remove the `if/elif` block (lines 80-92) that sets `platform_name` and `indxr_init_flag`.
+Remove the `if/elif` block (lines 80-92) that sets `platform_name` and `CodeGraph_init_flag`.
 
 - [x] **Step 3: Update `setup_harness.sh` header**
 Change the header to: `echo "=== Setting up Omni-Compatible Agentic Harness Prerequisites ==="`
