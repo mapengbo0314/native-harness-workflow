@@ -1,53 +1,81 @@
-# Deterministic Plugin Hooks Design (V3: The Enforcer Matrix)
+# Deterministic Plugin Hooks Design (V4: The Portable Harness)
 
 **Date:** 2026-05-20  
-**Status:** Approved  
-**Scope:** Enhancing the auto-generated Claude Code plugin to enforce deterministic harness behaviors via a comprehensive suite of Claude Code hooks (`UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`).
+**Status:** Final Approval  
+**Scope:** Transforming the auto-generated Claude Code plugin into a self-contained, portable unit that bundles the entire project harness (Agents, Skills, Rules, and Hooks) into a single installable package.
 
 ## Problem Statement
 
-The embedded harness currently relies on LLM compliance ("soft prompting") to follow instructions defined in `AGENTS.md` and `orchestrator.md`. While the generated Claude Code plugin successfully exposes the `Skill` and `Task` tools, it relies on the AI to "remember" to use them.
+The previous design treated the plugin as a "bridge" to live files in the workspace. While this ensured live updates, it failed the "Packaging & Portability" mental model. A true Claude Code plugin should be the **container** for knowledge and logic. 
 
-Relying on LLM reasoning for routing and discipline causes:
-1. **Token Bloat**: The LLM must read large prompts, analyze intent, and output `<thinking>` blocks just to decide what to do.
-2. **Brittle Guardrails**: The LLM easily forgets to write failing tests first (TDD) or reads massive files instead of using search tools.
-3. **Loss of Determinism**: When a user pastes a stack trace, Claude often attempts to guess the fix immediately instead of systematically routing the issue to the proper debugging subagent.
+Furthermore, the initial "Harness Minting" phase (copying boilerplate) and the "Plugin Generation" phase were disconnected, creating a risk where the plugin lacked the full context of the synthesized agents (like the `@domain-sme`).
 
 ## Goal
 
-Create a "Perfect Harness" that translates markdown mandates into **executable Python code**. The plugin will act as an active, intelligent gateway that enforces the Hub-and-Spoke model, optimizes token usage, and guarantees engineering rigor—all without impeding the developer's natural workflow.
+Create a **Zero-Config Portable Harness**. When a user selects "Claude Code" during `harness-wf init`, the system will:
+1.  Mint the base harness.
+2.  **Migrate** the entire `boilerplate-agent/` and `harness/` logic into a self-contained plugin folder.
+3.  Include all 5 Deterministic Hooks to enforce the Hub-and-Spoke model.
+4.  Automate CodeGraph onboarding so the plugin is ready for high-performance codebase navigation immediately.
 
 ---
 
-## Architectural Lifecycle Diagram
+## The Self-Contained Architecture
 
-This diagram illustrates how the Python plugin intercepts Claude Code's native event lifecycle to enforce the harness deterministically. The layout represents the iterative "Agent Loop".
+The plugin folder (`.claude/plugin-generated/`) now owns the entire project intelligence.
+
+```text
+.claude/plugin-generated/
+├── .claude-plugin/
+│   ├── plugin.json                # Tools & Hook definitions
+│   └── marketplace.json           # Local installation manifest
+├── src/
+│   ├── hooks/                     # The 5 Deterministic Hooks (Python)
+│   ├── tools.py                   # Skill() and Task() handlers
+│   └── dispatcher.py              # Orchestrator routing logic
+├── agents/                        # Bundled subagent .md files
+│   ├── implementer.md
+│   ├── planner.md
+│   └── domain-sme.md              # Synthesized during init
+├── skills/                        # Bundled procedural workflows
+│   ├── systematic-debugging/
+│   └── test-driven-development/
+└── config/                        # Project-specific context
+    ├── ddd-context.json           # Live DDD invariants
+    └── rules.json                 # Core mandates
+```
+
+---
+
+## Architectural Lifecycle Diagram (The Deterministic Loop)
 
 ```mermaid
 flowchart TD
-    User([User Input]) --> UPS{UserPromptSubmit}
+    User([User Input]) --> UPS{UserPromptSubmit Hook}
     
-    %% Input Interception
-    UPS -- "Stack Trace" --> Compress[Compress & Append Routing] --> LLM
-    UPS -- "Clean" --> LLM((Claude LLM))
+    %% Input Interception - Matrix Routing
+    UPS -- "Detected Stack Trace" --> BranchA[Branch A: Error Router<br/>Compress trace, force debugging] --> LLM
+    UPS -- "Build/Create Req" --> BranchB[Branch B: Feature Router<br/>Force Brainstorming + Planner] --> LLM
+    UPS -- "How/Where Question" --> BranchC[Branch C: Question Router<br/>Force CodeGraph/Direct Answer] --> LLM
+    UPS -- "Clean/Simple Prompt" --> LLM((Claude LLM / Orchestrator))
     
     %% Tool Interception (Pre)
-    LLM -- "Call Tool" --> PreHook{PreToolUse}
+    LLM -- "Call Tool" --> PreHook{PreToolUse Hook}
     
-    PreHook -- "Read >100L" --> BlockRead[Block: Use CodeGraph] --> LLM
-    PreHook -- "Edit w/o TDD" --> BlockEdit[Block: Run Tests First] --> LLM
-    PreHook -- "Task(Subagent)" --> Lazy[Lazy Load Context] --> Exec[Execute Tool]
+    PreHook -- "Read >100L" --> BlockRead[Block! Enforce CodeGraph Search] --> LLM
+    PreHook -- "Edit w/o TDD" --> BlockEdit[Block! Enforce Failing Test] --> LLM
+    PreHook -- "Task(Subagent)" --> Lazy[Lazy Load Bundled Persona &<br/>DDD Context from Plugin] --> Exec[Execute Tool]
     PreHook -- "Valid Tool" --> Exec
     
-    %% Tool Interception (Post)
-    Exec --> PostHook{PostToolUse}
-    PostHook -- "Planner Output" --> ArchGuard[Validate DDD] --> LLM
+    %% Post Task Phase
+    Exec --> PostHook{PostToolUse Hook}
+    PostHook -- "Planner Output" --> ArchGuard[Domain Architect Guardrail:<br/>Verify Invariants] --> LLM
     PostHook -- "Other Tools" --> LLM
     
     %% Stop Interception
     LLM -- "Attempt to Finish" --> StopHook{Stop Hook}
-    StopHook --> Gate[Run Gatekeeper]
-    Gate -- "Tests Fail" --> Reject[Block: Fix Errors] --> LLM
+    StopHook --> Gate[Run Gatekeeper.py]
+    Gate -- "Tests Fail" --> Reject[Block! Force Fixes] --> LLM
     Gate -- "Tests Pass" --> Done([Session Complete])
 
     classDef hook fill:#f9f,stroke:#333,stroke-width:2px,color:#000;
@@ -63,63 +91,23 @@ flowchart TD
 
 ---
 
-## The 5 Deterministic Hooks
+## Unified Onboarding Flow
 
-### 1. The Full Matrix Auto-Router (`UserPromptSubmit` Hook)
-*   **Trigger**: Before the prompt hits the LLM.
-*   **Logic**: Performs heuristic intent classification (using regex and keyword matching) to map the user's prompt to the 4 branches defined in `orchestrator.md`.
-*   **Actions based on Classification**:
-    *   **Branch A (Bug/Error)**: If a stack trace (`Traceback`, `panic:`) or bug keywords are detected, it compresses the trace and appends:
-        > *[ROUTING OVERRIDE: Branch A]: Confirmed Bug Fix. You MUST invoke `Skill("systematic-debugging")` and `Task("implementer")`.*
-    *   **Branch B (Feature Request)**: If creation keywords (`build`, `create`, `implement`) are detected, it appends:
-        > *[ROUTING OVERRIDE: Branch B]: Feature Request. You MUST invoke `Skill("harness-brainstorming")` and dispatch `Task("planner")` to write a spec before coding.*
-    *   **Branch C (Codebase Question)**: If question formats (`how does`, `where is`, `explain`) are detected:
-        > *[ROUTING OVERRIDE: Branch C]: Question/Retrieval. Answer directly using CodeGraph tools. DO NOT modify files or dispatch subagents.*
-    *   **Branch D (Surgical Edit)**: If isolated tweak keywords (`typo`, `rename`, `quick fix`) are detected:
-        > *[ROUTING OVERRIDE: Branch D]: Fast-path edit. Bypass planning workflows. Dispatch `Task("implementer")` directly.*
-*   **Value**: Replaces the expensive LLM `<thinking>` phase with instant, deterministic, Zero-Shot Routing across the entire project lifecycle.
-
-### 2. The Strict TDD Enforcer (`PreToolUse` Hook)
-*   **Trigger**: When Claude tries to use the `Edit` tool.
-*   **Logic**: If the target is a production file (`src/*.py`), checks the session history to see if `Bash` was recently used to run a test suite (and if it failed).
-*   **Action**: Blocks the edit if the "Red" phase of TDD was skipped.
-    > *[TDD MANDATE VIOLATION]: You must write and run a failing test before modifying production code.*
-*   **Value**: Forces rigorous engineering standards programmatically.
-
-### 3. The Golden Rule Token Protector (`PreToolUse` Hook)
-*   **Trigger**: When Claude tries to use the `Read` tool.
-*   **Logic**: Checks the size of the target file.
-*   **Action**: If the file is massive (>100 lines) and the read is unbounded, blocks the tool.
-    > *[CORE MANDATE VIOLATION]: File too large. Use `mcp_codegraph_codegraph_search` or `Grep` instead to protect your token window.*
-*   **Value**: Physically prevents context window bloat, keeping the session fast and cheap.
-
-### 4. The Domain Architect Guardrail (`PostToolUse` Hook)
-*   **Trigger**: When the `@planner` task completes.
-*   **Logic**: Intercepts the planner's output before the Orchestrator resumes.
-*   **Action**: Evaluates the plan against the `CONTEXT.md` invariants (potentially triggering a fast, hidden LLM evaluation or AST check). If violated, pushes the task back to the planner with feedback.
-*   **Value**: Ensures architectural integrity without manual human code review.
-
-### 5. The Automated Gatekeeper (`Stop` Hook)
-*   **Trigger**: When Claude attempts to finish a task and return control to the user.
-*   **Logic**: Silently runs `scripts/gatekeeper.py` (which runs linters and tests).
-*   **Action**: If tests fail, blocks the stop event and forces Claude to keep working.
-    > *[GATEKEEPER REJECTION]: Build failed. You must fix these errors before completing the task.*
-*   **Value**: Prevents premature success claims. The user never sees "I fixed it!" unless the fix actually passes tests.
+1.  **Mint Phase:** `harness-wf init` runs. It creates the project structure, downloads skills, and generates the `@domain-sme`.
+2.  **Migration Phase:** `harness/plugin_generator.py` is called. It:
+    *   Copies all `.md` files from `.claude/agents/` into the plugin's `agents/`.
+    *   Copies all skill folders from `.claude/skills/` into the plugin's `skills/`.
+    *   Injects the **Full Matrix Router** into `src/hooks/prompt_interceptor.py`.
+3.  **Onboarding Phase:** The user runs `setup_harness.sh`. It:
+    *   Builds the CodeGraph index.
+    *   Automatically runs `/plugin marketplace add` and `/plugin install`.
+    *   **Result:** The user opens Claude Code and the entire harness is "just there," enforcing TDD, protecting tokens, and routing accurately.
 
 ---
 
-## Business Value & Economics
+## Business Value: The Token Efficient Enforcer
 
-### 1. Enabling the Matrix Routing Pattern
-The plugin fundamentally shifts the Orchestrator's decision matrix from **Soft Prompts** to **Native Python Execution**. 
-Instead of paying the LLM to read its own rules, output a `<thinking>` block, and slowly decide to dispatch a subagent, the Python hooks instantly evaluate the state (e.g., Is this an error? -> Branch A. Is this a feature? -> Branch B) and hardcode the path. 
-
-### 2. Massive Token Savings
-*   **Trace Compression**: Compressing a 1000-line Java stack trace to 40 lines in Python saves ~10,000 input tokens before the LLM even sees it.
-*   **Lazy Loading**: We no longer inject `AGENTS.md` and `CONTEXT.md` on every single turn. They are only injected into the specific `Task` subagent executions via the `PreToolUse` hook.
-*   **Blocked Reads**: The Token Protector hook prevents the classic AI mistake of reading a 5,000-line file to find one variable, saving massive context waste.
-
-### 3. Frictionless Developer Experience
-*   **No "Prompt Engineering" Required**: Developers don't need to type `/route` or say "Please follow TDD and act as the implementer." They just type naturally or paste errors. The plugin manages the harness invisibly.
-*   **Fewer Hallucinations**: By blocking invalid actions (like skipping tests or claiming success early), the developer spends less time arguing with the AI and more time reviewing passing, high-quality code.
-*   **Live Synchronization**: Because the plugin reads live workspace files instead of static JSON copies, developers can update their `CONTEXT.md` and see the plugin enforce the new rules immediately on the next turn.
+*   **Zero-Shot Routing:** By performing heuristic classification in Python (Branch A/B/C/D), we skip the LLM's expensive "thinking" turn entirely.
+*   **Trace Compression:** Native Python compression of stack traces reduces input tokens by up to 90% for bug reports.
+*   **Portable Knowledge:** The plugin is the "Knowledge Package". It ensures every subagent has immediate access to DDD Context and Invariants without the LLM needing to "find" them.
+*   **Engineering Rigor:** Programmatic blocking of non-TDD edits and early success claims ensures high-quality outcomes with less manual oversight.
