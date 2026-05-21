@@ -351,3 +351,38 @@ class TestIntegration:
             assert result["agent"] == "planner"
             assert result["routed"] is True
             assert result["context"]["key"] == "value"
+
+class TestPhase3Hooks:
+    """Task 3: Phase 3 - Standalone Hooks Execution tests."""
+
+    def test_generate_plugin_sources_creates_hooks_directory_and_scripts(self):
+        """Test that generate_plugin_sources creates src/hooks/ and the three hook scripts."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = Path(tmpdir) / "src"
+            src_dir.mkdir()
+
+            generate_plugin_sources(src_dir)
+
+            hooks_dir = src_dir / "hooks"
+            assert hooks_dir.exists()
+            assert hooks_dir.is_dir()
+
+            expected_hooks = ["prompt_interceptor.py", "pre_tool_guard.py", "stop_monitor.py"]
+            for hook in expected_hooks:
+                hook_path = hooks_dir / hook
+                assert hook_path.exists(), f"{hook} should exist"
+                
+                content = hook_path.read_text()
+                
+                # Check import resolution header
+                assert "import sys, os; sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))" in content
+                
+                # Check logging logic
+                assert "harness.log" in content
+                assert "os.getpid()" in content
+                assert "datetime" in content
+
+            # Check XML sanitization in prompt_interceptor.py
+            interceptor_content = (hooks_dir / "prompt_interceptor.py").read_text()
+            assert ".replace('<', '&lt;').replace('>', '&gt;')" in interceptor_content
+            assert "<matrix_route>" in interceptor_content

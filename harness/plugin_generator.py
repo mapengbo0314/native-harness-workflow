@@ -508,6 +508,94 @@ def invoke_task(agent_name: str, prompt: str) -> str:
     # Generate a stub for dispatcher.py in case generate_plugin_sources is called in isolation
     (src_dir / "dispatcher.py").write_text('"""Dispatcher stub"""\n')
 
+    # Generate hooks directory and scripts
+    hooks_dir = src_dir / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Common header for all hook scripts
+    hook_header = """import sys, os; sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import datetime
+
+def log_action(hook_name, action, details=""):
+    \"\"\"Log action to harness.log.\"\"\"
+    config_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../config'))
+    log_file = os.path.join(config_dir, 'harness.log')
+    timestamp = datetime.datetime.now().isoformat()
+    pid = os.getpid()
+    
+    # Ensure config dir exists
+    os.makedirs(config_dir, exist_ok=True)
+    
+    try:
+        with open(log_file, 'a') as f:
+            f.write(f"[{timestamp}] [PID:{pid}] [{hook_name}] {action} - {details}\\n")
+    except Exception:
+        pass
+"""
+
+    # Generate prompt_interceptor.py (UPS)
+    prompt_interceptor_content = hook_header + '''
+import json
+
+def intercept(user_input):
+    \"\"\"Intercept and sanitize user input.\"\"\"
+    log_action("prompt_interceptor", "intercept", f"Received input of length {len(user_input) if user_input else 0}")
+    
+    if not user_input:
+        return user_input
+        
+    # XML sanitization
+    sanitized = str(user_input).replace('<', '&lt;').replace('>', '&gt;')
+    
+    # Wrap in matrix route
+    routed_input = f"<matrix_route>CRITICAL DIRECTIVE:\\n{sanitized}\\n</matrix_route>"
+    log_action("prompt_interceptor", "intercept_complete", "Input sanitized and routed")
+    return routed_input
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) > 1:
+        print(intercept(sys.argv[1]))
+'''
+    (hooks_dir / "prompt_interceptor.py").write_text(prompt_interceptor_content)
+
+    # Generate pre_tool_guard.py (Firewall/TDD)
+    pre_tool_guard_content = hook_header + '''
+import json
+
+def check_tool_use(tool_name, tool_args):
+    \"\"\"Check if tool use is permitted.\"\"\"
+    log_action("pre_tool_guard", "check", f"Tool: {tool_name}")
+    
+    # This would typically interact with the dispatcher to check .harness_state.json
+    # For now, we just log and allow
+    log_action("pre_tool_guard", "allow", f"Tool {tool_name} allowed")
+    return True
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) > 2:
+        check_tool_use(sys.argv[1], sys.argv[2])
+'''
+    (hooks_dir / "pre_tool_guard.py").write_text(pre_tool_guard_content)
+
+    # Generate stop_monitor.py (Verification guardrail)
+    stop_monitor_content = hook_header + '''
+import json
+
+def on_stop(reason):
+    \"\"\"Monitor session stop events.\"\"\"
+    log_action("stop_monitor", "stop", f"Reason: {reason}")
+    # Verification checks could be run here, e.g. gatekeeper.py
+    return True
+
+if __name__ == "__main__":
+    import sys
+    reason = sys.argv[1] if len(sys.argv) > 1 else "unknown"
+    on_stop(reason)
+'''
+    (hooks_dir / "stop_monitor.py").write_text(stop_monitor_content)
+
 
 def generate_pyproject(plugin_dir: Path) -> str:
     """Generate pyproject.toml for the plugin."""

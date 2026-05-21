@@ -10,7 +10,7 @@ Rewrite `harness/plugin_generator.py` to match the V4 Deterministic Plugin Hooks
 2. Modify `harness/plugin_generator.py` to replace the markdown extraction logic with `shutil.copytree` for both the `agents` and `skills` directories.
 3. Ensure the test passes.
 
-## Task 2: Phase 2 - Core Logic Engine (Dispatcher & State)
+## Task 2: Phase 2 - Core Logic Engine (Dispatcher & State) (DONE)
 **Context:** Implement the "Native Python Enforcement" and "Atomic State" logic.
 **Steps:**
 1. Update `generate_plugin_sources()` to generate a much smarter `src/dispatcher.py` that includes the atomic JSON state manager (using `os.mkdir` locks and `os.replace`).
