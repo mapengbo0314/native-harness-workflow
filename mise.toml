@@ -1,0 +1,11 @@
+[tasks.test]
+description = "Run unit and integration tests"
+run = "pytest tests/unit tests/integration -v"
+
+[tasks.benchmark]
+description = "Run DeepEval agentic benchmarks"
+run = "deepeval test run tests/benchmarks"
+
+[tasks.install]
+description = "Install package in editable mode"
+run = "pip install -e ."
