@@ -159,7 +159,7 @@ git commit -m "feat: add custom agent creation loop to CLI"
 ### Task 4: Verification
 
 **Files:**
-- Modify: `tests/test_discovery_engine.py`
+- Modify: `tests/unit/test_discovery_engine.py`
 
 - [ ] **Step 1: Add test for `discover_custom_agent`**
 
@@ -181,11 +181,11 @@ def test_discover_custom_agent(mock_query_llm):
 ```
 
 - [ ] **Step 2: Run tests**
-Run: `pytest tests/test_discovery_engine.py -v`
+Run: `pytest tests/unit/test_discovery_engine.py -v`
 Expected: PASS
 
 - [ ] **Step 3: Commit**
 ```bash
-git add tests/test_discovery_engine.py
+git add tests/unit/test_discovery_engine.py
 git commit -m "test: add test for discover_custom_agent"
 ```

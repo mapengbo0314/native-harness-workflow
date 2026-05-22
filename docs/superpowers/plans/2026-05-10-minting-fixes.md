@@ -89,7 +89,7 @@ git commit -m "fix: expand boilerplate tool registry with universal skills"
 
 **Files:**
 - Modify: `harness/minting_engine.py`
-- Test: `tests/test_minting_engine.py`
+- Test: `tests/integration/test_minting_engine.py`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -121,7 +121,7 @@ def test_install_workspace_tools_guarantees_superpowers(mock_urlopen, tmp_path):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `PYTHONPATH=. pytest tests/test_minting_engine.py::test_install_workspace_tools_guarantees_superpowers -v`
+Run: `PYTHONPATH=. pytest tests/integration/test_minting_engine.py::test_install_workspace_tools_guarantees_superpowers -v`
 Expected: FAIL with `AssertionError`
 
 - [ ] **Step 3: Write minimal implementation**
@@ -147,13 +147,13 @@ def install_workspace_tools(target_dir: str, harness_folder_name: str, skills: l
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `PYTHONPATH=. pytest tests/test_minting_engine.py::test_install_workspace_tools_guarantees_superpowers -v`
+Run: `PYTHONPATH=. pytest tests/integration/test_minting_engine.py::test_install_workspace_tools_guarantees_superpowers -v`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add harness/minting_engine.py tests/test_minting_engine.py
+git add harness/minting_engine.py tests/integration/test_minting_engine.py
 git commit -m "feat: guarantee using-superpowers skill installation in workspace"
 ```
 

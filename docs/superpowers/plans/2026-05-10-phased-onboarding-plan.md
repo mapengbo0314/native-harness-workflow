@@ -15,12 +15,12 @@ The implementation involves updating the `harness` Python package. We will add l
 
 **Files:**
 - Modify: `harness/discovery_engine.py`
-- Test: `tests/test_discovery_engine.py`
+- Test: `tests/unit/test_discovery_engine.py`
 
 - [ ] **Step 1: Write the failing test**
 
 ```python
-# In tests/test_discovery_engine.py
+# In tests/unit/test_discovery_engine.py
 import os
 from harness.discovery_engine import generate_onboarding_domain_doc
 
@@ -43,7 +43,7 @@ def test_generate_onboarding_domain_doc(tmp_path):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pytest tests/test_discovery_engine.py::test_generate_onboarding_domain_doc -v`
+Run: `pytest tests/unit/test_discovery_engine.py::test_generate_onboarding_domain_doc -v`
 Expected: FAIL with "ImportError: cannot import name 'generate_onboarding_domain_doc'"
 
 - [ ] **Step 3: Write minimal implementation**
@@ -92,13 +92,13 @@ Based on the codebase scan, I have identified **{domain_summary}** as a core com
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pytest tests/test_discovery_engine.py::test_generate_onboarding_domain_doc -v`
+Run: `pytest tests/unit/test_discovery_engine.py::test_generate_onboarding_domain_doc -v`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add harness/discovery_engine.py tests/test_discovery_engine.py
+git add harness/discovery_engine.py tests/unit/test_discovery_engine.py
 git commit -m "feat(discovery): generate ONBOARDING_DOMAIN.md template"
 ```
 
@@ -106,12 +106,12 @@ git commit -m "feat(discovery): generate ONBOARDING_DOMAIN.md template"
 
 **Files:**
 - Modify: `harness/minting_engine.py`
-- Test: `tests/test_minting_engine.py` (Note: interactive input is hard to test directly, we will mock it or test the logic surrounding it).
+- Test: `tests/integration/test_minting_engine.py` (Note: interactive input is hard to test directly, we will mock it or test the logic surrounding it).
 
 - [ ] **Step 1: Write the failing test**
 
 ```python
-# In tests/test_minting_engine.py
+# In tests/integration/test_minting_engine.py
 from unittest.mock import patch
 import os
 from harness.minting_engine import wait_for_user_review_and_read_domain
@@ -132,7 +132,7 @@ def test_wait_for_user_review_and_read_domain(mock_input, tmp_path):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pytest tests/test_minting_engine.py::test_wait_for_user_review_and_read_domain -v`
+Run: `pytest tests/integration/test_minting_engine.py::test_wait_for_user_review_and_read_domain -v`
 Expected: FAIL with "ImportError: cannot import name 'wait_for_user_review_and_read_domain'"
 
 - [ ] **Step 3: Write minimal implementation**
@@ -166,13 +166,13 @@ def wait_for_user_review_and_read_domain(project_path: str) -> str:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pytest tests/test_minting_engine.py::test_wait_for_user_review_and_read_domain -v`
+Run: `pytest tests/integration/test_minting_engine.py::test_wait_for_user_review_and_read_domain -v`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add harness/minting_engine.py tests/test_minting_engine.py
+git add harness/minting_engine.py tests/integration/test_minting_engine.py
 git commit -m "feat(minting): add pause loop to read ONBOARDING_DOMAIN.md"
 ```
 
@@ -180,12 +180,12 @@ git commit -m "feat(minting): add pause loop to read ONBOARDING_DOMAIN.md"
 
 **Files:**
 - Modify: `harness/minting_engine.py`
-- Test: `tests/test_minting_engine.py`
+- Test: `tests/integration/test_minting_engine.py`
 
 - [ ] **Step 1: Write the failing test**
 
 ```python
-# In tests/test_minting_engine.py
+# In tests/integration/test_minting_engine.py
 from unittest.mock import patch
 from harness.minting_engine import synthesize_domain_sme_agent
 
@@ -208,7 +208,7 @@ def test_synthesize_domain_sme_agent(mock_query_llm, tmp_path):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pytest tests/test_minting_engine.py::test_synthesize_domain_sme_agent -v`
+Run: `pytest tests/integration/test_minting_engine.py::test_synthesize_domain_sme_agent -v`
 Expected: FAIL with "ImportError: cannot import name 'synthesize_domain_sme_agent'"
 
 - [ ] **Step 3: Write minimal implementation**
@@ -298,13 +298,13 @@ def synthesize_domain_sme_agent(target_dir: str, domain_content: str, query_llm_
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pytest tests/test_minting_engine.py::test_synthesize_domain_sme_agent -v`
+Run: `pytest tests/integration/test_minting_engine.py::test_synthesize_domain_sme_agent -v`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add harness/minting_engine.py tests/test_minting_engine.py
+git add harness/minting_engine.py tests/integration/test_minting_engine.py
 git commit -m "feat(minting): synthesize domain SME agent via LLM"
 ```
 
@@ -312,12 +312,12 @@ git commit -m "feat(minting): synthesize domain SME agent via LLM"
 
 **Files:**
 - Modify: `harness/minting_engine.py`
-- Test: `tests/test_minting_engine.py`
+- Test: `tests/integration/test_minting_engine.py`
 
 - [ ] **Step 1: Write the failing test**
 
 ```python
-# In tests/test_minting_engine.py
+# In tests/integration/test_minting_engine.py
 from harness.minting_engine import patch_orchestrator_rules
 
 def test_patch_orchestrator_rules(tmp_path):
@@ -339,7 +339,7 @@ def test_patch_orchestrator_rules(tmp_path):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pytest tests/test_minting_engine.py::test_patch_orchestrator_rules -v`
+Run: `pytest tests/integration/test_minting_engine.py::test_patch_orchestrator_rules -v`
 Expected: FAIL with "ImportError: cannot import name 'patch_orchestrator_rules'"
 
 - [ ] **Step 3: Write minimal implementation**
@@ -385,13 +385,13 @@ def patch_orchestrator_rules(target_dir: str, agent_name: str):
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pytest tests/test_minting_engine.py::test_patch_orchestrator_rules -v`
+Run: `pytest tests/integration/test_minting_engine.py::test_patch_orchestrator_rules -v`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add harness/minting_engine.py tests/test_minting_engine.py
+git add harness/minting_engine.py tests/integration/test_minting_engine.py
 git commit -m "feat(minting): dynamically patch orchestrator with domain SME"
 ```
 

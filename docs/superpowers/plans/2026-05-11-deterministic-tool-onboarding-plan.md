@@ -109,16 +109,16 @@ git commit -m "feat(discovery): implement deterministic tool injection based on 
 ### Task 3: Verification with Tests
 
 **Files:**
-- Modify: `tests/test_discovery_engine.py`
+- Modify: `tests/unit/test_discovery_engine.py`
 
 - [ ] **Step 1: Write failing test for forced injection**
 Add a test case where a project matches "frontend" and verify the Playwright tools are present even if the LLM doesn't recommend them.
 
 - [ ] **Step 2: Run test and verify success**
-Run: `pytest tests/test_discovery_engine.py -v`
+Run: `pytest tests/unit/test_discovery_engine.py -v`
 
 - [ ] **Step 3: Commit**
 ```bash
-git add tests/test_discovery_engine.py
+git add tests/unit/test_discovery_engine.py
 git commit -m "test(discovery): add test for forced tool injection"
 ```

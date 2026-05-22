@@ -18,12 +18,12 @@
 
 **Files:**
 - Modify: `harness/discovery_engine.py`
-- Test: `tests/test_discovery_engine.py`
+- Test: `tests/unit/test_discovery_engine.py`
 
 - [ ] **Step 1: Write the failing test**
 
 ```python
-# In tests/test_discovery_engine.py
+# In tests/unit/test_discovery_engine.py
 from unittest.mock import patch
 from harness.discovery_engine import generate_onboarding_domain_doc
 
@@ -51,7 +51,7 @@ def test_generate_onboarding_domain_doc_with_tools(mock_query_llm, tmp_path):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pytest tests/test_discovery_engine.py::test_generate_onboarding_domain_doc_with_tools -v`
+Run: `pytest tests/unit/test_discovery_engine.py::test_generate_onboarding_domain_doc_with_tools -v`
 Expected: FAIL due to signature mismatch on `generate_onboarding_domain_doc` (missing LLM arguments).
 
 - [ ] **Step 3: Write minimal implementation**
@@ -132,13 +132,13 @@ Based on the codebase scan, I have identified **{domain_summary}** as a core com
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pytest tests/test_discovery_engine.py -v`
+Run: `pytest tests/unit/test_discovery_engine.py -v`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add harness/discovery_engine.py tests/test_discovery_engine.py
+git add harness/discovery_engine.py tests/unit/test_discovery_engine.py
 git commit -m "feat(discovery): add Tool Scout to ONBOARDING_DOMAIN.md"
 ```
 
@@ -146,12 +146,12 @@ git commit -m "feat(discovery): add Tool Scout to ONBOARDING_DOMAIN.md"
 
 **Files:**
 - Modify: `harness/minting_engine.py`
-- Test: `tests/test_minting_engine.py`
+- Test: `tests/integration/test_minting_engine.py`
 
 - [ ] **Step 1: Write the failing test**
 
 ```python
-# In tests/test_minting_engine.py
+# In tests/integration/test_minting_engine.py
 from harness.minting_engine import parse_tool_checklists
 
 def test_parse_tool_checklists():
@@ -178,7 +178,7 @@ def test_parse_tool_checklists():
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pytest tests/test_minting_engine.py::test_parse_tool_checklists -v`
+Run: `pytest tests/integration/test_minting_engine.py::test_parse_tool_checklists -v`
 Expected: FAIL with "ImportError: cannot import name 'parse_tool_checklists'"
 
 - [ ] **Step 3: Write minimal implementation**
@@ -219,13 +219,13 @@ def parse_tool_checklists(domain_content: str) -> tuple[list[dict], list[dict]]:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pytest tests/test_minting_engine.py::test_parse_tool_checklists -v`
+Run: `pytest tests/integration/test_minting_engine.py::test_parse_tool_checklists -v`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add harness/minting_engine.py tests/test_minting_engine.py
+git add harness/minting_engine.py tests/integration/test_minting_engine.py
 git commit -m "feat(minting): parse selected tools from domain doc"
 ```
 
@@ -233,12 +233,12 @@ git commit -m "feat(minting): parse selected tools from domain doc"
 
 **Files:**
 - Modify: `harness/minting_engine.py`
-- Test: `tests/test_minting_engine.py`
+- Test: `tests/integration/test_minting_engine.py`
 
 - [ ] **Step 1: Write the failing test**
 
 ```python
-# In tests/test_minting_engine.py
+# In tests/integration/test_minting_engine.py
 from unittest.mock import patch
 from harness.minting_engine import install_workspace_tools
 import os
@@ -285,7 +285,7 @@ def test_install_workspace_tools(mock_urlopen, tmp_path):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pytest tests/test_minting_engine.py::test_install_workspace_tools -v`
+Run: `pytest tests/integration/test_minting_engine.py::test_install_workspace_tools -v`
 Expected: FAIL with "ImportError: cannot import name 'install_workspace_tools'"
 
 - [ ] **Step 3: Write minimal implementation**
@@ -357,13 +357,13 @@ def install_workspace_tools(target_dir: str, harness_folder_name: str, skills: l
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pytest tests/test_minting_engine.py::test_install_workspace_tools -v`
+Run: `pytest tests/integration/test_minting_engine.py::test_install_workspace_tools -v`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add harness/minting_engine.py tests/test_minting_engine.py
+git add harness/minting_engine.py tests/integration/test_minting_engine.py
 git commit -m "feat(minting): local installation of discovered skills and mcps"
 ```
 
@@ -412,6 +412,6 @@ Run `pytest tests/ -v` to ensure no integrations broke.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add harness/cli.py tests/test_discovery_engine.py
+git add harness/cli.py tests/unit/test_discovery_engine.py
 git commit -m "feat(cli): integrate workspace-level tool discovery"
 ```

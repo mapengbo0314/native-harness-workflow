@@ -16,11 +16,11 @@
 
 **Files:**
 - Create: `boilerplate-agent/scripts/extract_stacktrace.py`
-- Create: `tests/test_extract_stacktrace.py`
+- Create: `tests/unit/test_extract_stacktrace.py`
 
 - [ ] **Step 1: Write the failing test**
 
-Create `tests/test_extract_stacktrace.py`:
+Create `tests/unit/test_extract_stacktrace.py`:
 ```python
 import os
 import subprocess
@@ -63,7 +63,7 @@ More noise...
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pytest tests/test_extract_stacktrace.py -v`
+Run: `pytest tests/unit/test_extract_stacktrace.py -v`
 Expected: FAIL (File not found or module execution fails)
 
 - [ ] **Step 3: Write minimal implementation**
@@ -126,14 +126,14 @@ if __name__ == "__main__":
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pytest tests/test_extract_stacktrace.py -v`
+Run: `pytest tests/unit/test_extract_stacktrace.py -v`
 Expected: PASS
 
 - [ ] **Step 5: Make script executable and Commit**
 
 ```bash
 chmod +x boilerplate-agent/scripts/extract_stacktrace.py
-git add boilerplate-agent/scripts/extract_stacktrace.py tests/test_extract_stacktrace.py
+git add boilerplate-agent/scripts/extract_stacktrace.py tests/unit/test_extract_stacktrace.py
 git commit -m "feat(hook): add intelligent stacktrace extraction script"
 ```
 
