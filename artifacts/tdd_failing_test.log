@@ -1,4 +1,0 @@
-============================= test session starts ==============================
-collected 0 items
-ERROR: file or directory not found: tests/test_core_mandates_presence.py
-Exit Code: 4

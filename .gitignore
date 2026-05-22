@@ -39,3 +39,10 @@ depreicated_indexing/
 depreciated_indexing/
 archive/
 .codegraph/
+
+# Harness Runtime & Debug Junk
+out/
+artifacts/
+test_repro_dir/
+local_outputs/
+.harness_state.db*
