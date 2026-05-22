@@ -5,6 +5,7 @@ import time
 import re
 from pathlib import Path
 from typing import Any, Dict, Optional
+from harness.database import HarnessDB
 
 
 class OrchestratorDispatcher:
@@ -24,7 +25,7 @@ class OrchestratorDispatcher:
         self.rules_config = self._load_rules_config()
         self.state_file = self.config_dir / ".harness_state.json"
         self.tmp_state_file = self.config_dir / ".harness_state.tmp.json"
-        self.lock_dir = self.config_dir / ".harness_state.json.lock"
+        self.db = HarnessDB(str(self.config_dir / "harness.db"))
 
     def _load_orchestrator_config(self) -> Dict[str, Any]:
         """Load orchestrator configuration."""
@@ -61,11 +62,20 @@ class OrchestratorDispatcher:
         return {"rules": {}}
 
     def _load_state(self) -> Dict[str, Any]:
-        """Load state from .harness_state.json."""
+        """Load state from HarnessDB with fallback to .harness_state.json."""
+        # Try DB first
+        db_state = self.db.get_state()
+        if db_state:
+            return db_state
+
+        # Fallback to file for migration
         if self.state_file.exists():
             try:
                 with open(self.state_file, 'r') as f:
-                    return json.load(f)
+                    state = json.load(f)
+                    # Migrate to DB
+                    self.db.set_state(state)
+                    return state
             except (json.JSONDecodeError, OSError, PermissionError):
                 pass
         return {
@@ -78,45 +88,32 @@ class OrchestratorDispatcher:
         }
 
     def _save_state(self, state: Dict[str, Any], timeout: float = 5.0) -> None:
-        """Save state to .harness_state.json atomically using a directory lock."""
+        """Save state to HarnessDB and .harness_state.json atomically using SQLite leases."""
         import os
         import time
-        import shutil
-
-        if self.lock_dir.exists():
-            try:
-                if time.time() - os.path.getmtime(self.lock_dir) > 10.0:
-                    try:
-                        self.lock_dir.rmdir()
-                    except OSError:
-                        shutil.rmtree(self.lock_dir, ignore_errors=True)
-            except OSError:
-                pass
 
         start_time = time.time()
-        while True:
-            try:
-                # Try to acquire lock
-                self.lock_dir.mkdir()
+        locked = False
+        while time.time() - start_time < timeout:
+            if self.db.acquire_lease("state_lock", ttl_seconds=10):
+                locked = True
                 break
-            except FileExistsError:
-                if time.time() - start_time > timeout:
-                    raise OSError("Could not acquire lock for state file")
-                time.sleep(0.05)
+            time.sleep(0.05)
+
+        if not locked:
+            raise OSError("Could not acquire lock for state file")
 
         try:
-            # Write to temporary file
+            # Save to DB
+            self.db.set_state(state)
+
+            # Also save to file for backward compatibility
             with open(self.tmp_state_file, 'w') as f:
                 json.dump(state, f, indent=2)
-            
-            # Atomic swap
             os.replace(self.tmp_state_file, self.state_file)
         finally:
             # Release lock
-            try:
-                self.lock_dir.rmdir()
-            except OSError:
-                pass
+            self.db.release_lease("state_lock")
 
     def classify_intent(self, prompt: str) -> str:
         """Classify user intent into Matrix Routing Branches A/B/C/D.
