@@ -538,11 +538,23 @@ class OrchestratorPlugin:
         agent_data = agents.get(agent_name, {})
         agent_source = agent_data.get("source", "No specific agent instructions found.")
         
+        # Resolve inline rule references like @../rules/base_mandate.md
+        rules = self.dispatcher.rules_config.get("rules", {})
+        import re
+        def replace_rule(match):
+            rule_filename = match.group(1)
+            rule_name = rule_filename.replace('.md', '')
+            if rule_name in rules:
+                return f"\\n=== MANDATE: {rule_name.upper()} ===\\n" + rules[rule_name] + "\\n===========================\\n"
+            return match.group(0)
+            
+        resolved_source = re.sub(r'@\\.\\./rules/([a-zA-Z0-9_-]+\\.md)', replace_rule, agent_source)
+        
         return (
             f"[ORCHESTRATOR APPROVED TASK DISPATCH]\\n"
             f"You have been authorized to execute this task as: @{agent_name}\\n\\n"
             f"=== AGENT PERSONA / INSTRUCTIONS ===\\n"
-            f"{agent_source}\\n\\n"
+            f"{resolved_source}\\n\\n"
             f"=== TASK TO EXECUTE ===\\n"
             f"{prompt}\\n\\n"
             f"Please execute the task following the agent persona instructions above."
