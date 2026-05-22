@@ -8,7 +8,6 @@ scratch/
 .indexing-reference/
 .designs/
 .pytest_cache
-local_outputs/
 llm_index*
 progress_epoch_*
 root_map_*
