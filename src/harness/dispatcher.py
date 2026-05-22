@@ -7,7 +7,18 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
-from harness.database import HarnessDB
+try:
+    from harness.database import HarnessDB
+except (ImportError, ValueError):
+    try:
+        from .database import HarnessDB
+    except (ImportError, ValueError):
+        try:
+            import database
+            HarnessDB = database.HarnessDB
+        except ImportError:
+            # Fallback for environments where database.py might not be available yet
+            HarnessDB = None
 
 
 class OrchestratorDispatcher:

@@ -65,7 +65,7 @@ Run the `harness-wf` tool to mint your agents and platform-specific pointers. Us
 ```bash
 # Initialize the harness using Gemini as the orchestrating LLM
 # and the existing index for context
-harness-wf init --project-path . --llm gemini --bundle .codegraph --ddd
+harness-wf init --project-path . --llm gemini --bundle .codegraph
 ```
 
 ### What to expect:

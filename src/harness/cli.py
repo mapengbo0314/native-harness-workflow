@@ -13,6 +13,7 @@ def parse_args():
     parser.add_argument("--project-path", required=True, help="Path to the repository")
     parser.add_argument("--llm", required=True, choices=["gemini", "openai", "anthropic"], help="LLM provider")
     parser.add_argument("--model", help="Optional specific model to use (e.g., gemini-3.1-pro-preview, claude-3-5-sonnet-20241022)")
+    parser.add_argument("--bundle", help="Path to an existing CodeGraph bundle (.codegraph directory)")
     return parser.parse_args()
 
 
@@ -37,9 +38,17 @@ def main():
     print("Pre-flight checks passed.")
     
     # --- CodeGraph Onboarding & Initialization ---
-    codegraph_db_path = os.path.join(args.project_path, ".codegraph", "codegraph.db")
+    default_codegraph_dir = os.path.join(args.project_path, ".codegraph")
+    codegraph_dir = args.bundle if args.bundle else default_codegraph_dir
+    codegraph_db_path = os.path.join(codegraph_dir, "codegraph.db")
+    
     if not os.path.exists(codegraph_db_path):
-        print(f"\nCodeGraph database not found. Building now...")
+        # If user specified a bundle path that isn't the project default and it's missing, that's a hard error
+        if args.bundle and os.path.abspath(args.bundle) != os.path.abspath(default_codegraph_dir):
+            print(f"\nError: Specified CodeGraph bundle not found at {codegraph_db_path}")
+            sys.exit(1)
+            
+        print(f"\nCodeGraph database not found. Building now in project root...")
         try:
             # Force non-interactive npm to prevent hidden prompts
             env = os.environ.copy()
@@ -51,6 +60,9 @@ def main():
                 env=env,
                 check=True
             )
+            # After building, ensure we use the newly created default dir
+            codegraph_dir = default_codegraph_dir
+            codegraph_db_path = os.path.join(codegraph_dir, "codegraph.db")
         except subprocess.CalledProcessError as e:
             print(f"\nFailed to build CodeGraph: {e}")
             sys.exit(1)
