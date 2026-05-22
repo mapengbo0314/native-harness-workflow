@@ -110,7 +110,7 @@ def generate_plugin_manifest(
                     "hooks": [
                         {
                             "type": "command",
-                            "command": "PYTHONPATH=.claude/plugin-generated python3 -m src.hooks.prompt_interceptor"
+                            "command": f"PYTHONPATH={target_dir} python3 -m src.hooks.prompt_interceptor"
                         }
                     ]
                 }
@@ -120,7 +120,7 @@ def generate_plugin_manifest(
                     "hooks": [
                         {
                             "type": "command",
-                            "command": "PYTHONPATH=.claude/plugin-generated python3 -m src.hooks.pre_tool_guard"
+                            "command": f"PYTHONPATH={target_dir} python3 -m src.hooks.pre_tool_guard"
                         }
                     ]
                 }
@@ -130,7 +130,7 @@ def generate_plugin_manifest(
                     "hooks": [
                         {
                             "type": "command",
-                            "command": "PYTHONPATH=.claude/plugin-generated python3 -m src.hooks.post_tool_monitor"
+                            "command": f"PYTHONPATH={target_dir} python3 -m src.hooks.post_tool_monitor"
                         }
                     ]
                 }
@@ -140,7 +140,7 @@ def generate_plugin_manifest(
                     "hooks": [
                         {
                             "type": "command",
-                            "command": "PYTHONPATH=.claude/plugin-generated python3 -m src.hooks.precompact_monitor"
+                            "command": f"PYTHONPATH={target_dir} python3 -m src.hooks.precompact_monitor"
                         }
                     ]
                 }
@@ -150,7 +150,7 @@ def generate_plugin_manifest(
                     "hooks": [
                         {
                             "type": "command",
-                            "command": "PYTHONPATH=.claude/plugin-generated python3 -m src.hooks.stop_monitor"
+                            "command": f"PYTHONPATH={target_dir} python3 -m src.hooks.stop_monitor"
                         }
                     ]
                 }
@@ -1039,9 +1039,9 @@ def test_prompt_interceptor():
 
 def test_pre_tool_guard():
     print("Testing pre_tool_guard...")
-    # Test rejection of sudo
+    # Test rejection of dangerous commands
     res = run_hook("pre_tool_guard", args=["Bash", "sudo rm -rf /"])
-    if "[VIOLATION]: sudo" in res.stderr:
+    if "[SECURITY VIOLATION]" in res.stderr:
         print("✅ pre_tool_guard (sudo rejection) OK")
     else:
         print(f"❌ pre_tool_guard FAILED: {res.stderr}")

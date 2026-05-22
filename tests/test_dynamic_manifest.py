@@ -108,23 +108,23 @@ class TestDynamicManifest:
             # Check UserPromptSubmit
             assert "UserPromptSubmit" in hooks
             assert hooks["UserPromptSubmit"][0]["hooks"][0]["type"] == "command"
-            assert "PYTHONPATH=.claude/plugin-generated python3 -m src.hooks.prompt_interceptor" in hooks["UserPromptSubmit"][0]["hooks"][0]["command"]
+            assert f"PYTHONPATH={target_dir} python3 -m src.hooks.prompt_interceptor" in hooks["UserPromptSubmit"][0]["hooks"][0]["command"]
 
             # Check PreToolUse
             assert "PreToolUse" in hooks
             assert hooks["PreToolUse"][0]["hooks"][0]["type"] == "command"
-            assert "PYTHONPATH=.claude/plugin-generated python3 -m src.hooks.pre_tool_guard" in hooks["PreToolUse"][0]["hooks"][0]["command"]
+            assert f"PYTHONPATH={target_dir} python3 -m src.hooks.pre_tool_guard" in hooks["PreToolUse"][0]["hooks"][0]["command"]
 
             # Check Stop
             assert "Stop" in hooks
             assert hooks["Stop"][0]["hooks"][0]["type"] == "command"
-            assert "PYTHONPATH=.claude/plugin-generated python3 -m src.hooks.stop_monitor" in hooks["Stop"][0]["hooks"][0]["command"]
+            assert f"PYTHONPATH={target_dir} python3 -m src.hooks.stop_monitor" in hooks["Stop"][0]["hooks"][0]["command"]
 
             assert "PostToolUse" in hooks
-            assert "PYTHONPATH=.claude/plugin-generated python3 -m src.hooks.post_tool_monitor" in hooks["PostToolUse"][0]["hooks"][0]["command"]
+            assert f"PYTHONPATH={target_dir} python3 -m src.hooks.post_tool_monitor" in hooks["PostToolUse"][0]["hooks"][0]["command"]
 
             assert "PreCompact" in hooks
-            assert "PYTHONPATH=.claude/plugin-generated python3 -m src.hooks.precompact_monitor" in hooks["PreCompact"][0]["hooks"][0]["command"]
+            assert f"PYTHONPATH={target_dir} python3 -m src.hooks.precompact_monitor" in hooks["PreCompact"][0]["hooks"][0]["command"]
 
     def test_generate_plugin_sources_creates_dynamic_skill_handlers(self):
         """Test that tools.py contains dynamic handlers for tiered skills."""
