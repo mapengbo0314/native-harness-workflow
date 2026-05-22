@@ -908,10 +908,9 @@ def install_workspace_tools(target_dir: str, harness_folder_name: str, skills: l
                 print(f"Network fetch failed for {skill['name']}: {e}. Checking local boilerplate fallback...")
                 import shutil
                 # We need to reach the boilerplate directory. We can guess it's roughly 2 dirs up from harness_dir
-                # Alternatively, we just look in the root `boilerplate-agent`
-                root_dir = os.path.dirname(os.path.dirname(harness_dir)) if harness_folder_name.startswith('.') else os.path.dirname(harness_dir)
-                local_skill_path = os.path.join(root_dir, "boilerplate-agent", "skills", skill['name'], "SKILL.md")
-                if os.path.exists(local_skill_path):
+                from harness.utils import get_boilerplate_dir
+                local_skill_path = get_boilerplate_dir() / "skills" / skill['name'] / "SKILL.md"
+                if local_skill_path.exists():
                     skill_dir = os.path.join(harness_dir, "skills", skill['name'])
                     os.makedirs(skill_dir, exist_ok=True)
                     skill_file = os.path.join(skill_dir, "SKILL.md")

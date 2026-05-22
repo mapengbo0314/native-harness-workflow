@@ -343,7 +343,8 @@ def generate_orchestrator_plugin(
         harness_dir = project_path / ".claude"
         
         # Resolve boilerplate dir
-        bp_dir = Path(boilerplate_dir).resolve() if boilerplate_dir else (project_path / "boilerplate-agent").resolve()
+        from harness.utils import get_boilerplate_dir
+        bp_dir = Path(boilerplate_dir).resolve() if boilerplate_dir else get_boilerplate_dir()
 
         print(f"[HARNESS] Generating plugin at {plugin_dir}")
         print(f"[HARNESS] Using boilerplate from {bp_dir}")
@@ -428,8 +429,11 @@ def generate_plugin_sources(src_dir: Path, skills_dir: Optional[Path] = None) ->
     # Create __init__.py
     (src_dir / "__init__.py").write_text("")
 
+    # Determine skills fallback path
+    skills_fallback = str(skills_dir.resolve()) if skills_dir else ""
+
     # Generate orchestrator_plugin.py
-    orchestrator_plugin_content = '''"""
+    orchestrator_plugin_content = f'''"""
 Orchestrator Plugin for Claude Code.
 
 Enforces Hub-and-Spoke routing through the orchestrator.
@@ -498,7 +502,7 @@ class OrchestratorPlugin:
         Returns:
             Skill content or error message
         """
-        # We need to find the skill either in .claude/skills or .gemini/skills or boilerplate-agent/skills
+        # We need to find the skill either in .claude/skills or .gemini/skills or the bundled skills
         # Get project root (we are in .claude/plugin-generated/src)
         project_root = Path(__file__).parent.parent.parent.parent
         
@@ -506,7 +510,7 @@ class OrchestratorPlugin:
         possible_paths = [
             project_root / ".claude" / "skills" / name / "SKILL.md",
             project_root / ".gemini" / "skills" / name / "SKILL.md",
-            project_root / "boilerplate-agent" / "skills" / name / "SKILL.md"
+            Path('{skills_fallback}') / name / "SKILL.md"
         ]
         
         for skill_path in possible_paths:
@@ -514,7 +518,7 @@ class OrchestratorPlugin:
                 with open(skill_path, "r") as f:
                     return f.read()
                     
-        return f"Error: Skill '{name}' not found."
+        return f"Error: Skill \'{name}\' not found."
 
     def dispatch_task(self, agent_name: str, prompt: str) -> str:
         """
@@ -529,34 +533,34 @@ class OrchestratorPlugin:
         """
         try:
             # Validate and route through dispatcher logic
-            dispatch_result = self.dispatcher.dispatch_agent(agent_name, {"prompt": prompt})
+            dispatch_result = self.dispatcher.dispatch_agent(agent_name, {{"prompt": prompt}})
         except Exception as e:
-            return f"Error dispatching task: {str(e)}"
+            return f"Error dispatching task: {{str(e)}}"
             
-        # Retrieve the agent's system instructions from the config
-        agents = self.dispatcher.agents_config.get("agents", {})
-        agent_data = agents.get(agent_name, {})
+        # Retrieve the agent\'s system instructions from the config
+        agents = self.dispatcher.agents_config.get("agents", {{}})
+        agent_data = agents.get(agent_name, {{}})
         agent_source = agent_data.get("source", "No specific agent instructions found.")
         
         # Resolve inline rule references like @../rules/base_mandate.md
-        rules = self.dispatcher.rules_config.get("rules", {})
+        rules = self.dispatcher.rules_config.get("rules", {{}})
         import re
         def replace_rule(match):
             rule_filename = match.group(1)
-            rule_name = rule_filename.replace('.md', '')
+            rule_name = rule_filename.replace(\'.md\', \'\')
             if rule_name in rules:
-                return f"\\n=== MANDATE: {rule_name.upper()} ===\\n" + rules[rule_name] + "\\n===========================\\n"
+                return f"\\\\n=== MANDATE: {{rule_name.upper()}} ===\\\\n" + rules[rule_name] + "\\\\n===========================\\\\n"
             return match.group(0)
             
-        resolved_source = re.sub(r'@\\.\\./rules/([a-zA-Z0-9_-]+\\.md)', replace_rule, agent_source)
+        resolved_source = re.sub(r\'@\\\\.\\\\./rules/([a-zA-Z0-9_-]+\\\\.md)\', replace_rule, agent_source)
         
         return (
-            f"[ORCHESTRATOR APPROVED TASK DISPATCH]\\n"
-            f"You have been authorized to execute this task as: @{agent_name}\\n\\n"
-            f"=== AGENT PERSONA / INSTRUCTIONS ===\\n"
-            f"{resolved_source}\\n\\n"
-            f"=== TASK TO EXECUTE ===\\n"
-            f"{prompt}\\n\\n"
+            f"[ORCHESTRATOR APPROVED TASK DISPATCH]\\\\n"
+            f"You have been authorized to execute this task as: @{{agent_name}}\\\\n\\\\n"
+            f"=== AGENT PERSONA / INSTRUCTIONS ===\\\\n"
+            f"{{resolved_source}}\\\\n\\\\n"
+            f"=== TASK TO EXECUTE ===\\\\n"
+            f"{{prompt}}\\\\n\\\\n"
             f"Please execute the task following the agent persona instructions above."
         )
 
@@ -639,11 +643,11 @@ def invoke_task(agent_name: str, prompt: str) -> str:
             skill_name = skill_dir.name
             safe_name = skill_name.replace('-', '_')
             tools_content += f'''
-def invoke_specific_skill_{safe_name}() -> str:
-    """
-    Tool function to load the '{skill_name}' skill directly.
-    """
-    return invoke_skill("{skill_name}")
+    def invoke_specific_skill_{safe_name}() -> str:
+        """
+        Tool function to load the '{skill_name}' skill directly.
+        """
+        return invoke_skill("{skill_name}")
 '''
 
     (src_dir / "tools.py").write_text(tools_content)
@@ -664,7 +668,7 @@ from pathlib import Path
 from dispatcher import OrchestratorDispatcher
 
 def log_action(hook_name, action, details=""):
-    \"\"\"Log action to harness.log.\"\"\"
+    '''Log action to harness.log.'''
     config_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../config'))
     log_file = os.path.join(config_dir, 'harness.log')
     timestamp = datetime.datetime.now().isoformat()
@@ -944,7 +948,7 @@ if __name__ == "__main__":
 import subprocess
 
 def on_stop(reason):
-    \"\"\"Monitor session stop events.\"\"\"
+    """Monitor session stop events."""
     log_action("stop_monitor", "stop", f"Reason: {reason}")
     dispatcher = load_dispatcher()
     state = dispatcher._load_state()
@@ -956,7 +960,7 @@ def on_stop(reason):
     if state.get("last_failing_test") or state.get("implementation_started") or state.get("tdd_status") not in (None, "inactive"):
         verification_report = get_project_root() / "artifacts" / "qa_report.md"
         if not verification_report.exists():
-            print("[QA REQUIRED]: You cannot exit. Dispatch Task(\\"@verifier\\") to perform robustness checks and generate artifacts/qa_report.md.", file=sys.stderr)
+            print("[QA REQUIRED]: You cannot exit. Dispatch Task(\"@verifier\") to perform robustness checks and generate artifacts/qa_report.md.", file=sys.stderr)
             sys.exit(1)
 
         try:
@@ -1032,7 +1036,7 @@ def ensure_harness_state():
 def test_prompt_interceptor():
     print("Testing prompt_interceptor...")
     res = run_hook("prompt_interceptor", payload={"prompt": "build a new login page"})
-    if "<matrix_route branch=\\"B\\">" in res.stdout:
+    if "<matrix_route branch=\"B\">" in res.stdout:
         print("✅ prompt_interceptor OK")
     else:
         print(f"❌ prompt_interceptor FAILED: {res.stdout}")
