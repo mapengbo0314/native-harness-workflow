@@ -1,0 +1,2 @@
+[console_scripts]
+harness-wf = harness.cli:main

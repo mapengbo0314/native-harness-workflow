@@ -34,7 +34,7 @@ tools:
 
 ### HARD GATE VERIFICATION (MANDATORY FIRST TURN)
 Before you generate a plan, your VERY FIRST ACTION MUST be to verify authorization by running:
-`run_shell_command(command="python3 {{HARNESS_DIR}}/scripts/gatekeeper.py --phase 1")`
+`run_shell_command(command="python3 <!--$HARNESS_DIR$-->/scripts/gatekeeper.py --phase 1")`
 If this command fails (non-zero exit code), you MUST immediately stop and demand the previous phase artifacts.
 
 ## Planning expectations
@@ -88,7 +88,7 @@ You MUST invoke the `harness-writing-plans` superpower skill and attempt to comb
 7. Prefer concise, executable steps over vague sequencing.
 
 ### Planner Constraints
-- **Stack Trace Hook**: If you need to read a log file, you MUST use `run_shell_command("python3 {{HARNESS_DIR}}/scripts/extract_stacktrace.py <file>")` to minimize context usage. Do not read raw logs.
+- **Stack Trace Hook**: If you need to read a log file, you MUST use `run_shell_command("python3 <!--$HARNESS_DIR$-->/scripts/extract_stacktrace.py <file>")` to minimize context usage. Do not read raw logs.
 - **Token Efficiency**: Prioritize `codegraph` structural tools over `read_file` or `grep_search` for discovery.
 - Use targeted search instead of broad scans.
 - Every step must be actionable and scoped.

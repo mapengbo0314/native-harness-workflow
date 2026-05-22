@@ -3,6 +3,7 @@ import subprocess
 import time
 import urllib.request
 import os
+from harness.renderer import TemplateRenderer
 
 def acquire_mcp_context(project_path: str) -> str:
     """Acquires project context using CodeGraph and domain documentation."""
@@ -406,32 +407,32 @@ def generate_onboarding_domain_doc(project_path: str, domain_summary: str, query
     if not template_str:
          template_str = """# Project Onboarding Domain
 
-**Detected Tech Stack:** {{TECH_STACK}}
+**Detected Tech Stack:** <!--$ TECH_STACK $-->
 
-Based on the codebase scan, I have identified **{{DOMAIN_SUMMARY}}** as a core complex domain. I propose creating a dedicated agent to protect this logic.
+Based on the codebase scan, I have identified **<!--$ DOMAIN_SUMMARY $-->** as a core complex domain. I propose creating a dedicated agent to protect this logic.
 
 ## Proposed Domain SME Agent
 
-**Proposed Agent Name:** `@{{SME_NAME}}`
+**Proposed Agent Name:** `@<!--$ SME_NAME $-->`
 *(Edit the name above if incorrect. Must be lowercase.)*
 
 ## Deterministic DDD Alignment
 
 ### 1. Ubiquitous Language (Glossary)
 *Key terms defined by business experts:*
-{{GLOSSARY}}
+<!--$ GLOSSARY $-->
 
 ### 2. Core Domain (Value Proposition)
 *The single core capability that provides primary value:*
-*   **{{CORE_DOMAIN_VALUE}}**
+*   **<!--$ CORE_DOMAIN_VALUE $-->**
 
 ### 3. Aggregates & Invariants (Transactional Boundaries)
 *Data that must absolutely always be updated together:*
-{{INVARIANTS}}
+<!--$ INVARIANTS $-->
 
 ### 4. Domain Events & Coordination (Asynchrony)
 *Significant actions that others need to know about:*
-{{DOMAIN_EVENTS}}
+<!--$ DOMAIN_EVENTS $-->
 
 ### 5. Context Mapping (Contract Ownership)
 *Who dictates the shape of external data contracts:*
@@ -439,24 +440,29 @@ Based on the codebase scan, I have identified **{{DOMAIN_SUMMARY}}** as a core c
 
 ## Proposed Skills
 *(Delete the line of any skill you do NOT want installed)*
-{{SKILLS_MD}}
+<!--$ SKILLS_MD $-->
 
 ## Proposed MCP Tools
 *(Delete the line of any MCP you do NOT want installed)*
-{{MCPS_MD}}
+<!--$ MCPS_MD $-->
 
 *(When you have finished editing this file, return to the terminal and press ENTER to continue minting)*
 """
 
-    final_content = template_str.replace("{{TECH_STACK}}", tech_stack)
-    final_content = final_content.replace("{{DOMAIN_SUMMARY}}", domain_summary)
-    final_content = final_content.replace("{{SME_NAME}}", str(sme_name).lower())
-    final_content = final_content.replace("{{CORE_DOMAIN_VALUE}}", core_domain_value)
-    final_content = final_content.replace("{{INVARIANTS}}", invariants)
-    final_content = final_content.replace("{{GLOSSARY}}", glossary)
-    final_content = final_content.replace("{{DOMAIN_EVENTS}}", domain_events)
-    final_content = final_content.replace("{{SKILLS_MD}}", skills_md)
-    final_content = final_content.replace("{{MCPS_MD}}", mcps_md)
+    renderer = TemplateRenderer()
+    context = {
+        "TECH_STACK": tech_stack,
+        "DOMAIN_SUMMARY": domain_summary,
+        "SME_NAME": str(sme_name).lower(),
+        "CORE_DOMAIN_VALUE": core_domain_value,
+        "INVARIANTS": invariants,
+        "GLOSSARY": glossary,
+        "DOMAIN_EVENTS": domain_events,
+        "SKILLS_MD": skills_md,
+        "MCPS_MD": mcps_md
+    }
+    
+    final_content = renderer.render_string(template_str, context)
 
     with open(doc_path, "w") as f:
         f.write(final_content)

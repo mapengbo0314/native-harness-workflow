@@ -81,7 +81,7 @@ class EvaluatorOptimizer:
         return json.loads(llm(f"""
         Evaluate output for task: {task}
         Output: {output}
-        Return JSON: {{"overall_score": 0-1, "dimensions": {{"accuracy": ..., "clarity": ...}}}}
+        Return JSON: <!--$"overall_score": 0-1, "dimensions": <!--$"accuracy": ..., "clarity": ...$-->$-->
         """))
     
     def optimize(self, output: str, feedback: dict) -> str:

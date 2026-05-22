@@ -6,6 +6,7 @@ import urllib.request
 from pathlib import Path
 from jinja2 import Environment, BaseLoader
 from harness.plugin_generator import generate_orchestrator_plugin
+from harness.renderer import TemplateRenderer
 
 def should_generate_orchestrator_plugin(domain_content: str, platform_choice: str) -> bool:
     """Detect if orchestrator-plugin is selected and platform is Claude Code."""
@@ -157,7 +158,13 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
         current_platform = platform_map_normalized.get(platform_choice, platform_choice).lower()
         
         tool_replacements = {}
+        renderer_context = {
+            "HARNESS_DIR": target_dir_name,
+            "SUBAGENT_SYNTAX": "@"
+        }
+
         if current_platform == "claude":
+            renderer_context["SUBAGENT_SYNTAX"] = "Task tool: "
             tool_replacements = {
                 "- read_file": "- Read",
                 "- grep_search": "- Grep",
@@ -170,17 +177,14 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
                 "replace": "Edit",
                 "write_file": "Write",
                 "run_shell_command": "Bash",
-                "glob": "Glob",
-                "{{SUBAGENT_SYNTAX}}": "Task tool: "
+                "glob": "Glob"
             }
         elif current_platform == "codex":
-            tool_replacements = {
-                "{{SUBAGENT_SYNTAX}}": "Hand off to "
-            }
+            renderer_context["SUBAGENT_SYNTAX"] = "Hand off to "
         else:
-            tool_replacements = {
-                "{{SUBAGENT_SYNTAX}}": "@"
-            }
+            renderer_context["SUBAGENT_SYNTAX"] = "@"
+
+        renderer = TemplateRenderer()
 
         # Step 1: Apply placeholders and tool mappings to all files
         for root, _, files in os.walk(target_path):
@@ -193,11 +197,17 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
                             
                         new_content = content
                         
-                        # Handle placeholders
+                        # Handle old-style placeholders for backward compatibility or direct strings
                         new_content = new_content.replace(".claude", target_dir_name)
-                        
                         if "@boilerplate-agent" in new_content:
                             new_content = new_content.replace("@boilerplate-agent", target_dir_name)
+                            
+                        # Apply Template Rendering
+                        try:
+                            new_content = renderer.render_string(new_content, renderer_context)
+                        except Exception as render_err:
+                            # If rendering fails (e.g. because of random <!--$ in some file), just log and move on
+                            pass
                             
                         # Apply specialized agents injection specifically for dispatch_rules.md
                         if file == "dispatch_rules.md" and selected_agents:
@@ -945,19 +955,3 @@ def install_workspace_tools(target_dir: str, harness_folder_name: str, skills: l
 
         with open(mcp_json_path, "w") as f:
              json.dump(mcp_data, f, indent=2)
-
-class TemplateRenderer:
-    def __init__(self):
-        self.env = Environment(
-            loader=BaseLoader(),
-            block_start_string='<!--%',
-            block_end_string='%-->',
-            variable_start_string='<!--$',
-            variable_end_string='$-->',
-            comment_start_string='<!--#',
-            comment_end_string='#-->',
-        )
-
-    def render_string(self, source: str, context: dict) -> str:
-        template = self.env.from_string(source)
-        return template.render(**context)

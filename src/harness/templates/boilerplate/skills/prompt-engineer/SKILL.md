@@ -58,7 +58,7 @@ Load detailed guidance based on context:
 ```
 Classify the sentiment of the following review as Positive, Negative, or Neutral.
 
-Review: {{review}}
+Review: <!--$review$-->
 Sentiment:
 ```
 
@@ -75,7 +75,7 @@ Sentiment: Negative
 Review: "It arrived on time and matches the description."
 Sentiment: Neutral
 
-Review: {{review}}
+Review: <!--$review$-->
 Sentiment:
 ```
 
@@ -85,7 +85,7 @@ Sentiment:
 ```
 Summarize this document.
 
-{{document}}
+<!--$document$-->
 ```
 
 **After (structured, token-efficient):**
@@ -93,7 +93,7 @@ Summarize this document.
 Summarize the document below in exactly 3 bullet points. Each bullet must be one sentence and start with an action verb. Do not include opinions or information not present in the document.
 
 Document:
-{{document}}
+<!--$document$-->
 
 Summary:
 ```
