@@ -45,3 +45,10 @@ artifacts/
 test_repro_dir/
 local_outputs/
 .harness_state.db*
+
+# Caches and Build Artifacts
+.deepeval/
+.superpowers/
+.indxr-cache/
+*.egg-info/
+.pytest_cache/
