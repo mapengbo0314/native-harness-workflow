@@ -433,7 +433,7 @@ def generate_plugin_sources(src_dir: Path, skills_dir: Optional[Path] = None) ->
     skills_fallback = str(skills_dir.resolve()) if skills_dir else ""
 
     # Generate orchestrator_plugin.py
-    orchestrator_plugin_content = f'''"""
+    orchestrator_plugin_content = '''"""
 Orchestrator Plugin for Claude Code.
 
 Enforces Hub-and-Spoke routing through the orchestrator.
@@ -510,7 +510,7 @@ class OrchestratorPlugin:
         possible_paths = [
             project_root / ".claude" / "skills" / name / "SKILL.md",
             project_root / ".gemini" / "skills" / name / "SKILL.md",
-            Path('{skills_fallback}') / name / "SKILL.md"
+            Path('__SKILLS_FALLBACK__') / name / "SKILL.md"
         ]
         
         for skill_path in possible_paths:
@@ -533,34 +533,34 @@ class OrchestratorPlugin:
         """
         try:
             # Validate and route through dispatcher logic
-            dispatch_result = self.dispatcher.dispatch_agent(agent_name, {{"prompt": prompt}})
+            dispatch_result = self.dispatcher.dispatch_agent(agent_name, {"prompt": prompt})
         except Exception as e:
-            return f"Error dispatching task: {{str(e)}}"
+            return f"Error dispatching task: {str(e)}"
             
         # Retrieve the agent\'s system instructions from the config
-        agents = self.dispatcher.agents_config.get("agents", {{}})
-        agent_data = agents.get(agent_name, {{}})
+        agents = self.dispatcher.agents_config.get("agents", {})
+        agent_data = agents.get(agent_name, {})
         agent_source = agent_data.get("source", "No specific agent instructions found.")
         
         # Resolve inline rule references like @../rules/base_mandate.md
-        rules = self.dispatcher.rules_config.get("rules", {{}})
+        rules = self.dispatcher.rules_config.get("rules", {})
         import re
         def replace_rule(match):
             rule_filename = match.group(1)
             rule_name = rule_filename.replace(\'.md\', \'\')
             if rule_name in rules:
-                return f"\\\\n=== MANDATE: {{rule_name.upper()}} ===\\\\n" + rules[rule_name] + "\\\\n===========================\\\\n"
+                return f"\\\\n=== MANDATE: {rule_name.upper()} ===\\\\n" + rules[rule_name] + "\\\\n===========================\\\\n"
             return match.group(0)
             
         resolved_source = re.sub(r\'@\\\\.\\\\./rules/([a-zA-Z0-9_-]+\\\\.md)\', replace_rule, agent_source)
         
         return (
             f"[ORCHESTRATOR APPROVED TASK DISPATCH]\\\\n"
-            f"You have been authorized to execute this task as: @{{agent_name}}\\\\n\\\\n"
+            f"You have been authorized to execute this task as: @{agent_name}\\\\n\\\\n"
             f"=== AGENT PERSONA / INSTRUCTIONS ===\\\\n"
-            f"{{resolved_source}}\\\\n\\\\n"
+            f"{resolved_source}\\\\n\\\\n"
             f"=== TASK TO EXECUTE ===\\\\n"
-            f"{{prompt}}\\\\n\\\\n"
+            f"{prompt}\\\\n\\\\n"
             f"Please execute the task following the agent persona instructions above."
         )
 
@@ -584,7 +584,7 @@ def init() -> bool:
     plugin = get_plugin()
     return plugin.initialize()
 '''
-    (src_dir / "orchestrator_plugin.py").write_text(orchestrator_plugin_content)
+    (src_dir / "orchestrator_plugin.py").write_text(orchestrator_plugin_content.replace("__SKILLS_FALLBACK__", skills_fallback))
 
     # Generate interceptor.py
     interceptor_content = '''"""
