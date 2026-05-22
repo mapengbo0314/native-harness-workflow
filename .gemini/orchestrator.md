@@ -52,7 +52,7 @@ Before routing, you MUST assess the complexity of the user's request to save tok
 - **The "Do It Yourself" Loophole**: While you can skip *sub-agents* for simple tasks (Fast Path), you MUST NOT skip *delegation*. You still delegate to the `@implementer`; you never write the code yourself.
 </tool_delegation_policy>
 
-0. **CODEGRAPH MCP INTEGRATION**: You and your subagents have access to the codebase index via the `codegraph` MCP server. You MUST enforce a "Graph-First" strategy. Before deep exploration, agents MUST use `codegraph_search` and `codegraph_explore`. For exact context, rely on `codegraph_context` and `codegraph_callers` to avoid exhausting token windows. **THE GOLDEN RULE: Call the MCP tool (`codegraph_*`) to gather precise context instead of reading full files, unless absolutely necessary (e.g., using `grep_search` for UI strings).**
+0. **CODEGRAPH MCP INTEGRATION**: You and your subagents have access to the codebase index via the `codegraph` MCP server. You MUST enforce a "Graph-First" strategy. Before deep exploration, agents MUST use `codegraph_search` and `codegraph_explore`. For exact context, rely on `codegraph_context` and `codegraph_callers` to avoid exhausting token windows. **THE GOLDEN RULE: Call the MCP tool (`codegraph_*`) to gather precise context instead of reading full files, unless absolutely necessary (e.g., using `grep_search` for UI strings). You MUST explicitly instruct sub-agents to use `codegraph_*` tools in your dispatch prompts.**
 
 4. **SUPERPOWER SKILL INVOCATION**: At each stage of the workflow, you or the corresponding subagent MUST explicitly invoke the required Superpower Skill (e.g., `diagnose`, `harness-brainstorming`, `writing-plans`, `test-driven-development`).
 
