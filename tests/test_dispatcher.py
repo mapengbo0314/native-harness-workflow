@@ -120,13 +120,40 @@ def test_dispatch_agent_updates_state(tmp_path):
     assert result["agent"] == "planner"
     assert result["intent_branch"] == "B"
     assert result["state"]["active_persona"] == "planner"
-    # Should not overwrite tdd_status explicitly to active for planner, 
-    # but the current logic retains whatever was there, so if we dispatch planner after implementer, 
-    # tdd_status remains active, which is fine, or we should set it to inactive? 
-    # Let's check how state was updated:
-    # state["active_persona"] = agent_name
-    # if agent_name == "implementer": state["tdd_status"] = "active"
-    # It doesn't reset it, which is probably fine. Let's just test that the active persona changed.
+
+def test_infinite_loop_prevention(tmp_path):
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
     
-    state = dispatcher._load_state()
-    assert state["active_persona"] == "planner"
+    # Mock agents config file
+    agents_file = config_dir / "agents.json"
+    with open(agents_file, 'w') as f:
+        json.dump({"agents": {"implementer": {}, "reviewer": {}, "verifier": {}, "planner": {}}}, f)
+        
+    dispatcher = OrchestratorDispatcher(str(config_dir))
+    
+    # Cycle 1 - multiple agents
+    dispatcher.dispatch_agent("implementer", {})
+    assert dispatcher._load_state()["agent_cycle_counts"]["implementer"] == 1
+    
+    dispatcher.dispatch_agent("reviewer", {})
+    assert dispatcher._load_state()["agent_cycle_counts"]["reviewer"] == 1
+    
+    # Hit 4 for implementer
+    dispatcher.dispatch_agent("implementer", {}) # 2
+    dispatcher.dispatch_agent("implementer", {}) # 3
+    dispatcher.dispatch_agent("implementer", {}) # 4
+    
+    assert dispatcher._load_state()["agent_cycle_counts"]["implementer"] == 4
+    assert dispatcher._load_state()["agent_cycle_counts"]["reviewer"] == 1
+    
+    # 5th time for implementer should raise PermissionError and reset ITS counter
+    with pytest.raises(PermissionError, match="INFINITE LOOP DETECTED: The implementer"):
+        dispatcher.dispatch_agent("implementer", {})
+        
+    assert dispatcher._load_state()["agent_cycle_counts"]["implementer"] == 0
+    assert dispatcher._load_state()["agent_cycle_counts"]["reviewer"] == 1
+    
+    # Dispatching planner should reset all counters
+    dispatcher.dispatch_agent("planner", {})
+    assert dispatcher._load_state()["agent_cycle_counts"] == {}

@@ -112,6 +112,9 @@ def check_tool_use(tool_name, tool_args):
         log_action("pre_tool_guard", "setup_not_ready", "Strict enforcement skipped")
         return True
 
+    if tool_name in {"Bash", "run_shell_command"} and re.search(r"(^|\s)(rm\s+-rf?|mkfs|chmod\s+-R\s+777)(\s|$)", tool_text):
+        reject(dispatcher, state, "[SECURITY VIOLATION]: Dangerous commands (rm -rf, mkfs, chmod -R 777) are strictly blocked.")
+        
     if tool_name in {"Bash", "run_shell_command"} and "sudo" in tool_text:
         reject(dispatcher, state, "[VIOLATION]: sudo is not allowed from the harness runtime.")
     
@@ -121,8 +124,12 @@ def check_tool_use(tool_name, tool_args):
     if tool_name in {"Bash", "run_shell_command"} and re.search(r"git\s+push\b[^\n]*(--force|-f|--force-with-lease)", tool_text):
         reject(dispatcher, state, "[VIOLATION]: Force-push is blocked.")
         
+    if tool_name in {"Read", "read_file", "Bash", "run_shell_command"} and ".log" in tool_text and not "extract_stacktrace.py" in tool_text:
+        reject(dispatcher, state, "[EFFICIENCY VIOLATION]: Do not read raw log files directly. You MUST use run_shell_command('python3 .claude/plugin-generated/scripts/extract_stacktrace.py <file>')")
+        
     if active_persona == "orchestrator" and tool_name in {"Edit", "Write", "MultiEdit", "replace", "write_file", "write_to_file", "replace_file_content"}:
-        reject(dispatcher, state, "[VIOLATION]: Orchestrators cannot write code. Use the Task() tool.")
+        if not re.search(r"(docs/|artifacts/|tests/.*\.md)", tool_text):
+            reject(dispatcher, state, "[VIOLATION]: Orchestrators can only write to .md files in docs/, artifacts/, or tests/. Use the Task() tool for code changes.")
         
     if active_persona == "implementer" and tool_name in {"Edit", "Write", "MultiEdit", "replace", "write_file", "write_to_file", "replace_file_content"} and not state.get("last_failing_test"):
         reject(dispatcher, state, "[TDD VIOLATION]: You must write and run a failing test before modifying production code.")

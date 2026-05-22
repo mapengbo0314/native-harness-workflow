@@ -79,7 +79,7 @@ import xml.sax.saxutils
 
 ROUTE_DIRECTIVES = {
     "A": "CRITICAL DIRECTIVE: Bypass Planning. Dispatch @implementer immediately with diagnose skill.",
-    "B": "CRITICAL DIRECTIVE: Dispatch @planner to write a spec using using-harness-superpowers and harness-brainstorming.",
+    "B": "CRITICAL DIRECTIVE: Use harness-brainstorming. You MUST dispatch @adversary for design grilling, then @planner to write the spec and Sphinch Marks.",
     "C": "CRITICAL DIRECTIVE: Answer directly using CodeGraph context. Do not mutate files.",
     "D": "CRITICAL DIRECTIVE: Dispatch @implementer directly without planning.",
 }
@@ -101,7 +101,7 @@ def intercept(user_input):
     dispatcher._save_state(state)
 
     routed_input = (
-        f"<matrix_route branch=\"{branch}\">{directive}</matrix_route>\n"
+        f"<matrix_route branch="{branch}">{directive}</matrix_route>\n"
         f"<user_prompt>{sanitized}</user_prompt>"
     )
     log_action("prompt_interceptor", "intercept_complete", f"Input routed to Branch {branch}")

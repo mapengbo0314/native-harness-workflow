@@ -170,17 +170,42 @@ class OrchestratorDispatcher:
         if agent_name not in agents:
             raise ValueError(f"Agent '{agent_name}' not found in configuration")
 
-        # Apply orchestrator rules
-        if not self.validate_against_rules(agent_name):
-            raise PermissionError(f"Agent '{agent_name}' violates project rules")
-
         # Basic intent classification if prompt is provided
         intent_branch = None
         if "prompt" in context:
             intent_branch = self.classify_intent(context["prompt"])
 
-        # Update state
+        # Update state and check for infinite loops
         state = self._load_state()
+        
+        # Infinite loop prevention (individual tracking)
+        counts = state.get("agent_cycle_counts", {})
+        if not isinstance(counts, dict):
+            counts = {}
+
+        if agent_name in ["implementer", "reviewer", "verifier"]:
+            current_count = counts.get(agent_name, 0) + 1
+            if current_count > 4:
+                # Reset the counter for this agent so it's not permanently stuck, but block this dispatch
+                counts[agent_name] = 0
+                state["agent_cycle_counts"] = counts
+                self._save_state(state)
+                raise PermissionError(
+                    f"INFINITE LOOP DETECTED: The {agent_name} has been dispatched 5 times without breaking the cycle. "
+                    "You MUST STOP dispatching subagents immediately. "
+                    "Use the `ask_user` tool or `ask` tool to notify the user of the unresolved issues "
+                    "and wait for human intervention."
+                )
+            counts[agent_name] = current_count
+            state["agent_cycle_counts"] = counts
+        else:
+            # If we dispatch a planner or other agent, reset all execution cycle counts
+            state["agent_cycle_counts"] = {}
+
+        # Apply orchestrator rules (like Gatekeeper)
+        if not self.validate_against_rules(agent_name):
+            raise PermissionError(f"Agent '{agent_name}' violates project rules")
+
         state["active_persona"] = agent_name
         state["matrix_branch"] = intent_branch
         if agent_name == "implementer":
@@ -205,5 +230,25 @@ class OrchestratorDispatcher:
         Returns:
             True if valid
         """
-        # For now, always valid - could be extended to parse rules
+        if agent_name == "implementer":
+            import subprocess
+            import sys
+            try:
+                gatekeeper = self.config_dir.parent / "scripts" / "gatekeeper.py"
+                workspace = self.config_dir.parent.parent.parent
+                if gatekeeper.exists():
+                    result = subprocess.run(
+                        [sys.executable, str(gatekeeper), "--phase", "3", "--workspace", str(workspace)],
+                        capture_output=True,
+                        text=True
+                    )
+                    if result.returncode != 0:
+                        error_msg = result.stderr or result.stdout
+                        raise PermissionError(f"Gatekeeper Phase 3 failed: {error_msg}. Dispatch @planner first to create the implementation plan.")
+            except Exception as e:
+                if isinstance(e, PermissionError):
+                    raise
+                # Ignore if gatekeeper is missing or other errors occur during check
+                pass
+                
         return True
