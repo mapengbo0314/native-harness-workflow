@@ -205,5 +205,25 @@ class OrchestratorDispatcher:
         Returns:
             True if valid
         """
-        # For now, always valid - could be extended to parse rules
+        if agent_name == "implementer":
+            import subprocess
+            import sys
+            try:
+                gatekeeper = self.config_dir.parent / "scripts" / "gatekeeper.py"
+                workspace = self.config_dir.parent.parent.parent
+                if gatekeeper.exists():
+                    result = subprocess.run(
+                        [sys.executable, str(gatekeeper), "--phase", "3", "--workspace", str(workspace)],
+                        capture_output=True,
+                        text=True
+                    )
+                    if result.returncode != 0:
+                        error_msg = result.stderr or result.stdout
+                        raise PermissionError(f"Gatekeeper Phase 3 failed: {error_msg}. Dispatch @planner first to create the implementation plan.")
+            except Exception as e:
+                if isinstance(e, PermissionError):
+                    raise
+                # Ignore if gatekeeper is missing or other errors occur during check
+                pass
+                
         return True
