@@ -1,9 +1,0 @@
-google-genai
-openai
-anthropic
-instructor
-pydantic
-jsonref
-tenacity
-pyyaml
-Jinja2>=3.1.0
