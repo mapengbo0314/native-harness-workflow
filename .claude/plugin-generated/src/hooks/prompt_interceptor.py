@@ -101,8 +101,8 @@ def intercept(user_input):
     dispatcher._save_state(state)
 
     routed_input = (
-        f"<matrix_route branch="{branch}">{directive}</matrix_route>\n"
-        f"<user_prompt>{sanitized}</user_prompt>"
+        f'<matrix_route branch="{branch}">{directive}</matrix_route>\n'
+        f'<user_prompt>{sanitized}</user_prompt>'
     )
     log_action("prompt_interceptor", "intercept_complete", f"Input routed to Branch {branch}")
     return routed_input
