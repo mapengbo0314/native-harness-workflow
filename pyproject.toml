@@ -17,4 +17,8 @@ dependencies = []
 harness-wf = "harness.cli:main"
 
 [tool.setuptools.packages.find]
+where = ["src"]
 include = ["harness*"]
+
+[tool.setuptools.package-data]
+"harness" = ["templates/boilerplate/**/*", "templates/boilerplate/**/.*"]
