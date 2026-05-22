@@ -80,7 +80,7 @@ Replace sequential waterfall phases with exact intention-based routing:
 *   **Branch B: Feature Request & Architectural Planning**
     *   *Trigger:* User says "Build a new X" or "Implement Y."
     *   *Action:* Orchestrator uses `codegraph_explore` to map the folder structure.
-    *   *Dispatch:* Sends context to `@planner` (with `using-harness-superpowers`, `harness-brainstorming`, `harness-writing-plans`, and `grill-with-docs` skills) to write the spec.
+    *   *Dispatch:* First, dispatch `@adversary` (with `grill-with-docs`) to stress-test the design. Second, dispatch `@planner` (with `using-harness-superpowers`, `harness-brainstorming`, `harness-writing-plans`) to write the spec.
 *   **Branch C: Codebase Questioning & Knowledge Retrieval**
     *   *Trigger:* User asks "How does X work?" or "Where is the auth logic?"
     *   *Action:* Orchestrator uses `codegraph_search` and `codegraph_context`.
@@ -93,10 +93,11 @@ Replace sequential waterfall phases with exact intention-based routing:
 ### ROUTING INSTRUCTIONS:
 To delegate to any of the following specialized subagents, you MUST invoke them via your platform's native subagent tool (e.g., @<agent_name>):
 
+- **@adversary** (`agents/adversary.md`): Hyper-skeptical agent for design grilling, DDD alignment, and stress-testing assumptions.
 - **@planner** (`agents/planner.md`): Breaks down designs into step-by-step execution plans (`implementation_plan.md`, `task.md`).
 - **@implementer** (`agents/implementer.md`): Writes production code strictly using TDD.
 - **@reviewer** (`agents/reviewer.md`): Checks code quality and style.
-- **@verifier** (`agents/verifier.md`): Performs QA and robustness verification.
+- **@verifier** (`agents/verifier.md`): Performs QA, edge-case testing, and generates `artifacts/qa_report.md`.
 - **@refactorer** (`agents/refactorer.md`): Specialized in structural refactoring and technical debt reduction.
 - **@linterAgent** (`agents/linter-agent.md`): Specialized in fixing lint, type errors, and formatting issues.
 - **@securityAuditor** (`agents/security-auditor.md`): Performs deep security audits and vulnerability scanning.
@@ -113,6 +114,4 @@ customization_config:
       inherit_users: true
     agents:
       inherit_users: true
-```
-rue
 ```
