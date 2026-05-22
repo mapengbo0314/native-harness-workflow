@@ -400,14 +400,15 @@ def generate_orchestrator_plugin(
         print(f"[HARNESS] Generating plugin sources...")
         generate_plugin_sources(src_dir, skills_dir=skills_src)
         
-        # Copy dispatcher.py from harness directory
+        # Copy core files from harness directory
         harness_module_dir = Path(__file__).parent
-        dispatcher_src = harness_module_dir / "dispatcher.py"
-        if dispatcher_src.exists():
-            print(f"[HARNESS] Copying dispatcher.py...")
-            shutil.copy(dispatcher_src, src_dir / "dispatcher.py")
-        else:
-            print(f"[HARNESS] Warning: dispatcher.py not found at {dispatcher_src}")
+        for core_file in ["dispatcher.py", "database.py"]:
+            src_path = harness_module_dir / core_file
+            if src_path.exists():
+                print(f"[HARNESS] Copying {core_file}...")
+                shutil.copy(src_path, src_dir / core_file)
+            else:
+                print(f"[HARNESS] Warning: {core_file} not found at {src_path}")
 
         # Generate pyproject.toml
         generate_pyproject(plugin_dir)
@@ -445,7 +446,10 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 # Import dispatcher (generated in same package)
-from .dispatcher import OrchestratorDispatcher
+try:
+    from .dispatcher import OrchestratorDispatcher
+except (ImportError, ValueError):
+    from dispatcher import OrchestratorDispatcher
 
 
 class OrchestratorPlugin:
@@ -591,7 +595,10 @@ def init() -> bool:
 Hook interception for Claude Code agent dispatch.
 """
 
-from .orchestrator_plugin import get_plugin
+try:
+    from .orchestrator_plugin import get_plugin
+except (ImportError, ValueError):
+    from orchestrator_plugin import get_plugin
 
 
 def intercept_agent_dispatch(agent_name: str, context: dict) -> dict:
@@ -610,7 +617,10 @@ def intercept_agent_dispatch(agent_name: str, context: dict) -> dict:
 Plugin tools exposed to Claude Code.
 """
 
-from .orchestrator_plugin import get_plugin
+try:
+    from .orchestrator_plugin import get_plugin
+except (ImportError, ValueError):
+    from orchestrator_plugin import get_plugin
 
 
 def invoke_skill(name: str) -> str:
@@ -960,7 +970,7 @@ def on_stop(reason):
     if state.get("last_failing_test") or state.get("implementation_started") or state.get("tdd_status") not in (None, "inactive"):
         verification_report = get_project_root() / "artifacts" / "qa_report.md"
         if not verification_report.exists():
-            print("[QA REQUIRED]: You cannot exit. Dispatch Task(\"@verifier\") to perform robustness checks and generate artifacts/qa_report.md.", file=sys.stderr)
+            print("[QA REQUIRED]: You cannot exit. Dispatch Task('@verifier') to perform robustness checks and generate artifacts/qa_report.md.", file=sys.stderr)
             sys.exit(1)
 
         try:
@@ -1036,7 +1046,7 @@ def ensure_harness_state():
 def test_prompt_interceptor():
     print("Testing prompt_interceptor...")
     res = run_hook("prompt_interceptor", payload={"prompt": "build a new login page"})
-    if "<matrix_route branch=\"B\">" in res.stdout:
+    if '<matrix_route branch="B">' in res.stdout:
         print("✅ prompt_interceptor OK")
     else:
         print(f"❌ prompt_interceptor FAILED: {res.stdout}")
@@ -1073,7 +1083,8 @@ requires-python = ">=3.8"
 
 dependencies = [
     "pydantic>=2.0",
-    "typing_extensions>=4.0"
+    "typing_extensions>=4.0",
+    "Jinja2>=3.1.0"
 ]
 
 [tool.poetry]
