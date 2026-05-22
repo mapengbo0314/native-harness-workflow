@@ -408,7 +408,7 @@ class TestPhase3Hooks:
             assert "classify_intent" in interceptor_content
 
             pre_tool_content = (hooks_dir / "pre_tool_guard.py").read_text()
-            assert "Orchestrators cannot write code" in pre_tool_content
+            assert "Orchestrators can only write to .md files" in pre_tool_content
             assert "TDD VIOLATION" in pre_tool_content
 
             post_tool_content = (hooks_dir / "post_tool_monitor.py").read_text()
