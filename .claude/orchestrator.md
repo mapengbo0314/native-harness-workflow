@@ -84,7 +84,7 @@ Replace sequential waterfall phases with exact intention-based routing:
 *   **Branch B: Feature Request & Architectural Planning**
     *   *Trigger:* User says "Build a new X" or "Implement Y."
     *   *Action:* Orchestrator uses `codegraph_explore` to map the folder structure.
-    *   *Dispatch:* Sends context to `@planner` (with `harness-brainstorming`, `harness-writing-plans`, and `grill-with-docs` skills) to write the spec.
+    *   *Dispatch:* Sends context to `@planner` (with `using-harness-superpowers`, `harness-brainstorming`, `harness-writing-plans`, and `grill-with-docs` skills) to write the spec.
 *   **Branch C: Codebase Questioning & Knowledge Retrieval**
     *   *Trigger:* User asks "How does X work?" or "Where is the auth logic?"
     *   *Action:* Orchestrator uses `codegraph_search` and `codegraph_context`.

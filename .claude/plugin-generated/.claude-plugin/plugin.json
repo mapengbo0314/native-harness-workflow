@@ -1,6 +1,6 @@
 {
   "name": "orchestrator-plugin",
-  "description": "Auto-generated orchestrator plugin for test",
+  "description": "Auto-generated orchestrator plugin for e-2-g",
   "version": "1.0.0",
   "author": {
     "name": "Harness Plugin Generator"

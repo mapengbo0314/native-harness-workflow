@@ -5,6 +5,7 @@
   "version": "1.0",
   "entrypoint": "rules/dispatch_rules.md",
   "skills": [
+    "using-harness-superpowers",
     "diagnose",
     "grill-me",
     "grill-with-docs",

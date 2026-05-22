@@ -5,6 +5,7 @@
   "version": "1.0",
   "entrypoint": "rules/dispatch_rules.md",
   "skills": [
+    "using-harness-superpowers",
     "grill-me",
     "grill-with-docs",
     "improve-codebase-architecture",
