@@ -5,13 +5,24 @@
   "version": "1.0",
   "entrypoint": "rules/dispatch_rules.md",
   "skills": [
-    "using-harness-superpowers",
     "diagnose",
     "grill-me",
     "grill-with-docs",
     "improve-codebase-architecture",
     "ddd-alignment",
-    "meta-learning"
+    "meta-learning",
+    "using-harness-superpowers",
+    "harness-brainstorming",
+    "harness-writing-plans",
+    "harness-test-driven-development",
+    "harness-subagent-driven-development",
+    "harness-dispatching-parallel-agents",
+    "harness-executing-plans",
+    "harness-systematic-debugging",
+    "harness-finishing-a-development-branch",
+    "harness-requesting-code-review",
+    "agentic-eval",
+    "prompt-engineer"
   ],
   "related_agents": [
     "planner",
