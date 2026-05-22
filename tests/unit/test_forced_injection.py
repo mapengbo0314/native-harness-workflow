@@ -38,7 +38,7 @@ def test_generate_onboarding_domain_doc_forced_injection(mock_query_llm, tmp_pat
         json.dump(tools_registry, f)
         
     with open(os.path.join(onboarding_dir, "ONBOARDING_DOMAIN.md.template"), "w") as f:
-        f.write("{{SKILLS_MD}}\n{{MCPS_MD}}")
+        f.write("<!--$ SKILLS_MD $-->\n<!--$ MCPS_MD $-->")
 
     mock_query_llm.return_value = '{"skills": [], "mcps": []}'
     

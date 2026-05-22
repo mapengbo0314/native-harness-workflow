@@ -21,8 +21,8 @@ def test_platform_awareness_gemini():
         (project_path / ".github").mkdir()
         (project_path / ".github" / "copilot-instructions.md").write_text("old content")
         
-        # Create a boilerplate file with {{SUBAGENT_SYNTAX}}
-        (boilerplate_dir / "orchestrator.md").write_text("Use {{SUBAGENT_SYNTAX}}agent-name")
+        # Create a boilerplate file with <!--$ SUBAGENT_SYNTAX $-->
+        (boilerplate_dir / "orchestrator.md").write_text("Use <!--$ SUBAGENT_SYNTAX $-->agent-name")
         
         selected_agents = []
         
@@ -54,8 +54,8 @@ def test_platform_awareness_claude():
         project_path.mkdir()
         boilerplate_dir.mkdir()
         
-        # Create a boilerplate file with {{SUBAGENT_SYNTAX}}
-        (boilerplate_dir / "orchestrator.md").write_text("Use {{SUBAGENT_SYNTAX}}agent-name")
+        # Create a boilerplate file with <!--$ SUBAGENT_SYNTAX $-->
+        (boilerplate_dir / "orchestrator.md").write_text("Use <!--$ SUBAGENT_SYNTAX $-->agent-name")
         
         selected_agents = []
         

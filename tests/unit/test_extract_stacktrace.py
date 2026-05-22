@@ -16,7 +16,7 @@ AssertionError: assert 5 == 10
         f.write(log_content)
         log_path = f.name
 
-    script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'boilerplate-agent', 'scripts', 'extract_stacktrace.py')
+    script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'src', 'harness', 'templates', 'boilerplate', 'scripts', 'extract_stacktrace.py')
     
     try:
         result = subprocess.run([sys.executable, script_path, log_path], capture_output=True, text=True)
@@ -37,7 +37,7 @@ stack backtrace:
         f.write(log_content)
         log_path = f.name
 
-    script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'boilerplate-agent', 'scripts', 'extract_stacktrace.py')
+    script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'src', 'harness', 'templates', 'boilerplate', 'scripts', 'extract_stacktrace.py')
     
     try:
         result = subprocess.run([sys.executable, script_path, log_path], capture_output=True, text=True)
@@ -57,7 +57,7 @@ Error: Something went wrong
         f.write(log_content)
         log_path = f.name
 
-    script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'boilerplate-agent', 'scripts', 'extract_stacktrace.py')
+    script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'src', 'harness', 'templates', 'boilerplate', 'scripts', 'extract_stacktrace.py')
     
     try:
         result = subprocess.run([sys.executable, script_path, log_path], capture_output=True, text=True)
@@ -76,7 +76,7 @@ Exception in thread "main" java.lang.NullPointerException: Cannot invoke "String
         f.write(log_content)
         log_path = f.name
 
-    script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'boilerplate-agent', 'scripts', 'extract_stacktrace.py')
+    script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'src', 'harness', 'templates', 'boilerplate', 'scripts', 'extract_stacktrace.py')
     
     try:
         result = subprocess.run([sys.executable, script_path, log_path], capture_output=True, text=True)

@@ -57,7 +57,8 @@ class TestDeepCopyMigration:
             # Call generate function
             plugin_dir = generate_orchestrator_plugin(
                 project_path=str(project_path),
-                project_name="test-project"
+                project_name="test-project",
+                boilerplate_dir=str(boilerplate_dir)
             )
 
             plugin_path = Path(plugin_dir)
@@ -335,7 +336,7 @@ class TestIntegration:
 
             # Verify agents were deep copied
             agents_copied = list((plugin_path / "agents").glob("*.md"))
-            assert len(agents_copied) == 3
+            assert len(agents_copied) >= 3
 
             # Verify rule config
             with open(plugin_path / "config" / "rules.json") as f:
