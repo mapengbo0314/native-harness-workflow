@@ -1,6 +1,6 @@
 import re
 
-with open("tests/test_dynamic_manifest.py", "r") as f:
+with open("tests/integration/test_dynamic_manifest.py", "r") as f:
     content = f.read()
 
 # The issue is that hooks["UserPromptSubmit"] is a list of objects that have "hooks" lists.
@@ -29,6 +29,6 @@ content = content.replace('hooks["PostToolUse"][0]["command"]', 'hooks["PostTool
 
 content = content.replace('hooks["PreCompact"][0]["command"]', 'hooks["PreCompact"][0]["hooks"][0]["command"]')
 
-with open("tests/test_dynamic_manifest.py", "w") as f:
+with open("tests/integration/test_dynamic_manifest.py", "w") as f:
     f.write(content)
 print("Updated test file.")
