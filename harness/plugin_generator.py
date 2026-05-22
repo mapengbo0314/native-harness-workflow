@@ -741,7 +741,7 @@ import xml.sax.saxutils
 
 ROUTE_DIRECTIVES = {
     "A": "CRITICAL DIRECTIVE: Bypass Planning. Dispatch @implementer immediately with diagnose skill.",
-    "B": "CRITICAL DIRECTIVE: Dispatch @planner to write a spec using using-harness-superpowers and harness-brainstorming.",
+    "B": "CRITICAL DIRECTIVE: Use harness-brainstorming. You MUST dispatch @adversary for design grilling, then @planner to write the spec and Sphinch Marks.",
     "C": "CRITICAL DIRECTIVE: Answer directly using CodeGraph context. Do not mutate files.",
     "D": "CRITICAL DIRECTIVE: Dispatch @implementer directly without planning.",
 }
@@ -763,7 +763,7 @@ def intercept(user_input):
     dispatcher._save_state(state)
 
     routed_input = (
-        f"<matrix_route branch=\\"{branch}\\">{directive}</matrix_route>\\n"
+        f"<matrix_route branch=\"{branch}\">{directive}</matrix_route>\\n"
         f"<user_prompt>{sanitized}</user_prompt>"
     )
     log_action("prompt_interceptor", "intercept_complete", f"Input routed to Branch {branch}")
@@ -953,10 +953,10 @@ def on_stop(reason):
         return True
 
     # Only enforce verification gate if implementation has started
-    if state.get("last_failing_test") or state.get("implementation_started"):
-        verification_report = get_project_root() / "artifacts" / "verification_report.md"
+    if state.get("last_failing_test") or state.get("implementation_started") or state.get("tdd_status") not in (None, "inactive"):
+        verification_report = get_project_root() / "artifacts" / "qa_report.md"
         if not verification_report.exists():
-            print("[QA REQUIRED]: You cannot exit. Dispatch Task(\\"@verifier\\") to perform robustness checks.", file=sys.stderr)
+            print("[QA REQUIRED]: You cannot exit. Dispatch Task(\\"@verifier\\") to perform robustness checks and generate artifacts/qa_report.md.", file=sys.stderr)
             sys.exit(1)
 
         try:
