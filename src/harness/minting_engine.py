@@ -388,6 +388,11 @@ else
     echo "Warning: 'claude' CLI not found. Run 'claude mcp add --scope project codegraph \"npx @colbymchenry/codegraph serve --mcp\"' manually."
 fi
 
+echo "Installing plugin dependencies..."
+if [ -f ".claude/plugin-generated/pyproject.toml" ]; then
+    pip install -e ".claude/plugin-generated" --quiet || echo "Warning: Failed to install plugin dependencies. Ensure you have pip installed and are in a virtual environment."
+fi
+
 echo "Running generated plugin smoke test..."
 python3 - <<'PY'
 import importlib
@@ -441,7 +446,7 @@ echo "To install Skills for Claude Code workspace-wide, run these commands insid
 if [ -d ".claude/plugin-generated" ]; then
     echo "Checking for non-interactive Claude Code plugin install support..."
     if command -v claude >/dev/null 2>&1 && claude plugin --help >/dev/null 2>&1; then
-        if claude plugin marketplace add "$PWD/.claude/plugin-generated" --scope project && claude plugin install orchestrator-plugin@local-orchestrator-marketplace --scope project; then
+        if claude plugin marketplace add "$PWD/.claude/plugin-generated/.claude-plugin" --scope project && claude plugin install orchestrator-plugin@local-orchestrator-marketplace --scope project; then
             PLUGIN_READY=1
             echo "Orchestrator plugin installed automatically."
         else
