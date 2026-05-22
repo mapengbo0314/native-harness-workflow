@@ -10,14 +10,14 @@ class HarnessDB:
         self._init_db()
 
     def _get_connection(self):
-        conn = sqlite3.connect(self.db_path)
-        # Enable WAL mode for better concurrency
-        conn.execute("PRAGMA journal_mode=WAL")
-        return conn
+        return sqlite3.connect(self.db_path)
 
     def _init_db(self):
         conn = self._get_connection()
         try:
+            # Enable WAL mode for better concurrency. 
+            # This is persistent for file-based databases.
+            conn.execute("PRAGMA journal_mode=WAL")
             with conn:
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS leases (
@@ -74,6 +74,9 @@ class HarnessDB:
                 except sqlite3.IntegrityError:
                     # Lease already exists and is not expired
                     return False
+        except sqlite3.OperationalError:
+            # Database might be locked or other operational issues
+            return False
         finally:
             conn.close()
 

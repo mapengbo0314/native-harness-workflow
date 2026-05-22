@@ -43,3 +43,38 @@ def test_state_management(tmp_path):
     db.set_state(test_state)
     
     assert db.get_state() == test_state
+
+def test_acquire_lease_handles_operational_error():
+    """Test that acquire_lease returns False when an OperationalError (like database lock) occurs."""
+    from unittest.mock import MagicMock, patch
+    import sqlite3
+    db = HarnessDB(":memory:")
+    
+    # Mock _get_connection to return a connection that raises OperationalError on execute
+    mock_conn = MagicMock()
+    # DELETE in acquire_lease
+    mock_conn.execute.side_effect = [
+        sqlite3.OperationalError("database is locked")
+    ]
+    
+    with patch.object(HarnessDB, '_get_connection', return_value=mock_conn):
+        result = db.acquire_lease("test_agent", 10)
+        assert result is False
+
+def test_acquire_lease_handles_operational_error_on_insert():
+    """Test that acquire_lease returns False when an OperationalError occurs during INSERT."""
+    from unittest.mock import MagicMock, patch
+    import sqlite3
+    db = HarnessDB(":memory:")
+    
+    mock_conn = MagicMock()
+    # 1. DELETE in acquire_lease
+    # 2. INSERT in acquire_lease
+    mock_conn.execute.side_effect = [
+        MagicMock(), # DELETE
+        sqlite3.OperationalError("database is locked")
+    ]
+    
+    with patch.object(HarnessDB, '_get_connection', return_value=mock_conn):
+        result = db.acquire_lease("test_agent", 10)
+        assert result is False

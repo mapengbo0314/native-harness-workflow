@@ -3,6 +3,8 @@ import json
 import os
 import time
 import re
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
 from harness.database import HarnessDB
@@ -89,9 +91,6 @@ class OrchestratorDispatcher:
 
     def _save_state(self, state: Dict[str, Any], timeout: float = 5.0) -> None:
         """Save state to HarnessDB and .harness_state.json atomically using SQLite leases."""
-        import os
-        import time
-
         start_time = time.time()
         locked = False
         while time.time() - start_time < timeout:
@@ -228,8 +227,6 @@ class OrchestratorDispatcher:
             True if valid
         """
         if agent_name == "implementer":
-            import subprocess
-            import sys
             try:
                 gatekeeper = self.config_dir.parent / "scripts" / "gatekeeper.py"
                 workspace = self.config_dir.parent.parent.parent
