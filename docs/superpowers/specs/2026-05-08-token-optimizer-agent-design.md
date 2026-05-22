@@ -14,7 +14,7 @@ The `token-optimizer` is a specialized subagent designed to autonomously measure
   3. Presents an interactive proposal in the CLI chat detailing findings and specific refactoring plans.
   4. Applies optimizations (e.g., deduplicating markdown files, adjusting orchestrator summary logic) only after user approval.
 
-### 2.2 The Test Engine (`scripts/efficiency_suite.py`)
+### 2.2 The Test Engine (`tests/benchmarks/efficiency_suite.py`)
 The existing `benchmark_efficiency_test.py` will be refactored and expanded into a modular test suite that the agent can invoke with specific flags.
 
 #### Capabilities:
@@ -31,7 +31,7 @@ The existing `benchmark_efficiency_test.py` will be refactored and expanded into
   - Specifically flags "context leaks" where raw tool outputs (e.g., large file reads) fail to be summarized and bloat the parent orchestrator's history.
 
 ## 3. Data Flow & Output
-The `efficiency_suite.py` script must output its findings in a structured format (JSON or predictable markdown tables) that the `token-optimizer` can reliably parse without hallucinations.
+The `tests/benchmarks/efficiency_suite.py` script must output its findings in a structured format (JSON or predictable markdown tables) that the `token-optimizer` can reliably parse without hallucinations.
 
 ## 4. Safety & Interaction
 - The agent operates strictly in a "Test -> Propose -> Wait for Approval -> Apply" loop.

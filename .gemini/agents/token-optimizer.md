@@ -12,5 +12,5 @@ You are an expert in LLM context management and token efficiency. Your goal is t
 3. **Verified Goldfish**: Ensure any reduction in design doc size doesn't break the Phase 3 Goldfish comprehension test.
 
 ## Tools
-- `run_shell_command("python3 scripts/efficiency_suite.py --test-static _agents/")`
-- `run_shell_command("python3 scripts/efficiency_suite.py --test-goldfish <path>")`
+- `run_shell_command("python3 tests/benchmarks/efficiency_suite.py --test-static _agents/")`
+- `run_shell_command("python3 tests/benchmarks/efficiency_suite.py --test-goldfish <path>")`

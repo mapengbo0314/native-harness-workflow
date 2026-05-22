@@ -13,7 +13,7 @@
 ### Task 1: Refactor Benchmark to Efficiency Suite
 
 **Files:**
-- Create: `scripts/efficiency_suite.py`
+- Create: `tests/benchmarks/efficiency_suite.py`
 - Modify: `scripts/benchmark_efficiency_test.py` (deprecated after migration)
 
 - [ ] **Step 1: Create the base `efficiency_suite.py` with static analysis**
@@ -76,7 +76,7 @@ def test_goldfish(doc_path: Path):
 
 - [ ] **Step 3: Commit**
 ```bash
-git add scripts/efficiency_suite.py
+git add tests/benchmarks/efficiency_suite.py
 git commit -m "feat: implement modular efficiency suite with static and goldfish tests"
 ```
 
@@ -99,8 +99,8 @@ You are an expert in LLM context management and token efficiency. Your goal is t
 3. **Verified Goldfish**: Ensure any reduction in design doc size doesn't break the Phase 3 Goldfish comprehension test.
 
 ## Tools
-- `run_shell_command("python3 scripts/efficiency_suite.py --test-static _agents/")`
-- `run_shell_command("python3 scripts/efficiency_suite.py --test-goldfish <path>")`
+- `run_shell_command("python3 tests/benchmarks/efficiency_suite.py --test-static _agents/")`
+- `run_shell_command("python3 tests/benchmarks/efficiency_suite.py --test-goldfish <path>")`
 ```
 
 - [ ] **Step 2: Register agent in agents.json**
@@ -129,7 +129,7 @@ git commit -m "feat: create token-optimizer agent persona"
 - [ ] **Step 2: Update boilerplate agents.json**
 - [ ] **Step 3: Run baseline test**
 ```bash
-python3 scripts/efficiency_suite.py --test-static boilerplate-agent/
+python3 tests/benchmarks/efficiency_suite.py --test-static boilerplate-agent/
 ```
 - [ ] **Step 4: Commit**
 ```bash
