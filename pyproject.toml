@@ -19,7 +19,8 @@ dependencies = [
     "pydantic",
     "jsonref",
     "tenacity",
-    "pyyaml"
+    "pyyaml",
+    "Jinja2>=3.1.0"
 ]
 
 [project.scripts]

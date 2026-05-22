@@ -4,6 +4,7 @@ import shutil
 import json
 import urllib.request
 from pathlib import Path
+from jinja2 import Environment, BaseLoader
 from harness.plugin_generator import generate_orchestrator_plugin
 
 def should_generate_orchestrator_plugin(domain_content: str, platform_choice: str) -> bool:
@@ -944,3 +945,19 @@ def install_workspace_tools(target_dir: str, harness_folder_name: str, skills: l
 
         with open(mcp_json_path, "w") as f:
              json.dump(mcp_data, f, indent=2)
+
+class TemplateRenderer:
+    def __init__(self):
+        self.env = Environment(
+            loader=BaseLoader(),
+            block_start_string='<!--%',
+            block_end_string='%-->',
+            variable_start_string='<!--$',
+            variable_end_string='$-->',
+            comment_start_string='<!--#',
+            comment_end_string='#-->',
+        )
+
+    def render_string(self, source: str, context: dict) -> str:
+        template = self.env.from_string(source)
+        return template.render(**context)
