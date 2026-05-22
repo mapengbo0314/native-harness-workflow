@@ -79,7 +79,7 @@ import xml.sax.saxutils
 
 ROUTE_DIRECTIVES = {
     "A": "CRITICAL DIRECTIVE: Bypass Planning. Dispatch @implementer immediately with diagnose skill.",
-    "B": "CRITICAL DIRECTIVE: Dispatch @planner to write a spec using harness-brainstorming.",
+    "B": "CRITICAL DIRECTIVE: Dispatch @planner to write a spec using using-harness-superpowers and harness-brainstorming.",
     "C": "CRITICAL DIRECTIVE: Answer directly using CodeGraph context. Do not mutate files.",
     "D": "CRITICAL DIRECTIVE: Dispatch @implementer directly without planning.",
 }

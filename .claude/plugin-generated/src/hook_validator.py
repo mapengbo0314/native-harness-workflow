@@ -25,6 +25,26 @@ def run_hook(hook_name, payload=None, args=None):
     )
     return result
 
+def ensure_harness_state():
+    """Ensure the harness state allows for strict enforcement testing."""
+    config_dir = Path(__file__).parent.parent / "config"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    state_file = config_dir / ".harness_state.json"
+    
+    state = {}
+    if state_file.exists():
+        try:
+            with open(state_file, "r") as f:
+                state = json.load(f)
+        except json.JSONDecodeError:
+            pass
+            
+    state["setup_complete"] = True
+    state["strict_enforcement_enabled"] = True
+    
+    with open(state_file, "w") as f:
+        json.dump(state, f)
+
 def test_prompt_interceptor():
     print("Testing prompt_interceptor...")
     res = run_hook("prompt_interceptor", payload={"prompt": "build a new login page"})
@@ -44,6 +64,7 @@ def test_pre_tool_guard():
 
 def main():
     print("=== Orchestrator Hook Validator ===")
+    ensure_harness_state()
     test_prompt_interceptor()
     test_pre_tool_guard()
     # Add more tests as needed
