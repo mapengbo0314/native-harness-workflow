@@ -2,6 +2,7 @@ import os
 import re
 import shutil
 import json
+import yaml
 import urllib.request
 from pathlib import Path
 from jinja2 import Environment, BaseLoader
@@ -1010,3 +1011,102 @@ def install_workspace_tools(target_dir: str, harness_folder_name: str, skills: l
 
         with open(mcp_json_path, "w") as f:
              json.dump(mcp_data, f, indent=2)
+
+def merge_markdown(old_content: str, new_content: str) -> str:
+    """Merges two markdown files section by section based on headers."""
+    def parse_sections(text):
+        sections = {}
+        # Find all headers and their positions
+        header_iter = re.finditer(r'(?:^|\n)(#{1,6}\s+(.*))', text)
+        headers = list(header_iter)
+        
+        if not headers:
+            return {"__INTRO__": text.strip()}
+            
+        # Intro content before first header
+        intro = text[:headers[0].start()].strip()
+        if intro:
+            sections["__INTRO__"] = intro
+            
+        for i in range(len(headers)):
+            start = headers[i].start()
+            end = headers[i+1].start() if i + 1 < len(headers) else len(text)
+            
+            full_section = text[start:end].strip()
+            title = headers[i].group(1).strip()
+            sections[title] = full_section
+            
+        return sections
+
+    old_sections = parse_sections(old_content)
+    new_sections = parse_sections(new_content)
+    
+    merged_sections = []
+    
+    # Capture intro if it exists in new, otherwise from old
+    if "__INTRO__" in new_sections:
+        merged_sections.append(new_sections["__INTRO__"])
+    elif "__INTRO__" in old_sections:
+        merged_sections.append(old_sections["__INTRO__"])
+        
+    # Add all new sections
+    new_titles = [k for k in new_sections.keys() if k != "__INTRO__"]
+    for title in new_titles:
+        merged_sections.append(new_sections[title])
+        
+    # Add old sections that are NOT in new sections
+    old_titles = [k for k in old_sections.keys() if k != "__INTRO__"]
+    for title in old_titles:
+        if title not in new_sections:
+            merged_sections.append(old_sections[title])
+            
+    return "\n\n".join(merged_sections).strip()
+
+def merge_structured(old_str: str, new_str: str, format: str = 'json') -> str:
+    """Deep merges two JSON or YAML strings."""
+    if format == 'json':
+        try:
+            old_data = json.loads(old_str)
+        except json.JSONDecodeError:
+            old_data = {}
+        try:
+            new_data = json.loads(new_str)
+        except json.JSONDecodeError:
+            new_data = {}
+    else:
+        try:
+            old_data = yaml.safe_load(old_str) or {}
+        except Exception:
+            old_data = {}
+        try:
+            new_data = yaml.safe_load(new_str) or {}
+        except Exception:
+            new_data = {}
+        
+    merged = _deep_merge_logic(old_data, new_data)
+    
+    if format == 'json':
+        return json.dumps(merged, indent=2)
+    else:
+        return yaml.dump(merged, sort_keys=False)
+
+def _deep_merge_logic(base, update):
+    """Internal recursive merge logic."""
+    if isinstance(base, dict) and isinstance(update, dict):
+        # We want to return a NEW dict, but update it
+        res = base.copy()
+        for k, v in update.items():
+            if k in res:
+                res[k] = _deep_merge_logic(res[k], v)
+            else:
+                res[k] = v
+        return res
+    elif isinstance(base, list) and isinstance(update, list):
+        # Union lists without duplicates, preserving order
+        res = list(base)
+        for item in update:
+            if item not in res:
+                res.append(item)
+        return res
+    else:
+        return update
