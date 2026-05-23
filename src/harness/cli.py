@@ -154,7 +154,7 @@ def main():
 
     print("\nStage 2.7: Phased Onboarding & Domain SME Discovery")
     from harness.discovery_engine import query_llm
-    generate_onboarding_domain_doc(
+    tech_stack_data = generate_onboarding_domain_doc(
         args.project_path, 
         "Analyzed Codebase Context", 
         query_llm, 
@@ -169,7 +169,18 @@ def main():
     skills_to_install, mcps_to_install = parse_tool_checklists(domain_content)
 
     # We pass the bundled boilerplate_dir
-    mint_workspace(target_dir, selected_agents, args.project_path, platform_choice, args.model, boilerplate_dir)
+    mint_workspace(
+        target_dir, 
+        selected_agents, 
+        args.project_path, 
+        platform_choice, 
+        args.model, 
+        boilerplate_dir, 
+        query_llm_fn=query_llm, 
+        llm_provider=args.llm, 
+        api_key=api_key, 
+        tech_stack_data=tech_stack_data
+    )
 
     # Install tools
     install_workspace_tools(args.project_path, harness_folder, skills_to_install, mcps_to_install)

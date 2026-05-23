@@ -7,6 +7,7 @@ from pathlib import Path
 from jinja2 import Environment, BaseLoader
 from harness.plugin_generator import generate_orchestrator_plugin
 from harness.renderer import TemplateRenderer
+from harness.discovery_engine import detect_tech_stack
 
 def should_generate_orchestrator_plugin(domain_content: str, platform_choice: str) -> bool:
     """Detect if orchestrator-plugin is selected and platform is Claude Code."""
@@ -140,7 +141,7 @@ def process_includes(content: str, current_file_path: str, target_root: Path, to
             
     return "\n".join(new_lines)
 
-def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: str, platform_choice: str, model_choice: str = None, boilerplate_dir: str = None, ddd_context: dict = None):
+def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: str, platform_choice: str, model_choice: str = None, boilerplate_dir: str = None, ddd_context: dict = None, query_llm_fn=None, llm_provider=None, api_key=None, tech_stack_data: dict = None):
     """Copies boilerplate, injects styled configs, and writes setup prerequisites."""
     target_path = Path(target_dir)
     target_dir_name = target_path.name
@@ -360,7 +361,7 @@ cd {quoted_project_path}
 if command -v gemini &> /dev/null; then
 {skill_installs}
     
-    echo "Ensuring CodeGraph is build..."
+    echo "Ensuring CodeGraph is built..."
     npx -y @colbymchenry/codegraph init --index || true
 
     echo "Adding codegraph to Gemini CLI project MCP configuration..."
@@ -568,6 +569,28 @@ echo "Please add codegraph MCP to your Codex configuration."
     
     # Generate Platform Rules Pointers IN THE ROOT DIRECTORY
     harness_prefix = f".{active_platform}" if active_platform in ["gemini", "claude", "cursor", "codex"] else target_dir_name
+    
+    # --- Generate CodeGraph CI Workflow ---
+    ci_dir = project_root / ".github" / "workflows"
+    ci_dir.mkdir(parents=True, exist_ok=True)
+    ci_path = ci_dir / "codegraph-ci.yml"
+    ci_content = """name: CI CodeGraph Build Check
+on: [push, pull_request]
+jobs:
+  build-graph:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Build CodeGraph
+        run: npx -y @colbymchenry/codegraph init --index
+"""
+    with open(ci_path, "w") as f:
+        f.write(ci_content)
+    print(f"[HARNESS] Generated CodeGraph CI at {ci_path}")
+    
     pointer_content = f"""# Agentic Harness
     
 Please read `{harness_prefix}/AGENTS.md` for core repository instructions and routing rules.
@@ -721,10 +744,27 @@ tools:
             with open(agent_file_path, 'w') as f:
                 f.write(final_content)
             
+    # Strategy Persistence
+    _persist_verification_strategy(target_path, project_path, query_llm_fn, llm_provider, api_key, tech_stack_data)
+
     print(f"Successfully minted workspace at {target_dir}")
     print("\nNext Steps:")
     print(f"1. ./{target_dir_name}/scripts/setup_harness.sh (Run from your project root, do NOT cd into {target_dir})")
     print("2. Activate your environment and Launch AI")
+
+def _persist_verification_strategy(target_path: Path, project_path: str, query_llm_fn, llm_provider, api_key, tech_stack_data: dict = None):
+    """Internal helper to identify and persist the verification strategy."""
+    try:
+        if not tech_stack_data:
+            tech_stack_data = detect_tech_stack(project_path, query_llm_fn, llm_provider, api_key)
+            
+        if tech_stack_data and "strategy" in tech_stack_data:
+            strategy_path = target_path / "strategy.json"
+            with open(strategy_path, "w") as f:
+                json.dump(tech_stack_data["strategy"], f, indent=2)
+            print(f"[HARNESS] Persisted strategy to {strategy_path}")
+    except Exception as e:
+        print(f"Warning: Failed to persist strategy: {e}")
 
 def synthesize_domain_sme_agent(target_dir: str, domain_content: str, harness_folder_name: str, platform_choice: str = "1", model_choice: str = None):
     """Generates the domain SME agent deterministically based on the filled doc."""

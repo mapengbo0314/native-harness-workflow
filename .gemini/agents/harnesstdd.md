@@ -24,7 +24,7 @@ You must enforce the rule: **No implementation code is written without a prior f
 
 ### Phase 2: Agent Discovery
 **Goal:** Contextualize the agents.
-- Ensure the `CodeGraph` MCP server is active (`CodeGraph serve --watch --wiki-auto-update`).
+- Ensure the `CodeGraph` MCP server is active (`npx @colbymchenry/codegraph serve --mcp`).
 - Use the feature-fetcher to identify necessary specialized agents.
 
 ### Phase 3: Deterministic Execution (TDD Hard Gate)

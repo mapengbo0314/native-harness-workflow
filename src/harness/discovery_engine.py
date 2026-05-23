@@ -243,8 +243,112 @@ def discover_custom_agent(name: str, specs: str, context_str: str, ddd_context: 
         print(f"Error generating custom agent: {e}")
         return {"name": name, "role": specs, "zone": "Core", "system_prompt": f"# {name}\n\n{specs}"}
 
-def detect_tech_stack(project_path: str) -> str:
-    """Heuristic detection of tech stack from project files, searching up to 2 levels deep."""
+def get_symbol_census(project_path: str) -> list:
+    """Extracts a list of symbols, imports, and decorators to identify patterns."""
+    census = []
+    
+    # 1. Common function decorators
+    try:
+        # Use grep to find lines starting with @
+        cmd = ["grep", "-r", "^[[:space:]]*@", project_path]
+        output = subprocess.check_output(cmd, stderr=subprocess.STDOUT, text=True, timeout=5).splitlines()
+        decorators = set()
+        for line in output[:100]:
+            if "@" in line:
+                parts = line.split("@")
+                if len(parts) > 1:
+                    decorator = parts[1].split("(")[0].split()[0].strip()
+                    decorators.add(f"@{decorator}")
+        census.extend(list(decorators))
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        pass
+
+    # 2. Top imported libraries
+    try:
+        # Crude extraction of imports
+        cmd = ["grep", "-Er", "import |from |require\(", project_path]
+        output = subprocess.check_output(cmd, stderr=subprocess.STDOUT, text=True, timeout=5).splitlines()
+        imports = set()
+        for line in output[:100]:
+            line = line.strip()
+            if "import" in line or "require" in line:
+                # Try to get the library name
+                imports.add(line[:100]) # Keep it reasonably short
+        census.extend(list(imports))
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        pass
+
+    # 3. CodeGraph query as a supplement if available
+    codegraph_db = os.path.join(project_path, ".codegraph", "codegraph.db")
+    if os.path.exists(codegraph_db):
+        try:
+            # Try to get top symbols via npx codegraph query
+            cmd = ["npx", "@colbymchenry/codegraph", "query", "test"]
+            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT, text=True, timeout=10).splitlines()
+            for line in output[:20]:
+                if line.strip() and not line.startswith("Search Results"):
+                    census.append(line.strip())
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            pass
+            
+    return census
+
+def get_file_tree_summary(project_path: str, max_depth=3) -> str:
+    """Generates a text summary of the file tree up to max_depth."""
+    tree = []
+    start_depth = project_path.rstrip(os.path.sep).count(os.path.sep)
+    for root, dirs, files in os.walk(project_path):
+        depth = root.count(os.path.sep) - start_depth
+        if depth >= max_depth:
+            dirs[:] = []
+            continue
+        indent = "  " * depth
+        tree.append(f"{indent}{os.path.basename(root)}/")
+        for f in files[:10]:
+            tree.append(f"{indent}  {f}")
+    return "\n".join(tree)
+
+def deep_audit_discovery(project_path: str, query_llm_fn=None, llm_provider=None, api_key=None, **kwargs) -> dict:
+    """Uses LLM to identify testing infrastructure and capabilities."""
+    census = get_symbol_census(project_path)
+    file_tree = get_file_tree_summary(project_path)
+    
+    if not query_llm_fn or not llm_provider or not api_key:
+        return {}
+
+    prompt = f"""
+    Analyze this project data:
+    FILE TREE:
+    {file_tree}
+    
+    SYMBOL CENSUS:
+    {census}
+    
+    Identify the testing infrastructure. For each test type (unit, e2e):
+    1. What is the framework?
+    2. What is the CLI command to run all tests?
+    
+    Return JSON ONLY: {{
+        "unit": {{"framework": "...", "command": "..."}},
+        "e2e": {{"framework": "...", "command": "..."}},
+        "capabilities": ["..."]
+    }}
+    """
+    
+    try:
+        response = query_llm_fn(prompt, llm_provider, api_key)
+        cleaned = response.replace("```json", "").replace("```", "").strip()
+        start_idx = cleaned.find("{")
+        end_idx = cleaned.rfind("}") + 1
+        if start_idx != -1 and end_idx != 0:
+            cleaned = cleaned[start_idx:end_idx]
+        return json.loads(cleaned)
+    except Exception as e:
+        print(f"Deep audit failed: {e}")
+        return {}
+
+def detect_tech_stack(project_path: str, query_llm_fn=None, llm_provider=None, api_key=None) -> dict:
+    """Heuristic detection of tech stack from project files, merged with LLM-driven census."""
     stacks = set()
     
     # Files we are looking for
@@ -279,18 +383,28 @@ def detect_tech_stack(project_path: str) -> str:
         stacks.remove("Node.js/JavaScript")
 
     # Add Frontend marker for Node projects
-    final_stacks = list(stacks)
-    if any("Node.js" in s for s in final_stacks):
-        final_stacks.append("Frontend")
+    if any("Node.js" in s for s in stacks):
+        stacks.add("Frontend")
         
-    return ", ".join(sorted(final_stacks)) if final_stacks else "Unknown Stack"
+    # Call Deep Audit
+    audit = deep_audit_discovery(project_path, query_llm_fn, llm_provider, api_key)
+    
+    return {
+        "stacks": sorted(list(stacks)),
+        "strategy": {
+            "unit": audit.get("unit", {}),
+            "e2e": audit.get("e2e", {})
+        },
+        "capabilities": audit.get("capabilities", [])
+    }
 
 def generate_onboarding_domain_doc(project_path: str, domain_summary: str, query_llm_fn=None, llm_provider=None, api_key=None, context_str="", boilerplate_dir: str = None):
     """Generates the ONBOARDING_DOMAIN.md template using LLM profiling and verified tools."""
     doc_path = os.path.join(project_path, "ONBOARDING_DOMAIN.md")
     
     # 1. Detect Tech Stack
-    tech_stack = detect_tech_stack(project_path)
+    tech_stack_data = detect_tech_stack(project_path, query_llm_fn, llm_provider, api_key)
+    tech_stack = ", ".join(tech_stack_data["stacks"]) if tech_stack_data["stacks"] else "Unknown Stack"
     
     # 2. Load and Flatten Tools Registry
     tools_registry = {}
@@ -428,6 +542,11 @@ def generate_onboarding_domain_doc(project_path: str, domain_summary: str, query
 
 Based on the codebase scan, I have identified **<!--$ DOMAIN_SUMMARY $-->** as a core complex domain. I propose creating a dedicated agent to protect this logic.
 
+## Verification Strategy
+The following commands were discovered and will be used by the @verifier:
+- **Unit:** <!--$ UNIT_CMD $-->
+- **E2E:** <!--$ E2E_CMD $-->
+
 ## Proposed Domain SME Agent
 
 **Proposed Agent Name:** `@<!--$ SME_NAME $-->`
@@ -467,9 +586,12 @@ Based on the codebase scan, I have identified **<!--$ DOMAIN_SUMMARY $-->** as a
 """
 
     renderer = TemplateRenderer()
+    strategy = tech_stack_data.get("strategy", {})
     context = {
         "TECH_STACK": tech_stack,
         "DOMAIN_SUMMARY": domain_summary,
+        "UNIT_CMD": strategy.get("unit", {}).get("command", "None discovered"),
+        "E2E_CMD": strategy.get("e2e", {}).get("command", "None discovered"),
         "SME_NAME": str(sme_name).lower(),
         "CORE_DOMAIN_VALUE": core_domain_value,
         "INVARIANTS": invariants,
@@ -485,4 +607,5 @@ Based on the codebase scan, I have identified **<!--$ DOMAIN_SUMMARY $-->** as a
     with open(doc_path, "w") as f:
         f.write(final_content)
     print(f"\n[HARNESS] Generated ONBOARDING_DOMAIN.md at {doc_path}")
+    return tech_stack_data
 

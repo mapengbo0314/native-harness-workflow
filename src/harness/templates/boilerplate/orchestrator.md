@@ -70,6 +70,10 @@ Before using ANY tool or dispatching ANY subagent, you MUST output a structured 
 }
 ```
 
+### DETERMINISTIC VERIFICATION:
+- You MUST read `<!--$HARNESS_DIR$-->/strategy.json` during your first turn.
+- You are FORBIDDEN from closing a task without a `PASS` report from `<!--$SUBAGENT_SYNTAX$-->verifier`.
+
 ### DIRECT-DISPATCH DECISION MATRIX:
 Replace sequential waterfall phases with exact intention-based routing:
 

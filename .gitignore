@@ -38,7 +38,7 @@ depreicated_indexing/
 depreciated_indexing/
 archive/
 .codegraph/
-
+.codegraph-cache/
 # Harness Runtime & Debug Junk
 out/
 artifacts/
@@ -49,7 +49,6 @@ local_outputs/
 # Caches and Build Artifacts
 .deepeval/
 .superpowers/
-.indxr-cache/
 *.egg-info/
 .pytest_cache/
 .env
