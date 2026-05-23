@@ -1,0 +1,5 @@
+# Agentic Harness
+    
+Please read `.gemini/AGENTS.md` for core repository instructions and routing rules.
+The Orchestrator agent and core rules are located in `.gemini/orchestrator.md`.
+Run `sh .gemini/scripts/setup_harness.sh` after `harness-wf init` to complete local tool, MCP, and plugin readiness checks.

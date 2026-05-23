@@ -820,7 +820,7 @@ def check_tool_use(tool_name, tool_args):
     log_action("pre_tool_guard", "check", f"Tool: {tool_name}")
     dispatcher = load_dispatcher()
     state = dispatcher._load_state()
-    tool_text = stringify(tool_args)
+    tool_text = stringify(tool_args).lower()
     active_persona = state.get("active_persona", "orchestrator")
 
     if not setup_ready(state):
@@ -828,10 +828,25 @@ def check_tool_use(tool_name, tool_args):
         log_action("pre_tool_guard", "setup_not_ready", "Strict enforcement skipped")
         return True
 
-    if tool_name in {"Bash", "run_shell_command"} and re.search(r"(^|\\s)(rm\\s+-rf?|mkfs|chmod\\s+-R\\s+777)(\\s|$)", tool_text):
+    # Dangerous commands check (rm -rf, mkfs, chmod -R 777)
+    is_dangerous = False
+    if tool_name in {"Bash", "run_shell_command"}:
+        # Match rm -rf variants (split flags, any order, arbitrary space)
+        if (re.search(r"\\brm\\s+-[a-z]*r[a-z]*f\\b", tool_text) or 
+            re.search(r"\\brm\\s+-[a-z]*f[a-z]*r\\b", tool_text) or 
+            (re.search(r"\\brm\\b", tool_text) and re.search(r"\\s-r\\b", tool_text) and re.search(r"\\s-f\\b", tool_text))):
+            is_dangerous = True
+        # Match mkfs
+        if re.search(r"\\bmkfs\\b", tool_text):
+            is_dangerous = True
+        # Match chmod -R 777 variants
+        if re.search(r"\\bchmod\\b", tool_text) and re.search(r"\\s-r\\b", tool_text) and re.search(r"\\s777\\b", tool_text):
+            is_dangerous = True
+            
+    if is_dangerous:
         reject(dispatcher, state, "[SECURITY VIOLATION]: Dangerous commands (rm -rf, mkfs, chmod -R 777) are strictly blocked.")
         
-    if tool_name in {"Bash", "run_shell_command"} and "sudo" in tool_text:
+    if tool_name in {"Bash", "run_shell_command"} and re.search(r"\\bsudo\\b", tool_text):
         reject(dispatcher, state, "[VIOLATION]: sudo is not allowed from the harness runtime.")
     
     if ".env" in tool_text and tool_name in {"Bash", "run_shell_command", "Edit", "Write", "MultiEdit", "replace", "write_file", "write_to_file", "replace_file_content"}:
@@ -977,7 +992,7 @@ def on_stop(reason):
             gatekeeper = get_plugin_dir() / "scripts" / "gatekeeper.py"
             if gatekeeper.exists():
                 result = subprocess.run(
-                    [sys.executable, str(gatekeeper), "--phase", "3"],
+                    [sys.executable, str(gatekeeper), "--phase", "3", "--workspace", str(get_project_root())],
                     capture_output=True,
                     text=True
                 )
@@ -1004,68 +1019,248 @@ import json
 import subprocess
 import sys
 import os
+import shutil
 from pathlib import Path
 
-def run_hook(hook_name, payload=None, args=None):
+def run_hook(hook_name, payload=None, args=None, env_override=None):
     hook_path = Path(__file__).parent / "hooks" / f"{hook_name}.py"
+    if not hook_path.exists():
+        return None
+        
     cmd = [sys.executable, str(hook_path)]
     if args:
         cmd.extend(args)
     
     input_data = json.dumps(payload) if payload else ""
     
+    env = {**os.environ, "PYTHONPATH": str(Path(__file__).parent)}
+    if env_override:
+        env.update(env_override)
+        
     result = subprocess.run(
         cmd,
         input=input_data,
         capture_output=True,
         text=True,
-        env={**os.environ, "PYTHONPATH": str(Path(__file__).parent)}
+        env=env
     )
     return result
 
-def ensure_harness_state():
-    """Ensure the harness state allows for strict enforcement testing."""
+def get_state():
+    config_dir = Path(__file__).parent.parent / "config"
+    state_file = config_dir / ".harness_state.json"
+    if state_file.exists():
+        try:
+            with open(state_file, "r") as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            pass
+    return {}
+
+def update_state(updates):
     config_dir = Path(__file__).parent.parent / "config"
     config_dir.mkdir(parents=True, exist_ok=True)
     state_file = config_dir / ".harness_state.json"
     
-    state = {}
-    if state_file.exists():
-        try:
-            with open(state_file, "r") as f:
-                state = json.load(f)
-        except json.JSONDecodeError:
-            pass
-            
-    state["setup_complete"] = True
-    state["strict_enforcement_enabled"] = True
+    state = get_state()
+    state.update(updates)
     
     with open(state_file, "w") as f:
-        json.dump(state, f)
+        json.dump(state, f, indent=2)
+
+def reset_state():
+    config_dir = Path(__file__).parent.parent / "config"
+    state_file = config_dir / ".harness_state.json"
+    db_file = config_dir / "harness.db"
+    shm_file = config_dir / "harness.db-shm"
+    wal_file = config_dir / "harness.db-wal"
+    
+    for f in [state_file, db_file, shm_file, wal_file]:
+        if f.exists():
+            try:
+                f.unlink()
+            except OSError:
+                pass
+                
+    update_state({"setup_complete": True, "strict_enforcement_enabled": True})
+
+def test_discovery():
+    print("Testing dynamic discovery...")
+    hooks_dir = Path(__file__).parent / "hooks"
+    hooks = [f.stem for f in hooks_dir.glob("*.py") if f.name != "__init__.py"]
+    print(f"Found hooks: {', '.join(hooks)}")
+    if len(hooks) >= 5:
+        print("✅ Discovery OK")
+    else:
+        print(f"❌ Discovery FAILED: Found only {len(hooks)} hooks")
 
 def test_prompt_interceptor():
     print("Testing prompt_interceptor...")
     res = run_hook("prompt_interceptor", payload={"prompt": "build a new login page"})
-    if '<matrix_route branch="B">' in res.stdout:
+    if res and '<matrix_route branch="B">' in res.stdout:
         print("✅ prompt_interceptor OK")
     else:
-        print(f"❌ prompt_interceptor FAILED: {res.stdout}")
+        print(f"❌ prompt_interceptor FAILED: {res.stdout if res else 'Hook not found'}")
 
-def test_pre_tool_guard():
-    print("Testing pre_tool_guard...")
-    # Test rejection of dangerous commands
-    res = run_hook("pre_tool_guard", args=["Bash", "sudo rm -rf /"])
-    if "[SECURITY VIOLATION]" in res.stderr:
-        print("✅ pre_tool_guard (sudo rejection) OK")
+def test_post_tool_monitor_tdd():
+    print("Testing post_tool_monitor (TDD status)...")
+    reset_state()
+    
+    # Simulate failing test
+    run_hook("post_tool_monitor", payload={
+        "tool_name": "run_shell_command",
+        "tool_args": "pytest tests/unit/test_code.py",
+        "exit_code": 1
+    })
+    state = get_state()
+    if state.get("tdd_status") == "red":
+        print("✅ post_tool_monitor (red) OK")
     else:
-        print(f"❌ pre_tool_guard FAILED: {res.stderr}")
+        print(f"❌ post_tool_monitor (red) FAILED: state={state}")
+
+    # Simulate passing test
+    run_hook("post_tool_monitor", payload={
+        "tool_name": "run_shell_command",
+        "tool_args": "pytest tests/unit/test_code.py",
+        "exit_code": 0
+    })
+    state = get_state()
+    if state.get("tdd_status") == "green":
+        print("✅ post_tool_monitor (green) OK")
+    else:
+        print(f"❌ post_tool_monitor (green) FAILED: state={state}")
+
+def test_pre_tool_guard_tdd_enforcement():
+    print("Testing pre_tool_guard (TDD enforcement)...")
+    reset_state()
+    update_state({"active_persona": "implementer"})
+    
+    # Try to write without failing test
+    res = run_hook("pre_tool_guard", payload={
+        "tool_name": "write_file",
+        "tool_args": {"file_path": "src/code.py", "content": "print('hello')"}
+    })
+    if res and "[TDD VIOLATION]" in res.stderr:
+        print("✅ pre_tool_guard (TDD enforcement) OK")
+    else:
+        print(f"❌ pre_tool_guard (TDD enforcement) FAILED: {res.stderr if res else 'Hook not found'}")
+
+def test_pre_tool_guard_sudo():
+    print("Testing pre_tool_guard (sudo rejection)...")
+    reset_state()
+    # Test lowercase
+    res = run_hook("pre_tool_guard", payload={
+        "tool_name": "run_shell_command",
+        "tool_args": "sudo ls"
+    })
+    if res and "[VIOLATION]" in res.stderr:
+        print("✅ sudo (lowercase) OK")
+    else:
+        print(f"❌ sudo (lowercase) FAILED: {res.stderr if res else 'Hook not found'}")
+
+    # Test uppercase bypass
+    res = run_hook("pre_tool_guard", payload={
+        "tool_name": "run_shell_command",
+        "tool_args": "SUDO ls"
+    })
+    if res and "[VIOLATION]" in res.stderr:
+        print("✅ sudo (uppercase) OK")
+    else:
+        print(f"❌ sudo (uppercase) FAILED: {res.stderr if res else 'Hook not found'}")
+
+def test_pre_tool_guard_dangerous_commands():
+    print("Testing pre_tool_guard (dangerous commands)...")
+    reset_state()
+    
+    bypass_tests = [
+        ("rm -r -f /", "rm split flags"),
+        ("rm    -rf /", "rm space padding"),
+        ("RM -RF /", "rm case sensitivity"),
+        ("chmod -R 777 /", "chmod 777"),
+        ("mkfs /dev/sda1", "mkfs")
+    ]
+    
+    for cmd, desc in bypass_tests:
+        res = run_hook("pre_tool_guard", payload={
+            "tool_name": "run_shell_command",
+            "tool_args": cmd
+        })
+        if res and "[SECURITY VIOLATION]" in res.stderr:
+            print(f"✅ {desc} OK")
+        else:
+            print(f"❌ {desc} FAILED: {res.stderr if res else 'Hook not found'}")
+
+def test_escalation():
+    print("Testing escalation...")
+    reset_state()
+    
+    res = None
+    for i in range(3):
+        res = run_hook("pre_tool_guard", payload={
+            "tool_name": "run_shell_command",
+            "tool_args": "sudo command"
+        })
+    
+    if res and "[ESCALATION]" in res.stderr:
+        print("✅ Escalation OK")
+    else:
+        print(f"❌ Escalation FAILED: {res.stderr if res else 'Hook not found'}")
+
+def test_precompact_monitor():
+    print("Testing precompact_monitor...")
+    reset_state()
+    update_state({"active_persona": "test_persona", "matrix_branch": "A"})
+    res = run_hook("precompact_monitor")
+    if res and "[HARNESS PERSONA REMINDER]" in res.stdout and "active_persona: test_persona" in res.stdout:
+        print("✅ precompact_monitor OK")
+    else:
+        print(f"❌ precompact_monitor FAILED: {res.stdout if res else 'Hook not found'}")
+
+def test_stop_monitor():
+    print("Testing stop_monitor...")
+    reset_state()
+    update_state({"implementation_started": True})
+    
+    # Ensure artifacts dir exists
+    # .claude/plugin-generated/src/hook_validator.py
+    project_root = Path(__file__).parent.parent.parent.parent
+    artifacts_dir = project_root / "artifacts"
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Clear artifacts
+    qa_report = artifacts_dir / "qa_report.md"
+    plan_file = artifacts_dir / "plan.md"
+    for f in [qa_report, plan_file]:
+        if f.exists():
+            f.unlink()
+        
+    res = run_hook("stop_monitor", args=["shutdown"])
+    if res and "[QA REQUIRED]" in res.stderr:
+        print("✅ stop_monitor (gate active) OK")
+        
+        # Create artifacts and try again
+        qa_report.write_text("# QA Report")
+        plan_file.write_text("# Implementation Plan\\n\\n## Sphinch Marks\\n- Test passed")
+        
+        res2 = run_hook("stop_monitor", args=["shutdown"])
+        if res2 and res2.returncode == 0:
+            print("✅ stop_monitor (gate passed) OK")
+        else:
+            print(f"❌ stop_monitor (gate passed) FAILED: {res2.stderr if res2 else 'Hook not found'}")
+    else:
+        print(f"❌ stop_monitor (gate active) FAILED: {res.stderr if res else 'Hook not found'}")
 
 def main():
     print("=== Orchestrator Hook Validator ===")
-    ensure_harness_state()
+    test_discovery()
     test_prompt_interceptor()
-    test_pre_tool_guard()
-    # Add more tests as needed
+    test_post_tool_monitor_tdd()
+    test_pre_tool_guard_tdd_enforcement()
+    test_pre_tool_guard_sudo()
+    test_pre_tool_guard_dangerous_commands()
+    test_escalation()
+    test_precompact_monitor()
+    test_stop_monitor()
 
 if __name__ == "__main__":
     main()

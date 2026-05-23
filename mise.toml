@@ -2,6 +2,20 @@
 description = "Run unit and integration tests"
 run = "pytest tests/unit tests/integration -v"
 
+[tasks."audit:harness"]
+description = "Run complete harness audit: logic, snapshots, security, and efficiency"
+run = [
+    "echo '--- Running Unit Tests ---'",
+    "pytest tests/unit -v",
+    "echo '\n--- Running Platform Snapshots ---'",
+    "pytest tests/integration/test_platform_snapshots.py -v",
+    "echo '\n--- Running Security Hook Validation ---'",
+    "pytest tests/hooks -v",
+    "echo '\n--- Running Efficiency Benchmarks ---'",
+    "pytest tests/benchmarks/test_graph_efficiency.py -v",
+    "echo '\n--- Audit Complete. Evidence report at artifacts/testing_evidence.md ---'"
+]
+
 [tasks.benchmark]
 description = "Run DeepEval agentic benchmarks"
 run = "deepeval test run tests/benchmarks"

@@ -1,0 +1,11 @@
+# Agentic Harness
+    
+Please read `.codex/AGENTS.md` for core repository instructions and routing rules.
+The Orchestrator agent and core rules are located in `.codex/orchestrator.md`.
+Run `sh .codex/scripts/setup_harness.sh` after `harness-wf init` to complete local tool, MCP, and plugin readiness checks.
+
+## Available Agent Skills
+To activate a skill, you MUST use your file reading tool to read its instructions into your context before beginning work.
+
+- **using-superpowers**: `.codex/skills/using-superpowers/SKILL.md`
+- **grill-with-docs**: `.codex/skills/grill-with-docs/SKILL.md`

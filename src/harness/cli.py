@@ -87,9 +87,15 @@ def main():
 
     # CLI Context Wizard (The 3 Questions)
     print("\n--- Project Context Setup ---")
-    purpose = input("1. In 1-2 sentences, what is the core purpose of this project?\n> ")
-    vocab = input("2. What are 2-3 specific vocabulary terms (Ubiquitous Language) used in this codebase?\n> ")
-    invariants = input("3. Are there any strict architectural rules or invariants? (e.g., 'Never delete users, only deactivate')\n> ")
+    if os.environ.get("HARNESS_HEADLESS") == "1":
+        print("Headless mode: Using default project context placeholders.")
+        purpose = "Automated purpose"
+        vocab = "Automated vocab"
+        invariants = "Automated invariants"
+    else:
+        purpose = input("1. In 1-2 sentences, what is the core purpose of this project?\n> ")
+        vocab = input("2. What are 2-3 specific vocabulary terms (Ubiquitous Language) used in this codebase?\n> ")
+        invariants = input("3. Are there any strict architectural rules or invariants? (e.g., 'Never delete users, only deactivate')\n> ")
     
     # Save to docs/domain/CONTEXT.md
     context_dir = os.path.join(args.project_path, "docs", "domain")
@@ -106,9 +112,14 @@ def main():
     print("3. Cursor")
     print("4. Generic / Custom")
     print("5. Codex")
-    platform_choice = input("Select target platform [1-5]: ").strip()
-    if not platform_choice:
-        platform_choice = "1"
+    
+    if os.environ.get("HARNESS_HEADLESS") == "1":
+        platform_choice = os.environ.get("HARNESS_PLATFORM", "1")
+        print(f"Headless mode: Defaulting to platform choice ({platform_choice}).")
+    else:
+        platform_choice = input("Select target platform [1-5]: ").strip()
+        if not platform_choice:
+            platform_choice = "1"
     
     if platform_choice == "1":
         harness_folder = ".gemini"

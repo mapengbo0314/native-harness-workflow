@@ -58,6 +58,16 @@ def wait_for_user_review_and_read_domain(project_path: str) -> str:
         print(f"Warning: {doc_path} not found. Skipping pause.")
         return ""
 
+    # Headless mode bypass
+    if os.environ.get("HARNESS_HEADLESS") == "1":
+        print("Headless mode: Skipping user review pause.")
+        try:
+            with open(doc_path, 'r') as f:
+                return f.read()
+        except Exception as e:
+            print(f"Error reading {doc_path}: {e}")
+            return ""
+
     print(f"\n{'='*60}")
     print(f"ACTION REQUIRED: Please open {doc_path}")
     print("Fill in the domain invariants and ubiquitous language.")
@@ -446,7 +456,7 @@ echo "To install Skills for Claude Code workspace-wide, run these commands insid
 if [ -d ".claude/plugin-generated" ]; then
     echo "Checking for non-interactive Claude Code plugin install support..."
     if command -v claude >/dev/null 2>&1 && claude plugin --help >/dev/null 2>&1; then
-        if claude plugin marketplace add "$PWD/.claude/plugin-generated/.claude-plugin" --scope project && claude plugin install orchestrator-plugin@local-orchestrator-marketplace --scope project; then
+        if claude plugin marketplace add "$PWD/.claude/plugin-generated" --scope project && claude plugin install orchestrator-plugin@local-orchestrator-marketplace --scope project; then
             PLUGIN_READY=1
             echo "Orchestrator plugin installed automatically."
         else
