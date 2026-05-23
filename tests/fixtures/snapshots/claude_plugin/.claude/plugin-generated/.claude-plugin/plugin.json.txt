@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "PYTHONPATH=<PROJECT_ROOT>/.claude/plugin-generated python3 -m src.hooks.prompt_interceptor"
+            "command": "PYTHONPATH=<PROJECT_ROOT>/.harness_tmp/plugin-generated python3 -m src.hooks.prompt_interceptor"
           }
         ]
       }
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "PYTHONPATH=<PROJECT_ROOT>/.claude/plugin-generated python3 -m src.hooks.pre_tool_guard"
+            "command": "PYTHONPATH=<PROJECT_ROOT>/.harness_tmp/plugin-generated python3 -m src.hooks.pre_tool_guard"
           }
         ]
       }
@@ -36,7 +36,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "PYTHONPATH=<PROJECT_ROOT>/.claude/plugin-generated python3 -m src.hooks.post_tool_monitor"
+            "command": "PYTHONPATH=<PROJECT_ROOT>/.harness_tmp/plugin-generated python3 -m src.hooks.post_tool_monitor"
           }
         ]
       }
@@ -46,7 +46,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "PYTHONPATH=<PROJECT_ROOT>/.claude/plugin-generated python3 -m src.hooks.precompact_monitor"
+            "command": "PYTHONPATH=<PROJECT_ROOT>/.harness_tmp/plugin-generated python3 -m src.hooks.precompact_monitor"
           }
         ]
       }
@@ -56,7 +56,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "PYTHONPATH=<PROJECT_ROOT>/.claude/plugin-generated python3 -m src.hooks.stop_monitor"
+            "command": "PYTHONPATH=<PROJECT_ROOT>/.harness_tmp/plugin-generated python3 -m src.hooks.stop_monitor"
           }
         ]
       }
