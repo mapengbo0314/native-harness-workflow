@@ -402,7 +402,7 @@ def generate_orchestrator_plugin(
         
         # Copy core files from harness directory
         harness_module_dir = Path(__file__).parent
-        for core_file in ["dispatcher.py", "database.py"]:
+        for core_file in ["dispatcher.py", "database.py", "instrumentation.py"]:
             src_path = harness_module_dir / core_file
             if src_path.exists():
                 print(f"[HARNESS] Copying {core_file}...")
@@ -676,6 +676,10 @@ import datetime
 import json
 from pathlib import Path
 from dispatcher import OrchestratorDispatcher
+from instrumentation import HarnessEventLogger
+
+# Global event logger
+logger = HarnessEventLogger()
 
 def log_action(hook_name, action, details=""):
     '''Log action to harness.log.'''
@@ -763,8 +767,10 @@ ROUTE_DIRECTIVES = {
 def intercept(user_input):
     """Intercept, classify, and sanitize user input."""
     log_action("prompt_interceptor", "intercept", f"Received input of length {len(user_input) if user_input else 0}")
+    logger.log_event("HOOK_START", {"hook": "prompt_interceptor", "input_length": len(user_input) if user_input else 0})
 
     if not user_input:
+        logger.log_event("HOOK_END", {"hook": "prompt_interceptor", "branch": None})
         return user_input
 
     dispatcher = load_dispatcher()
@@ -781,6 +787,7 @@ def intercept(user_input):
         f'<user_prompt>{sanitized}</user_prompt>'
     )
     log_action("prompt_interceptor", "intercept_complete", f"Input routed to Branch {branch}")
+    logger.log_event("HOOK_END", {"hook": "prompt_interceptor", "branch": branch})
     return routed_input
 
 if __name__ == "__main__":
@@ -818,6 +825,7 @@ def reject(dispatcher, state, message):
 def check_tool_use(tool_name, tool_args):
     """Check if tool use is permitted."""
     log_action("pre_tool_guard", "check", f"Tool: {tool_name}")
+    logger.log_event("HOOK_START", {"hook": "pre_tool_guard", "tool_name": tool_name, "tool_args": tool_args})
     dispatcher = load_dispatcher()
     state = dispatcher._load_state()
     tool_text = stringify(tool_args).lower()
@@ -826,6 +834,7 @@ def check_tool_use(tool_name, tool_args):
     if not setup_ready(state):
         # Allow but log if not set up
         log_action("pre_tool_guard", "setup_not_ready", "Strict enforcement skipped")
+        logger.log_event("HOOK_END", {"hook": "pre_tool_guard", "allowed": True, "setup_ready": False})
         return True
 
     # Dangerous commands check (rm -rf, mkfs, chmod -R 777)
@@ -876,6 +885,7 @@ def check_tool_use(tool_name, tool_args):
         state["consecutive_rejections"] = 0
         dispatcher._save_state(state)
     log_action("pre_tool_guard", "allow", f"Tool {tool_name} allowed")
+    logger.log_event("HOOK_END", {"hook": "pre_tool_guard", "allowed": True})
     return True
 
 if __name__ == "__main__":
@@ -914,6 +924,7 @@ def record_tool_result(payload):
     tool_name, tool_args = extract_tool(payload)
     tool_text = stringify(tool_args)
     now = datetime.datetime.now().isoformat()
+    logger.log_event("HOOK_START", {"hook": "post_tool_monitor", "tool_name": tool_name, "tool_args": tool_args})
 
     if "codegraph" in tool_name.lower():
         state["last_codegraph_use_at"] = now
@@ -932,6 +943,7 @@ def record_tool_result(payload):
 
     dispatcher._save_state(state)
     log_action("post_tool_monitor", "record", f"Tool {tool_name} result recorded")
+    logger.log_event("HOOK_END", {"hook": "post_tool_monitor", "tdd_status": state.get("tdd_status")})
     return True
 
 if __name__ == "__main__":
@@ -975,10 +987,12 @@ import subprocess
 def on_stop(reason):
     """Monitor session stop events."""
     log_action("stop_monitor", "stop", f"Reason: {reason}")
+    logger.log_event("HOOK_START", {"hook": "stop_monitor", "reason": reason})
     dispatcher = load_dispatcher()
     state = dispatcher._load_state()
     
     if not setup_ready(state):
+        logger.log_event("HOOK_END", {"hook": "stop_monitor", "setup_ready": False})
         return True
 
     # Only enforce verification gate if implementation has started
@@ -1002,6 +1016,7 @@ def on_stop(reason):
         except Exception as e:
             log_action("stop_monitor", "error", str(e))
         
+    logger.log_event("HOOK_END", {"hook": "stop_monitor", "status": "passed"})
     return True
 
 if __name__ == "__main__":

@@ -13,8 +13,14 @@ run = [
     "pytest tests/hooks -v",
     "echo '\n--- Running Efficiency Benchmarks ---'",
     "pytest tests/benchmarks/test_graph_efficiency.py -v",
+    "echo '\n--- Running Sandbox Dry-Run ---'",
+    "mise run sandbox:docstring",
     "echo '\n--- Audit Complete. Evidence report at artifacts/testing_evidence.md ---'"
 ]
+
+[tasks."sandbox:docstring"]
+description = "Run docstring sandbox scenario in dry-run mode"
+run = "python3 tests/sandbox/runner.py --scenario docstring --dry-run"
 
 [tasks.benchmark]
 description = "Run DeepEval agentic benchmarks"
