@@ -266,7 +266,7 @@ def get_symbol_census(project_path: str) -> list:
     # 2. Top imported libraries
     try:
         # Crude extraction of imports
-        cmd = ["grep", "-Er", "import |from |require\(", project_path]
+        cmd = ["grep", "-Er", r"import |from |require\(", project_path]
         output = subprocess.check_output(cmd, stderr=subprocess.STDOUT, text=True, timeout=5).splitlines()
         imports = set()
         for line in output[:100]:
@@ -609,3 +609,100 @@ The following commands were discovered and will be used by the @verifier:
     print(f"\n[HARNESS] Generated ONBOARDING_DOMAIN.md at {doc_path}")
     return tech_stack_data
 
+
+def generate_grilling_questions(project_path: str, query_llm_fn, llm_provider: str, api_key: str, model: str = None) -> list[dict]:
+    """Generates 3-5 project-specific questions to clarify the domain."""
+    census = get_symbol_census(project_path)
+    file_tree = get_file_tree_summary(project_path)
+    
+    prompt = f"""
+    You are a Senior Software Architect. You are onboarding to a new codebase.
+    Analyze the following project structure and symbols:
+    
+    FILE TREE:
+    {file_tree}
+    
+    SYMBOL CENSUS:
+    {census}
+    
+    Task:
+    Generate 3-5 critical questions to clarify the project's domain, purpose, and strict invariants.
+    Look for ambiguous acronyms, complex folder structures, or specific library usages.
+    For each question, provide 2-3 'suggestions' (suggested answers) to help the user.
+    
+    Return ONLY valid JSON as a list of objects:
+    [
+        {{"question": "...", "suggestions": ["...", "..."]}}
+    ]
+    """
+    
+    try:
+        response = query_llm_fn(prompt, llm_provider, api_key, model)
+        cleaned = response.replace("```json", "").replace("```", "").strip()
+        start_idx = cleaned.find("[")
+        end_idx = cleaned.rfind("]") + 1
+        if start_idx != -1 and end_idx != 0:
+            cleaned = cleaned[start_idx:end_idx]
+            
+        data = json.loads(cleaned)
+        if isinstance(data, list) and len(data) > 0:
+            return data
+    except Exception as e:
+        print(f"Warning: Dynamic question generation failed ({e}). Using fallbacks.")
+        
+    # Fallback questions
+    return [
+        {
+            "question": "In 1-2 sentences, what is the core purpose of this project?",
+            "suggestions": []
+        },
+        {
+            "question": "What are 2-3 specific vocabulary terms (Ubiquitous Language) used in this codebase?",
+            "suggestions": []
+        },
+        {
+            "question": "Are there any strict architectural rules or invariants? (e.g., 'Never delete users, only deactivate')",
+            "suggestions": []
+        }
+    ]
+
+def synthesize_grilled_context(project_path: str, qa_pairs: list[tuple], query_llm_fn, llm_provider: str, api_key: str, model: str = None) -> str:
+    """Synthesizes the Q&A pairs into a high-quality CONTEXT.md content."""
+    
+    qa_str = "\n".join([f"Q: {q}\nA: {a}" for q, a in qa_pairs])
+    
+    prompt = f"""
+    You are a Senior Technical Writer. Based on the following Q&A session about a software project, 
+    generate a high-quality 'CONTEXT.md' file that will be used by AI agents to understand the project domain.
+    
+    Q&A SESSION:
+    {qa_str}
+    
+    Task:
+    Generate Markdown content with the following sections:
+    # Project Context
+    ## Purpose
+    (Summarize the core purpose)
+    
+    ## Ubiquitous Language
+    (Define the key terms)
+    
+    ## Strict Invariants
+    (List the unbreakable architectural rules)
+    
+    Keep it concise but informative.
+    """
+    
+    try:
+        return query_llm_fn(prompt, llm_provider, api_key, model)
+    except Exception as e:
+        print(f"Warning: Context synthesis failed ({e}). Using raw Q&A summary.")
+        # Fallback to simple markdown formatting of the Q&A
+        lines = ["# Project Context\n"]
+        lines.append("## Purpose")
+        lines.append(qa_pairs[0][1] if len(qa_pairs) > 0 else "Unknown")
+        lines.append("\n## Ubiquitous Language")
+        lines.append(qa_pairs[1][1] if len(qa_pairs) > 1 else "Unknown")
+        lines.append("\n## Strict Invariants")
+        lines.append(qa_pairs[2][1] if len(qa_pairs) > 2 else "Unknown")
+        return "\n".join(lines)
