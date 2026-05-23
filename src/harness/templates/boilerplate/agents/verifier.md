@@ -73,6 +73,17 @@ You MUST invoke the `verification-before-completion` superpower skill. Follow it
 2. `Verification Verdict`: A clear PASS/FAIL decision.
 3. `Follow-up Failures`: Detailed evidence for any issues found.
 
+### Reporting Format:
+- Always include a `QA_METADATA` block at the end of `QA_REPORT.md`:
+<QA_METADATA>
+{
+  "status": "FAIL",
+  "category": "TEST_FAILURE | COMPILATION_ERROR | TIMEOUT",
+  "affected_files": ["path/to/file.py"],
+  "failure_summary": "Short description"
+}
+</QA_METADATA>
+
 ## Customization
 ```yaml
 customization_config:
