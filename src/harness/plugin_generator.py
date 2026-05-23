@@ -984,23 +984,34 @@ def record_tool_result(payload):
             if state.get("last_failing_test"):
                 state["tdd_status"] = "green"
 
-    if tool_name in {"Write", "write_file", "write_to_file", "Edit", "replace", "replace_file_content"}:
-        target_file = tool_args.get("file_path") or tool_args.get("path") or ""
-        if "qa_report.md" in str(target_file).lower():
+    if tool_name in {"Write", "write_file", "write_to_file", "Edit", "replace", "replace_file_content", "MultiEdit"}:
+        target_files = []
+        if tool_name == "MultiEdit":
+            edits = tool_args.get("edits", [])
+            for edit in edits:
+                target_files.append(edit.get("file_path") or edit.get("path") or "")
+        else:
+            target_files.append(tool_args.get("file_path") or tool_args.get("path") or "")
+            
+        is_qa_report_update = any("qa_report.md" in str(f).lower() for f in target_files)
+        
+        if is_qa_report_update:
             # In the generated plugin, src/hooks/post_tool_monitor.py is 3 levels deep from project root
             # (project/.claude/plugin-generated/src/hooks/post_tool_monitor.py)
             report_path = get_project_root() / "artifacts" / "qa_report.md"
             if report_path.exists():
                 try:
                     report_content = report_path.read_text()
-                    # Check for "status": "FAIL" (JSON) or STATUS: FAIL (Legacy)
-                    is_failure = '"status": "FAIL"' in report_content or "STATUS: FAIL" in report_content
+                    # Robust check for status using hex-escaped quotes to avoid escaping issues
+                    is_failure = re.search(r'[\\x22\\x27]status[\\x22\\x27]\\s*:\\s*[\\x22\\x27]FAIL[\\x22\\x27]', report_content, re.IGNORECASE) or "STATUS: FAIL" in report_content.upper()
+                    is_success = re.search(r'[\\x22\\x27]status[\\x22\\x27]\\s*:\\s*[\\x22\\x27]PASS[\\x22\\x27]', report_content, re.IGNORECASE) or "STATUS: PASS" in report_content.upper()
+                    
                     if is_failure:
                         state["consecutive_failures"] = state.get("consecutive_failures", 0) + 1
                         if state["consecutive_failures"] >= 3:
                             print("[CRITICAL] 3 consecutive verification failures detected. Locking autonomous mode.", file=sys.stderr)
                             state["locked"] = True
-                    else:
+                    elif is_success:
                         state["consecutive_failures"] = 0
                 except Exception:
                     pass
