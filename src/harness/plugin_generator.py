@@ -1044,6 +1044,8 @@ def build_reminder():
         f"matrix_branch: {state.get('matrix_branch')}\\n"
         f"tdd_status: {state.get('tdd_status')}\\n"
         f"verification_status: {state.get('verification_status', 'pending')}\\n"
+        f"consecutive_failures: {state.get('consecutive_failures', 0)}\\n"
+        f"locked: {state.get('locked', False)}\\n"
         "DDD Context:\\n"
         f"{ddd_context[:2000]}"
     )
