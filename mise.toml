@@ -2,30 +2,38 @@
 description = "Run unit and integration tests"
 run = "pytest tests/unit tests/integration -v"
 
-[tasks."audit:harness"]
-description = "Run complete harness audit: logic, snapshots, security, and efficiency"
+[tasks.audit]
+description = "Run complete harness audit: logic, snapshots, security, efficiency, sandbox, and quality benchmarks"
 run = [
-    "echo '--- Running Unit Tests ---'",
+    "echo '--- 0. Initializing Master Report ---'",
+    "PYTHONPATH=src python3 -c 'from harness.reporting import default_report; default_report.init_report(\"gemini-2.5-flash-lite\")'",
+    "echo '--- 1. Running Unit Tests ---'",
     "pytest tests/unit -v",
-    "echo '\n--- Running Platform Snapshots ---'",
+    "echo '\n--- 2. Running Platform Snapshots ---'",
     "pytest tests/integration/test_platform_snapshots.py -v",
-    "echo '\n--- Running Security Hook Validation ---'",
+    "PYTHONPATH=src python3 scripts/audit_section_logic.py",
+    "echo '\n--- 3. Running Security Hook Validation ---'",
     "pytest tests/hooks -v",
-    "echo '\n--- Running Efficiency Benchmarks ---'",
+    "echo '\n--- 4. Running Efficiency Benchmarks ---'",
     "pytest tests/benchmarks/test_graph_efficiency.py -v",
-    "echo '\n--- Running Sandbox Dry-Run ---'",
-    "mise run sandbox:docstring",
-    "echo '\n--- Audit Complete. Evidence report at artifacts/testing_evidence.md ---'"
+    "echo '\n--- 5. Running Sandbox Dry-Run ---'",
+    "python3 tests/sandbox/runner.py --scenario docstring --dry-run",
+    "echo '\n--- 6. Running DeepEval Quality Benchmarks ---'",
+    "GEMINI_API_KEY=$GEMINI_API_KEY deepeval test run tests/benchmarks/test_routing_quality.py",
+    "echo '\n--- 7. Running E2E Lifecycle Audit ---'",
+    "GEMINI_API_KEY=$GEMINI_API_KEY pytest tests/e2e/test_full_harness_lifecycle.py -v",
+    "PYTHONPATH=src python3 -c 'from harness.reporting import default_report; default_report.finalize()'",
+    "echo '\n--- Audit Complete. Master report at artifacts/harness_audit_master_report.md ---'"
 ]
-
-[tasks."sandbox:docstring"]
-description = "Run docstring sandbox scenario in dry-run mode"
-run = "python3 tests/sandbox/runner.py --scenario docstring --dry-run"
-
-[tasks.benchmark]
-description = "Run DeepEval agentic benchmarks"
-run = "deepeval test run tests/benchmarks"
 
 [tasks.install]
 description = "Install package in editable mode"
 run = "pip install -e ."
+
+[tasks."sandbox:list"]
+description = "List available sandbox scenarios"
+run = "python3 tests/sandbox/runner.py --list"
+
+[tasks."sandbox:live"]
+description = "Run live Gemini sandbox simulation"
+run = "python3 tests/sandbox/runner.py --scenario docstring --provider gemini --model gemini-2.5-flash-lite --api-key \"$GEMINI_API_KEY\""

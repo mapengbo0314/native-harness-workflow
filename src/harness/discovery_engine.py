@@ -3,6 +3,7 @@ import subprocess
 import time
 import urllib.request
 import os
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from harness.renderer import TemplateRenderer
 
 def acquire_mcp_context(project_path: str) -> str:
@@ -63,6 +64,13 @@ def fetch_skill(skill_name: str, remote_url: str) -> str:
 
     return None
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=2, min=5, max=20),
+    retry=retry_if_exception_type(RuntimeError),
+    before_sleep=lambda retry_state: print(f"Retrying LLM call (attempt {retry_state.attempt_number})..."),
+    reraise=True
+)
 def query_llm(prompt: str, llm_provider: str, api_key: str, model: str = None) -> str:
     """Dispatches to the real LLM providers."""
     if llm_provider == "openai":
@@ -100,9 +108,8 @@ def query_llm(prompt: str, llm_provider: str, api_key: str, model: str = None) -
     elif llm_provider == "gemini":
         from google import genai
         client = genai.Client(api_key=api_key)
-        # Fix model name format: Gemini SDK often expects 'gemini-3.1-pro-preview' without 'models/' prefix 
-        # but depending on the SDK version, it might require it. Let's ensure it's robust.
-        use_model = model or "gemini-3.1-pro-preview"
+        # Use a reliable default model
+        use_model = model or "gemini-2.5-flash-lite"
         
         try:
             # We are using generate_content, which is synchronous. It might take 10-20 seconds.
@@ -308,6 +315,7 @@ def generate_onboarding_domain_doc(project_path: str, domain_summary: str, query
     invariants = "1. [USER INPUT REQUIRED: Add your own unbreakable rule here]\n"
     glossary = "*   **[Term 1]**: [USER INPUT REQUIRED: Define this term]\n"
     domain_events = "*   **[USER INPUT REQUIRED]**"
+    context_mapping = "[USER INPUT REQUIRED]: e.g., 'We are a Conformist to the Legacy API.'"
     
     def is_forced(tool: dict, stack: str) -> bool:
         keywords = tool.get("force_if_keywords", [])
@@ -337,8 +345,9 @@ def generate_onboarding_domain_doc(project_path: str, domain_summary: str, query
         3. List 4 strict Domain Invariants (rules to protect logic).
         4. Define 4 Ubiquitous Language terms.
         5. List 2 key Domain Events (what happens that others need to know about?).
-        6. Select 2-3 most relevant skills from the Inventory based on the Detected Tech Stack.
-        7. Select 1-2 most relevant MCPs from the Inventory based on the Detected Tech Stack.
+        6. Define the Context Mapping (how does this system relate to others?).
+        7. Select 2-3 most relevant skills from the Inventory based on the Detected Tech Stack.
+        8. Select 1-2 most relevant MCPs from the Inventory based on the Detected Tech Stack.
         
         Return ONLY valid JSON:
         {{
@@ -347,6 +356,7 @@ def generate_onboarding_domain_doc(project_path: str, domain_summary: str, query
             "invariants": ["...", "..."],
             "glossary": {{"term": "definition"}},
             "domain_events": ["...", "..."],
+            "context_mapping": "...",
             "skills": [{{"name": "...", "url": "..."}}],
             "mcps": [{{"name": "...", "command": "...", "type": "mcp"}}]
         }}
@@ -370,6 +380,9 @@ def generate_onboarding_domain_doc(project_path: str, domain_summary: str, query
             domain_events = "*   **[USER INPUT REQUIRED]**"
             if data.get("domain_events"):
                 domain_events = "\n".join([f"*   **{e}**" for e in data["domain_events"]])
+            
+            if data.get("context_mapping"):
+                context_mapping = data["context_mapping"]
                 
             if data.get("skills"): 
                 for skill in data["skills"]:
@@ -380,9 +393,13 @@ def generate_onboarding_domain_doc(project_path: str, domain_summary: str, query
                     if not any(m["name"] == mcp["name"] for m in recommended_mcps):
                         recommended_mcps.append(mcp)
         except Exception as e:
-            print(f"Warning: SME Profiling failed: {e}")
-            core_domain_value = "[USER INPUT REQUIRED]"
-            domain_events = "*   **[USER INPUT REQUIRED]**"
+            print(f"\n[HARNESS] ⚠️ SME Profiling failed after retries: {e}")
+            print("[HARNESS] Falling back to manual placeholders in ONBOARDING_DOMAIN.md")
+            core_domain_value = "[USER INPUT REQUIRED: Define Core Domain Value]"
+            domain_events = "*   **[USER INPUT REQUIRED: Define Domain Events]**"
+            invariants = "1. [USER INPUT REQUIRED: Define Domain Invariants]"
+            glossary = "*   **[USER INPUT REQUIRED: Define Glossary Terms]**"
+            context_mapping = "[USER INPUT REQUIRED: Define Context Mapping]"
 
     # 4. Format Tools for Markdown
     skills_md = "- [ ] No skills recommended"
@@ -436,7 +453,7 @@ Based on the codebase scan, I have identified **<!--$ DOMAIN_SUMMARY $-->** as a
 
 ### 5. Context Mapping (Contract Ownership)
 *Who dictates the shape of external data contracts:*
-*   **[USER INPUT REQUIRED]**: e.g., "We are a 'Conformist' to the Legacy API, but we use an 'Anti-Corruption Layer' for the CRM."
+*   **<!--$ CONTEXT_MAPPING $-->**
 
 ## Proposed Skills
 *(Delete the line of any skill you do NOT want installed)*
@@ -458,6 +475,7 @@ Based on the codebase scan, I have identified **<!--$ DOMAIN_SUMMARY $-->** as a
         "INVARIANTS": invariants,
         "GLOSSARY": glossary,
         "DOMAIN_EVENTS": domain_events,
+        "CONTEXT_MAPPING": context_mapping,
         "SKILLS_MD": skills_md,
         "MCPS_MD": mcps_md
     }

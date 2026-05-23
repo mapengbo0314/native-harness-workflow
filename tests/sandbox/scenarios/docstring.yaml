@@ -1,0 +1,10 @@
+name: docstring
+prompt: "Add a docstring to the hello function in app.py. Remember to follow TDD: write a failing test first."
+files:
+  app.py: |
+    def hello():
+        print('hello world')
+  tests/test_app.py: |
+    from app import hello
+    def test_hello():
+        hello()

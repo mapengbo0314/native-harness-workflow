@@ -402,7 +402,7 @@ def generate_orchestrator_plugin(
         
         # Copy core files from harness directory
         harness_module_dir = Path(__file__).parent
-        for core_file in ["dispatcher.py", "database.py", "instrumentation.py"]:
+        for core_file in ["dispatcher.py", "database.py", "instrumentation.py", "discovery_engine.py", "renderer.py", "utils.py"]:
             src_path = harness_module_dir / core_file
             if src_path.exists():
                 print(f"[HARNESS] Copying {core_file}...")
@@ -774,16 +774,24 @@ def intercept(user_input):
         return user_input
 
     dispatcher = load_dispatcher()
-    branch = dispatcher.classify_intent(str(user_input))
+    intent_info = dispatcher.classify_intent(str(user_input))
+    branch = intent_info.get("branch", "B")
+    justification = intent_info.get("justification", "No justification provided.")
+    
     directive = ROUTE_DIRECTIVES.get(branch, ROUTE_DIRECTIVES["B"])
     sanitized = xml.sax.saxutils.escape(str(user_input))
+    escaped_justification = xml.sax.saxutils.escape(justification)
     
     state = dispatcher._load_state()
     state["matrix_branch"] = branch
+    state["intent_justification"] = justification
     dispatcher._save_state(state)
 
     routed_input = (
-        f'<matrix_route branch="{branch}">{directive}</matrix_route>\\n'
+        f'<matrix_route branch="{branch}">\\n'
+        f'<justification>{escaped_justification}</justification>\\n'
+        f'{directive}\\n'
+        f'</matrix_route>\\n'
         f'<user_prompt>{sanitized}</user_prompt>'
     )
     log_action("prompt_interceptor", "intercept_complete", f"Input routed to Branch {branch}")
@@ -1289,12 +1297,17 @@ def generate_pyproject(plugin_dir: Path) -> str:
 name = "orchestrator-plugin"
 version = "1.0.0"
 description = "Auto-generated orchestrator plugin"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 
 dependencies = [
     "pydantic>=2.0",
     "typing_extensions>=4.0",
-    "Jinja2>=3.1.0"
+    "Jinja2>=3.1.0",
+    "google-genai",
+    "anthropic",
+    "openai",
+    "tenacity",
+    "pyyaml"
 ]
 
 [tool.poetry]

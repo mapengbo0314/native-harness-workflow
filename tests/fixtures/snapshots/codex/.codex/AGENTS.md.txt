@@ -40,7 +40,7 @@ None provided.
 
 ### 5. Context Mapping 
 *Who dictates the shape of external data contracts*
-*   **[USER INPUT REQUIRED]** e.g., "We are a 'Conformist' to the Legacy API, but we use an 'Anti-Corruption Layer' for the CRM."
+*   **[USER INPUT REQUIRED] e.g., 'We are a Conformist to the Legacy API.'**
 </glossary>
 
 # Operational Instructions

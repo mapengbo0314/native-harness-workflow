@@ -2,13 +2,13 @@ import json
 import os
 from pathlib import Path
 from typing import List, Dict, Any
+from harness.reporting import default_report
 
 def generate_report(events_file: str, output_file: str):
     """
-    Generate a markdown report from sandbox events.
+    Generate sections for the unified master report from sandbox events.
     """
     events_path = Path(events_file)
-    output_path = Path(output_file)
     
     if not events_path.exists():
         print(f"Warning: Events file {events_file} not found.")
@@ -63,11 +63,6 @@ def generate_report(events_file: str, output_file: str):
                 # Estimate overhead for prompt injection (Directive + XML tags)
                 total_hook_injected_chars += 250 # approximate directive overhead
             
-        elif e_type == "HOOK_START":
-            hook_name = data.get("hook")
-            # We no longer count tool usage here as we use TOOL events for accuracy
-            pass
-        
         elif e_type == "SAFETY_VIOLATION":
             rejections.append({
                 "timestamp": ts,
@@ -77,73 +72,57 @@ def generate_report(events_file: str, output_file: str):
             })
 
     # Calculate Harness Tax
-    # Harness Tax = (characters_injected_by_hooks / total_prompt_characters) * 100
     total_prompt_chars = total_user_chars + total_hook_injected_chars
     harness_tax = (total_hook_injected_chars / total_prompt_chars * 100) if total_prompt_chars > 0 else 0
     
     # Token Savings (Theoretical)
-    # Comparison: actual character count used vs. a theoretical "Grep Scenario"
-    # Using the 9.2x ratio mentioned in benchmarks
     theoretical_grep_cost = total_llm_chars * 9.2
     token_savings = theoretical_grep_cost - total_llm_chars
-    
-    # Expected branch detection (heuristic for reporting)
-    expected_branch = "Unknown"
-    # We can use the same logic as dispatcher to see what we *expected*
-    # but for simplicity we'll just report the actual branch.
-    # If we wanted to test accuracy, we'd need a ground truth.
 
-    # Generate Markdown
-    report = []
-    report.append("# Sandbox Execution Report")
-    report.append(f"**Generated at:** {session_end_time}")
-    report.append(f"**Session duration:** {session_start_time} to {session_end_time}")
-    report.append("")
-    report.append("## Summary Metrics")
-    report.append("| Metric | Value |")
-    report.append("| --- | --- |")
-    report.append(f"| Total User Characters | {total_user_chars} |")
-    report.append(f"| Total LLM Response Characters | {total_llm_chars} |")
-    report.append(f"| Total Hook Injection Characters | {total_hook_injected_chars} |")
-    report.append(f"| **Harness Tax** | **{harness_tax:.2f}%** |")
-    report.append(f"| **Theoretical Token Savings** | **{token_savings:,.0f} chars** (9.2x efficiency) |")
-    report.append("")
-    
-    report.append("## Routing Matrix")
-    report.append("| Branch | Status |")
-    report.append("| --- | --- |")
-    report.append(f"| Actual Routed Branch | **{actual_branch}** |")
-    report.append("")
-    
-    report.append("## Tool Usage Statistics")
+    # Generate Agent Performance Section
+    perf_lines = []
+    perf_lines.append(f"**Session duration:** {session_start_time} to {session_end_time}")
+    perf_lines.append("")
+    perf_lines.append("| Metric | Value |")
+    perf_lines.append("| --- | --- |")
+    perf_lines.append(f"| Total User Characters | {total_user_chars} |")
+    perf_lines.append(f"| Total LLM Response Characters | {total_llm_chars} |")
+    perf_lines.append(f"| Total Hook Injection Characters | {total_hook_injected_chars} |")
+    perf_lines.append(f"| **Harness Tax** | **{harness_tax:.2f}%** |")
+    perf_lines.append(f"| **Theoretical Token Savings** | **{token_savings:,.0f} chars** (9.2x efficiency) |")
+    perf_lines.append("")
+    perf_lines.append("### Routing Matrix")
+    perf_lines.append("| Branch | Status |")
+    perf_lines.append("| --- | --- |")
+    perf_lines.append(f"| Actual Routed Branch | **{actual_branch}** |")
+    perf_lines.append("")
+    perf_lines.append("### Tool Usage Statistics")
     if tool_usage:
-        report.append("| Tool | Call Count |")
-        report.append("| --- | --- |")
+        perf_lines.append("| Tool | Call Count |")
+        perf_lines.append("| --- | --- |")
         for tool, count in sorted(tool_usage.items()):
-            report.append(f"| {tool} | {count} |")
+            perf_lines.append(f"| {tool} | {count} |")
     else:
-        report.append("No tools were called during this session.")
-    report.append("")
-    
-    report.append("## Safety Events & Rejections")
+        perf_lines.append("No tools were called during this session.")
+        
+    default_report.add_section("Section 4: Agent Performance (Sandbox)", "\n".join(perf_lines))
+
+    # Generate Security Firewall Section
+    sec_lines = []
     if rejections:
-        report.append("| Timestamp | Hook | Tool | Reason |")
-        report.append("| --- | --- | --- | --- |")
+        sec_lines.append("| Timestamp | Hook | Tool | Reason |")
+        sec_lines.append("| --- | --- | --- | --- |")
         for rej in rejections:
              reason_clean = rej['reason'].replace('\n', ' ')
-             report.append(f"| {rej['timestamp']} | {rej['hook']} | {rej['tool_name']} | {reason_clean} |")
+             sec_lines.append(f"| {rej['timestamp']} | {rej['hook']} | {rej['tool_name']} | {reason_clean} |")
     else:
-        report.append("No safety violations or tool rejections occurred. ✅")
-    
-    report.append("")
-    report.append("---")
-    report.append("*End of automated sandbox report.*")
-        
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, 'w') as f:
-        f.write("\n".join(report))
-        
-    print(f"Report successfully generated at: {output_path}")
+        sec_lines.append("No safety violations or tool rejections occurred. ✅")
+        sec_lines.append("")
+        sec_lines.append("Evidence of blocked `SUDO`, `RM -RF`, and TDD violations are actively monitored by the pre-tool and post-implementation hooks.")
+
+    default_report.add_section("Section 2: Security Firewall", "\n".join(sec_lines))
+
+    print(f"Master report updated with sandbox results.")
 
 if __name__ == "__main__":
     import sys

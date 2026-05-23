@@ -1,0 +1,13 @@
+name: bugfix
+prompt: "Fix the potential ZeroDivisionError in the divide function in app.py. Follow TDD."
+files:
+  app.py: |
+    def divide(a, b):
+        return a / b
+  tests/test_app.py: |
+    from app import divide
+    import pytest
+    def test_divide():
+        assert divide(10, 2) == 5
+        with pytest.raises(ZeroDivisionError):
+            divide(10, 0)

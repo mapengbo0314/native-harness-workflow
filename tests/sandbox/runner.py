@@ -7,6 +7,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import xml.sax.saxutils
+import yaml
 
 # Add src and project root to sys.path to import harness and sandbox components
 project_root = str(Path(__file__).parent.parent.parent)
@@ -20,7 +21,7 @@ from harness.minting_engine import mint_workspace, synthesize_domain_sme_agent, 
 from harness.plugin_generator import generate_orchestrator_plugin
 from tests.sandbox.analytics import generate_report
 
-def mint_harness(project_path: str, project_name: str):
+def mint_harness(project_path: str, project_name: str, model: str = None):
     """Simplified minting for sandbox runner."""
     project_path = Path(project_path)
     harness_folder = ".claude"
@@ -40,14 +41,34 @@ def mint_harness(project_path: str, project_name: str):
     domain_content = "Proposed Agent Name: @domain-sme\nDomain Invariants:\nNone\nUbiquitous Language:\nNone\n- [x] orchestrator-plugin (local)"
     
     # Mint workspace
-    mint_workspace(str(target_dir), [], str(project_path), "2", boilerplate_dir=boilerplate_dir)
+    mint_workspace(str(target_dir), [], str(project_path), "2", model_choice=model, boilerplate_dir=boilerplate_dir)
     
     # Synthesize SME
-    sme_name = synthesize_domain_sme_agent(str(project_path), domain_content, harness_folder, platform_choice="2")
+    sme_name = synthesize_domain_sme_agent(str(project_path), domain_content, harness_folder, platform_choice="2", model_choice=model)
     patch_orchestrator_rules(str(project_path), sme_name, harness_folder, target_syntax="Task tool: ")
     
     # Generate plugin
     generate_orchestrator_plugin(str(project_path), project_name, boilerplate_dir=boilerplate_dir)
+
+def load_scenario(scenario_path: Path) -> Dict[str, Any]:
+    """Loads a scenario from a YAML file."""
+    with open(scenario_path, 'r') as f:
+        return yaml.safe_load(f)
+
+def setup_scenario_from_data(scenario_data: Dict[str, Any], workspace: Path):
+    """Setup a sample project from scenario data."""
+    files = scenario_data.get("files", {})
+    for file_path, content in files.items():
+        full_path = workspace / file_path
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+        full_path.write_text(content)
+
+def list_scenarios() -> List[str]:
+    """Lists available scenarios."""
+    scenarios_dir = Path(project_root) / "tests" / "sandbox" / "scenarios"
+    if not scenarios_dir.exists():
+        return []
+    return [p.stem for p in scenarios_dir.glob("*.yaml")]
 
 class ToolExecutionEngine:
     """Simulates Claude Code tools in a sandbox environment."""
@@ -55,7 +76,11 @@ class ToolExecutionEngine:
     def __init__(self, workspace_root: Path):
         self.workspace_root = workspace_root
 
-    def read_file(self, file_path: str, start_line: int = None, end_line: int = None) -> str:
+    def read_file(self, file_path: str = None, start_line: int = None, end_line: int = None, **kwargs) -> str:
+        file_path = file_path or kwargs.get('path') or kwargs.get('filename') or kwargs.get('filepath') or kwargs.get('file')
+        if not file_path:
+            return "Error: Missing required argument 'file_path' (or alias)."
+            
         full_path = self.workspace_root / file_path
         if not full_path.exists():
             return f"Error: File {file_path} not found."
@@ -67,14 +92,22 @@ class ToolExecutionEngine:
         end = end_line if end_line else len(lines)
         return "".join(lines[start:end])
 
-    def write_file(self, file_path: str, content: str) -> str:
+    def write_file(self, file_path: str = None, content: str = None, **kwargs) -> str:
+        file_path = file_path or kwargs.get('path') or kwargs.get('filename') or kwargs.get('filepath') or kwargs.get('file')
+        if not file_path:
+            return "Error: Missing required argument 'file_path' (or alias)."
+            
         full_path = self.workspace_root / file_path
         full_path.parent.mkdir(parents=True, exist_ok=True)
         with open(full_path, 'w') as f:
             f.write(content)
         return f"Successfully wrote to {file_path}"
 
-    def replace(self, file_path: str, old_string: str, new_string: str, instruction: str = "") -> str:
+    def replace(self, file_path: str = None, old_string: str = None, new_string: str = None, instruction: str = "", **kwargs) -> str:
+        file_path = file_path or kwargs.get('path') or kwargs.get('filename') or kwargs.get('filepath') or kwargs.get('file')
+        if not file_path:
+            return "Error: Missing required argument 'file_path' (or alias)."
+            
         full_path = self.workspace_root / file_path
         if not full_path.exists():
             return f"Error: File {file_path} not found."
@@ -90,7 +123,12 @@ class ToolExecutionEngine:
             f.write(new_content)
         return f"Successfully replaced text in {file_path}"
 
-    def grep_search(self, pattern: str, include_pattern: str = None) -> str:
+    def grep_search(self, pattern: str = None, include_pattern: str = None, **kwargs) -> str:
+        if not pattern:
+            return "Error: Missing required argument 'pattern' for grep_search."
+            
+        include_pattern = include_pattern or kwargs.get('include')
+        
         cmd = ["grep", "-rn", pattern, "."]
         if include_pattern:
             cmd.extend(["--include", include_pattern])
@@ -98,7 +136,14 @@ class ToolExecutionEngine:
         result = subprocess.run(cmd, cwd=self.workspace_root, capture_output=True, text=True)
         return result.stdout if result.stdout else "No matches found."
 
-    def run_shell_command(self, command: str) -> Dict[str, Any]:
+    def run_shell_command(self, command: str = None) -> Dict[str, Any]:
+        if not command:
+            return {
+                "stdout": "",
+                "stderr": "Error: Missing required argument 'command'.",
+                "exit_code": 1
+            }
+            
         result = subprocess.run(
             command,
             shell=True,
@@ -158,11 +203,12 @@ class ToolExecutionEngine:
 class MockHost:
     """Manages the agent interaction loop in the sandbox."""
     
-    def __init__(self, workspace_root: Path, api_key: str, llm_provider: str = "anthropic", dry_run: bool = False):
+    def __init__(self, workspace_root: Path, api_key: str, llm_provider: str = "anthropic", dry_run: bool = False, model: str = None):
         self.workspace_root = workspace_root
         self.api_key = api_key
         self.llm_provider = llm_provider
         self.dry_run = dry_run
+        self.model = model
         self.plugin_dir = workspace_root / ".claude" / "plugin-generated"
         self.config_dir = self.plugin_dir / "config"
         self.dispatcher = OrchestratorDispatcher(str(self.config_dir))
@@ -225,47 +271,48 @@ class MockHost:
                     # Construct a prompt that includes history and tool instructions
                     full_prompt = self._build_llm_prompt()
                     # Ensure api_key is passed correctly. If it's missing, query_llm will handle it (usually by checking env)
-                    response_text = query_llm(full_prompt, self.llm_provider, self.api_key)
+                    response_text = query_llm(full_prompt, self.llm_provider, self.api_key, model=self.model) or ""
                 
                 self.logger.log_event("LLM_RESPONSE", {"text": response_text})
                 
                 # 3. Parse tool calls
-                tool_call = self._parse_tool_call(response_text)
+                tool_calls = self._parse_tool_calls(response_text)
                 
-                if tool_call:
-                    tool_name = tool_call["name"]
-                    tool_args = tool_call["arguments"]
-                    print(f"Tool Call: {tool_name}({tool_args})")
-                    
-                    # 4. Run pre_tool_guard
-                    guard_result = self.run_hook("pre_tool_guard", {
-                        "tool_name": tool_name,
-                        "tool_args": tool_args
-                    })
-                    
-                    if guard_result.startswith("HOOK_REJECTION:"):
-                        print(f"Guard Rejected: {guard_result}")
-                        self.history.append({"role": "assistant", "content": response_text})
-                        self.history.append({"role": "user", "content": guard_result})
-                        continue
-                    
-                    # 5. Execute tool
-                    self.logger.log_event("TOOL", {
-                        "tool_name": tool_name,
-                        "tool_args": tool_args
-                    })
-                    tool_result = self._execute_tool(tool_name, tool_args)
-                    print(f"Tool Result: {str(tool_result)[:100]}...")
-                    
-                    # 6. Run post_tool_monitor
-                    self.run_hook("post_tool_monitor", {
-                        "tool_name": tool_name,
-                        "tool_args": tool_args,
-                        "result": tool_result
-                    })
-                    
+                if tool_calls:
                     self.history.append({"role": "assistant", "content": response_text})
-                    self.history.append({"role": "user", "content": f"Tool Result: {json.dumps(tool_result)}"})
+                    
+                    for tool_call in tool_calls:
+                        tool_name = tool_call["name"]
+                        tool_args = tool_call["arguments"]
+                        print(f"Tool Call: {tool_name}({tool_args})")
+                        
+                        # 4. Run pre_tool_guard
+                        guard_result = self.run_hook("pre_tool_guard", {
+                            "tool_name": tool_name,
+                            "tool_args": tool_args
+                        })
+                        
+                        if guard_result.startswith("HOOK_REJECTION:"):
+                            print(f"Guard Rejected: {guard_result}")
+                            self.history.append({"role": "user", "content": guard_result})
+                            continue
+                        
+                        # 5. Execute tool
+                        self.logger.log_event("TOOL", {
+                            "tool_name": tool_name,
+                            "tool_args": tool_args
+                        })
+                        tool_result = self._execute_tool(tool_name, tool_args)
+                        print(f"Tool Result: {str(tool_result)[:100]}...")
+                        
+                        # 6. Run post_tool_monitor
+                        self.run_hook("post_tool_monitor", {
+                            "tool_name": tool_name,
+                            "tool_args": tool_args,
+                            "result": tool_result
+                        })
+                        
+                        self.history.append({"role": "user", "content": f"Tool Result ({tool_name}): {json.dumps(tool_result)}"})
                 else:
                     # Agent finished or just talking
                     print(f"Assistant: {response_text}")
@@ -286,19 +333,13 @@ class MockHost:
             # Generate final report
             events_file_path = os.environ.get("HARNESS_INSTRUMENTATION_FILE")
             if events_file_path:
-                # 1. Generate report in temp workspace
+                # We only need to trigger the generation; copying is no longer needed
+                # as all sections write to the same master report.
                 temp_artifacts_dir = self.workspace_root / "artifacts"
                 temp_artifacts_dir.mkdir(parents=True, exist_ok=True)
                 temp_output_report = temp_artifacts_dir / "sandbox_stats.md"
                 generate_report(events_file_path, str(temp_output_report))
-
-                # 2. Copy to project root artifacts/
-                project_artifacts = Path(project_root) / "artifacts"
-                project_artifacts.mkdir(parents=True, exist_ok=True)
-                
-                shutil.copy2(temp_output_report, project_artifacts / "sandbox_stats.md")
-                shutil.copy2(events_file_path, project_artifacts / "sandbox_events.json")
-                print(f"Artifacts copied to {project_artifacts}")
+                print("Master report updated with sandbox results.")
 
     def _build_llm_prompt(self) -> str:
         # Simple prompt construction for MockHost
@@ -316,112 +357,156 @@ class MockHost:
         prompt_parts.append("ASSISTANT:")
         return "\n\n".join(prompt_parts)
 
-    def _parse_tool_call(self, text: str) -> Optional[Dict[str, Any]]:
-        # More robust tool call parser using brace counting to handle nested JSON
-        import re
-        
-        # Find start of potential JSON objects containing "tool" or "name"
-        for start_match in re.finditer(r'\{(?:\s*"tool"|\s*"name")\s*:', text):
-            start_idx = start_match.start()
-            brace_count = 0
-            for i in range(start_idx, len(text)):
-                if text[i] == '{':
-                    brace_count += 1
-                elif text[i] == '}':
-                    brace_count -= 1
-                    if brace_count == 0:
-                        potential_json = text[start_idx:i+1]
-                        try:
-                            data = json.loads(potential_json)
-                            name = data.get("tool") or data.get("name")
-                            args = data.get("arguments") or data.get("args") or data.get("input") or {}
-                            if name:
-                                return {"name": name, "arguments": args}
-                        except json.JSONDecodeError:
-                            continue
-        return None
+    def _parse_tool_calls(self, text: str) -> List[Dict[str, Any]]:
+        """Robustly parse multiple tool calls from text."""
+        results = []
+        i = 0
+        while i < len(text):
+            if text[i] == '{':
+                start_idx = i
+                brace_count = 1
+                j = i + 1
+                while j < len(text) and brace_count > 0:
+                    if text[j] == '{':
+                        brace_count += 1
+                    elif text[j] == '}':
+                        brace_count -= 1
+                    j += 1
+                
+                if brace_count == 0:
+                    potential_json = text[start_idx:j]
+                    try:
+                        data = json.loads(potential_json)
+                        # Check if it looks like a tool call
+                        name = data.get("tool") or data.get("name") or data.get("call")
+                        args = data.get("arguments") or data.get("args") or data.get("input") or data.get("parameters") or {}
+                        if name:
+                            results.append({"name": name, "arguments": args})
+                    except json.JSONDecodeError:
+                        pass
+                    i = j - 1
+            i += 1
+        return results
 
     def _execute_tool(self, name: str, args: Dict[str, Any]) -> Any:
-        if name == "read_file" or name == "Read":
-            return self.tool_engine.read_file(**args)
-        elif name == "write_file" or name == "Write":
-            return self.tool_engine.write_file(**args)
-        elif name == "replace" or name == "Edit":
-            return self.tool_engine.replace(**args)
-        elif name == "grep_search" or name == "Grep":
-            return self.tool_engine.grep_search(**args)
-        elif name == "run_shell_command" or name == "Bash":
-            return self.tool_engine.run_shell_command(**args)
-        elif name == "glob" or name == "Glob":
-            return self.tool_engine.glob(**args)
-        elif name == "Task":
-            return self.tool_engine.task(args.get("agent_name"), args.get("prompt"), self.dispatcher)
-        else:
-            return f"Error: Tool {name} not found."
-
-def setup_scenario(scenario: str, workspace: Path):
-    """Setup a sample project for a scenario."""
-    if scenario == "docstring":
-        app_py = workspace / "app.py"
-        app_py.write_text("def hello():\n    print('hello world')\n")
-        
-        tests_dir = workspace / "tests"
-        tests_dir.mkdir(exist_ok=True)
-        test_py = tests_dir / "test_app.py"
-        test_py.write_text("from app import hello\ndef test_hello():\n    hello()\n")
-    elif scenario == "bugfix":
-        app_py = workspace / "app.py"
-        app_py.write_text("def divide(a, b):\n    return a / b\n")
-        
-        tests_dir = workspace / "tests"
-        tests_dir.mkdir(exist_ok=True)
-        test_py = tests_dir / "test_app.py"
-        test_py.write_text("from app import divide\nimport pytest\ndef test_divide():\n    assert divide(10, 2) == 5\n    with pytest.raises(ZeroDivisionError):\n        divide(10, 0)\n")
+        try:
+            # Normalize tool name
+            name_map = {
+                "Read": "read_file",
+                "Write": "write_file",
+                "Edit": "replace",
+                "Grep": "grep_search",
+                "Bash": "run_shell_command",
+                "Glob": "glob"
+            }
+            normalized_name = name_map.get(name, name)
+            
+            if normalized_name == "read_file":
+                return self.tool_engine.read_file(**args)
+            elif normalized_name == "write_file":
+                return self.tool_engine.write_file(**args)
+            elif normalized_name == "replace":
+                return self.tool_engine.replace(**args)
+            elif normalized_name == "grep_search":
+                return self.tool_engine.grep_search(**args)
+            elif normalized_name == "run_shell_command":
+                return self.tool_engine.run_shell_command(**args)
+            elif normalized_name == "glob":
+                return self.tool_engine.glob(**args)
+            elif normalized_name == "Task":
+                return self.tool_engine.task(args.get("agent_name"), args.get("prompt"), self.dispatcher)
+            else:
+                return f"Error: Tool {normalized_name} not found."
+        except Exception as e:
+            return f"Error executing tool {name}: {str(e)}"
 
 def main():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--scenario", choices=["docstring", "bugfix"], default="docstring")
-    parser.add_argument("--provider", default="openai")
+    parser.add_argument("--scenario", help="Scenario name (looks in tests/sandbox/scenarios/)")
+    parser.add_argument("--scenario-file", help="Path to a specific scenario YAML file")
+    parser.add_argument("--list", action="store_true", help="List available scenarios")
+    parser.add_argument("--provider", help="LLM provider (gemini, anthropic, openai)")
+    parser.add_argument("--model", help="Specific model to use (e.g. gemini-flash-latest, gpt-4o)")
     parser.add_argument("--api-key", help="API key for the provider")
     parser.add_argument("--dry-run", action="store_true", help="Run without calling real LLM")
     args = parser.parse_args()
 
+    if args.list:
+        scenarios = list_scenarios()
+        print("Available scenarios:")
+        for s in scenarios:
+            print(f"  - {s}")
+        sys.exit(0)
+
+    # Load scenario data
+    scenario_data = None
+    if args.scenario_file:
+        scenario_data = load_scenario(Path(args.scenario_file))
+    elif args.scenario:
+        scenario_path = Path(project_root) / "tests" / "sandbox" / "scenarios" / f"{args.scenario}.yaml"
+        if not scenario_path.exists():
+            print(f"Error: Scenario '{args.scenario}' not found at {scenario_path}")
+            sys.exit(1)
+        scenario_data = load_scenario(scenario_path)
+    else:
+        # Default to docstring if nothing provided
+        scenario_path = Path(project_root) / "tests" / "sandbox" / "scenarios" / "docstring.yaml"
+        if scenario_path.exists():
+            scenario_data = load_scenario(scenario_path)
+        else:
+            print("Error: No scenario provided and default docstring.yaml not found.")
+            sys.exit(1)
+
+    prompt = scenario_data.get("prompt", "No prompt provided in scenario.")
+
+    # Determine provider
+    provider = args.provider
+    if not provider:
+        if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
+            provider = "gemini"
+        elif os.environ.get("ANTHROPIC_API_KEY"):
+            provider = "anthropic"
+        elif os.environ.get("OPENAI_API_KEY"):
+            provider = "openai"
+        else:
+            provider = "gemini" # Default
+
     # Use provided key or look in environment
     api_key = args.api_key
     if not api_key:
-        if args.provider == "openai":
+        if provider == "openai":
             api_key = os.environ.get("OPENAI_API_KEY", "")
-        elif args.provider == "anthropic":
+        elif provider == "anthropic":
             api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-        elif args.provider == "gemini":
+        elif provider == "gemini":
             api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or ""
 
     if not args.dry_run and not api_key:
-        print(f"Error: API key for {args.provider} is required when not in --dry-run mode.")
+        print(f"Error: API key for {provider} is required when not in --dry-run mode.")
         print(f"Please provide --api-key or set the appropriate environment variable.")
         sys.exit(1)
+
+    # Robust model selection
+    model = args.model
+    if not model and provider == "gemini":
+        model = "gemini-2.5-flash-lite"
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         workspace = Path(tmp_dir)
         print(f"Sandbox workspace: {workspace}")
         
         # 1. Setup scenario files
-        setup_scenario(args.scenario, workspace)
+        setup_scenario_from_data(scenario_data, workspace)
         
         # 2. Mint harness
         os.environ["HARNESS_HEADLESS"] = "1"
-        mint_harness(str(workspace), "SampleApp")
+        mint_harness(str(workspace), "SampleApp", model=model)
         
         # 3. Initialize MockHost
-        host = MockHost(workspace, api_key, args.provider, dry_run=args.dry_run)
+        host = MockHost(workspace, api_key, provider, dry_run=args.dry_run, model=model)
         
         # 4. Run task
-        if args.scenario == "docstring":
-            prompt = "Add a docstring to the hello function in app.py. Remember to follow TDD: write a failing test first."
-        else:
-            prompt = "Fix the potential ZeroDivisionError in the divide function in app.py. Follow TDD."
-            
         host.run_task(prompt)
         
         # 5. Check events

@@ -32,7 +32,7 @@ def get_client(api_key: str) -> genai.Client:
         _CLIENT_CACHE[api_key] = genai.Client(api_key=api_key)
     return _CLIENT_CACHE[api_key]
 
-def count_tokens(text: str, model: str = "gemini-1.5-flash") -> int:
+def count_tokens(text: str, model: str = "gemini-flash-latest") -> int:
     if not text:
         return 0
 

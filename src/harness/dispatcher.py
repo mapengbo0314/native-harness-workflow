@@ -6,7 +6,8 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple, Union
+
 try:
     from harness.database import HarnessDB
 except (ImportError, ValueError):
@@ -19,6 +20,14 @@ except (ImportError, ValueError):
         except ImportError:
             # Fallback for environments where database.py might not be available yet
             HarnessDB = None
+
+try:
+    from harness.discovery_engine import query_llm
+except (ImportError, ValueError):
+    try:
+        from .discovery_engine import query_llm
+    except (ImportError, ValueError):
+        query_llm = None
 
 
 class OrchestratorDispatcher:
@@ -125,34 +134,76 @@ class OrchestratorDispatcher:
             # Release lock
             self.db.release_lease("state_lock")
 
-    def classify_intent(self, prompt: str) -> str:
+    def classify_intent(self, prompt: str) -> Dict[str, str]:
         """Classify user intent into Matrix Routing Branches A/B/C/D.
 
-        Branch A: Bug Fix (stack trace, error, broken)
-        Branch B: Feature Request (build, create, implement)
-        Branch C: Question (how does, where is)
-        Branch D: Surgical Edit (typo, change color)
+        Returns:
+            Dict with 'branch' and 'justification'
         """
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if query_llm and api_key:
+            classification_prompt = f"""
+Analyze the following user prompt and classify it into one of the following Matrix Routing Branches:
+
+- Branch A: Bug Fix / Diagnosis (e.g., stack trace, error, broken, bug)
+- Branch B: Feature Request & Architectural Planning (e.g., build, create, implement, add feature, new)
+- Branch C: Codebase Questioning & Knowledge Retrieval (e.g., how does, where is, what is, explain)
+- Branch D: Surgical Edit / Fast Path (e.g., typo, change color, minor update, fix the)
+
+User Prompt: "{prompt}"
+
+Before choosing the branch, provide a brief justification (Chain of Thought).
+Return the result as JSON:
+{{
+  "intent_analysis": "Your justification here",
+  "selected_branch": "Branch A, B, C, or D"
+}}
+"""
+            try:
+                # Use gemini-2.5-flash-lite as requested in mandate
+                model = os.environ.get("HARNESS_MODEL", "gemini-2.5-flash-lite")
+                response = query_llm(classification_prompt, "gemini", api_key, model=model)
+                
+                # Extract JSON
+                cleaned = response.replace("```json", "").replace("```", "").strip()
+                start_idx = cleaned.find("{")
+                end_idx = cleaned.rfind("}") + 1
+                if start_idx != -1 and end_idx != 0:
+                    cleaned = cleaned[start_idx:end_idx]
+                
+                data = json.loads(cleaned)
+                branch_str = data.get("selected_branch", "Branch B")
+                # Normalize branch string (e.g., "Branch A" -> "A")
+                branch = branch_str.replace("Branch ", "").strip()
+                return {
+                    "branch": branch,
+                    "justification": data.get("intent_analysis", "No justification provided.")
+                }
+            except Exception as e:
+                # Fallback to keyword matching if LLM fails
+                print(f"DEBUG: LLM intent classification failed: {e}")
+                pass
+
         prompt_lower = prompt.lower()
         
         # Branch A: Bug Fix / Diagnosis
         if any(keyword in prompt_lower for keyword in ["traceback", "stack trace", "error", "broken", "bug"]):
-            return "A"
+            return {"branch": "A", "justification": "Keyword match: detected error-related keywords."}
             
         # Branch C: Question (Check before B as "How do I implement" is a question)
         if any(keyword in prompt_lower for keyword in ["how does", "where is", "what is", "explain"]):
-            return "C"
+            return {"branch": "C", "justification": "Keyword match: detected questioning keywords."}
             
         # Branch B: Feature Request & Architectural Planning
         if any(keyword in prompt_lower for keyword in ["implement", "build", "create", "add feature", "new"]):
-            return "B"
+            return {"branch": "B", "justification": "Keyword match: detected feature-creation keywords."}
             
         # Branch D: Surgical Edit (Fast Path)
         if any(keyword in prompt_lower for keyword in ["typo", "change color", "minor update", "fix the"]):
-            return "D"
+            return {"branch": "D", "justification": "Keyword match: detected surgical edit keywords."}
             
         # Default to B if we can't classify
-        return "B"
+        return {"branch": "B", "justification": "Default branch: could not reliably classify intent."}
 
     def validate_verb(self, verb: str) -> bool:
         """Validate if the intent starts with a valid 5-Verb."""
@@ -179,8 +230,11 @@ class OrchestratorDispatcher:
 
         # Basic intent classification if prompt is provided
         intent_branch = None
+        intent_justification = None
         if "prompt" in context:
-            intent_branch = self.classify_intent(context["prompt"])
+            intent_info = self.classify_intent(context["prompt"])
+            intent_branch = intent_info.get("branch")
+            intent_justification = intent_info.get("justification")
 
         # Update state and check for infinite loops
         state = self._load_state()
@@ -215,6 +269,7 @@ class OrchestratorDispatcher:
 
         state["active_persona"] = agent_name
         state["matrix_branch"] = intent_branch
+        state["intent_justification"] = intent_justification
         if agent_name == "implementer":
             state["tdd_status"] = "active"
         self._save_state(state)
@@ -225,6 +280,7 @@ class OrchestratorDispatcher:
             "context": context,
             "orchestrator_applied": True,
             "intent_branch": intent_branch,
+            "intent_justification": intent_justification,
             "state": state
         }
 

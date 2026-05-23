@@ -15,11 +15,10 @@ def test_generate_report():
             {"timestamp": "2023-10-01T10:00:00", "event_type": "SESSION_START", "data": {"prompt": "Hello world"}},
             {"timestamp": "2023-10-01T10:00:01", "event_type": "HOOK_END", "data": {"hook": "prompt_interceptor", "branch": "B"}},
             {"timestamp": "2023-10-01T10:00:05", "event_type": "LLM_RESPONSE", "data": {"text": "I will help you."}},
-            {"timestamp": "2023-10-01T10:00:10", "event_type": "HOOK_START", "data": {"hook": "pre_tool_guard", "tool_name": "read_file"}},
+            {"timestamp": "2023-10-01T10:00:10", "event_type": "TOOL", "data": {"tool_name": "read_file", "tool_args": {"file_path": "test.txt"}}},
             {"timestamp": "2023-10-01T10:00:15", "event_type": "SAFETY_VIOLATION", "data": {"hook": "pre_tool_guard", "tool_name": "run_shell_command", "reason": "[VIOLATION] sudo blocked"}},
             {"timestamp": "2023-10-01T10:00:20", "event_type": "SESSION_END", "data": {"status": "finished"}}
-        ]
-        
+        ]        
         with open(events_file, 'w') as f:
             for e in events:
                 f.write(json.dumps(e) + '\n')

@@ -29,7 +29,7 @@ Based on the codebase scan, I have identified **<!--$ DOMAIN_SUMMARY $-->** as a
 
 ### 5. Context Mapping (Contract Ownership)
 *Who dictates the shape of external data contracts:*
-*   **[USER INPUT REQUIRED]**: e.g., "We are a 'Conformist' to the Legacy API, but we use an 'Anti-Corruption Layer' for the CRM."
+*   **<!--$ CONTEXT_MAPPING $-->**
 
 ## Proposed Skills
 *(Delete the line of any skill you do NOT want installed)*
