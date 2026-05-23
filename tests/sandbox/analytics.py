@@ -2,7 +2,7 @@ import json
 import os
 from pathlib import Path
 from typing import List, Dict, Any
-from harness.reporting import default_report
+from harness.reporting import default_report, MasterReport
 
 def generate_report(events_file: str, output_file: str):
     """
@@ -105,7 +105,8 @@ def generate_report(events_file: str, output_file: str):
     else:
         perf_lines.append("No tools were called during this session.")
         
-    default_report.add_section("Section 4: Agent Performance (Sandbox)", "\n".join(perf_lines))
+    report_instance = MasterReport(Path(output_file))
+    report_instance.add_section("Section 4: Agent Performance (Sandbox)", "\n".join(perf_lines))
 
     # Generate Security Firewall Section
     sec_lines = []
@@ -120,7 +121,7 @@ def generate_report(events_file: str, output_file: str):
         sec_lines.append("")
         sec_lines.append("Evidence of blocked `SUDO`, `RM -RF`, and TDD violations are actively monitored by the pre-tool and post-implementation hooks.")
 
-    default_report.add_section("Section 2: Security Firewall", "\n".join(sec_lines))
+    report_instance.add_section("Section 2: Security Firewall", "\n".join(sec_lines))
 
     print(f"Master report updated with sandbox results.")
 

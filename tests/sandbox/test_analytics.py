@@ -30,7 +30,7 @@ def test_generate_report():
         assert output_file.exists()
         content = output_file.read_text()
         
-        assert "# Sandbox Execution Report" in content
+        assert "# Harness Audit Master Report" in content
         assert "Total User Characters | 11" in content
         assert "Total LLM Response Characters | 16" in content
         assert "Actual Routed Branch | **B**" in content

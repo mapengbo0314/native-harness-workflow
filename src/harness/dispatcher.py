@@ -149,6 +149,7 @@ Analyze the following user prompt and classify it into one of the following Matr
 - Branch B: Feature Request & Architectural Planning (e.g., build, create, implement, add feature, new)
 - Branch C: Codebase Questioning & Knowledge Retrieval (e.g., how does, where is, what is, explain)
 - Branch D: Surgical Edit / Fast Path (e.g., typo, change color, minor update, fix the)
+- Branch E: Verification Remediation (e.g., verification failed, tests failing, QA report issues)
 
 User Prompt: "{prompt}"
 
@@ -156,7 +157,7 @@ Before choosing the branch, provide a brief justification (Chain of Thought).
 Return the result as JSON:
 {{
   "intent_analysis": "Your justification here",
-  "selected_branch": "Branch A, B, C, or D"
+  "selected_branch": "Branch A, B, C, D, or E"
 }}
 """
             try:
@@ -174,7 +175,7 @@ Return the result as JSON:
                 data = json.loads(cleaned)
                 branch_str = data.get("selected_branch", "Branch B")
                 # Normalize branch string (e.g., "Branch A" -> "A")
-                branch = branch_str.replace("Branch ", "").strip()
+                branch = branch_str.replace("Branch ", "").split(":")[0].strip()
                 return {
                     "branch": branch,
                     "justification": data.get("intent_analysis", "No justification provided.")

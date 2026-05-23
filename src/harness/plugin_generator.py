@@ -794,6 +794,7 @@ ROUTE_DIRECTIVES = {
     "B": "CRITICAL DIRECTIVE: Use harness-brainstorming. You MUST dispatch @adversary for design grilling, then @planner to write the spec and Sphinch Marks.",
     "C": "CRITICAL DIRECTIVE: Answer directly using CodeGraph context. Do not mutate files.",
     "D": "CRITICAL DIRECTIVE: Dispatch @implementer directly without planning.",
+    "E": "CRITICAL DIRECTIVE: Analyze QA_METADATA. Dispatch @implementer for code fixes, or @planner if the strategy/plan needs updating.",
 }
 
 def intercept(user_input):
