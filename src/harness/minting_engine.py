@@ -313,8 +313,10 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
     selected_skills, selected_mcps = parse_tool_checklists(domain_content_str)
 
     import shlex
-    escaped_project_path = os.path.abspath(project_path)
-    quoted_project_path = shlex.quote(escaped_project_path)
+    # Use relative path navigation in scripts instead of absolute paths
+    # Scripts are located in .gemini/scripts/, .claude/scripts/, etc.
+    # so we move up two levels to get to project root.
+    project_nav_cmd = 'cd "$(dirname "${BASH_SOURCE[0]}")/../.."'
     
     # Tool installation snippets
     skill_installs = ""
@@ -360,7 +362,7 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
     scripts_to_generate = {
         "gemini": f"""#!/usr/bin/env bash
 set -e
-cd {quoted_project_path}
+{project_nav_cmd}
 if command -v gemini &> /dev/null; then
 {skill_installs}
     
@@ -378,7 +380,7 @@ echo "To activate it, run Gemini from the project root and use '/mcp reload'."
 """,
         "claude": f"""#!/usr/bin/env bash
 set -e
-cd {quoted_project_path}
+{project_nav_cmd}
 echo "=== Setting up Superpowers for Claude Code ==="
 PLUGIN_READY=0
 CODEGRAPH_READY=0
@@ -544,7 +546,7 @@ fi
 """,
         "cursor": f"""#!/usr/bin/env bash
 set -e
-cd {quoted_project_path}
+{project_nav_cmd}
 echo "=== Setting up Superpowers for Cursor ==="
 echo "To install Superpowers and Skills for Cursor, run these commands inside the Cursor Agent chat:"
 echo "  /add-plugin superpowers"
@@ -553,7 +555,7 @@ echo "  /add-plugin mattpocock/skills"
 """,
         "codex": f"""#!/usr/bin/env bash
 set -e
-cd {quoted_project_path}
+{project_nav_cmd}
 echo "=== Setting up Superpowers for Codex ==="
 echo "Please add codegraph MCP to your Codex configuration."
 """
