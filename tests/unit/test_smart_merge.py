@@ -55,3 +55,52 @@ def test_merge_structured_list_union():
     assert set(data["nested"]["l"]) == {"a", "b", "c"}
     assert len(data["list"]) == 3
     assert len(data["nested"]["l"]) == 3
+
+def test_perform_smart_merge(tmp_path, monkeypatch):
+    """
+    Test that perform_smart_merge correctly walks a directory and merges files.
+    """
+    from harness.minting_engine import perform_smart_merge
+    
+    existing_dir = tmp_path / "existing"
+    staged_dir = tmp_path / "staged"
+    
+    existing_dir.mkdir()
+    staged_dir.mkdir()
+    
+    # 1. Markdown file merge
+    (existing_dir / "README.md").write_text("# Title\nOld content\n# Old Section\nOld text")
+    (staged_dir / "README.md").write_text("# Title\nNew content\n# New Section\nNew text")
+    
+    # 2. JSON file merge
+    (existing_dir / "config.json").write_text('{"a": 1, "b": 2}')
+    (staged_dir / "config.json").write_text('{"b": 3, "c": 4}')
+    
+    # 3. New file in staged (should remain as is)
+    (staged_dir / "new_file.py").write_text("print('new')")
+    
+    # 4. Code file conflict (headless mode auto-overwrite)
+    (existing_dir / "app.py").write_text("print('old')")
+    (staged_dir / "app.py").write_text("print('new')")
+    
+    # Mock headless mode
+    monkeypatch.setenv("HARNESS_HEADLESS", "1")
+    perform_smart_merge(existing_dir, staged_dir)
+    
+    # Verify README.md
+    readme_content = (staged_dir / "README.md").read_text()
+    assert "# Title\nNew content" in readme_content
+    assert "# Old Section\nOld text" in readme_content
+    assert "# New Section\nNew text" in readme_content
+    
+    # Verify config.json
+    config_data = json.loads((staged_dir / "config.json").read_text())
+    assert config_data["a"] == 1
+    assert config_data["b"] == 3
+    assert config_data["c"] == 4
+    
+    # Verify new_file.py
+    assert (staged_dir / "new_file.py").read_text() == "print('new')"
+    
+    # Verify app.py (auto-overwritten)
+    assert (staged_dir / "app.py").read_text() == "print('new')"

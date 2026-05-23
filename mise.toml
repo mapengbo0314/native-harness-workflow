@@ -22,6 +22,8 @@ run = [
     "GEMINI_API_KEY=$GEMINI_API_KEY deepeval test run tests/benchmarks/test_routing_quality.py",
     "echo '\n--- 7. Running E2E Lifecycle Audit ---'",
     "GEMINI_API_KEY=$GEMINI_API_KEY pytest tests/e2e/test_full_harness_lifecycle.py -v",
+    "echo '\n--- 8. Auditing Discovery & Strategy Persistence ---'",
+    "PYTHONPATH=src python3 scripts/audit_discovery_strategy.py",
     "PYTHONPATH=src python3 -c 'from harness.reporting import default_report; default_report.finalize()'",
     "echo '\n--- Audit Complete. Master report at artifacts/harness_audit_master_report.md ---'"
 ]

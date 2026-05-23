@@ -141,8 +141,15 @@ def main():
         print(f"\nNotice: You pointed to a harness folder '{path_parts[-1]}'. Backtracking to project root: {os.path.dirname(abs_project_path)}")
         args.project_path = os.path.dirname(abs_project_path)
 
-    target_dir = os.path.join(args.project_path, harness_folder)
+    # --- Atomic Swap Setup ---
+    import time
+    target_harness_dir = Path(args.project_path) / harness_folder
+    temp_harness_dir = Path(args.project_path) / ".harness_tmp"
     
+    if temp_harness_dir.exists():
+        shutil.rmtree(temp_harness_dir)
+    temp_harness_dir.mkdir(parents=True)
+
     from harness.minting_engine import (
         mint_workspace,
         wait_for_user_review_and_read_domain,
@@ -168,70 +175,129 @@ def main():
     # Parse tools
     skills_to_install, mcps_to_install = parse_tool_checklists(domain_content)
 
-    # We pass the bundled boilerplate_dir
-    mint_workspace(
-        target_dir, 
-        selected_agents, 
-        args.project_path, 
-        platform_choice, 
-        args.model, 
-        boilerplate_dir, 
-        query_llm_fn=query_llm, 
-        llm_provider=args.llm, 
-        api_key=api_key, 
-        tech_stack_data=tech_stack_data
-    )
+    try:
+        # We pass the bundled boilerplate_dir and target the temp directory
+        mint_workspace(
+            str(temp_harness_dir), 
+            selected_agents, 
+            args.project_path, 
+            platform_choice, 
+            args.model, 
+            boilerplate_dir, 
+            query_llm_fn=query_llm, 
+            llm_provider=args.llm, 
+            api_key=api_key, 
+            tech_stack_data=tech_stack_data,
+            logical_harness_name=harness_folder
+        )
 
-    # Install tools
-    install_workspace_tools(args.project_path, harness_folder, skills_to_install, mcps_to_install)
+        # Install tools (targeting temp)
+        install_workspace_tools(args.project_path, ".harness_tmp", skills_to_install, mcps_to_install)
 
-    # Determine subagent syntax for rule patching
-    target_syntax = "@"
-    if platform_choice == "2": # Claude
-        target_syntax = "Task tool: "
-    elif platform_choice == "5": # Codex
-        target_syntax = "Hand off to "
+        # Determine subagent syntax for rule patching
+        target_syntax = "@"
+        if platform_choice == "2": # Claude
+            target_syntax = "Task tool: "
+        elif platform_choice == "5": # Codex
+            target_syntax = "Hand off to "
 
-    sme_agent_name = synthesize_domain_sme_agent(args.project_path, domain_content, harness_folder, platform_choice=platform_choice, model_choice=args.model)
-    patch_orchestrator_rules(args.project_path, sme_agent_name, harness_folder, target_syntax=target_syntax)
+        # SME synthesis (targeting temp)
+        sme_agent_name = synthesize_domain_sme_agent(args.project_path, domain_content, ".harness_tmp", platform_choice=platform_choice, model_choice=args.model, logical_harness_name=harness_folder)
+        patch_orchestrator_rules(args.project_path, sme_agent_name, ".harness_tmp", target_syntax=target_syntax)
 
-    # --- Plugin Generation for Claude Code ---
-    from harness.minting_engine import should_generate_orchestrator_plugin
-    from harness.plugin_generator import generate_orchestrator_plugin
-    
-    plugin_dir = None
-    if should_generate_orchestrator_plugin(domain_content, platform_choice):
-        try:
-            print(f"\n[{'='*60}]\n[HARNESS] Generating orchestrator plugin...")
-            plugin_dir = generate_orchestrator_plugin(
-                project_path=str(args.project_path),
-                project_name=os.path.basename(args.project_path),
-                boilerplate_dir=boilerplate_dir
-            )
+        # --- Plugin Generation (targeting temp) ---
+        from harness.minting_engine import should_generate_orchestrator_plugin
+        from harness.plugin_generator import generate_orchestrator_plugin
+        
+        plugin_dir = None
+        if should_generate_orchestrator_plugin(domain_content, platform_choice):
+            try:
+                print(f"\n[{'='*60}]\n[HARNESS] Generating orchestrator plugin...")
+                plugin_dir = generate_orchestrator_plugin(
+                    project_path=str(args.project_path),
+                    project_name=os.path.basename(args.project_path),
+                    boilerplate_dir=boilerplate_dir,
+                    harness_folder=".harness_tmp"
+                )
+                
+                # Post-generation cleanup: remove top-level agents and skills
+                # as they are now inside the plugin
+                harness_path = temp_harness_dir
+                for folder in ["agents", "skills"]:
+                    folder_path = harness_path / folder
+                    if folder_path.exists():
+                        shutil.rmtree(folder_path)
+                print("[HARNESS] Cleaned up redundant top-level folders for plugin.")
+                
+            except Exception as e:
+                print(f"\n[HARNESS] ❌ ERROR: Failed to generate orchestrator plugin: {e}")
+                import traceback
+                traceback.print_exc()
+                sys.exit(1)
+        
+        # --- Handle Root Staging ---
+        root_staging_dir = temp_harness_dir / "root_staging"
+        if root_staging_dir.exists():
+            from harness.minting_engine import merge_markdown, merge_structured
+            print(f"\n[HARNESS] Found root staging files. Merging into project root...")
+            for root, _, files in os.walk(root_staging_dir):
+                for file in files:
+                    staged_pointer = Path(root) / file
+                    rel_path = staged_pointer.relative_to(root_staging_dir)
+                    real_root_file = Path(args.project_path) / rel_path
+                    
+                    if real_root_file.exists():
+                        # Merge existing with staged
+                        try:
+                            with open(real_root_file, 'r', encoding='utf-8') as f:
+                                old_content = f.read()
+                            with open(staged_pointer, 'r', encoding='utf-8') as f:
+                                new_content = f.read()
+                            
+                            if file.endswith('.md'):
+                                merged = merge_markdown(old_content, new_content)
+                            elif file.endswith(('.json', '.yaml', '.yml')):
+                                fmt = 'json' if file.endswith('.json') else 'yaml'
+                                merged = merge_structured(old_content, new_content, format=fmt)
+                            else:
+                                # For other files, default to overwrite with new
+                                merged = new_content
+                                
+                            with open(real_root_file, 'w', encoding='utf-8') as f:
+                                f.write(merged)
+                            print(f"[HARNESS] Merged {rel_path} into project root.")
+                        except Exception as e:
+                            print(f"[HARNESS] Warning: Failed to merge {rel_path}: {e}")
+                    else:
+                        # Move to real root
+                        real_root_file.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.move(str(staged_pointer), str(real_root_file))
+                        print(f"[HARNESS] Moved {rel_path} to project root.")
             
-            # Post-generation cleanup for Claude: remove top-level agents and skills
-            # as they are now inside the plugin
-            harness_path = Path(target_dir)
-            for folder in ["agents", "skills"]:
-                folder_path = harness_path / folder
-                if folder_path.exists():
-                    shutil.rmtree(folder_path)
-            print("[HARNESS] Cleaned up redundant top-level folders for Claude plugin.")
+            shutil.rmtree(root_staging_dir)
+
+        # --- Atomic Swap Execution ---
+        if target_harness_dir.exists():
+            from harness.minting_engine import perform_smart_merge
+            print(f"\n[HARNESS] Existing harness found at {harness_folder}. Performing smart merge...")
+            perform_smart_merge(target_harness_dir, temp_harness_dir)
             
-        except Exception as e:
-            print(f"\n[HARNESS] ❌ ERROR: Failed to generate orchestrator plugin: {e}")
-            print("[HARNESS] Traceback for diagnosis:")
-            import traceback
-            traceback.print_exc()
-            sys.exit(1)
-    # --- End Plugin Generation ---
+            backup_dir = Path(args.project_path) / f"{harness_folder}.backup.{int(time.time())}"
+            shutil.move(str(target_harness_dir), str(backup_dir))
+            print(f"[HARNESS] Existing harness backed up to {backup_dir.name}")
+
+        shutil.move(str(temp_harness_dir), str(target_harness_dir))
+    finally:
+        if temp_harness_dir.exists():
+            shutil.rmtree(temp_harness_dir)
+
 
     print(f"\n\n{'='*60}")
     print("🚀 ONBOARDING COMPLETE")
     print(f"\n{'='*60}")
     
     counter = 1
-    print(f"\n\n{counter}. Workspace Minted: {target_dir}")
+    print(f"\n\n{counter}. Workspace Minted: {target_harness_dir}")
     counter += 1
     
     if plugin_dir:

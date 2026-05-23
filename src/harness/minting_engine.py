@@ -4,6 +4,7 @@ import shutil
 import json
 import yaml
 import urllib.request
+import difflib
 from pathlib import Path
 from jinja2 import Environment, BaseLoader
 from harness.plugin_generator import generate_orchestrator_plugin
@@ -51,6 +52,7 @@ def parse_tool_checklists(domain_content: str) -> tuple[list[dict], list[dict]]:
                      mcps.append({"name": m.group(1).strip(), "command": m.group(2).strip()})
                      
     return skills, mcps
+
 
 def wait_for_user_review_and_read_domain(project_path: str) -> str:
     """Pauses execution waiting for the user, then reads the domain doc with validation."""
@@ -142,10 +144,10 @@ def process_includes(content: str, current_file_path: str, target_root: Path, to
             
     return "\n".join(new_lines)
 
-def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: str, platform_choice: str, model_choice: str = None, boilerplate_dir: str = None, ddd_context: dict = None, query_llm_fn=None, llm_provider=None, api_key=None, tech_stack_data: dict = None):
+def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: str, platform_choice: str, model_choice: str = None, boilerplate_dir: str = None, ddd_context: dict = None, query_llm_fn=None, llm_provider=None, api_key=None, tech_stack_data: dict = None, logical_harness_name: str = None):
     """Copies boilerplate, injects styled configs, and writes setup prerequisites."""
     target_path = Path(target_dir)
-    target_dir_name = target_path.name
+    target_dir_name = logical_harness_name if logical_harness_name else target_path.name
     
     if target_path.exists():
         print(f"Warning: Target directory {target_dir} already exists. Minting may overwrite files.")
@@ -561,7 +563,7 @@ echo "Please add codegraph MCP to your Codex configuration."
     if active_platform in scripts_to_generate:
         script_content = scripts_to_generate[active_platform]
         
-        script_dir = project_root / f".{active_platform}" / "scripts"
+        script_dir = target_path / "scripts"
         script_dir.mkdir(parents=True, exist_ok=True)
         script_path = script_dir / "setup_harness.sh"
         with open(script_path, "w") as f:
@@ -572,7 +574,10 @@ echo "Please add codegraph MCP to your Codex configuration."
     harness_prefix = f".{active_platform}" if active_platform in ["gemini", "claude", "cursor", "codex"] else target_dir_name
     
     # --- Generate CodeGraph CI Workflow ---
-    ci_dir = project_root / ".github" / "workflows"
+    root_staging_dir = target_path / "root_staging"
+    root_staging_dir.mkdir(parents=True, exist_ok=True)
+
+    ci_dir = root_staging_dir / ".github" / "workflows"
     ci_dir.mkdir(parents=True, exist_ok=True)
     ci_path = ci_dir / "codegraph-ci.yml"
     ci_content = """name: CI CodeGraph Build Check
@@ -590,7 +595,7 @@ jobs:
 """
     with open(ci_path, "w") as f:
         f.write(ci_content)
-    print(f"[HARNESS] Generated CodeGraph CI at {ci_path}")
+    print(f"[HARNESS] Staged CodeGraph CI at {ci_path}")
     
     pointer_content = f"""# Agentic Harness
     
@@ -623,16 +628,18 @@ Run `sh {harness_prefix}/scripts/setup_harness.sh` after `harness-wf init` to co
     files_to_generate = pointer_files_map.get(active_platform, [])
     
     for rules_file in files_to_generate:
-        with open(project_root / rules_file, "w") as f:
+        staging_file_path = root_staging_dir / rules_file
+        staging_file_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(staging_file_path, "w") as f:
             f.write(pointer_content)
             
     if active_platform == "cursor":
-        copilot_dir = project_root / ".github"
+        copilot_dir = root_staging_dir / ".github"
         copilot_dir.mkdir(exist_ok=True)
         with open(copilot_dir / "copilot-instructions.md", "w") as f:
             f.write(pointer_content)
         
-    print(f"\nHarness files generated. Next: run `sh .{active_platform}/scripts/setup_harness.sh` from the project root to complete local setup.")
+    print(f"\nHarness files staged in {root_staging_dir}. Next: run `sh .{active_platform}/scripts/setup_harness.sh` from the project root to complete local setup.")
 
     # Create an MCP config for CodeGraph
     mcp_config = {
@@ -767,10 +774,12 @@ def _persist_verification_strategy(target_path: Path, project_path: str, query_l
     except Exception as e:
         print(f"Warning: Failed to persist strategy: {e}")
 
-def synthesize_domain_sme_agent(target_dir: str, domain_content: str, harness_folder_name: str, platform_choice: str = "1", model_choice: str = None):
+def synthesize_domain_sme_agent(target_dir: str, domain_content: str, harness_folder_name: str, platform_choice: str = "1", model_choice: str = None, logical_harness_name: str = None):
     """Generates the domain SME agent deterministically based on the filled doc."""
     if not domain_content:
         return None
+
+    logical_name = logical_harness_name if logical_harness_name else harness_folder_name
 
     # Extract proposed name, fallback to domain-sme
     agent_name = "domain-sme"
@@ -855,7 +864,7 @@ mcp_servers: ["codegraph"]
 """
             new_content = existing_content.rstrip() + "\n\n" + sme_section.strip() + "\n"
             # Apply placeholders as Codex AGENTS.md might need them (consistent with mint_workspace)
-            new_content = new_content.replace(".claude", harness_folder_name)
+            new_content = new_content.replace(".claude", logical_name)
             
             with open(agents_file_path, "w") as f:
                 f.write(new_content)
@@ -1011,6 +1020,87 @@ def install_workspace_tools(target_dir: str, harness_folder_name: str, skills: l
 
         with open(mcp_json_path, "w") as f:
              json.dump(mcp_data, f, indent=2)
+
+def perform_smart_merge(existing_path: Path, staged_path: Path):
+    """
+    Walks through staged_path and merges with existing_path if files exist there.
+    Also preserves files from existing_path that are NOT in staged_path.
+    """
+    # 1. Merge existing files into staged
+    for root, _, files in os.walk(staged_path):
+        for file in files:
+            staged_file = Path(root) / file
+            rel_path = staged_file.relative_to(staged_path)
+            existing_file = existing_path / rel_path
+            
+            if existing_file.exists() and existing_file.is_file():
+                try:
+                    with open(staged_file, 'r', encoding='utf-8') as f:
+                        staged_content = f.read()
+                    with open(existing_file, 'r', encoding='utf-8') as f:
+                        existing_content = f.read()
+                    
+                    if file.endswith('.md'):
+                        new_content = merge_markdown(existing_content, staged_content)
+                    elif file.endswith(('.json', '.yaml', '.yml')):
+                        fmt = 'json' if file.endswith('.json') else 'yaml'
+                        new_content = merge_structured(existing_content, staged_content, format=fmt)
+                    elif file.endswith(('.py', '.sh', '.js')):
+                        new_content = handle_code_conflicts(existing_content, staged_content, str(rel_path))
+                    else:
+                        # For other files, treat as code for safety
+                        new_content = handle_code_conflicts(existing_content, staged_content, str(rel_path))
+                    
+                    if new_content != staged_content:
+                        with open(staged_file, 'w', encoding='utf-8') as f:
+                            f.write(new_content)
+                except (UnicodeDecodeError, Exception) as e:
+                    print(f"Skipping merge for {rel_path}: {e}")
+
+    # 2. Preserve custom files from existing that are NOT in staged
+    for root, _, files in os.walk(existing_path):
+        for file in files:
+            existing_file = Path(root) / file
+            rel_path = existing_file.relative_to(existing_path)
+            staged_file = staged_path / rel_path
+            
+            # Skip internal state files
+            if ".harness_state.json" in str(rel_path) or "harness.db" in str(rel_path):
+                continue
+                
+            if not staged_file.exists():
+                # Ensure parent directory exists in staged
+                staged_file.parent.mkdir(parents=True, exist_ok=True)
+                # Copy file to staged
+                shutil.copy2(existing_file, staged_file)
+                print(f"[HARNESS] Preserved custom file: {rel_path}")
+
+def handle_code_conflicts(old_content: str, new_content: str, file_path: str) -> str:
+    """Handles conflicts in code files. In headless mode, auto-overwrites. Otherwise, prompts for manual resolution."""
+    if old_content == new_content:
+        return new_content
+
+    # Headless mode check
+    if os.environ.get("HARNESS_HEADLESS") == "1":
+        print(f"[HARNESS] Headless mode: Auto-overwriting {file_path}")
+        return new_content
+
+    print(f"\n--- CONFLICT: {file_path} ---")
+    import difflib
+    diff = difflib.unified_diff(
+        old_content.splitlines(keepends=True),
+        new_content.splitlines(keepends=True),
+        fromfile="existing",
+        tofile="minted"
+    )
+    print("".join(diff))
+    
+    while True:
+        choice = input(f"Conflict in {file_path}. [O]verwrite with new version or [K]eep existing? ").strip().upper()
+        if choice == 'O':
+            return new_content
+        elif choice == 'K':
+            return old_content
 
 def merge_markdown(old_content: str, new_content: str) -> str:
     """Merges two markdown files section by section based on headers."""

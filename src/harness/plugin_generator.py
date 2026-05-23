@@ -9,7 +9,8 @@ def generate_plugin_manifest(
     target_dir: str,
     project_name: str,
     plugin_version: str = "1.0.0",
-    skills_dir: Optional[Path] = None
+    skills_dir: Optional[Path] = None,
+    logical_plugin_dir: Optional[str] = None
 ) -> str:
     """Generate plugin.json manifest for the orchestrator plugin.
 
@@ -18,6 +19,7 @@ def generate_plugin_manifest(
         project_name: Name of the project (for display)
         plugin_version: Version of the plugin
         skills_dir: Optional path to skills directory to register dynamic tools
+        logical_plugin_dir: The intended final directory name for the plugin (e.g. .claude/plugin-generated)
 
     Returns:
         Path to the generated plugin.json
@@ -25,6 +27,9 @@ def generate_plugin_manifest(
     plugin_dir = Path(target_dir)
     claude_plugin_dir = plugin_dir / ".claude-plugin"
     claude_plugin_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Use logical path for PYTHONPATH in hooks if provided
+    python_path = logical_plugin_dir if logical_plugin_dir else target_dir
 
     tools = [
         {
@@ -110,7 +115,7 @@ def generate_plugin_manifest(
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"PYTHONPATH={target_dir} python3 -m src.hooks.prompt_interceptor"
+                            "command": f"PYTHONPATH={python_path} python3 -m src.hooks.prompt_interceptor"
                         }
                     ]
                 }
@@ -120,7 +125,7 @@ def generate_plugin_manifest(
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"PYTHONPATH={target_dir} python3 -m src.hooks.pre_tool_guard"
+                            "command": f"PYTHONPATH={python_path} python3 -m src.hooks.pre_tool_guard"
                         }
                     ]
                 }
@@ -130,7 +135,7 @@ def generate_plugin_manifest(
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"PYTHONPATH={target_dir} python3 -m src.hooks.post_tool_monitor"
+                            "command": f"PYTHONPATH={python_path} python3 -m src.hooks.post_tool_monitor"
                         }
                     ]
                 }
@@ -140,7 +145,7 @@ def generate_plugin_manifest(
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"PYTHONPATH={target_dir} python3 -m src.hooks.precompact_monitor"
+                            "command": f"PYTHONPATH={python_path} python3 -m src.hooks.precompact_monitor"
                         }
                     ]
                 }
@@ -150,7 +155,7 @@ def generate_plugin_manifest(
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"PYTHONPATH={target_dir} python3 -m src.hooks.stop_monitor"
+                            "command": f"PYTHONPATH={python_path} python3 -m src.hooks.stop_monitor"
                         }
                     ]
                 }
@@ -184,12 +189,13 @@ def generate_plugin_manifest(
     return str(manifest_path)
 
 
-def export_orchestrator_config(orchestrator_path: Path, config_dir: Path) -> str:
+def export_orchestrator_config(orchestrator_path: Path, config_dir: Path, logical_orchestrator_path: Optional[Path] = None) -> str:
     """Export orchestrator configuration from .md to JSON format.
 
     Args:
         orchestrator_path: Path to orchestrator.md
         config_dir: Directory to export config to
+        logical_orchestrator_path: Optional final intended path for the orchestrator file
 
     Returns:
         Path to exported orchestrator.json
@@ -203,7 +209,7 @@ def export_orchestrator_config(orchestrator_path: Path, config_dir: Path) -> str
 
     # Create a basic JSON with metadata
     orchestrator_json = {
-        "source": str(orchestrator_path),
+        "source": str(logical_orchestrator_path or orchestrator_path),
         "content": content,
         "generated_at": "auto"
     }
@@ -215,12 +221,13 @@ def export_orchestrator_config(orchestrator_path: Path, config_dir: Path) -> str
     return str(export_path)
 
 
-def export_agents_config(agents_dir: Path, config_dir: Path) -> str:
+def export_agents_config(agents_dir: Path, config_dir: Path, logical_agents_dir: Optional[Path] = None) -> str:
     """Export agent definitions from agents/ directory to agents.json.
 
     Args:
         agents_dir: Path to agents directory
         config_dir: Directory to export config to
+        logical_agents_dir: Optional final intended path for the agents directory
 
     Returns:
         Path to exported agents.json
@@ -232,9 +239,16 @@ def export_agents_config(agents_dir: Path, config_dir: Path) -> str:
     if agents_dir.exists():
         for agent_file in agents_dir.glob("*.md"):
             agent_name = agent_file.stem
+            
+            # Use logical path if provided
+            if logical_agents_dir:
+                agent_path = logical_agents_dir / agent_file.name
+            else:
+                agent_path = agent_file
+                
             with open(agent_file, 'r') as f:
                 agents[agent_name] = {
-                    "path": str(agent_file),
+                    "path": str(agent_path),
                     "source": f.read()
                 }
 
@@ -317,7 +331,9 @@ def generate_orchestrator_plugin(
     project_path: str,
     project_name: str,
     plugin_version: str = "1.0.0",
-    boilerplate_dir: Optional[str] = None
+    boilerplate_dir: Optional[str] = None,
+    harness_folder: str = ".claude",
+    logical_harness_name: Optional[str] = None
 ) -> str:
     """Generate a complete orchestrator plugin for the project.
 
@@ -326,13 +342,19 @@ def generate_orchestrator_plugin(
         project_name: Name of the project
         plugin_version: Version of the plugin
         boilerplate_dir: Optional path to boilerplate directory
+        harness_folder: The name of the harness folder (e.g., .claude, .harness_tmp)
+        logical_harness_name: The final intended name of the harness folder (e.g. .claude)
 
     Returns:
         Path to the generated plugin directory
     """
     try:
         project_path = Path(project_path).resolve()
-        plugin_dir = project_path / ".claude" / "plugin-generated"
+        plugin_dir = project_path / harness_folder / "plugin-generated"
+        
+        # Calculate logical plugin dir for manifest
+        final_harness = logical_harness_name if logical_harness_name else harness_folder
+        logical_plugin_dir = project_path / final_harness / "plugin-generated"
 
         # Create directory structure
         src_dir = plugin_dir / "src"
@@ -340,7 +362,8 @@ def generate_orchestrator_plugin(
         src_dir.mkdir(parents=True, exist_ok=True)
         config_dir.mkdir(parents=True, exist_ok=True)
 
-        harness_dir = project_path / ".claude"
+        harness_dir = project_path / harness_folder
+        logical_harness_dir = project_path / final_harness
         
         # Resolve boilerplate dir
         from harness.utils import get_boilerplate_dir
@@ -358,15 +381,21 @@ def generate_orchestrator_plugin(
         if not skills_src.exists():
             skills_src = harness_dir / "skills"
 
+        # Logical skills path for fallback
+        logical_skills_src = bp_dir / "skills"
+        if not (bp_dir / "skills").exists():
+            logical_skills_src = logical_harness_dir / "skills"
+
         # Generate manifest
         print(f"[HARNESS] Generating manifest...")
-        generate_plugin_manifest(str(plugin_dir), project_name, plugin_version, skills_dir=skills_src)
+        generate_plugin_manifest(str(plugin_dir), project_name, plugin_version, skills_dir=skills_src, logical_plugin_dir=str(logical_plugin_dir))
 
         # Export configs
         print(f"[HARNESS] Exporting configs...")
         if harness_dir.exists():
             if (harness_dir / "orchestrator.md").exists():
-                export_orchestrator_config(harness_dir / "orchestrator.md", config_dir)
+                logical_orchestrator = logical_harness_dir / "orchestrator.md"
+                export_orchestrator_config(harness_dir / "orchestrator.md", config_dir, logical_orchestrator_path=logical_orchestrator)
             if (harness_dir / "rules").exists():
                 export_rules_config(harness_dir / "rules", config_dir)
 
@@ -374,7 +403,10 @@ def generate_orchestrator_plugin(
         if agents_src.exists():
             print(f"[HARNESS] Copying agents from {agents_src}...")
             shutil.copytree(agents_src, plugin_dir / "agents", dirs_exist_ok=True)
-            export_agents_config(plugin_dir / "agents", config_dir)
+            
+            # Use logical path for agents.json references
+            logical_agents_dir = logical_plugin_dir / "agents"
+            export_agents_config(plugin_dir / "agents", config_dir, logical_agents_dir=logical_agents_dir)
         else:
             print(f"[HARNESS] Warning: Agents source {agents_src} not found.")
             
@@ -398,7 +430,7 @@ def generate_orchestrator_plugin(
 
         # Generate plugin source files
         print(f"[HARNESS] Generating plugin sources...")
-        generate_plugin_sources(src_dir, skills_dir=skills_src)
+        generate_plugin_sources(src_dir, skills_dir=skills_src, logical_skills_dir=logical_skills_src)
         
         # Copy core files from harness directory
         harness_module_dir = Path(__file__).parent
@@ -422,7 +454,7 @@ def generate_orchestrator_plugin(
         raise
 
 
-def generate_plugin_sources(src_dir: Path, skills_dir: Optional[Path] = None) -> None:
+def generate_plugin_sources(src_dir: Path, skills_dir: Optional[Path] = None, logical_skills_dir: Optional[Path] = None) -> None:
     """Generate plugin source files: orchestrator_plugin.py, dispatcher.py, interceptor.py."""
     src_dir = Path(src_dir)
     src_dir.mkdir(parents=True, exist_ok=True)
@@ -431,7 +463,7 @@ def generate_plugin_sources(src_dir: Path, skills_dir: Optional[Path] = None) ->
     (src_dir / "__init__.py").write_text("")
 
     # Determine skills fallback path
-    skills_fallback = str(skills_dir.resolve()) if skills_dir else ""
+    skills_fallback = str(logical_skills_dir.resolve()) if logical_skills_dir else (str(skills_dir.resolve()) if skills_dir else "")
 
     # Generate orchestrator_plugin.py
     orchestrator_plugin_content = '''"""
