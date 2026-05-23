@@ -76,7 +76,7 @@ def main():
         sys.exit(1)
         
     print("Stage 2: Dynamic Context Acquisition")
-    from harness.discovery_engine import acquire_mcp_context, generate_onboarding_domain_doc
+    from harness.discovery_engine import acquire_mcp_context, generate_onboarding_domain_doc, generate_grilling_questions, synthesize_grilled_context, query_llm
     
     # Acquire context once
     context_str = acquire_mcp_context(args.project_path)
@@ -85,23 +85,46 @@ def main():
          print("Proceeding with empty context.")
     
 
-    # CLI Context Wizard (The 3 Questions)
+    # CLI Context Wizard (Dynamic Grilling)
     print("\n--- Project Context Setup ---")
-    if os.environ.get("HARNESS_HEADLESS") == "1":
-        print("Headless mode: Using default project context placeholders.")
-        purpose = "Automated purpose"
-        vocab = "Automated vocab"
-        invariants = "Automated invariants"
-    else:
-        purpose = input("1. In 1-2 sentences, what is the core purpose of this project?\n> ")
-        vocab = input("2. What are 2-3 specific vocabulary terms (Ubiquitous Language) used in this codebase?\n> ")
-        invariants = input("3. Are there any strict architectural rules or invariants? (e.g., 'Never delete users, only deactivate')\n> ")
-    
-    # Save to docs/domain/CONTEXT.md
     context_dir = os.path.join(args.project_path, "docs", "domain")
     os.makedirs(context_dir, exist_ok=True)
-    with open(os.path.join(context_dir, "CONTEXT.md"), "w") as f:
-        f.write(f"# Project Context\n\n## Purpose\n{purpose}\n\n## Ubiquitous Language\n{vocab}\n\n## Strict Invariants\n{invariants}\n")
+    context_file = os.path.join(context_dir, "CONTEXT.md")
+
+    if os.environ.get("HARNESS_HEADLESS") == "1":
+        print("Headless mode: Using default project context placeholders.")
+        with open(context_file, "w") as f:
+            f.write("# Project Context\n\n## Purpose\nAutomated purpose\n\n## Ubiquitous Language\nAutomated vocab\n\n## Strict Invariants\nAutomated invariants\n")
+    else:
+        print("Analyzing project to generate specific questions...")
+        questions = generate_grilling_questions(args.project_path, query_llm, args.llm, api_key, args.model)
+        
+        qa_pairs = []
+        for i, q_data in enumerate(questions):
+            print(f"\n{i+1}. {q_data['question']}")
+            suggestions = q_data.get("suggestions", [])
+            if suggestions:
+                for j, sug in enumerate(suggestions):
+                    print(f"   {chr(65+j)}) {sug}")
+                
+                ans = input("> ").strip()
+                # Check if answer is a letter matching a suggestion
+                if len(ans) == 1 and 'A' <= ans.upper() <= chr(64 + len(suggestions)):
+                    ans = suggestions[ord(ans.upper()) - 65]
+            else:
+                ans = input("> ").strip()
+            
+            if not ans:
+                ans = "[No answer provided]"
+            qa_pairs.append((q_data['question'], ans))
+        
+        print("\nSynthesizing project context...")
+        context_md = synthesize_grilled_context(args.project_path, qa_pairs, query_llm, args.llm, api_key, args.model)
+        with open(context_file, "w") as f:
+            f.write(context_md)
+
+    # Refresh context_str with the newly created CONTEXT.md
+    context_str = acquire_mcp_context(args.project_path)
 
 
     selected_agents = []

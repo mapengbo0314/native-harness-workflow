@@ -586,12 +586,15 @@ The following commands were discovered and will be used by the @verifier:
 """
 
     renderer = TemplateRenderer()
-    strategy = tech_stack_data.get("strategy", {})
+    strategy = tech_stack_data.get("strategy") or {}
+    unit_strategy = strategy.get("unit") or {}
+    e2e_strategy = strategy.get("e2e") or {}
+    
     context = {
         "TECH_STACK": tech_stack,
         "DOMAIN_SUMMARY": domain_summary,
-        "UNIT_CMD": strategy.get("unit", {}).get("command", "None discovered"),
-        "E2E_CMD": strategy.get("e2e", {}).get("command", "None discovered"),
+        "UNIT_CMD": unit_strategy.get("command", "None discovered"),
+        "E2E_CMD": e2e_strategy.get("command", "None discovered"),
         "SME_NAME": str(sme_name).lower(),
         "CORE_DOMAIN_VALUE": core_domain_value,
         "INVARIANTS": invariants,

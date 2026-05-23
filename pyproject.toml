@@ -33,3 +33,8 @@ include = ["harness*"]
 
 [tool.setuptools.package-data]
 "harness" = ["templates/boilerplate/**/*", "templates/boilerplate/**/.*"]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "error::SyntaxWarning",
+]
