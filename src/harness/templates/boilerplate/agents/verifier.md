@@ -78,7 +78,7 @@ You MUST invoke the `verification-before-completion` superpower skill. Follow it
 <QA_METADATA>
 {
   "status": "FAIL",
-  "category": "TEST_FAILURE | COMPILATION_ERROR | TIMEOUT",
+  "category": "TEST_FAILURE", // Choose ONE: TEST_FAILURE, COMPILATION_ERROR, or TIMEOUT
   "affected_files": ["path/to/file.py"],
   "failure_summary": "Short description"
 }

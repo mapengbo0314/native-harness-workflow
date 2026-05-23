@@ -877,6 +877,9 @@ def check_tool_use(tool_name, tool_args):
         logger.log_event("HOOK_END", {"hook": "pre_tool_guard", "allowed": True, "setup_ready": False})
         return True
 
+    if state.get("locked"):
+        reject(dispatcher, state, "[CRITICAL]: Autonomous mode is locked due to consecutive verification failures. Manual intervention required.")
+
     # Dangerous commands check (rm -rf, mkfs, chmod -R 777)
     is_dangerous = False
     if tool_name in {"Bash", "run_shell_command"}:
@@ -980,6 +983,27 @@ def record_tool_result(payload):
             state["last_passing_test"] = test_record
             if state.get("last_failing_test"):
                 state["tdd_status"] = "green"
+
+    if tool_name in {"Write", "write_file", "write_to_file", "Edit", "replace", "replace_file_content"}:
+        target_file = tool_args.get("file_path") or tool_args.get("path") or ""
+        if "qa_report.md" in str(target_file).lower():
+            # In the generated plugin, src/hooks/post_tool_monitor.py is 3 levels deep from project root
+            # (project/.claude/plugin-generated/src/hooks/post_tool_monitor.py)
+            report_path = get_project_root() / "artifacts" / "qa_report.md"
+            if report_path.exists():
+                try:
+                    report_content = report_path.read_text()
+                    # Check for "status": "FAIL" (JSON) or STATUS: FAIL (Legacy)
+                    is_failure = '"status": "FAIL"' in report_content or "STATUS: FAIL" in report_content
+                    if is_failure:
+                        state["consecutive_failures"] = state.get("consecutive_failures", 0) + 1
+                        if state["consecutive_failures"] >= 3:
+                            print("[CRITICAL] 3 consecutive verification failures detected. Locking autonomous mode.", file=sys.stderr)
+                            state["locked"] = True
+                    else:
+                        state["consecutive_failures"] = 0
+                except Exception:
+                    pass
 
     dispatcher._save_state(state)
     log_action("post_tool_monitor", "record", f"Tool {tool_name} result recorded")
