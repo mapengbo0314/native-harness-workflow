@@ -302,7 +302,8 @@ Return the result as JSON:
                     result = subprocess.run(
                         [sys.executable, str(gatekeeper), "--phase", "3", "--workspace", str(workspace)],
                         capture_output=True,
-                        text=True
+                        text=True,
+                        env=os.environ.copy()
                     )
                     if result.returncode != 0:
                         error_msg = result.stderr or result.stdout
