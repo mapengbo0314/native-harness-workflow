@@ -12,3 +12,5 @@ langgraph-checkpoint
 langgraph-checkpoint-sqlite
 tree-sitter==0.23.2
 tree-sitter-languages==1.10.2
+langfuse>=2.50.0
+python-dotenv>=1.0.0
