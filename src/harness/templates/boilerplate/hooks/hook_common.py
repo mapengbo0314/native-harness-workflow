@@ -6,12 +6,16 @@ from pathlib import Path
 from contextlib import contextmanager
 
 def resolve_project_root(input_json: dict = None) -> Path:
+    if os.environ.get("CLAUDE_PROJECT_DIR"):
+        return Path(os.environ["CLAUDE_PROJECT_DIR"]).resolve()
     if input_json and "workspace_root" in input_json:
-        return Path(input_json["workspace_root"])
-    return Path.cwd()
+        return Path(input_json["workspace_root"]).resolve()
+    return Path.cwd().resolve()
 
 def resolve_plugin_root() -> Path:
-    return Path(__file__).parent.parent
+    if os.environ.get("CLAUDE_PLUGIN_ROOT"):
+        return Path(os.environ["CLAUDE_PLUGIN_ROOT"]).resolve()
+    return Path(__file__).parent.parent.resolve()
 
 def resolve_state_path(input_json: dict = None) -> Path:
     if input_json and "workspace_root" in input_json:

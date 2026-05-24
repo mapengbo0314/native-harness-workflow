@@ -8,10 +8,13 @@ from pathlib import Path
 
 def run_hook(hook_script: str, input_data: dict, tmp_dir: Path) -> dict:
     project_root = Path(__file__).parent.parent.parent
-    hook_path = project_root / "src/harness/templates/boilerplate/hooks" / hook_script
+    plugin_root = project_root / "src/harness/templates/boilerplate"
+    hook_path = plugin_root / "hooks" / hook_script
     env = {
         "PYTHONPATH": str(project_root / "src/harness/templates/boilerplate/hooks"),
-        "PATH": os.environ.get("PATH", "")
+        "PATH": os.environ.get("PATH", ""),
+        "CLAUDE_PROJECT_DIR": str(tmp_dir),
+        "CLAUDE_PLUGIN_ROOT": str(plugin_root),
     }
     
     # Use input_data as the mock state json input to override root
@@ -44,8 +47,9 @@ def test_pre_tool_guard():
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
         input_data = {
-            "toolName": "Write",
-            "toolInput": {"path": ".claude/settings.json"}
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Write",
+            "tool_input": {"file_path": ".claude/settings.json"}
         }
         res = run_hook("pre_tool_guard.py", input_data, tmp_path)
         assert res["returncode"] == 2
@@ -53,8 +57,9 @@ def test_pre_tool_guard():
         
         # Test pass case
         input_data = {
-            "toolName": "Write",
-            "toolInput": {"path": "src/app.py"}
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Write",
+            "tool_input": {"file_path": "src/app.py"}
         }
         res = run_hook("pre_tool_guard.py", input_data, tmp_path)
         assert res["returncode"] == 0
@@ -65,8 +70,9 @@ def test_pre_tool_guard():
         state_dir.mkdir(exist_ok=True)
         (state_dir / "campaign_state.json").write_text('{"current_branch": "Branch D"}')
         input_data = {
-            "toolName": "Task",
-            "toolInput": "Please ask the planner to do this"
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Task",
+            "tool_input": "Please ask the planner to do this"
         }
         res = run_hook("pre_tool_guard.py", input_data, tmp_path)
         assert res["returncode"] == 2
@@ -74,12 +80,49 @@ def test_pre_tool_guard():
 
         # Test Branch D explicit override allowed
         input_data = {
-            "toolName": "Task",
-            "toolInput": "Please ask the planner explicit to do this"
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Task",
+            "tool_input": "Please ask the planner explicit to do this"
         }
         res = run_hook("pre_tool_guard.py", input_data, tmp_path)
         assert res["returncode"] == 0
         assert "allow" in res["stdout"]
+
+def test_pre_tool_guard_path_regressions():
+    cases = [
+        ("venv/config.py", 0),
+        ("my_env_file.py", 0),
+        (".env", 2),
+        ("./.claude/../.claude/settings.json", 2),
+        ("hooks//hooks.json", 2),
+    ]
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        for file_path, expected_code in cases:
+            input_data = {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Write",
+                "tool_input": {"file_path": file_path},
+            }
+            res = run_hook("pre_tool_guard.py", input_data, tmp_path)
+            assert res["returncode"] == expected_code, file_path
+
+        absolute_env = tmp_path / ".env"
+        input_data = {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Write",
+            "tool_input": {"file_path": str(absolute_env)},
+        }
+        res = run_hook("pre_tool_guard.py", input_data, tmp_path)
+        assert res["returncode"] == 2
+
+        input_data = {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Bash",
+            "tool_input": "cat .env",
+        }
+        res = run_hook("pre_tool_guard.py", input_data, tmp_path)
+        assert res["returncode"] == 2
 
 def test_config_change_guard():
     with tempfile.TemporaryDirectory() as tmp_dir:

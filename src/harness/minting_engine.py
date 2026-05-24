@@ -415,23 +415,26 @@ import importlib
 import json
 import sys
 import subprocess
+import shlex
+import os
+import shutil
 from pathlib import Path
 
 plugin = Path(".claude/plugin-generated")
 required = [
     plugin / ".claude-plugin" / "plugin.json",
     plugin / "hooks" / "hooks.json",
+    plugin / "hooks" / "prompt_classifier.py",
+    plugin / "hooks" / "pre_tool_guard.py",
+    plugin / "hooks" / "post_tool_observer.py",
+    plugin / "hooks" / "precompact_handoff.py",
+    plugin / "hooks" / "stop_verifier.py",
+    plugin / "hooks" / "config_change_guard.py",
     plugin / "src" / "dispatcher.py",
-    plugin / "src" / "hooks" / "prompt_interceptor.py",
-    plugin / "src" / "hooks" / "pre_tool_guard.py",
-    plugin / "src" / "hooks" / "post_tool_monitor.py",
-    plugin / "src" / "hooks" / "precompact_monitor.py",
-    plugin / "src" / "hooks" / "stop_monitor.py",
     plugin / "config" / "ddd-context.json",
     plugin / "agents",
     plugin / "skills",
     plugin / "scripts" / "gatekeeper.py",
-    plugin / "src" / "hook_validator.py",
 ]
 missing = [str(path) for path in required if not path.exists()]
 if missing:
@@ -440,20 +443,46 @@ if missing:
         print(f"  - {{path}}")
     raise SystemExit(1)
 
+legacy_hooks = plugin / "src" / "hooks"
+if legacy_hooks.exists():
+    print("[ACTION REQUIRED] Legacy src/hooks payload must not be generated.")
+    raise SystemExit(1)
+
 sys.path.insert(0, str(plugin))
 importlib.import_module("src.dispatcher")
 json.loads((plugin / "config" / "ddd-context.json").read_text())
 print("Plugin payload structure OK.")
 
-print("Running hook validation...")
-validator = plugin / "src" / "hook_validator.py"
-result = subprocess.run([sys.executable, str(validator)], capture_output=True, text=True)
-print(result.stdout)
-if result.returncode != 0:
-    print(result.stderr)
-    print("[ACTION REQUIRED] Hook validation failed.")
-    raise SystemExit(1)
-print("Hook validation OK.")
+hooks_config = json.loads((plugin / "hooks" / "hooks.json").read_text())
+for groups in hooks_config.get("hooks", {{}}).values():
+    for group in groups:
+        for hook in group.get("hooks", []):
+            command = hook.get("command", "")
+            resolved = command.replace("${{CLAUDE_PLUGIN_ROOT}}", str(plugin))
+            parts = shlex.split(resolved)
+            script = Path(parts[1]) if len(parts) > 1 else None
+            if not script or not script.exists():
+                print(f"[ACTION REQUIRED] Hook command points at missing script: {{command}}")
+                raise SystemExit(1)
+print("Hook command paths OK.")
+
+if command := shutil.which("claude"):
+    result = subprocess.run([command, "plugin", "validate", str(plugin), "--strict"], capture_output=True, text=True)
+    print(result.stdout)
+    if result.returncode != 0:
+        print(result.stderr)
+        print("[ACTION REQUIRED] Claude plugin strict validation failed.")
+        raise SystemExit(1)
+    print("Claude plugin strict validation OK.")
+
+    marketplace = Path(".claude")
+    result = subprocess.run([command, "plugin", "validate", str(marketplace), "--strict"], capture_output=True, text=True)
+    print(result.stdout)
+    if result.returncode != 0:
+        print(result.stderr)
+        print("[ACTION REQUIRED] Claude marketplace strict validation failed.")
+        raise SystemExit(1)
+    print("Claude marketplace strict validation OK.")
 PY
 
 echo "To install Skills for Claude Code workspace-wide, run these commands inside the Claude Code interface:"
@@ -464,6 +493,9 @@ if [ -d ".claude/plugin-generated" ]; then
     echo "Orchestrator plugin generated at .claude/plugin-generated"
     echo "To validate the plugin locally, run:"
     echo "  claude --plugin-dir ./.claude/plugin-generated"
+    echo "To install via the generated local marketplace inside Claude Code, run:"
+    echo "  /plugin marketplace add ./.claude"
+    echo "  /plugin install orchestrator-plugin@local-orchestrator-marketplace --scope project"
     PLUGIN_READY=1
 fi
 

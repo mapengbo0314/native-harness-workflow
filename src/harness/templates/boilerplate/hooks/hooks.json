@@ -1,28 +1,74 @@
 {
-  "hooks": [
-    {
-      "events": ["UserPromptSubmit"],
-      "script": "prompt_classifier.py"
-    },
-    {
-      "events": ["PreToolUse"],
-      "script": "pre_tool_guard.py"
-    },
-    {
-      "events": ["ConfigChange"],
-      "script": "config_change_guard.py"
-    },
-    {
-      "events": ["Stop"],
-      "script": "stop_verifier.py"
-    },
-    {
-      "events": ["PreCompact"],
-      "script": "precompact_handoff.py"
-    },
-    {
-      "events": ["PostToolUse", "PostToolUseFailure"],
-      "script": "post_tool_observer.py"
-    }
-  ]
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/prompt_classifier.py\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/pre_tool_guard.py\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/post_tool_observer.py\""
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/post_tool_observer.py\""
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/precompact_handoff.py\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/stop_verifier.py\""
+          }
+        ]
+      }
+    ],
+    "ConfigChange": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/config_change_guard.py\""
+          }
+        ]
+      }
+    ]
+  }
 }

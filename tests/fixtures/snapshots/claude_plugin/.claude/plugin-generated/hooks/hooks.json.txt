@@ -1,34 +1,74 @@
 {
   "hooks": {
-    "promptClassifier": {
-      "events": ["UserPromptSubmit"],
-      "type": "command",
-      "command": "python3 -m hooks.prompt_classifier"
-    },
-    "preToolGuard": {
-      "events": ["PreToolUse"],
-      "type": "command",
-      "command": "python3 -m hooks.pre_tool_guard"
-    },
-    "postToolObserver": {
-      "events": ["PostToolUse", "PostToolUseFailure"],
-      "type": "command",
-      "command": "python3 -m hooks.post_tool_observer"
-    },
-    "precompactHandoff": {
-      "events": ["PreCompact"],
-      "type": "command",
-      "command": "python3 -m hooks.precompact_handoff"
-    },
-    "stopVerifier": {
-      "events": ["Stop"],
-      "type": "command",
-      "command": "python3 -m hooks.stop_verifier"
-    },
-    "configChangeGuard": {
-      "events": ["ConfigChange"],
-      "type": "command",
-      "command": "python3 -m hooks.config_change_guard"
-    }
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/prompt_classifier.py\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/pre_tool_guard.py\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/post_tool_observer.py\""
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/post_tool_observer.py\""
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/precompact_handoff.py\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/stop_verifier.py\""
+          }
+        ]
+      }
+    ],
+    "ConfigChange": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/config_change_guard.py\""
+          }
+        ]
+      }
+    ]
   }
 }

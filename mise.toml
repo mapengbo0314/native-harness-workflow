@@ -11,6 +11,8 @@ run = [
     "pytest tests/unit -v",
     "echo '\n--- 2. Running Platform Snapshots ---'",
     "pytest tests/integration/test_platform_snapshots.py -v",
+    "echo '\n--- 2.5. Running Claude Plugin Strict Validation ---'",
+    "PYTHONPATH=src python3 scripts/audit_plugin_validation.py",
     "PYTHONPATH=src python3 scripts/audit_section_logic.py",
     "echo '\n--- 3. Running Security Hook Validation ---'",
     "pytest tests/hooks -v",

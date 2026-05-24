@@ -107,25 +107,12 @@ def test_full_harness_lifecycle():
         assert result_setup.returncode == 0, f"setup_harness.sh failed: {result_setup.stderr}"
 
         # Step 4: Active Verification
-        # Run hook_validator.py inside the generated plugin
+        # Validate the generated plugin uses only root-level registered hooks.
         plugin_dir = project_path / ".claude" / "plugin-generated"
         assert plugin_dir.exists(), "Plugin-generated directory missing"
-        
-        validator_script = plugin_dir / "src" / "hook_validator.py"
-        assert validator_script.exists(), "hook_validator.py missing"
-        
-        result_val = subprocess.run(
-            ["python3", str(validator_script)],
-            cwd=project_path,
-            env=env,
-            capture_output=True,
-            text=True
-        )
-        print("VALIDATOR STDOUT:", result_val.stdout)
-        print("VALIDATOR STDERR:", result_val.stderr)
-        assert result_val.returncode == 0, f"hook_validator.py failed: {result_val.stderr}"
-        assert "✅ Discovery OK" in result_val.stdout
-        assert "✅ prompt_interceptor OK" in result_val.stdout
+        assert not (plugin_dir / "src" / "hooks").exists(), "legacy src/hooks should not be generated"
+        assert not (plugin_dir / "src" / "hook_validator.py").exists(), "legacy hook_validator should not be generated"
+        assert (plugin_dir / "hooks" / "hooks.json").exists(), "root hooks.json missing"
 
         # Record results in Section 6: E2E Lifecycle
         manifest = f"""
@@ -154,7 +141,7 @@ Successfully minted and verified a live project from `sample-py-app` boilerplate
 
 ### Verification Evidence (Hook Validator):
 ```text
-{result_val.stdout}
+{result_setup.stdout}
 ```
 """
         default_report.add_section("Section 6: E2E Lifecycle", manifest)

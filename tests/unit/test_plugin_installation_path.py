@@ -41,6 +41,10 @@ def test_setup_harness_plugin_path(tmp_path):
     # The expected new validation lines:
     validation_line_1 = 'echo "Orchestrator plugin generated at .claude/plugin-generated"'
     validation_line_2 = 'echo "  claude --plugin-dir ./.claude/plugin-generated"'
+    marketplace_line = 'echo "  /plugin marketplace add ./.claude"'
+    install_line = 'echo "  /plugin install orchestrator-plugin@local-orchestrator-marketplace --scope project"'
 
     assert validation_line_1 in content, "Plugin validation path not found in setup_harness.sh"
     assert validation_line_2 in content, "Manual smoke command not found in setup_harness.sh"
+    assert marketplace_line in content, "Local marketplace command not found in setup_harness.sh"
+    assert install_line in content, "Plugin install command not found in setup_harness.sh"

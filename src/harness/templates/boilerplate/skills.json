@@ -47,12 +47,6 @@
     },
     "harness-requesting-code-review": {
       "path": "harness-requesting-code-review/SKILL.md"
-    },
-    "agentic-eval": {
-      "path": "agentic-eval/SKILL.md"
-    },
-    "prompt-engineer": {
-      "path": "prompt-engineer/SKILL.md"
     }
   }
 }

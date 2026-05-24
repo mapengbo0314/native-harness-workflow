@@ -86,12 +86,14 @@ def test_plugin_path_corruption(tmp_path):
     with open(hooks_json_path, "r") as f:
         manifest = json.load(f)
         
-    # Hooks no longer contain PYTHONPATH or absolute paths, they are relative
-    for hook_list in manifest.values():
-        for hook in hook_list:
-            command = hook["command"]
-            assert harness_folder not in command
-            assert "python3" in command
+    # Hooks use Claude's plugin-root placeholder rather than staging paths.
+    for matcher_groups in manifest["hooks"].values():
+        for group in matcher_groups:
+            for hook in group["hooks"]:
+                command = hook["command"]
+                assert harness_folder not in command
+                assert "${CLAUDE_PLUGIN_ROOT}" in command
+                assert "python3" in command
 
     # Check agents.json
     agents_json_path = Path(plugin_dir_str) / "config" / "agents.json"

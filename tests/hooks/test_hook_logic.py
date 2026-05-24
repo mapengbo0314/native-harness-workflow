@@ -4,6 +4,7 @@ import tempfile
 import subprocess
 import json
 import sys
+import shlex
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 import pytest
@@ -84,56 +85,59 @@ def run_harness_init(project_path, platform_choice, llm="gemini", include_plugin
             except SystemExit:
                 pass
 
-def test_hook_validator_functional_correctness(temp_project):
-    # 1. Mint a Claude-platform harness (Platform 2) with plugin
-    # We must ensure the plugin is generated so hook_validator.py exists
+def test_registered_hook_commands_execute(temp_project):
     run_harness_init(temp_project, "2", llm="anthropic", include_plugin=True, mock_should_gen_plugin=True)
     
-    # 2. Locate the generated .claude/plugin-generated/src/hook_validator.py
-    validator_path = temp_project / ".claude" / "plugin-generated" / "src" / "hook_validator.py"
-    assert validator_path.exists(), f"hook_validator.py was not generated at {validator_path}"
-    
-    # 3. Execute it using the same Python interpreter.
-    # The validator runs from its own directory to find relative hooks
-    # We need to make sure the project root's artifacts directory exists for stop_monitor tests
+    plugin_dir = temp_project / ".claude" / "plugin-generated"
+    assert not (plugin_dir / "src" / "hooks").exists()
+    assert not (plugin_dir / "src" / "hook_validator.py").exists()
+
+    state_dir = plugin_dir / "state"
+    state_dir.mkdir(exist_ok=True)
+    (state_dir / "campaign_state.json").write_text(json.dumps({"maintenance_mode": True}))
     (temp_project / "artifacts").mkdir(parents=True, exist_ok=True)
-    
-    result = subprocess.run(
-        [sys.executable, str(validator_path)],
-        cwd=temp_project,
-        capture_output=True,
-        text=True,
-        env={**os.environ, "PYTHONPATH": str(temp_project)}
-    )
-    
-    # Log output for debugging if test fails
-    print(f"STDOUT:\n{result.stdout}")
-    print(f"STDERR:\n{result.stderr}")
-    
-    # 4. Verify Output
-    assert result.returncode == 0, f"hook_validator.py failed with exit code {result.returncode}"
-    
-    # Check for success markers as specified in Task 3.2
-    # Updated to match actual output from plugin_generator.py
-    expected_markers = [
-        "✅ Discovery OK",
-        "✅ prompt_interceptor OK",
-        "✅ post_tool_monitor (red) OK",
-        "✅ post_tool_monitor (green) OK",
-        "✅ pre_tool_guard (TDD enforcement) OK",
-        "✅ sudo (lowercase) OK",
-        "✅ sudo (uppercase) OK",
-        "✅ rm split flags OK",
-        "✅ rm space padding OK",
-        "✅ rm case sensitivity OK",
-        "✅ Escalation OK",
-        "✅ precompact_monitor OK",
-        "✅ stop_monitor (gate active) OK",
-        "✅ stop_monitor (gate passed) OK"
-    ]
-    
-    for marker in expected_markers:
-        assert marker in result.stdout, f"Success marker '{marker}' not found in hook_validator output"
+
+    hooks_json = json.loads((plugin_dir / "hooks" / "hooks.json").read_text())
+    payloads = {
+        "UserPromptSubmit": {"hook_event_name": "UserPromptSubmit", "prompt": "build a login flow"},
+        "PreToolUse": {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Write",
+            "tool_input": {"file_path": "src/app.py", "content": "print('ok')"},
+        },
+        "PostToolUse": {
+            "hook_event_name": "PostToolUse",
+            "tool_name": "Bash",
+            "tool_input": {"command": "pytest tests/unit"},
+        },
+        "PostToolUseFailure": {
+            "hook_event_name": "PostToolUseFailure",
+            "type": "PostToolUseFailure",
+            "error": "boom",
+        },
+        "PreCompact": {"hook_event_name": "PreCompact"},
+        "Stop": {"hook_event_name": "Stop"},
+        "ConfigChange": {"hook_event_name": "ConfigChange", "changes": []},
+    }
+
+    env = {
+        **os.environ,
+        "CLAUDE_PLUGIN_ROOT": str(plugin_dir),
+        "CLAUDE_PROJECT_DIR": str(temp_project),
+    }
+    for event_name, matcher_groups in hooks_json["hooks"].items():
+        for group in matcher_groups:
+            for hook in group["hooks"]:
+                command = hook["command"].replace("${CLAUDE_PLUGIN_ROOT}", str(plugin_dir))
+                result = subprocess.run(
+                    shlex.split(command),
+                    input=json.dumps(payloads[event_name]),
+                    cwd=temp_project,
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                )
+                assert result.returncode == 0, f"{event_name} failed: {result.stdout}\n{result.stderr}"
 
 if __name__ == "__main__":
     pytest.main([__file__])

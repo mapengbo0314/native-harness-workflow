@@ -44,13 +44,13 @@ class TestSandboxRunner(unittest.TestCase):
             'I am done'
         ]
         
-        # Mock plugin directory and hooks
+        # Mock plugin directory and root hooks
         plugin_dir = self.workspace / ".claude" / "plugin-generated"
-        hooks_dir = plugin_dir / "src" / "hooks"
+        hooks_dir = plugin_dir / "hooks"
         hooks_dir.mkdir(parents=True)
         
         # Create dummy hooks that just return success
-        for hook in ["prompt_interceptor", "pre_tool_guard", "post_tool_monitor", "stop_monitor"]:
+        for hook in ["prompt_classifier", "pre_tool_guard", "post_tool_observer", "stop_verifier"]:
             (hooks_dir / f"{hook}.py").write_text("import sys; print('success')")
 
         # Mock OrchestratorDispatcher

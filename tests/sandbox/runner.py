@@ -220,11 +220,20 @@ class MockHost:
         
         self.history = []
 
+    HOOK_ALIASES = {
+        "prompt_interceptor": "prompt_classifier",
+        "pre_tool_guard": "pre_tool_guard",
+        "post_tool_monitor": "post_tool_observer",
+        "stop_monitor": "stop_verifier",
+    }
+
     def run_hook(self, hook_module: str, input_data: Dict[str, Any]) -> str:
         """Run a hook via subprocess to simulate real Claude Code behavior."""
-        hook_path = self.plugin_dir / "src" / "hooks" / f"{hook_module}.py"
+        hook_name = self.HOOK_ALIASES.get(hook_module, hook_module)
+        hook_path = self.plugin_dir / "hooks" / f"{hook_name}.py"
         env = os.environ.copy()
-        env["PYTHONPATH"] = str(self.plugin_dir / "src")
+        env["CLAUDE_PLUGIN_ROOT"] = str(self.plugin_dir)
+        env["CLAUDE_PROJECT_DIR"] = str(self.workspace_root)
         
         proc = subprocess.run(
             [sys.executable, str(hook_path)],
@@ -240,6 +249,8 @@ class MockHost:
                  "tool_name": input_data.get("tool_name"),
                  "tool_args": input_data.get("tool_args")
              })
+             return f"HOOK_REJECTION: {proc.stderr}"
+        if proc.returncode != 0:
              return f"HOOK_REJECTION: {proc.stderr}"
         return proc.stdout.strip()
 
@@ -320,7 +331,7 @@ class MockHost:
                     
                     if "I am done" in response_text or "Task complete" in response_text or turn > 15:
                         # 7. Run stop_monitor
-                        stop_result = self.run_hook("stop_monitor", {"reason": "completed"})
+                        stop_result = self.run_hook("stop_monitor", {"hook_event_name": "Stop"})
                         if stop_result.startswith("HOOK_REJECTION:"):
                             print(f"Stop Monitor Rejected: {stop_result}")
                             self.history.append({"role": "user", "content": stop_result})
