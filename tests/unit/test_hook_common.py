@@ -19,9 +19,9 @@ def test_resolve_project_root_without_input():
 
 def test_append_event():
     state = {"events": []}
-    new_state = append_event(state, {"type": "test"})
-    assert len(new_state["events"]) == 1
-    assert new_state["events"][0]["type"] == "test"
+    append_event(state, {"type": "test"})
+    assert len(state["events"]) == 1
+    assert state["events"][0]["type"] == "test"
 
 def test_capped_text():
     assert capped_text("short", 10) == "short"

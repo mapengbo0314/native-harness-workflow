@@ -55,6 +55,31 @@ def read_json(path: Path | str, default: dict = None) -> dict:
         except (FileNotFoundError, json.JSONDecodeError):
             return default
 
+def update_state(path: Path | str, modifier_fn):
+    path_obj = Path(path)
+    with acquire_lock(path_obj):
+        if not path_obj.exists():
+            data = {}
+        else:
+            try:
+                with open(path_obj, "r") as f:
+                    data = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                data = {}
+        
+        modifier_fn(data)
+        
+        tmp_fd, tmp_path = tempfile.mkstemp(dir=path_obj.parent, text=True)
+        try:
+            with os.fdopen(tmp_fd, "w") as f:
+                json.dump(data, f, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_path, str(path_obj))
+        except Exception:
+            os.unlink(tmp_path)
+            raise
+
 def append_event(state: dict, event: dict):
     if "events" not in state:
         state["events"] = []
