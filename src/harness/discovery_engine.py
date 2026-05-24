@@ -122,6 +122,16 @@ def query_llm(prompt: str, llm_provider: str, api_key: str, model: str = None) -
         )
         with urllib.request.urlopen(req) as response:
             result = json.loads(response.read().decode("utf-8"))
+            
+            usage = result.get("usage")
+            if usage:
+                input_tokens = usage.get("input_tokens", 0)
+                output_tokens = usage.get("output_tokens", 0)
+                langfuse_context.update_current_observation(
+                    model=use_model,
+                    usage={"input": input_tokens, "output": output_tokens}
+                )
+                
             return result["content"][0]["text"]
             
     elif llm_provider == "gemini":
