@@ -1,0 +1,2 @@
+{"input": {"query": "Write a python function to compute fibonacci"}, "expected_output": {"status": "success"}}
+{"input": {"query": "Identify the performance bottleneck in this code"}, "expected_output": {"status": "success"}}
