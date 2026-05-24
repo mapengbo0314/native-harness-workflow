@@ -291,7 +291,7 @@ def main():
         if args.bundle and os.path.abspath(args.bundle) != os.path.abspath(default_codegraph_dir):
             print(f"\nError: Specified CodeGraph bundle not found at {codegraph_db_path}")
             langfuse_context.flush()
-        sys.exit(1)
+            sys.exit(1)
             
         print(f"\nCodeGraph database not found. Building now in project root...")
         try:

@@ -137,6 +137,15 @@ def query_llm(prompt: str, llm_provider: str, api_key: str, model: str = None) -
                 model=use_model,
                 contents=prompt
             )
+            
+            usage = getattr(response, "usage_metadata", None)
+            if usage:
+                input_tokens = getattr(usage, "prompt_token_count", 0)
+                output_tokens = getattr(usage, "candidates_token_count", 0)
+                langfuse_context.update_current_observation(
+                    usage={"input": input_tokens, "output": output_tokens}
+                )
+                
             return response.text
         except Exception as e:
             raise RuntimeError(f"Gemini API call failed: {e}")
