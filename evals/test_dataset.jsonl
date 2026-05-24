@@ -1,2 +1,4 @@
-{"input": {"query": "Write a python function to compute fibonacci"}, "expected_output": {"status": "success"}}
-{"input": {"query": "Identify the performance bottleneck in this code"}, "expected_output": {"status": "success"}}
+{"input": {"query": "I am getting a traceback in the discovery_engine.py"}, "expected_output": {"branch": "A"}}
+{"input": {"query": "Implement a new agent for reviewing documentation"}, "expected_output": {"branch": "B"}}
+{"input": {"query": "How does the routing matrix work?"}, "expected_output": {"branch": "C"}}
+{"input": {"query": "Fix the typo in the README"}, "expected_output": {"branch": "D"}}
