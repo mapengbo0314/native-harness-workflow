@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
+from langfuse.decorators import observe
 
 load_dotenv()
 
@@ -241,6 +242,7 @@ def parse_args():
     return parser.parse_args()
 
 
+@observe()
 def main():
     args = parse_args()
 

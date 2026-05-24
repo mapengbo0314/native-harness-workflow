@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 from dotenv import load_dotenv
+from langfuse.decorators import observe
 
 load_dotenv()
 
@@ -213,6 +214,7 @@ Return the result as JSON:
         """Validate if the intent starts with a valid 5-Verb."""
         return verb in self.VALID_VERBS
 
+    @observe()
     def dispatch_agent(
         self,
         agent_name: str,
@@ -317,4 +319,6 @@ Return the result as JSON:
                 # Ignore if gatekeeper is missing or other errors occur during check
                 pass
                 
+        return True
+    
         return True
