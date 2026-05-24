@@ -18,12 +18,9 @@ tools:
 
 ## Metadata
 - Skills:
-  - python-performance-optimization
-  - systematic-debugging
-  - verification-before-completion
-  - performance-optimization
+  - harness-systematic-debugging
 - Related Agents:
-  - architect
+  - adversary
   - refactorer
 
 ## System Prompt
@@ -51,6 +48,6 @@ customization_config:
     agents:
       inherit_users: true
       related_agents:
-        - architect
+        - adversary
         - refactorer
 ```

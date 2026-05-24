@@ -2,6 +2,10 @@
 name: harness-brainstorming
 description: You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation.
 ---
+<SUBAGENT-STOP>
+If you were dispatched as a subagent to execute a specific task, skip this skill.
+</SUBAGENT-STOP>
+
 
 # Brainstorming Ideas Into Designs
 

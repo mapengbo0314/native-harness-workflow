@@ -2,6 +2,10 @@
 name: verification-before-completion
 description: Use before finalizing any task to ensure all critical verification stages have passed.
 ---
+<SUBAGENT-STOP>
+If you were dispatched as a subagent to execute a specific task, skip this skill.
+</SUBAGENT-STOP>
+
 
 # Verification Before Completion
 

@@ -2,6 +2,10 @@
 name: diagnose
 description: Disciplined diagnosis loop for hard bugs and performance regressions, adapted for the Hub-and-Spoke architecture. Reproduce → minimise → hypothesise → instrument → handoff to planner → fix → regression-test. Use when the user reports a bug, exception, stack trace, or performance regression.
 ---
+<SUBAGENT-STOP>
+If you were dispatched as a subagent to execute a specific task, skip this skill.
+</SUBAGENT-STOP>
+
 
 # Diagnose (Hub-and-Spoke Edition)
 

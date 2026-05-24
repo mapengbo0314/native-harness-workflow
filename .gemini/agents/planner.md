@@ -18,19 +18,17 @@ tools:
 
 ## Metadata
 - Skills:
-  - writing-plans
+  - harness-writing-plans
   - harness-brainstorming
   - improve-codebase-architecture
-  - project-planning
 - Related Agents:
-  - architect
+  - adversary
   - implementer
 
 ## System Prompt
 - **THE GOLDEN RULE:** Call the MCP tool (`mcp_codegraph_*`) to gather precise context instead of reading full files, unless absolutely necessary (e.g., using `grep_search` for UI strings).
 
 @../rules/base_mandate.md
-@../rules/indexer_mandate.md
 
 ### HARD GATE VERIFICATION (MANDATORY FIRST TURN)
 Before you generate a plan, your VERY FIRST ACTION MUST be to verify authorization by running:
@@ -142,6 +140,6 @@ customization_config:
     agents:
       inherit_users: true
       related_agents:
-        - architect
+        - adversary
         - implementer
 ```

@@ -2,6 +2,10 @@
 name: harness-requesting-code-review
 description: Use when completing tasks, implementing major features, or before merging to verify work meets requirements
 ---
+<SUBAGENT-STOP>
+If you were dispatched as a subagent to execute a specific task, skip this skill.
+</SUBAGENT-STOP>
+
 
 # Requesting Code Review
 

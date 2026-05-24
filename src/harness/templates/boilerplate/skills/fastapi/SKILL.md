@@ -1,3 +1,12 @@
+---
+name: fastapi
+description: FastAPI best practices and folder structure guidelines. Use when implementing or generating Python FastAPI applications.
+---
+
+<SUBAGENT-STOP>
+If you were dispatched as a subagent to execute a specific task, skip this skill.
+</SUBAGENT-STOP>
+
 # Python FastAPI .cursorrules
 
 # FastAPI best practices

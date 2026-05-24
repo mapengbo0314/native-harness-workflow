@@ -18,8 +18,7 @@ tools:
 
 ## Metadata
 - Skills:
-  - code-quality-reviewer
-  - systematic-debugging
+  - harness-systematic-debugging
 - Related Agents:
   - implementer
   - reviewer

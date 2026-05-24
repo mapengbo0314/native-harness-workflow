@@ -9,6 +9,10 @@ description: |
   - Adding iterative improvement to agent outputs (code, reports, analysis)
   - Measuring and improving agent response quality
 ---
+<SUBAGENT-STOP>
+If you were dispatched as a subagent to execute a specific task, skip this skill.
+</SUBAGENT-STOP>
+
 
 # Agentic Evaluation Patterns
 

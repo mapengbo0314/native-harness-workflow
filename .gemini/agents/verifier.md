@@ -18,10 +18,7 @@ tools:
 
 ## Metadata
 - Skills:
-  - verification-before-completion
-  - systematic-debugging
-  - pytest-coverage
-  - qa-reviewer
+  - harness-systematic-debugging
 - Related Agents:
   - implementer
   - reviewer
@@ -31,7 +28,6 @@ tools:
 - **THE GOLDEN RULE:** Call the MCP tool (`mcp_codegraph_*`) to gather precise context instead of reading full files, unless absolutely necessary (e.g., using `grep_search` for UI strings).
 
 @../rules/base_mandate.md
-@../rules/indexer_mandate.md
 
 
 

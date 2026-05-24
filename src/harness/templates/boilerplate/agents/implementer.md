@@ -19,11 +19,8 @@ tools:
 
 ## Metadata
 - Skills:
-  - pocock-tdd
-  - systematic-debugging
-  - python-testing-patterns
-  - test-driven-development
-  - tdd-workflow
+  - harness-systematic-debugging
+  - harness-test-driven-development
 - Related Agents:
   - planner
   - reviewer

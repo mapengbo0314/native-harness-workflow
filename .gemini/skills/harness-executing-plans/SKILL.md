@@ -2,6 +2,10 @@
 name: harness-executing-plans
 description: Use when you have a written implementation plan to execute in a separate session with review checkpoints
 ---
+<SUBAGENT-STOP>
+If you were dispatched as a subagent to execute a specific task, skip this skill.
+</SUBAGENT-STOP>
+
 
 # Executing Plans
 

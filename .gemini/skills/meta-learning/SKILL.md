@@ -2,6 +2,10 @@
 name: meta-learning
 description: Use when tackling a completely new, complex subject to ensure deep understanding and avoid superficial knowledge or buzzword-heavy explanations.
 ---
+<SUBAGENT-STOP>
+If you were dispatched as a subagent to execute a specific task, skip this skill.
+</SUBAGENT-STOP>
+
 
 # Meta-Learning Framework
 

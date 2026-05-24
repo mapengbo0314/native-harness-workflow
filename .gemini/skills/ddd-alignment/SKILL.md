@@ -2,6 +2,10 @@
 name: ddd-alignment
 description: Align implementation with the core domain, ubiquitous language, and architectural goals using the Deterministic DDD Framework. Use when resolving domain conflicts or refining the ubiquitous language.
 ---
+<SUBAGENT-STOP>
+If you were dispatched as a subagent to execute a specific task, skip this skill.
+</SUBAGENT-STOP>
+
 
 # Deterministic DDD Framework
 

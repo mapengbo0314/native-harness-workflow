@@ -19,13 +19,8 @@ tools:
 ## Metadata
 - Skills:
   - harness-brainstorming
-  - find-skills
-  - requirements-analysis
-  - product-requirements
-  - requirements-clarity
-  - requirements-gathering
 - Related Agents:
-  - architect
+  - adversary
   - orchestrator
 
 ## System Prompt
@@ -56,6 +51,6 @@ customization_config:
     agents:
       inherit_users: true
       related_agents:
-        - architect
+        - adversary
         - orchestrator
 ```

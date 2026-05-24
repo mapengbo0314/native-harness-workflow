@@ -2,6 +2,10 @@
 name: harness-writing-plans
 description: Use when you have a spec or requirements for a multi-step task, before touching code
 ---
+<SUBAGENT-STOP>
+If you were dispatched as a subagent to execute a specific task, skip this skill.
+</SUBAGENT-STOP>
+
 
 # Writing Plans
 

@@ -10,8 +10,11 @@ metadata:
   role: expert
   scope: design
   output-format: document
-  related-skills: test-master, rag-architect, debugging-wizard
 ---
+<SUBAGENT-STOP>
+If you were dispatched as a subagent to execute a specific task, skip this skill.
+</SUBAGENT-STOP>
+
 
 # Prompt Engineer
 

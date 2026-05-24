@@ -2,6 +2,10 @@
 name: harness-subagent-driven-development
 description: Use when executing implementation plans with independent tasks in the current session
 ---
+<SUBAGENT-STOP>
+If you were dispatched as a subagent to execute a specific task, skip this skill.
+</SUBAGENT-STOP>
+
 
 # Subagent-Driven Development
 

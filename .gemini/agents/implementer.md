@@ -19,11 +19,8 @@ tools:
 
 ## Metadata
 - Skills:
-  - pocock-tdd
-  - systematic-debugging
-  - python-testing-patterns
-  - test-driven-development
-  - tdd-workflow
+  - harness-systematic-debugging
+  - harness-test-driven-development
 - Related Agents:
   - planner
   - reviewer
@@ -90,23 +87,6 @@ When finished, send a message back to the orchestrator with:
 ### DDD: Test From Outside
 IMPLEMENTATION MANDATE:
 You MUST apply the "Test from outside" approach (using TDD skills). Force yourself to design and verify the interface first through the test harness targeting public interfaces of the domain modules before filling in the complex implementation.
-
-## Customization
-```yaml
-customization_config:
-  customization_discovery_config:
-    skills:
-      inherit_users: true
-    agents:
-      inherit_users: true
-      related_agents:
-        - planner
-        - reviewer
-        - verifier
-        - linter-agent
-        - refactorer
-```
-ublic interfaces of the domain modules before filling in the complex implementation.
 
 ## Customization
 ```yaml

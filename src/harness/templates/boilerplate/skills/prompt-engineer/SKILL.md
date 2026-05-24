@@ -10,8 +10,11 @@ metadata:
   role: expert
   scope: design
   output-format: document
-  related-skills: test-master, rag-architect, debugging-wizard
 ---
+<SUBAGENT-STOP>
+If you were dispatched as a subagent to execute a specific task, skip this skill.
+</SUBAGENT-STOP>
+
 
 # Prompt Engineer
 
@@ -36,19 +39,6 @@ Expert prompt engineer specializing in designing, optimizing, and evaluating pro
    - **Validation checkpoint:** If accuracy < 80% on the test set, identify failure patterns before iterating (e.g., ambiguous instructions, missing examples, edge case gaps)
 4. **Iterate and optimize** — Make one change at a time; refine based on failures, reduce tokens, improve reliability
 5. **Document and deploy** — Version prompts, document behavior, monitor production
-
-## Reference Guide
-
-Load detailed guidance based on context:
-
-| Topic | Reference | Load When |
-|-------|-----------|-----------|
-| Prompt Patterns | `references/prompt-patterns.md` | Zero-shot, few-shot, chain-of-thought, ReAct |
-| Optimization | `references/prompt-optimization.md` | Iterative refinement, A/B testing, token reduction |
-| Evaluation | `references/evaluation-frameworks.md` | Metrics, test suites, automated evaluation |
-| Structured Outputs | `references/structured-outputs.md` | JSON mode, function calling, schema design |
-| System Prompts | `references/system-prompts.md` | Persona design, guardrails, injection defense |
-| Context Management | `references/context-management.md` | Attention budget, degradation patterns, context optimization |
 
 ## Prompt Examples
 

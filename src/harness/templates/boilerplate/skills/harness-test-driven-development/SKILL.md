@@ -2,6 +2,10 @@
 name: harness-test-driven-development
 description: Use when implementing any feature or bugfix, before writing implementation code
 ---
+<SUBAGENT-STOP>
+If you were dispatched as a subagent to execute a specific task, skip this skill.
+</SUBAGENT-STOP>
+
 
 # Test-Driven Development (TDD)
 
