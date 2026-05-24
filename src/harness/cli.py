@@ -8,10 +8,11 @@ import os
 import subprocess
 import shutil
 import time
+import uuid
 from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
-from langfuse.decorators import observe
+from langfuse.decorators import observe, langfuse_context
 
 load_dotenv()
 
@@ -258,7 +259,7 @@ def main():
     if os.environ.get("HARNESS_EVAL_MODE") == "1":
         tags = ["harness-goldens", "integration-test"]
         
-    langfuse_context.update_current_trace(id=trace_id, session_id=session_id, tags=tags)
+    langfuse_context.update_current_trace(session_id=session_id, tags=tags)
 
     args = parse_args()
 
@@ -519,7 +520,7 @@ def main():
                 import traceback
                 traceback.print_exc()
                 langfuse_context.flush()
-        sys.exit(1)
+                sys.exit(1)
         
         # --- Handle Root Staging ---
         root_staging_dir = temp_harness_dir / "root_staging"

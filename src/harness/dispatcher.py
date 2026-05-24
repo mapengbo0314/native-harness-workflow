@@ -230,6 +230,22 @@ Return the result as JSON:
         Returns:
             Dispatch result with routed agent info
         """
+        trace_id = os.environ.get("LANGFUSE_TRACE_ID")
+        if not trace_id:
+            trace_id = str(uuid.uuid4())
+            os.environ["LANGFUSE_TRACE_ID"] = trace_id
+            
+        session_id = os.environ.get("LANGFUSE_SESSION_ID")
+        if not session_id:
+            session_id = str(uuid.uuid4())
+            os.environ["LANGFUSE_SESSION_ID"] = session_id
+            
+        tags = []
+        if os.environ.get("HARNESS_EVAL_MODE") == "1":
+            tags = ["harness-goldens", "integration-test"]
+            
+        langfuse_context.update_current_trace(session_id=session_id, tags=tags)
+
         # Validate agent exists in config
         agents = self.agents_config.get("agents", {})
         if agent_name not in agents:

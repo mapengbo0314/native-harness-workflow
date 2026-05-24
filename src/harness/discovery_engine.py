@@ -90,11 +90,11 @@ def query_llm(prompt: str, llm_provider: str, api_key: str, model: str = None) -
     if os.environ.get("HARNESS_EVAL_MODE") == "1":
         tags = ["harness-goldens", "integration-test"]
 
-    langfuse_context.update_current_trace(id=trace_id, session_id=session_id, tags=tags)
+    langfuse_context.update_current_trace(session_id=session_id, tags=tags)
 
     if llm_provider == "openai":
-        from openai import OpenAI
-        client = OpenAI(api_key=api_key)
+        from langfuse.openai import openai
+        client = openai.OpenAI(api_key=api_key)
         use_model = model or "gpt-4o"
         response = client.chat.completions.create(
             model=use_model,

@@ -73,15 +73,15 @@ Verification note: phases 0, 1, 2, and 3 were checked against the current repo s
 
 ## Phase 4: Observability & Langfuse Integration
 **Goal:** create eval scaffolding before large rewrites so the revamp can be measured.
-- [ ] Add `langfuse` and `python-dotenv` to project dependencies.
-- [ ] Install the Langfuse AI skill from github.com/langfuse/skills.
-- [ ] Use the Langfuse skill to add tracing to the application following best practices.
-- [ ] Ensure environment variables are explicitly propagated to subprocesses for portable telemetry collection across minted harnesses.
-- [ ] Add `scripts/seed_langfuse_datasets.py`.
-- [ ] Add `scripts/run_langfuse_evals.py`.
-- [ ] Add local JSONL eval fixtures under `evals/`.
-- [ ] Support local JSON summary fallback if Langfuse credentials are not set.
-- [ ] Acceptance: Evals run locally without credentials and publish to Langfuse when set.
+- [x] Add `langfuse` and `python-dotenv` to project dependencies.
+- [x] Install the Langfuse AI skill from github.com/langfuse/skills.
+- [x] Use the Langfuse skill to add tracing to the application following best practices.
+- [x] Ensure environment variables are explicitly propagated to subprocesses for portable telemetry collection across minted harnesses.
+- [x] Add `scripts/seed_langfuse_datasets.py`.
+- [x] Add `scripts/run_langfuse_evals.py`.
+- [x] Add local JSONL eval fixtures under `evals/`.
+- [x] Support local JSON summary fallback if Langfuse credentials are not set.
+- [x] Acceptance: Evals run locally without credentials and publish to Langfuse when set.
 
 ## Phase 5: Prompt Assembly and Context Economy
 **Goal:** reduce prompt bloat by using branch-specific context and pointers.
