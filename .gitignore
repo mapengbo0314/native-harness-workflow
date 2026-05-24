@@ -39,6 +39,7 @@ depreciated_indexing/
 archive/
 .codegraph/
 .codegraph-cache/
+.env/
 # Harness Runtime & Debug Junk
 out/
 artifacts/
@@ -47,7 +48,6 @@ local_outputs/
 .harness_state.db*
 
 # Caches and Build Artifacts
-.deepeval/
 .superpowers/
 *.egg-info/
 .pytest_cache/

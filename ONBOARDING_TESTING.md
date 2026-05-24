@@ -24,14 +24,13 @@ Use this for end-to-end simulation of an agent turn.
 ## 3. Quality Layer (LLM-as-a-Judge)
 **Location**: `tests/benchmarks/`
 **Tool**: `mise run benchmark`
-**Framework**: `DeepEval`
 
 Use this for non-deterministic behavior where "correctness" is a spectrum.
 - *Example*: "Did the Orchestrator route the user correctly?" or "Is the generated system prompt relevant to the tech stack?"
 - **How to add**: 
-    1. Update `tests/benchmarks/test_routing_quality.py`.
+    1. Update the relevant test in `tests/benchmarks/`.
     2. Add a new `TestCase` with the input and the actual output.
-    3. Use `GEval` or `FaithfulnessMetric` to score the response.
+    3. Use an LLM as a judge to score the response.
 
 ---
 

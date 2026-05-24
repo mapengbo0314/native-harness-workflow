@@ -18,8 +18,6 @@ run = [
     "pytest tests/benchmarks/test_graph_efficiency.py -v",
     "echo '\n--- 5. Running Sandbox Dry-Run ---'",
     "python3 tests/sandbox/runner.py --scenario docstring --dry-run",
-    "echo '\n--- 6. Running DeepEval Quality Benchmarks ---'",
-    "GEMINI_API_KEY=$GEMINI_API_KEY deepeval test run tests/benchmarks/test_routing_quality.py",
     "echo '\n--- 7. Running E2E Lifecycle Audit ---'",
     "GEMINI_API_KEY=$GEMINI_API_KEY pytest tests/e2e/test_full_harness_lifecycle.py -v",
     "echo '\n--- 8. Auditing Discovery & Strategy Persistence ---'",
