@@ -244,10 +244,27 @@ def parse_args():
 
 @observe()
 def main():
+    trace_id = os.environ.get("LANGFUSE_TRACE_ID")
+    if not trace_id:
+        trace_id = str(uuid.uuid4())
+        os.environ["LANGFUSE_TRACE_ID"] = trace_id
+        
+    session_id = os.environ.get("LANGFUSE_SESSION_ID")
+    if not session_id:
+        session_id = str(uuid.uuid4())
+        os.environ["LANGFUSE_SESSION_ID"] = session_id
+        
+    tags = []
+    if os.environ.get("HARNESS_EVAL_MODE") == "1":
+        tags = ["harness-goldens", "integration-test"]
+        
+    langfuse_context.update_current_trace(id=trace_id, session_id=session_id, tags=tags)
+
     args = parse_args()
 
     if not shutil.which("npx"):
         print("\nError: 'npx' command not found. Node.js is required to use CodeGraph.")
+        langfuse_context.flush()
         sys.exit(1)
     
     api_key_env_var = f"{args.llm.upper()}_API_KEY"
@@ -272,7 +289,8 @@ def main():
         # If user specified a bundle path that isn't the project default and it's missing, that's a hard error
         if args.bundle and os.path.abspath(args.bundle) != os.path.abspath(default_codegraph_dir):
             print(f"\nError: Specified CodeGraph bundle not found at {codegraph_db_path}")
-            sys.exit(1)
+            langfuse_context.flush()
+        sys.exit(1)
             
         print(f"\nCodeGraph database not found. Building now in project root...")
         try:
@@ -300,6 +318,7 @@ def main():
     
     if not os.path.exists(boilerplate_dir):
         print(f"\nError: Bundled boilerplate not found at {boilerplate_dir}")
+        langfuse_context.flush()
         sys.exit(1)
         
     print("Stage 2: Dynamic Context Acquisition")
@@ -499,7 +518,8 @@ def main():
                 print(f"\n[HARNESS] ❌ ERROR: Failed to generate orchestrator plugin: {e}")
                 import traceback
                 traceback.print_exc()
-                sys.exit(1)
+                langfuse_context.flush()
+        sys.exit(1)
         
         # --- Handle Root Staging ---
         root_staging_dir = temp_harness_dir / "root_staging"
@@ -573,6 +593,7 @@ def main():
             )
         except HarnessSetupError as e:
             print(f"\n[HARNESS] ❌ ERROR: Embedded setup failed: {e}")
+            langfuse_context.flush()
             sys.exit(1)
 
     finally:
@@ -621,6 +642,7 @@ def main():
         print(f"\n   Routing rules in {harness_folder}/orchestrator.md have been updated.")
         
     print(f"\n{'='*60}\n")
+    langfuse_context.flush()
 
 if __name__ == "__main__":
     main()

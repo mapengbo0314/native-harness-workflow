@@ -5,6 +5,8 @@ import urllib.request
 import os
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from harness.renderer import TemplateRenderer
+from langfuse.decorators import observe, langfuse_context
+import uuid
 
 def acquire_mcp_context(project_path: str) -> str:
     """Acquires project context using CodeGraph and domain documentation."""
@@ -64,6 +66,7 @@ def fetch_skill(skill_name: str, remote_url: str) -> str:
 
     return None
 
+@observe()
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=2, min=5, max=20),
@@ -73,6 +76,22 @@ def fetch_skill(skill_name: str, remote_url: str) -> str:
 )
 def query_llm(prompt: str, llm_provider: str, api_key: str, model: str = None) -> str:
     """Dispatches to the real LLM providers."""
+    trace_id = os.environ.get("LANGFUSE_TRACE_ID")
+    if not trace_id:
+        trace_id = str(uuid.uuid4())
+        os.environ["LANGFUSE_TRACE_ID"] = trace_id
+        
+    session_id = os.environ.get("LANGFUSE_SESSION_ID")
+    if not session_id:
+        session_id = str(uuid.uuid4())
+        os.environ["LANGFUSE_SESSION_ID"] = session_id
+
+    tags = []
+    if os.environ.get("HARNESS_EVAL_MODE") == "1":
+        tags = ["harness-goldens", "integration-test"]
+
+    langfuse_context.update_current_trace(id=trace_id, session_id=session_id, tags=tags)
+
     if llm_provider == "openai":
         from openai import OpenAI
         client = OpenAI(api_key=api_key)
@@ -110,6 +129,7 @@ def query_llm(prompt: str, llm_provider: str, api_key: str, model: str = None) -
         client = genai.Client(api_key=api_key)
         # Use a reliable default model
         use_model = model or "gemini-2.5-flash-lite"
+        langfuse_context.update_current_observation(model=use_model)
         
         try:
             # We are using generate_content, which is synchronous. It might take 10-20 seconds.

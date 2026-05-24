@@ -8,7 +8,8 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 from dotenv import load_dotenv
-from langfuse.decorators import observe
+from langfuse.decorators import observe, langfuse_context
+import uuid
 
 load_dotenv()
 
@@ -319,6 +320,4 @@ Return the result as JSON:
                 # Ignore if gatekeeper is missing or other errors occur during check
                 pass
                 
-        return True
-    
         return True
