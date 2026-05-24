@@ -10,6 +10,9 @@ import shutil
 import time
 from pathlib import Path
 from typing import Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 class HarnessSetupError(RuntimeError):
@@ -88,7 +91,7 @@ def _configure_optional_platform_cli(project_path: Path, platform_choice: str, m
             if parts:
                 commands.append([claude, "mcp", "add", mcp["name"], *parts])
         for command in commands:
-            result = subprocess.run(command, cwd=project_path, capture_output=True, text=True)
+            result = subprocess.run(command, cwd=project_path, capture_output=True, text=True, env=os.environ.copy())
             if result.returncode != 0:
                 print(f"[HARNESS] Warning: Optional CLI MCP registration failed: {' '.join(command[:4])}")
         return
@@ -109,7 +112,7 @@ def _configure_optional_platform_cli(project_path: Path, platform_choice: str, m
             if parts:
                 commands.append([gemini, "mcp", "add", mcp["name"], *parts])
         for command in commands:
-            result = subprocess.run(command, cwd=project_path, capture_output=True, text=True)
+            result = subprocess.run(command, cwd=project_path, capture_output=True, text=True, env=os.environ.copy())
             if result.returncode != 0:
                 print(f"[HARNESS] Warning: Optional CLI MCP registration failed: {' '.join(command[:4])}")
 

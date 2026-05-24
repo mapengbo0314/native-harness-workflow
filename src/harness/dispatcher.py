@@ -7,6 +7,9 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
+from dotenv import load_dotenv
+
+load_dotenv()
 
 try:
     from harness.database import HarnessDB
