@@ -15,26 +15,32 @@ def classify(prompt):
 
 def main():
     try:
-        input_data = json.load(sys.stdin)
-    except json.JSONDecodeError:
-        sys.exit(0)
+        try:
+            input_data = json.load(sys.stdin)
+        except json.JSONDecodeError:
+            print("Error: Malformed JSON from agent.", file=sys.stderr)
+            sys.exit(2)
+            
+        prompt = input_data.get("prompt", "")
+        branch = classify(prompt)
         
-    prompt = input_data.get("prompt", "")
-    branch = classify(prompt)
-    
-    def modifier(state):
-        state["current_branch"] = branch
-        state["last_prompt"] = prompt[:100]
-        
-    try:
+        def modifier(state):
+            state["current_branch"] = branch
+            state["last_prompt"] = prompt[:100]
+            
         state_path = resolve_state_path(input_data)
-        update_state(state_path, modifier)
-    except Exception as e:
-        print(f"Error updating state: {e}", file=sys.stderr)
         
-    # Output compact labels/reasons only
-    print(json.dumps({"classification": branch, "reason": "Keyword match"}))
-    sys.exit(0)
+        # Inner try block removed. Errors will trigger the global exception block.
+        update_state(state_path, modifier)
+            
+        # Output compact labels/reasons only
+        print(json.dumps({"classification": branch, "reason": "Keyword match"}))
+        sys.exit(0)
+    except SystemExit:
+        raise
+    except Exception as e:
+        print(f"Error: Internal hook crash in prompt_classifier: {e}", file=sys.stderr)
+        sys.exit(2)
 
 if __name__ == "__main__":
     main()

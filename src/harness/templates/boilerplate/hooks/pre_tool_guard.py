@@ -3,7 +3,7 @@ import json
 import os
 import shlex
 from pathlib import Path
-from hook_common import resolve_plugin_root, resolve_project_root, resolve_state_path, read_json
+from hook_common import resolve_plugin_root, resolve_project_root, resolve_state_path, read_json, update_state
 
 PROTECTED_PROJECT_FILES = [
     ".claude/settings.json",
@@ -77,32 +77,48 @@ def is_protected_path(raw_path: str, input_data: dict = None) -> bool:
 
 def main():
     try:
-        input_data = json.load(sys.stdin)
-    except json.JSONDecodeError:
-        sys.exit(0)
+        try:
+            input_data = json.load(sys.stdin)
+        except json.JSONDecodeError:
+            print("Error: Malformed JSON from agent.", file=sys.stderr)
+            sys.exit(2)
 
-    tool_name = input_data.get("tool_name") or input_data.get("toolName", "")
-    tool_input = input_data.get("tool_input") or input_data.get("toolInput", {})
-    
-    if tool_name in ["Write", "Edit", "MultiEdit", "Bash", "run_shell_command", "write_file", "replace"]:
-        for candidate in _candidate_paths(tool_input):
-            if is_protected_path(candidate, input_data):
-                print(f"Error: Access to protected path '{candidate}' is blocked.", file=sys.stderr)
-                sys.exit(2)
-                
-    # Check Branch D planner/verifier escalation
-    if tool_name in ["Task", "Agent", "generalist", "planner", "verifier"]:
+        tool_name = input_data.get("tool_name") or input_data.get("toolName", "")
+        tool_input = input_data.get("tool_input") or input_data.get("toolInput", {})
+        
+        if tool_name in ["Write", "Edit", "MultiEdit", "Bash", "run_shell_command", "write_file", "replace"]:
+            for candidate in _candidate_paths(tool_input):
+                if is_protected_path(candidate, input_data):
+                    print(f"Error: Access to protected path '{candidate}' is blocked.", file=sys.stderr)
+                    sys.exit(2)
+                    
+        # Check Circuit Breaker
         state_path = resolve_state_path(input_data)
         state = read_json(state_path)
-        if state.get("current_branch") == "Branch D":
-            prompt = str(tool_input).lower()
-            if "explicit" not in prompt:
-                print("Error: Planner/verifier escalation blocked in Branch D unless explicit.", file=sys.stderr)
-                sys.exit(2)
-                
-    # If passed
-    print(json.dumps({"hookSpecificOutput": {"permissionDecision": "allow"}}))
-    sys.exit(0)
+        
+        if state.get("consecutive_tool_failures", 0) >= 3:
+            # Reset the counter before hard stopping to prevent permanent system deadlocks across agent restarts
+            def reset_breaker(s):
+                s["consecutive_tool_failures"] = 0
+            update_state(state_path, reset_breaker)
+            print("Error: Circuit breaker tripped! 3 consecutive tool failures detected. Hard stopping agent.", file=sys.stderr)
+            sys.exit(2)
+            
+        if tool_name in ["Task", "Agent", "generalist", "planner", "verifier"]:
+            if state.get("current_branch") == "Branch D":
+                prompt = str(tool_input).lower()
+                if "explicit" not in prompt:
+                    print("Error: Planner/verifier escalation blocked in Branch D unless explicit.", file=sys.stderr)
+                    sys.exit(2)
+                    
+        # If passed
+        print(json.dumps({"hookSpecificOutput": {"permissionDecision": "allow"}}))
+        sys.exit(0)
+    except SystemExit:
+        raise
+    except Exception as e:
+        print(f"Error: Internal hook crash in pre_tool_guard: {e}", file=sys.stderr)
+        sys.exit(2)
 
 if __name__ == "__main__":
     main()

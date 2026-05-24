@@ -173,3 +173,71 @@ def test_post_tool_observer():
         input_data = {"error": "Failed"}
         res = run_hook("post_tool_observer.py", input_data, tmp_path)
         assert res["returncode"] == 0
+
+def test_circuit_breaker_trips_pre_tool_guard():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        state_dir = tmp_path / "state"
+        state_dir.mkdir(parents=True)
+        state_file = state_dir / "campaign_state.json"
+        
+        # Setup mock state with 3 failures
+        state_file.write_text(json.dumps({"consecutive_tool_failures": 3}))
+        
+        input_data = {
+            "tool_name": "Task",
+            "tool_input": {"prompt": "do something"}
+        }
+        
+        # Run pre_tool_guard
+        res = run_hook("pre_tool_guard.py", input_data, tmp_path)
+        
+        # Assert circuit breaker tripped
+        assert res["returncode"] == 2
+        assert "Circuit breaker tripped" in res["stderr"]
+        
+        # Verify it reset the counter
+        updated_state = json.loads(state_file.read_text())
+        assert updated_state.get("consecutive_tool_failures") == 0
+
+def test_circuit_breaker_trips_post_tool_observer():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        state_dir = tmp_path / "state"
+        state_dir.mkdir(parents=True)
+        state_file = state_dir / "campaign_state.json"
+        
+        # Setup mock state with 2 failures, trigger a 3rd
+        state_file.write_text(json.dumps({"consecutive_tool_failures": 2}))
+        
+        input_data = {
+            "hook_event_name": "PostToolUseFailure",
+            "error": "Some tool error"
+        }
+        
+        # Run post_tool_observer
+        res = run_hook("post_tool_observer.py", input_data, tmp_path)
+        
+        # Assert circuit breaker tripped
+        assert res["returncode"] == 2
+        assert "Circuit breaker tripped" in res["stderr"]
+
+def test_internal_crash_handling():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        state_dir = tmp_path / "state"
+        state_dir.mkdir(parents=True)
+        
+        # Create a directory instead of a file to cause an IsADirectoryError when reading state
+        state_file = state_dir / "campaign_state.json"
+        state_file.mkdir()
+        
+        input_data = {
+            "tool_name": "Task",
+            "tool_input": {"prompt": "do something"}
+        }
+        
+        res = run_hook("pre_tool_guard.py", input_data, tmp_path)
+        
+        assert res["returncode"] == 2
+        assert "Internal hook crash" in res["stderr"]
