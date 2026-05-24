@@ -12,7 +12,7 @@ def generate_plugin_manifest(
     skills_dir: Optional[Path] = None,
     logical_plugin_dir: Optional[str] = None
 ) -> str:
-    """Generate plugin.json manifest for the orchestrator plugin.
+    """Generate plugin.json and hooks/hooks.json for the orchestrator plugin.
 
     Args:
         target_dir: Directory to generate plugin in (e.g., .claude/plugin-generated)
@@ -25,11 +25,9 @@ def generate_plugin_manifest(
         Path to the generated plugin.json
     """
     plugin_dir = Path(target_dir)
-    claude_plugin_dir = plugin_dir / ".claude-plugin"
-    claude_plugin_dir.mkdir(parents=True, exist_ok=True)
     
-    # Use logical path for PYTHONPATH in hooks if provided
-    python_path = logical_plugin_dir if logical_plugin_dir else target_dir
+    hooks_dir = plugin_dir / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
 
     tools = [
         {
@@ -97,96 +95,60 @@ def generate_plugin_manifest(
                 }
             })
 
-    manifest = {
+    settings = {
         "name": "orchestrator-plugin",
         "description": f"Auto-generated orchestrator plugin for {project_name}",
         "version": plugin_version,
-        "author": {
-            "name": "Harness Plugin Generator"
-        },
         "entry_point": "src/orchestrator_plugin.py",
-        "requirements": [
-            "pydantic>=2.0",
-            "typing_extensions"
-        ],
-        "hooks": {
-            "UserPromptSubmit": [
-                {
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": f"PYTHONPATH={python_path} python3 -m src.hooks.prompt_interceptor"
-                        }
-                    ]
-                }
-            ],
-            "PreToolUse": [
-                {
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": f"PYTHONPATH={python_path} python3 -m src.hooks.pre_tool_guard"
-                        }
-                    ]
-                }
-            ],
-            "PostToolUse": [
-                {
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": f"PYTHONPATH={python_path} python3 -m src.hooks.post_tool_monitor"
-                        }
-                    ]
-                }
-            ],
-            "PreCompact": [
-                {
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": f"PYTHONPATH={python_path} python3 -m src.hooks.precompact_monitor"
-                        }
-                    ]
-                }
-            ],
-            "Stop": [
-                {
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": f"PYTHONPATH={python_path} python3 -m src.hooks.stop_monitor"
-                        }
-                    ]
-                }
-            ]
-        },
         "tools": tools
     }
 
-    manifest_path = claude_plugin_dir / "plugin.json"
-    with open(manifest_path, 'w') as f:
-        json.dump(manifest, f, indent=2)
-        
-    marketplace = {
-        "name": "local-orchestrator-marketplace",
-        "owner": {
-            "name": "Local Project"
-        },
-        "plugins": [
+    claude_plugin_dir = plugin_dir / ".claude-plugin"
+    claude_plugin_dir.mkdir(parents=True, exist_ok=True)
+    settings_path = claude_plugin_dir / "plugin.json"
+    
+    with open(settings_path, 'w') as f:
+        json.dump(settings, f, indent=2)
+
+    # Use sys.executable in hook commands to avoid relying on external environment variables.
+    # The hook code already has sys.path.insert(0, ...) so it doesn't need PYTHONPATH to find dispatcher.
+    hooks_config = {
+        "UserPromptSubmit": [
             {
-                "name": "orchestrator-plugin",
-                "version": plugin_version,
-                "source": "./"
+                "type": "command",
+                "command": "python3 -m src.hooks.prompt_interceptor"
+            }
+        ],
+        "PreToolUse": [
+            {
+                "type": "command",
+                "command": "python3 -m src.hooks.pre_tool_guard"
+            }
+        ],
+        "PostToolUse": [
+            {
+                "type": "command",
+                "command": "python3 -m src.hooks.post_tool_monitor"
+            }
+        ],
+        "PreCompact": [
+            {
+                "type": "command",
+                "command": "python3 -m src.hooks.precompact_monitor"
+            }
+        ],
+        "Stop": [
+            {
+                "type": "command",
+                "command": "python3 -m src.hooks.stop_monitor"
             }
         ]
     }
     
-    marketplace_path = claude_plugin_dir / "marketplace.json"
-    with open(marketplace_path, 'w') as f:
-        json.dump(marketplace, f, indent=2)
+    with open(hooks_dir / "hooks.json", 'w') as f:
+        json.dump(hooks_config, f, indent=2)
 
-    return str(manifest_path)
+    return str(settings_path)
 
 
 def export_orchestrator_config(orchestrator_path: Path, config_dir: Path, logical_orchestrator_path: Optional[Path] = None) -> str:
@@ -423,6 +385,27 @@ def generate_orchestrator_plugin(
         else:
             print(f"[HARNESS] Warning: Scripts source {scripts_src} not found.")
 
+        hooks_src = bp_dir / "hooks"
+        if hooks_src.exists():
+            print(f"[HARNESS] Copying hooks from {hooks_src}...")
+            shutil.copytree(hooks_src, plugin_dir / "hooks", dirs_exist_ok=True)
+        else:
+            print(f"[HARNESS] Warning: Hooks source {hooks_src} not found.")
+
+        contracts_src = bp_dir / "contracts"
+        if contracts_src.exists():
+            print(f"[HARNESS] Copying contracts from {contracts_src}...")
+            shutil.copytree(contracts_src, plugin_dir / "contracts", dirs_exist_ok=True)
+        else:
+            print(f"[HARNESS] Warning: Contracts source {contracts_src} not found.")
+
+        state_src = bp_dir / "state"
+        if state_src.exists():
+            print(f"[HARNESS] Copying state from {state_src}...")
+            shutil.copytree(state_src, plugin_dir / "state", dirs_exist_ok=True)
+        else:
+            print(f"[HARNESS] Warning: State source {state_src} not found.")
+
         # Export DDD context
         context_path = project_path / "docs" / "domain" / "CONTEXT.md"
         print(f"[HARNESS] Exporting DDD context from {context_path}...")
@@ -444,6 +427,21 @@ def generate_orchestrator_plugin(
 
         # Generate pyproject.toml
         generate_pyproject(plugin_dir)
+
+        # Generate README.md
+        readme_content = f"""# Orchestrator Plugin
+
+This is the auto-generated Claude Code plugin for {project_name}.
+
+## Local Development and Validation
+
+To manually test and validate this plugin, you can run Claude Code and point it directly to this directory:
+
+```bash
+claude --plugin-dir ./.claude/plugin-generated
+```
+"""
+        (plugin_dir / "README.md").write_text(readme_content)
 
         print(f"[HARNESS] Plugin generation complete.")
         return str(plugin_dir)
@@ -538,21 +536,13 @@ class OrchestratorPlugin:
         Returns:
             Skill content or error message
         """
-        # We need to find the skill either in .claude/skills or .gemini/skills or the bundled skills
-        # Get project root (we are in .claude/plugin-generated/src)
-        project_root = Path(__file__).parent.parent.parent.parent
+        # Read from bundled skills directory (we are in src, so parent is plugin root)
+        plugin_root = Path(__file__).parent.parent
+        skill_path = plugin_root / "skills" / name / "SKILL.md"
         
-        # Look in possible locations
-        possible_paths = [
-            project_root / ".claude" / "skills" / name / "SKILL.md",
-            project_root / ".gemini" / "skills" / name / "SKILL.md",
-            Path('__SKILLS_FALLBACK__') / name / "SKILL.md"
-        ]
-        
-        for skill_path in possible_paths:
-            if skill_path.exists():
-                with open(skill_path, "r") as f:
-                    return f.read()
+        if skill_path.exists():
+            with open(skill_path, "r") as f:
+                return f.read()
                     
         return f"Error: Skill \'{name}\' not found."
 
