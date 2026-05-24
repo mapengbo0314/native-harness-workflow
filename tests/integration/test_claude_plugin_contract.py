@@ -43,9 +43,18 @@ def test_claude_plugin_contract():
         
         # Check that hooks.json has the right format
         with open(plugin_dir / "hooks" / "hooks.json") as f:
-            hooks = json.load(f)
-            assert "UserPromptSubmit" in hooks
-            assert "PreToolUse" in hooks
-            assert "PostToolUse" in hooks
-            assert "PreCompact" in hooks
-            assert "Stop" in hooks
+            hooks_json = json.load(f)
+            assert "hooks" in hooks_json
+            hooks = hooks_json["hooks"]
+            assert "promptClassifier" in hooks
+            assert "UserPromptSubmit" in hooks["promptClassifier"]["events"]
+            assert "preToolGuard" in hooks
+            assert "PreToolUse" in hooks["preToolGuard"]["events"]
+            assert "postToolObserver" in hooks
+            assert "PostToolUse" in hooks["postToolObserver"]["events"]
+            assert "precompactHandoff" in hooks
+            assert "PreCompact" in hooks["precompactHandoff"]["events"]
+            assert "stopVerifier" in hooks
+            assert "Stop" in hooks["stopVerifier"]["events"]
+            assert "configChangeGuard" in hooks
+            assert "ConfigChange" in hooks["configChangeGuard"]["events"]

@@ -37,19 +37,10 @@ def test_setup_harness_plugin_path(tmp_path):
     
     with open(setup_script_path, "r") as f:
         content = f.read()
-        
-    # The problematic line:
-    # if claude plugin marketplace add "$PWD/.claude/plugin-generated/.claude-plugin" --scope project
-    
-    # The expected correct line:
-    # if claude plugin marketplace add "$PWD/.claude/plugin-generated" --scope project
-    
-    bad_line = 'claude plugin marketplace add "$PWD/.claude/plugin-generated/.claude-plugin" --scope project'
-    good_line = 'claude plugin marketplace add "$PWD/.claude/plugin-generated" --scope project'
-    
-    # Debug print
-    if bad_line in content:
-        print("BAD LINE FOUND")
-    
-    assert bad_line not in content, "Found double-nested .claude-plugin path in setup_harness.sh"
-    assert good_line in content, "Correct marketplace add path not found in setup_harness.sh"
+
+    # The expected new validation lines:
+    validation_line_1 = 'echo "Orchestrator plugin generated at .claude/plugin-generated"'
+    validation_line_2 = 'echo "  claude --plugin-dir ./.claude/plugin-generated"'
+
+    assert validation_line_1 in content, "Plugin validation path not found in setup_harness.sh"
+    assert validation_line_2 in content, "Manual smoke command not found in setup_harness.sh"
