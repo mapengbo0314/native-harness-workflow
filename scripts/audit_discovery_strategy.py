@@ -18,20 +18,20 @@ def audit_discovery_and_strategy():
         project_path = Path(temp_dir) / "audit_mock_project"
         project_path.mkdir(parents=True)
         
-        # 1. Setup Mock (Playwright + Pytest)
+        # 1. Setup Mock (Cypress + Pytest)
         (project_path / "tests" / "e2e").mkdir(parents=True)
         (project_path / "package.json").write_text(json.dumps({
-            "devDependencies": {"@playwright/test": "^1.0.0"}
+            "devDependencies": {"@cypress/test": "^1.0.0"}
         }))
-        (project_path / "tests/e2e/audit.spec.ts").write_text("import { test } from '@playwright/test';")
+        (project_path / "tests/e2e/audit.spec.ts").write_text("import { test } from '@cypress/test';")
         (project_path / "pytest.ini").write_text("[pytest]")
         
         # 2. Run Discovery
         # We simulate the LLM result for the audit
-        mock_strategy = {"unit": "pytest", "e2e": "npx playwright test"}
+        mock_strategy = {"unit": "pytest", "e2e": "npx cypress test"}
         tech_data = {
             "stack": "Node.js, Python",
-            "capabilities": ["Playwright", "Pytest"],
+            "capabilities": ["Cypress", "Pytest"],
             "strategy": mock_strategy
         }
         
@@ -53,7 +53,7 @@ def audit_discovery_and_strategy():
         orchestrator_file = harness_dir / "orchestrator.md"
         
         # Verification Logic
-        discovery_pass = "Playwright" in tech_data["capabilities"] and "Pytest" in tech_data["capabilities"]
+        discovery_pass = "Cypress" in tech_data["capabilities"] and "Pytest" in tech_data["capabilities"]
         persistence_pass = strategy_file.exists()
         
         mandate_pass = False

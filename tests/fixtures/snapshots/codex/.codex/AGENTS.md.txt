@@ -18,29 +18,12 @@ You are the definitive authority on the business logic, ubiquitous language, and
 
 # Domain-Specific Invariants (The MOAT)
 <invariants>
-None provided.
+1. inv1
 </invariants>
 
 # Ubiquitous Language (Glossary)
 <glossary>
-*Key terms defined by business experts*
-*   **term** def
-
-### 2. Core Domain 
-*The single core capability that provides primary value*
-*   **test value**
-
-### 3. Aggregates & Invariants 
-*Data that must absolutely always be updated together*
-1. inv1
-
-### 4. Domain Events & Coordination 
-*Significant actions that others need to know about*
-*   **event1**
-
-### 5. Context Mapping 
-*Who dictates the shape of external data contracts*
-*   **[USER INPUT REQUIRED] e.g., 'We are a Conformist to the Legacy API.'**
+*   **term**: def
 </glossary>
 
 # Operational Instructions

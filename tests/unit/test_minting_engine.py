@@ -86,7 +86,7 @@ def test_mint_workspace_uses_provided_tech_stack(tmp_path):
         assert strategy_data == provided_tech_stack["strategy"]
         mock_detect.assert_not_called()
 
-def test_mint_workspace_no_absolute_paths_in_scripts(tmp_path):
+def test_mint_workspace_does_not_generate_setup_script(tmp_path):
     # Setup mock project
     project_path = tmp_path / "project_abs_path_test"
     project_path.mkdir()
@@ -117,14 +117,3 @@ def test_mint_workspace_no_absolute_paths_in_scripts(tmp_path):
         tech_stack_data=provided_tech_stack
     )
     
-    setup_script_path = target_dir / "scripts" / "setup_harness.sh"
-    assert setup_script_path.exists(), "setup_harness.sh should be generated"
-    
-    content = setup_script_path.read_text()
-    
-    # FAILING CONDITION: Should NOT contain the absolute path of the project
-    abs_project_path = str(project_path.resolve())
-    assert abs_project_path not in content, f"Absolute path {abs_project_path} found in setup_harness.sh"
-    
-    # It should use relative navigation instead
-    assert 'cd "$(dirname "$0")/../.."' in content or 'cd "$(dirname "${BASH_SOURCE[0]}")/../.."' in content

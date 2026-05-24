@@ -89,30 +89,19 @@ def test_full_harness_lifecycle():
         assert harness_dir.exists(), ".claude folder was not generated"
         assert (harness_dir / "orchestrator.md").exists(), "orchestrator.md missing"
 
-        # Step 3: Setup - Run the real setup_harness.sh
-        setup_script = harness_dir / "scripts" / "setup_harness.sh"
-        assert setup_script.exists(), "setup_harness.sh missing"
+        # Step 3: Active Verification
         
-        # Run setup script
-        # We need to be in project_path for setup_harness.sh to work correctly
-        result_setup = subprocess.run(
-            ["bash", str(setup_script)],
-            cwd=project_path,
-            env=env,
-            capture_output=True,
-            text=True
-        )
-        print("SETUP STDOUT:", result_setup.stdout)
-        print("SETUP STDERR:", result_setup.stderr)
-        assert result_setup.returncode == 0, f"setup_harness.sh failed: {result_setup.stderr}"
+        assert (project_path / ".mcp.json").exists(), ".mcp.json missing after embedded setup"
 
-        # Step 4: Active Verification
         # Validate the generated plugin uses only root-level registered hooks.
         plugin_dir = project_path / ".claude" / "plugin-generated"
         assert plugin_dir.exists(), "Plugin-generated directory missing"
         assert not (plugin_dir / "src" / "hooks").exists(), "legacy src/hooks should not be generated"
         assert not (plugin_dir / "src" / "hook_validator.py").exists(), "legacy hook_validator should not be generated"
         assert (plugin_dir / "hooks" / "hooks.json").exists(), "root hooks.json missing"
+        state_path = plugin_dir / "config" / ".harness_state.json"
+        assert state_path.exists(), "embedded setup state missing"
+        assert '"setup_complete": true' in state_path.read_text()
 
         # Record results in Section 6: E2E Lifecycle
         manifest = f"""
@@ -125,23 +114,13 @@ Successfully minted and verified a live project from `sample-py-app` boilerplate
 ### Manifest of Generated Artifacts:
 - `.claude/` (Harness Home)
   - `orchestrator.md` (Main Routing)
-  - `scripts/setup_harness.sh` (Initialization)
   - `plugin-generated/` (The active plugin)
+- `.mcp.json` (Repo-level MCP configuration)
 - `ONBOARDING_DOMAIN.md` (AI-generated domain context)
 
-### Setup Script Log:
-<details>
-<summary>Click to view full setup log (STDOUT/STDERR)</summary>
-
+### Embedded Setup Evidence:
 ```text
-{result_setup.stdout}
-{result_setup.stderr}
-```
-</details>
-
-### Verification Evidence (Hook Validator):
-```text
-{result_setup.stdout}
+{result.stdout}
 ```
 """
         default_report.add_section("Section 6: E2E Lifecycle", manifest)

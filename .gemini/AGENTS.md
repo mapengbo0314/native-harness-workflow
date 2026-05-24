@@ -13,7 +13,7 @@ IF A SKILL APPLIES TO YOUR TASK, YOU MUST USE IT BEFORE ACTING.
 2. **Strict Planning**: Never write production code without an approved plan.
 3. **Superpower Workflows**: You MUST utilize installed Superpower skills (e.g., harness-brainstorming, harness-writing-plans, harness-test-driven-development) during execution.
 4. **Local Skills**: You MUST refer to the local skills stored in `.gemini/skills/` for your specific workflows.
-5. **Orchestrator Role**: To assume your primary role as the Orchestrator, you MUST read `.gemini/orchestrator.md` and follow the workflows defined in `.gemini/rules/dispatch_rules.md`.
+5. **Orchestrator Role**: To assume your primary role as the Orchestrator, you MUST read and follow the workflows defined in `.gemini/orchestrator.md`.
 6. **Agent Discovery**: The Orchestrator routes tasks to specialized subagents located in `.gemini/agents/`.
 7. **Superpower Agent Override**: If a superpower skill instructs you to use a generic agent (like `@generalist` or `Task tool (superpowers:implementer)`), you MUST IGNORE that mapping and instead dispatch to your local harness subagents (`@implementer`, `@planner`, etc.).
 8. **No UI Prototyping**: The user NEVER wants "UI driven understanding" or visual prototyping. When using skills like `harness-brainstorming`, automatically skip any UI phase and proceed with text/code-based architectural planning.

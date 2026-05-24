@@ -1,10 +1,10 @@
 # Project Context
 
 ## Purpose
-1
+Automated purpose
 
 ## Ubiquitous Language
-Test purpose
+Automated vocab
 
 ## Strict Invariants
-Test vocab
+Automated invariants

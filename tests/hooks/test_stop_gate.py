@@ -18,6 +18,7 @@ def harness_env():
         tmp_path = Path(tmp_dir)
         (tmp_path / "docs" / "domain").mkdir(parents=True, exist_ok=True)
         (tmp_path / "docs" / "domain" / "CONTEXT.md").write_text("# DDD Context")
+        (tmp_path / "README.md").write_text("# Test Project")
 
         plugin_dir = generate_orchestrator_plugin(str(tmp_path), "TestProject")
 
@@ -48,23 +49,48 @@ def test_no_verification_script_passes(harness_env):
     assert result.returncode == 0
 
 
-def test_failed_verification_script_blocks(harness_env):
+def write_contract(path, checks):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"schema_version": 1, "checks": checks}))
+
+
+def test_failed_plugin_verification_contract_blocks(harness_env):
     project_root, plugin_dir = harness_env
-    scripts_dir = project_root / "scripts"
-    scripts_dir.mkdir()
-    (scripts_dir / "verify_contract.py").write_text("import sys\nprint('nope')\nsys.exit(1)\n")
+    write_contract(
+        plugin_dir / "contracts" / "default_verification_contract.json",
+        [{"type": "file_exists", "path": "missing_file.txt"}],
+    )
 
     result = run_stop_verifier(plugin_dir, project_root)
 
     assert result.returncode == 2
     assert "verification failed" in result.stderr.lower()
+    assert "missing_file.txt" in result.stderr
 
 
-def test_successful_verification_script_passes(harness_env):
+def test_successful_plugin_verification_contract_passes(harness_env):
     project_root, plugin_dir = harness_env
-    scripts_dir = project_root / "scripts"
-    scripts_dir.mkdir()
-    (scripts_dir / "verify_contract.py").write_text("print('ok')\n")
+    (project_root / "present.txt").write_text("ok")
+    write_contract(
+        plugin_dir / "contracts" / "default_verification_contract.json",
+        [{"type": "file_exists", "path": "present.txt"}],
+    )
+
+    result = run_stop_verifier(plugin_dir, project_root)
+
+    assert result.returncode == 0
+
+
+def test_workspace_contract_overrides_plugin_contract(harness_env):
+    project_root, plugin_dir = harness_env
+    write_contract(
+        plugin_dir / "contracts" / "default_verification_contract.json",
+        [{"type": "file_exists", "path": "plugin_missing.txt"}],
+    )
+    write_contract(
+        project_root / "contracts" / "default_verification_contract.json",
+        [],
+    )
 
     result = run_stop_verifier(plugin_dir, project_root)
 

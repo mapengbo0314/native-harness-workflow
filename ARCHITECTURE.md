@@ -16,15 +16,15 @@ Before the harness is minted, the `discovery_engine` must understand your domain
 The `minting_engine` takes the output of Discovery and creates a platform-specific environment ready for use.
 
 - **Workspace Minting**: The engine creates a hidden directory (e.g., `.gemini/`, `.claude/`) containing the Orchestrator, specialized agents, workflow rules, and a local copy of core skills.
-- **Permanent Skill Onboarding**: The engine generates a `setup_harness.sh` script. When executed, this script installs the core `superpowers` and `skills` extensions permanently into your chosen AI environment.
-- **MCP Registration**: The `setup_harness.sh` script automatically registers the `CodeGraph` MCP server with your AI platform (Gemini, Claude, or Cursor). This transitions the harness from the "read-only wiki" discovery state to a "live, tool-enabled" runtime state.
+- **Permanent Skill Onboarding**: The engine embeds automated setup workflows that install the core `superpowers` and `skills` extensions permanently into your chosen AI environment.
+- **MCP Registration**: The embedded setup process automatically registers the `CodeGraph` MCP server with your AI platform (Gemini, Claude, or Cursor). This transitions the harness from the "read-only wiki" discovery state to a "live, tool-enabled" runtime state.
 
 ## 3. Lifecycle Phase 3: Final User State
 
 After the `minting_engine` runs, you have a fully customized, context-aware environment.
 
 - **The Entryway**: A platform-specific pointer file (e.g., `GEMINI.md`, `CLAUDE.md`, `.cursorrules`) is dropped into your root directory to act as the harness entry point.
-- **Activation**: To start, simply run the generated `setup_harness.sh`, reload your AI platform (e.g., `/mcp reload` in Gemini), and the Orchestrator will automatically assume control.
+- **Activation**: To start, simply reload your AI platform (e.g., `/mcp reload` in Gemini), and the Orchestrator will automatically assume control.
 - **Dynamic Dispatch**: The harness includes dynamic routing rules that automatically send tasks to your specialized domain agents based on the context of your request.
 
 ## 4. Runtime Workflow
@@ -41,11 +41,11 @@ Once activated, the daily execution flow is strictly enforced:
 
 ## File Structure Comparison
 
-| Platform | Root Pointer | Harness Directory | Setup Script |
-| :--- | :--- | :--- | :--- |
-| **Gemini CLI** | `GEMINI.md` | `.gemini/` | `.gemini/scripts/setup_harness.sh` |
-| **Claude Code** | `CLAUDE.md` | `.claude/` | `.claude/scripts/setup_harness.sh` |
-| **Cursor** | `.cursorrules` | `.cursor/` | `.cursor/scripts/setup_harness.sh` |
+| Platform | Root Pointer | Harness Directory |
+| :--- | :--- | :--- |
+| **Gemini CLI** | `GEMINI.md` | `.gemini/` |
+| **Claude Code** | `CLAUDE.md` | `.claude/` |
+| **Cursor** | `.cursorrules` | `.cursor/` |
 
 ### Common Harness Sub-structure
 ```text
@@ -60,11 +60,9 @@ Once activated, the daily execution flow is strictly enforced:
 │   ├── implementer.md
 │   └── verifier.md
 ├── rules/ (State Machine)
-│   ├── dispatch_rules.md
 │   └── unified_superpower_workflow.md
 ├── skills/ (Local Superpowers)
 ├── ddd/ (Domain Context)
 │   ├── context.md
 │   └── translation_map.json
-└── scripts/ (setup_harness.sh)
 ```

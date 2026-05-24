@@ -1,0 +1,9 @@
+{
+  "setup_complete": true,
+  "python_version": "3.11.3",
+  "platform": "claude",
+  "codegraph_ready": true,
+  "plugin_ready": true,
+  "strict_enforcement_enabled": true,
+  "repo_mcp_config": ".mcp.json"
+}

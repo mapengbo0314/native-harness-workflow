@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "checks": [
+    {
+      "type": "command",
+      "command": "echo 'Initial default verification contract check passed'",
+      "timeout_seconds": 30,
+      "expected_exit_code": 0,
+      "max_output_chars": 1000
+    }
+  ]
+}

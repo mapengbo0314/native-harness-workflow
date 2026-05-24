@@ -1,132 +1,157 @@
 # Harness Generator Overhaul: Implementation Plan
 
-> **Goal**: Upgrade the `src/harness` Python framework to be a world-class Minting Engine that generates Level 4+ Agentic Harnesses.
-> **Audit Reference**: `harness_audit.md` — 20 gaps identified.
+> **Goal**: Upgrade the `src/harness` Python framework into a Minting Engine that generates Claude-first agentic harnesses with structural safety: hooks, unified state, deterministic verification, and measurable execution.
+> **Audit Reference**: `harness_audit.md` - 20 gaps identified.
 
 > [!IMPORTANT]
-> **Architecture Strategy**: The `src/harness` CLI is purely a **Minting Engine**. We are redesigning it to mint structural safety (hooks, databases, state scripts) rather than just copying markdown prose. This aligns strictly with `hjasanchez/agentic-engineering` (shifting from probabilistic LLM behavior to hard-coded state machines).
+> **Architecture Strategy**: The `src/harness` CLI is a Minting Engine. It should mint executable safety rails and stateful workflow infrastructure rather than relying only on markdown instructions.
 
 ---
 
-## Phase 0: Triage — Stop the Template Bleeding
-**Timeline**: Day 1
-**Focus**: Fixing structural rot in `src/harness/templates/boilerplate/`.
+## Phase 0: Baseline and Stop-the-Bleeding Cleanup
+**Status**: Complete
+**Goal**: Make the current templates and tests trustworthy before adding new behavior.
 
-### Task 0.1: Clean up Agent Templates
-- Remove phantom references to `@architect`, `pocock-tdd`, and `@../rules/indexer_mandate.md`.
-- Ensure `orchestrator.md` only references existing agents.
-- **Note**: Preserving 10+ agent specialization per user request.
+### Tasks
+- Clean malformed boilerplate templates in `src/harness/templates/boilerplate/`.
+- Remove phantom references to nonexistent agents, rules, and tools.
+- Preserve the existing 10+ agent specialization direction while making every referenced agent resolvable.
+- Ensure every `SKILL.md` has valid frontmatter and a clear activation boundary.
+- Add snapshot/integrity coverage for generated markdown references.
 
-### Task 0.2: Clean up Skill Templates
-- Remove orphaned or domain-specific skills (`fastapi`, `nextjs`, `agentic-eval`, `prompt-engineer`) to keep the boilerplate lean.
-
----
-
-## Phase 1: Re-Architecture of the Minting Engine
-**Timeline**: Week 1
-
-### Task 1.1: Platform-Targeted Generation & Selective Skill Minting
-Update `minting_engine.py` to recognize the target platform and domain:
-- **Platform-Targeted**: 
-  - If target is Gemini: Mint `.gemini/` containing the markdown rules and scripts.
-  - If target is Claude Code: Mint `.claude/` containing the markdown rules, AND the execution hooks.
-- **Selective Skill Minting**: 
-  - Generate a lightweight `skills_index.json` during minting.
-  - Only package `SKILL.md` files relevant to the detected stack/domain.
-  - Create `bin/activate_skill.py` (a script/tool) into the target workspace to allow lazy-loading of full skill content.
-
-### Task 1.2: Native Initialization & Unified State
-- Integrate boilerplate generation into `python -m harness --init`.
-- **Unified State**: Generate a single **`campaign_state.json`** tracker into the target workspace's explicit harness directory (e.g., `.claude/campaign_state.json` or `.gemini/campaign_state.json`, consolidating tasks, handoffs, and general state). Every script/hook MUST use a single, unified path resolver.
-- **Mandate**: All state writes MUST use atomic "write-to-tmp-then-replace" logic to prevent corruption during forced exits or cutoffs.
+### Acceptance
+- `pytest tests/integration/test_platform_snapshots.py` passes.
+- `pytest tests/integration/test_template_integrity.py` passes.
 
 ---
 
-## Phase 2: Hardening the V4 Hook Design (Claude Code Only)
-**Timeline**: Week 2
-**Focus**: Solving Cutoff, Handoff, and Hook Insufficiency via Native Scripts.
+## Phase 1: Make Claude Plugin Generation the Reference Path
+**Status**: Complete
+**Goal**: Harden `generate_orchestrator_plugin` into the canonical Claude output path.
 
-### Task 2.1: Deterministic Matrix Routing & Prompt Assembly
-- **Hook 1**: `intent_classifier.py` (`UserPromptSubmit`)
-  - **Action**: Classifies the user prompt into Branch A/B/C/D and writes the classification to `campaign_state.json`.
-  - **Token Optimization**: Remove "Chain of Thought" from the LLM classifier prompt.
-- **Dispatcher Logic**: Modify `src/harness/dispatcher.py` to assemble branch-specific minimal prompts.
-  - **Branch-Locked Context**: Physically assemble the prompt by excluding irrelevant rules/skills based on the active task in `campaign_state.json`.
-- **Shared Mandate Resolver**: Modify `minting_engine.py` to use Context Pointers instead of recursive prompt expansion to deduplicate shared rules.
+### Tasks
+- Make Claude plugin generation opt-in but first-class in `python -m harness --init`.
+- Generate a current Claude Code plugin manifest.
+- Generate component directories at the plugin root.
+- Generate `hooks/hooks.json` as the single hook registration file.
+- Generate plugin-local `README.md`.
+- Update snapshot and contract coverage for the Claude plugin layout.
 
-### Task 2.2: JSON-First Parsing & Branch D Firewall
-- **Hook**: `pre-write-guard.py` (`PreToolUse`)
-  - **Action**: The hook MUST parse stdin as strict JSON to extract tool arguments.
-  - **Branch D Enforcement**: If `campaign_state.json` indicates Branch D (Fast Path), it strictly intercepts and blocks any attempt to use the `Task("@planner")` or `Task("@verifier")` tools, returning **`exit 2`**.
-  - **Anti-Sabotage**: Strictly block ANY `replace_file_content` targeting `campaign_state.json`, `.claude/settings.json`, or `.env`. Return **`exit 2`**.
-  - **Shell Proxy Firewall**: Intercept `Bash` tool calls. If it detects modifications to harness internals (e.g., `echo "{}" > .claude/settings.json`), return **`exit 2`** instantly.
+### Acceptance
+- Generated plugin layout matches the expected Claude plugin contract.
+- `tests/integration/test_claude_plugin_contract.py` covers manifest, hooks, marketplace metadata, and strict validation when `claude` is installed.
 
-### Task 2.3: Deterministic Handoff & Cutoff Management
-- **Hook**: `context_monitor.py` (`PreToolUse`)
-- **Action**: Monitor `remainingTokens`. When tokens hit 85% capacity:
-  1.  **Serialize State**: Write an atomic update to `campaign_state.json` containing `last_branch`, `current_task`, and `completed_steps`.
-  2.  **Generate Artifact (ykdojo style)**: Generate `HANDOFF.md` with strict sections: `Goal`, `Current Progress`, `What Worked`, `What Didn't Work` (Failed attempts), and `Next Steps`.
-  3.  **Hard Block**: Return **`exit 2`** with a feedback message: `CONTEXT LIMIT REACHED. Run /clear then 'python3 harness_resume.py' to continue.`
-- **Handoff Logic**: `bin/harness_resume.py` is minted by the engine. It reads the manifest and primes the next session's context via the `UserPromptSubmit` hook.
+---
 
-### Task 2.4: The Loop Circuit Breaker
-- **Hook**: `circuit_breaker.py` (`PostToolUseFailure`)
-- **Action**: Tracks consecutive failed tool exits. If failures >= 3, return **`exit 2`** to force a strategic pivot.
+## Phase 2: Unified State Contract and Claude Hook MVP
+**Status**: Complete
+**Goal**: Make every hook and script read/write one state file through shared implementation, then ship a small real hook system.
 
-### Task 2.5: Shadow Task Tracker (Token Efficiency)
-- **Goal**: Minimize prose and maximize token efficiency by moving task state out-of-band.
-- **Mechanism**: Mint `bin/task_tracker.py`.
-- **Sync Logic**: `task_tracker.py --sync-current-progress` automatically uses `git diff --stat` and `git status --porcelain` to update progress in `campaign_state.json` (avoiding raw diff token bombs). 
-- **Zero-Prose Mandate**: Update agent templates to replace verbose summaries with a single call to `task_tracker.py`. The next agent reads the JSON state (cheap) instead of the previous agent's chat history (expensive).
+### Tasks
+- Add `hook_common.py` with shared state-path resolution, JSON reads, and atomic writes.
+- Generate `contracts/campaign_state.schema.json`.
+- Generate initial `state/campaign_state.json`.
+- Generate Claude hook scripts:
+  - `prompt_classifier.py` (`UserPromptSubmit`)
+  - `pre_tool_guard.py` (`PreToolUse`)
+  - `config_change_guard.py` (`ConfigChange`)
+  - `stop_verifier.py` (`Stop`)
+  - `precompact_handoff.py` (`PreCompact`)
+  - `post_tool_observer.py` (`PostToolUse` / `PostToolUseFailure`)
+- Register hooks through plugin-root `hooks/hooks.json`.
+- Remove legacy `src/hooks/` generation and use only root-level plugin hooks.
+- Execute hook commands via `${CLAUDE_PLUGIN_ROOT}`.
+- Harden protected-path checks against traversal, doubled slashes, absolute paths, and safe-name false positives.
+- Add marketplace/install readiness coverage.
+- Enforce strict `exit 2` blocking protocol and global try/except fail-safes across all hook scripts to ensure the LLM cannot bypass blocks.
+- Implement Circuit Breaker logic (`consecutive_tool_failures`) in state and observer hooks to prevent infinite retry loops (doom loops).
+
+### Acceptance
+- Unit tests prove `atomic_write_json` handles concurrent writes without corruption.
+- Hook tests execute the exact commands registered in `hooks/hooks.json` with Claude-style payloads.
+- Generated plugin contains no `.claude/plugin-generated/src/hooks/` directory.
+- `claude plugin validate <generated-plugin> --strict` passes with zero warnings when the CLI is available.
+
+### Manual Gate
+- Manual Claude Code smoke test required with both `claude --plugin-dir` and documented marketplace/install flow before Phase 4 begins.
 
 ---
 
 ## Phase 3: The Contract-Based Verification Engine
-**Timeline**: Week 3
+**Status**: Complete
+**Goal**: Verify outcomes with deterministic contracts outside the main model's judgment.
 
-### Task 3.1: Mint Deterministic Verification Spec
-- Generate a `verify_contract.py` script into the target workspace's `scripts/`.
-- This script reads a `verification_contract.json` (the Deterministic Verification Spec) which defines pass/fail assertions.
+### Tasks
+- Generate `contracts/verification_contract.schema.json`.
+- Generate `contracts/default_verification_contract.json`.
+- Generate `scripts/verify_contract.py`.
+- Support file assertions such as `exists`, `does_not_exist`, `contains`, and regex matching.
+- Support command assertions.
+- Integrate deterministic verification through `stop_verifier.py`.
 
-### Task 3.2: Capped Evaluator Hook
-- **Hook**: `contract_evaluator.py` (Bound to `Stop` or `PostToolUse` for file writes).
-- **Action**: To solve Evaluator Conflict of Interest, this Python hook intercepts the workflow and runs deterministic checks.
-- **Mechanism**: 
-  1. It executes `verify_contract.py`.
-  2. It performs **File Assertions** (exists, content match, regex check).
-  3. It performs **Linter/Build Checks** (invoking project-native tools).
-  4. **Capped Output**: Captures max 100 lines / 10KB of output. If output exceeds caps, provides summarized stderr/stdout to prevent context erasure.
-  5. If ANY check fails, it returns **`exit 2`** and blocks the session exit, piping the summarized failure report back to the main agent. 
-
----
-
-## Phase 4: Observability & Langfuse Integration
-**Timeline**: Month 2+
-
-### Task 4.1: Asynchronous Langfuse Telemetry
-- **Action**: Mint a `langfuse_wrapper.py` injected into all `PostToolUse` events. 
-- Captures latency, cost, and routing accuracy asynchronously.
-- **Mandate**: Before any hook forcefully exits the session (e.g., `sys.exit(2)`), it must explicitly call `langfuse.flush()` to ensure synchronous telemetry delivery and prevent data loss.
-
-### Task 4.2: Cascading Context Generation
-- Modify the minting engine to structure context hierarchically (Repository -> Standards -> Domain -> Campaign -> Task).
+### Acceptance
+- Verification script exits nonzero on failed checks.
+- Verification output is capped to protect context.
+- Unit coverage proves success, failure, output caps, and Stop hook integration behavior.
 
 ---
 
-## Phase 5: Acceptance Metrics
-**Benchmark**:
-- **Branch D Speed**: Surgical edits must not trigger planner/verifier subagents.
-- **Token Efficiency**: Standard feature paths must show >30% reduction in prompt word count.
-- **Verification Safety**: Failed verification feedback must stay under 2,000 characters.
-- **Robustness**: 0% state corruption incidents across 100 simulated forced-exits.archically (Repository -> Standards -> Domain -> Campaign -> Task).
+## Phase 4: Observability and Langfuse Integration
+**Status**: Pending
+**Goal**: Create eval scaffolding before large rewrites so the revamp can be measured.
+
+### Tasks
+- Add `langfuse` and `python-dotenv` to project dependencies (`pyproject.toml` and/or `requirements.txt`).
+- Install the Langfuse AI skill from github.com/langfuse/skills.
+- Use the Langfuse skill to add tracing to the application following best practices.
+- Ensure environment variables (e.g., from `.env`) are explicitly propagated to subprocesses to allow portable telemetry collection across all minted harnesses.
+- Add `scripts/seed_langfuse_datasets.py`.
+- Add `scripts/run_langfuse_evals.py`.
+- Add local JSONL eval fixtures under `evals/`.
+- Support local JSON summary fallback when Langfuse credentials are not set.
+
+### Acceptance
+- Evals run locally without credentials and publish to Langfuse when credentials are set.
 
 ---
 
-## Phase 5: Acceptance Metrics
-**Benchmark**:
-- **Branch D Speed**: Surgical edits must not trigger planner/verifier subagents.
-- **Token Efficiency**: Standard feature paths must show >30% reduction in prompt word count.
-- **Verification Safety**: Failed verification feedback must stay under 2,000 characters.
-- **Robustness**: 0% state corruption incidents across 100 simulated forced-exits.ailed verification feedback must stay under 2,000 characters.
-- **Robustness**: 0% state corruption incidents across 100 simulated forced-exits. 2,000 characters.
-- **Robustness**: 0% state corruption incidents across 100 simulated forced-exits.ed-exits.
+## Phase 5: Prompt Assembly and Context Economy
+**Status**: Pending
+**Goal**: Reduce prompt bloat through branch-specific context and pointers.
+
+### Tasks
+- Update `src/harness/dispatcher.py` to assemble branch-specific prompts.
+- Replace recursive markdown expansion with context pointers where safe.
+- Generate `skills_index.json` for selected skills.
+- Generate `scripts/activate_skill.py`.
+
+### Acceptance
+- Prompt word count drops by at least 30% for standard feature workflows.
+
+---
+
+## Phase 6: Task Tracker and Handoff Scripts
+**Status**: Pending
+**Goal**: Move task progress out of prose and into deterministic state.
+
+### Tasks
+- Generate `scripts/task_tracker.py` with flags such as `--set-goal` and `--complete-step`.
+- Generate `scripts/harness_resume.py`.
+
+### Acceptance
+- Tracker updates state atomically.
+- Resume script emits deterministic, capped summaries.
+
+---
+
+## Phase 7: Compatibility Adapters
+**Status**: Pending
+**Goal**: Support Gemini, Codex, and Cursor without compromising the Claude plugin path.
+
+### Tasks
+- Define a `PlatformAdapter` interface.
+- Keep the Claude adapter plugin-first.
+- Add Gemini/Codex/Cursor adapters for supported subsets.
+
+### Acceptance
+- Non-Claude adapters explicitly declare unsupported features without weakening Claude acceptance criteria.

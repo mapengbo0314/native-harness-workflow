@@ -1,1 +1,1 @@
-import { test } from '@playwright/test'; test('login', () => {});
+import { test } from '@cypress/test'; test('login', () => {});

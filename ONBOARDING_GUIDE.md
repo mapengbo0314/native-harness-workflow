@@ -77,27 +77,10 @@ harness-wf init --project-path . --llm gemini --bundle .codegraph
 
 ---
 
-## Step 3: Platform Setup
-Once the minting is finished, run the setup script for the specific tool you selected.
+## Step 3: Success!
 
-### If using Gemini CLI:
-```bash
-sh .gemini/scripts/setup_harness.sh
-```
-
-### If using Claude Code:
-```bash
-sh .claude/scripts/setup_harness.sh
-```
-
-### If using Cursor:
-```bash
-sh .cursor/scripts/setup_harness.sh
-```
-
----
-
-## Success!
+The minting process automatically sets up your MCP servers and local configurations.
+You can now start your AI and begin working!
 Your repository is now fully grounded. When you launch your AI (e.g., `gemini`), it will read the root pointer, follow it to the hidden platform folder (e.g., `.gemini/orchestrator.md`), and assume the **Orchestrator** role. 
 
 From there, it will follow the mandated Superpower workflows (Brainstorming -> Planning -> TDD -> Implementation -> Verification) and delegate tasks to the specialized agents it discovered for your project.

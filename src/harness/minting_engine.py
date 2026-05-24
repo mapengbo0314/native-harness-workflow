@@ -12,15 +12,8 @@ from harness.renderer import TemplateRenderer
 from harness.discovery_engine import detect_tech_stack
 
 def should_generate_orchestrator_plugin(domain_content: str, platform_choice: str) -> bool:
-    """Detect if orchestrator-plugin is selected and platform is Claude Code."""
-    if platform_choice != "2":  # Only for Claude Code
-        return False
-
-    if not domain_content:
-        return False
-
-    # Check if orchestrator-plugin is selected (marked with [x])
-    return bool(re.search(r'- \[[xX]\]\s+orchestrator-plugin', domain_content))
+    """Generate the local orchestrator plugin for Claude Code workspaces."""
+    return platform_choice == "2"
 
 
 def parse_tool_checklists(domain_content: str) -> tuple[list[dict], list[dict]]:
@@ -223,8 +216,8 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
                             # If rendering fails (e.g. because of random <!--$ in some file), just log and move on
                             pass
                             
-                        # Apply specialized agents injection specifically for dispatch_rules.md
-                        if file == "dispatch_rules.md" and selected_agents:
+                        # Apply specialized agents injection to the active orchestrator surface.
+                        if file == "orchestrator.md" and selected_agents:
                             agent_names = [agent['name'] for agent in selected_agents]
                             agents_str = ", ".join([f"`@{name}`" for name in agent_names])
                             injection = f"\n- **Domain Specific Routing**: If the task involves domain-specific areas similar to the domains defined by the newly minted specialized agents ({agents_str}), you MUST route to those agents. Refer to their markdown files in the agents directory for their specific mandates.\n"
@@ -289,10 +282,6 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
         print("Error: Boilerplate directory not found.")
         return
 
-    # Generate specialized setup_harness.sh (Prerequisites)
-    # Generate Segregated Setup Scripts
-    project_root = Path(project_path)
-    
     # Normalize platform choice
     platform_map = {
         "1": "gemini",
@@ -311,285 +300,6 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
             with open(domain_doc_path, "r") as f:
                 domain_content_str = f.read()
     selected_skills, selected_mcps = parse_tool_checklists(domain_content_str)
-
-    import shlex
-    # Use relative path navigation in scripts instead of absolute paths
-    # Scripts are located in .gemini/scripts/, .claude/scripts/, etc.
-    # so we move up two levels to get to project root.
-    project_nav_cmd = 'cd "$(dirname "${BASH_SOURCE[0]}")/../.."'
-    
-    # Tool installation snippets
-    skill_installs = ""
-    mcp_installs = ""
-    
-    if active_platform == "gemini":
-        for s in selected_skills:
-            if s.get('type') == 'extension':
-                skill_installs += f"    gemini extensions install {s['url']} || true\n"
-        for m in selected_mcps:
-            cmd = m["command"]
-            if " " in cmd:
-                cmd = f'bash -c {shlex.quote(cmd)}'
-            mcp_installs += f'    gemini mcp add {m["name"]} {cmd} || true\n'
-    elif active_platform == "claude":
-        for s in selected_skills:
-            if s.get('type') == 'extension':
-                 skill_installs += f'echo "  /plugin install {s["name"]}@{s["url"]} --project"\n'
-        # We handle MCP installs below by generating .mcp.json directly
-    elif active_platform == "cursor":
-        for s in selected_skills:
-            skill_installs += f'echo "  /add-plugin {s["name"]} ({s["url"]})"\n'
-
-    import json
-    mcp_config_dict = {
-        "mcpServers": {
-            "codegraph": {
-                "command": "npx",
-                "args": ["-y", "@colbymchenry/codegraph", "serve", "--mcp"]
-            }
-        }
-    }
-    if active_platform == "claude":
-        for m in selected_mcps:
-            parts = m["command"].split(" ")
-            mcp_config_dict["mcpServers"][m["name"]] = {
-                "command": parts[0],
-                "args": parts[1:]
-            }
-    
-    mcp_json_str = json.dumps(mcp_config_dict, indent=2)
-
-    scripts_to_generate = {
-        "gemini": f"""#!/usr/bin/env bash
-set -e
-{project_nav_cmd}
-if command -v gemini &> /dev/null; then
-{skill_installs}
-    
-    echo "Ensuring CodeGraph is built..."
-    CODEGRAPH_DEBUG=1 npx -y @colbymchenry/codegraph init --index || true
-
-    echo "Adding codegraph to Gemini CLI project MCP configuration..."
-    gemini mcp add codegraph npx -y @colbymchenry/codegraph serve --mcp || true
-{mcp_installs}
-else
-    echo "Warning: gemini command not found."
-fi
-
-echo "To activate it, run Gemini from the project root and use '/mcp reload'."
-""",
-        "claude": f"""#!/usr/bin/env bash
-set -e
-{project_nav_cmd}
-echo "=== Setting up Superpowers for Claude Code ==="
-PLUGIN_READY=0
-CODEGRAPH_READY=0
-
-if ! command -v python3 >/dev/null 2>&1; then
-    echo "[ACTION REQUIRED] python3 is required but was not found."
-    exit 1
-fi
-
-python3 - <<'PY'
-import sys
-if sys.version_info < (3, 8):
-    raise SystemExit("[ACTION REQUIRED] Python 3.8+ is required.")
-print(f"Python runtime OK: {{sys.version.split()[0]}}")
-PY
-
-echo "Registering codegraph with Claude Code..."
-if command -v claude >/dev/null 2>&1; then
-    claude mcp add --scope project codegraph "npx @colbymchenry/codegraph serve --mcp" || echo "Warning: Failed to add codegraph to Claude MCP"
-else
-    echo "Warning: 'claude' CLI not found. Run 'claude mcp add --scope project codegraph \"npx @colbymchenry/codegraph serve --mcp\"' manually."
-fi
-
-echo "Installing plugin dependencies..."
-if [ -f ".claude/plugin-generated/pyproject.toml" ]; then
-    pip install -e ".claude/plugin-generated" --quiet || echo "Warning: Failed to install plugin dependencies. Ensure you have pip installed and are in a virtual environment."
-fi
-
-echo "Running generated plugin smoke test..."
-python3 - <<'PY'
-import importlib
-import json
-import sys
-import subprocess
-import shlex
-import os
-import shutil
-from pathlib import Path
-
-plugin = Path(".claude/plugin-generated")
-required = [
-    plugin / ".claude-plugin" / "plugin.json",
-    plugin / "hooks" / "hooks.json",
-    plugin / "hooks" / "prompt_classifier.py",
-    plugin / "hooks" / "pre_tool_guard.py",
-    plugin / "hooks" / "post_tool_observer.py",
-    plugin / "hooks" / "precompact_handoff.py",
-    plugin / "hooks" / "stop_verifier.py",
-    plugin / "hooks" / "config_change_guard.py",
-    plugin / "src" / "dispatcher.py",
-    plugin / "config" / "ddd-context.json",
-    plugin / "agents",
-    plugin / "skills",
-    plugin / "scripts" / "gatekeeper.py",
-]
-missing = [str(path) for path in required if not path.exists()]
-if missing:
-    print("[ACTION REQUIRED] Generated plugin payload is incomplete:")
-    for path in missing:
-        print(f"  - {{path}}")
-    raise SystemExit(1)
-
-legacy_hooks = plugin / "src" / "hooks"
-if legacy_hooks.exists():
-    print("[ACTION REQUIRED] Legacy src/hooks payload must not be generated.")
-    raise SystemExit(1)
-
-sys.path.insert(0, str(plugin))
-importlib.import_module("src.dispatcher")
-json.loads((plugin / "config" / "ddd-context.json").read_text())
-print("Plugin payload structure OK.")
-
-hooks_config = json.loads((plugin / "hooks" / "hooks.json").read_text())
-for groups in hooks_config.get("hooks", {{}}).values():
-    for group in groups:
-        for hook in group.get("hooks", []):
-            command = hook.get("command", "")
-            resolved = command.replace("${{CLAUDE_PLUGIN_ROOT}}", str(plugin))
-            parts = shlex.split(resolved)
-            script = Path(parts[1]) if len(parts) > 1 else None
-            if not script or not script.exists():
-                print(f"[ACTION REQUIRED] Hook command points at missing script: {{command}}")
-                raise SystemExit(1)
-print("Hook command paths OK.")
-
-if command := shutil.which("claude"):
-    result = subprocess.run([command, "plugin", "validate", str(plugin), "--strict"], capture_output=True, text=True)
-    print(result.stdout)
-    if result.returncode != 0:
-        print(result.stderr)
-        print("[ACTION REQUIRED] Claude plugin strict validation failed.")
-        raise SystemExit(1)
-    print("Claude plugin strict validation OK.")
-
-    marketplace = Path(".claude")
-    result = subprocess.run([command, "plugin", "validate", str(marketplace), "--strict"], capture_output=True, text=True)
-    print(result.stdout)
-    if result.returncode != 0:
-        print(result.stderr)
-        print("[ACTION REQUIRED] Claude marketplace strict validation failed.")
-        raise SystemExit(1)
-    print("Claude marketplace strict validation OK.")
-PY
-
-echo "To install Skills for Claude Code workspace-wide, run these commands inside the Claude Code interface:"
-{skill_installs}
-
-# Orchestrator Plugin Validation
-if [ -d ".claude/plugin-generated" ]; then
-    echo "Orchestrator plugin generated at .claude/plugin-generated"
-    echo "To validate the plugin locally, run:"
-    echo "  claude --plugin-dir ./.claude/plugin-generated"
-    echo "To install via the generated local marketplace inside Claude Code, run:"
-    echo "  /plugin marketplace add ./.claude"
-    echo "  /plugin install orchestrator-plugin@local-orchestrator-marketplace --scope project"
-    PLUGIN_READY=1
-fi
-
-# MCP Configuration for Claude via .mcp.json
-echo "Ensuring CodeGraph is built..."
-CODEGRAPH_DEBUG=1 npx -y @colbymchenry/codegraph init --index || true
-
-echo "Generating repo-level .mcp.json..."
-cat << 'MCPJSON' > .mcp.json
-{mcp_json_str}
-MCPJSON
-CODEGRAPH_READY=1
-echo "✅ MCP servers configured in .mcp.json"
-
-
-python3 - <<PY
-import json
-import os
-import sys
-import time
-from pathlib import Path
-
-config = Path(".claude/plugin-generated/config")
-config.mkdir(parents=True, exist_ok=True)
-state_file = config / ".harness_state.json"
-tmp_file = config / ".harness_state.tmp.json"
-lock_dir = config / ".harness_state.json.lock"
-
-start = time.time()
-while True:
-    try:
-        lock_dir.mkdir()
-        break
-    except FileExistsError:
-        if time.time() - start > 5:
-            raise SystemExit("[ACTION REQUIRED] Could not acquire harness state lock.")
-        time.sleep(0.05)
-
-try:
-    state = {{}}
-    if state_file.exists():
-        try:
-            state = json.loads(state_file.read_text())
-        except json.JSONDecodeError:
-            state = {{}}
-    state.update({{
-        "setup_complete": True,
-        "python_version": sys.version.split()[0],
-        "codegraph_ready": os.environ.get("CODEGRAPH_READY", "$CODEGRAPH_READY") == "1",
-        "plugin_install_manual_steps_printed": os.environ.get("PLUGIN_READY", "$PLUGIN_READY") != "1",
-        "strict_enforcement_enabled": os.environ.get("CODEGRAPH_READY", "$CODEGRAPH_READY") == "1",
-    }})
-    tmp_file.write_text(json.dumps(state, indent=2))
-    os.replace(tmp_file, state_file)
-finally:
-    try:
-        lock_dir.rmdir()
-    except OSError:
-        pass
-PY
-
-if [ "$CODEGRAPH_READY" = "1" ]; then
-    echo "Harness setup complete. Strict enforcement is ready after plugin activation."
-else
-    echo "[ACTION REQUIRED] Harness setup did not complete CodeGraph readiness; strict enforcement remains disabled."
-fi
-""",
-        "cursor": f"""#!/usr/bin/env bash
-set -e
-{project_nav_cmd}
-echo "=== Setting up Superpowers for Cursor ==="
-echo "To install Superpowers and Skills for Cursor, run these commands inside the Cursor Agent chat:"
-echo "  /add-plugin superpowers"
-echo "  /add-plugin mattpocock/skills"
-{skill_installs}
-""",
-        "codex": f"""#!/usr/bin/env bash
-set -e
-{project_nav_cmd}
-echo "=== Setting up Superpowers for Codex ==="
-echo "Please add codegraph MCP to your Codex configuration."
-"""
-    }
-
-    # Write setup script
-    if active_platform in scripts_to_generate:
-        script_content = scripts_to_generate[active_platform]
-        
-        script_dir = target_path / "scripts"
-        script_dir.mkdir(parents=True, exist_ok=True)
-        script_path = script_dir / "setup_harness.sh"
-        with open(script_path, "w") as f:
-            f.write(script_content)
-        os.chmod(script_path, 0o755)
     
     # Generate Platform Rules Pointers IN THE ROOT DIRECTORY
     harness_prefix = f".{active_platform}" if active_platform in ["gemini", "claude", "cursor", "codex"] else target_dir_name
@@ -622,7 +332,6 @@ jobs:
     
 Please read `{harness_prefix}/AGENTS.md` for core repository instructions and routing rules.
 The Orchestrator agent and core rules are located in `{harness_prefix}/orchestrator.md`.
-Run `sh {harness_prefix}/scripts/setup_harness.sh` after `harness-wf init` to complete local tool, MCP, and plugin readiness checks.
 """
 
     if active_platform in ["cursor", "codex"]:
@@ -660,7 +369,7 @@ Run `sh {harness_prefix}/scripts/setup_harness.sh` after `harness-wf init` to co
         with open(copilot_dir / "copilot-instructions.md", "w") as f:
             f.write(pointer_content)
         
-    print(f"\nHarness files staged in {root_staging_dir}. Next: run `sh .{active_platform}/scripts/setup_harness.sh` from the project root to complete local setup.")
+    print(f"\nHarness files staged in {root_staging_dir}. They will be merged into the project root automatically.")
 
     # Create an MCP config for CodeGraph
     mcp_config = {
@@ -778,8 +487,7 @@ tools:
 
     print(f"Successfully minted workspace at {target_dir}")
     print("\nNext Steps:")
-    print(f"1. ./{target_dir_name}/scripts/setup_harness.sh (Run from your project root, do NOT cd into {target_dir})")
-    print("2. Activate your environment and Launch AI")
+    print("1. Activate your environment and Launch AI")
 
 def _persist_verification_strategy(target_path: Path, project_path: str, query_llm_fn, llm_provider, api_key, tech_stack_data: dict = None):
     """Internal helper to identify and persist the verification strategy."""
@@ -800,6 +508,36 @@ def synthesize_domain_sme_agent(target_dir: str, domain_content: str, harness_fo
     if not domain_content:
         return None
 
+    def extract_heading_section(content: str, heading_names: list[str]):
+        lines = content.splitlines()
+        start = None
+        lowered_headings = [heading.lower() for heading in heading_names]
+
+        for idx, line in enumerate(lines):
+            stripped = line.strip()
+            if stripped.startswith("#") and any(heading in stripped.lower() for heading in lowered_headings):
+                start = idx + 1
+                break
+
+        if start is None:
+            return None
+
+        section_lines = []
+        for line in lines[start:]:
+            if line.strip().startswith("#"):
+                break
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if "[USER INPUT REQUIRED" in stripped:
+                continue
+            if stripped.startswith("*") and stripped.endswith("*") and "**" not in stripped:
+                continue
+            section_lines.append(line)
+
+        extracted = "\n".join(section_lines).strip()
+        return extracted or None
+
     logical_name = logical_harness_name if logical_harness_name else harness_folder_name
 
     # Extract proposed name, fallback to domain-sme
@@ -814,24 +552,17 @@ def synthesize_domain_sme_agent(target_dir: str, domain_content: str, harness_fo
     glossary = "None provided."
     
     try:
-        # Domain Invariants
-        inv_pattern = re.compile(r'Domain Invariants.*?\n(.*?)(?=Ubiquitous Language|## Proposed Skills|## Proposed MCP Tools|$)', re.DOTALL | re.IGNORECASE)
-        inv_match = inv_pattern.search(domain_content)
-        if inv_match:
-            raw_inv = inv_match.group(1).strip()
-            # Clean up potential instruction text in parentheses or bold colons
-            raw_inv = re.sub(r'\(.*?\)', '', raw_inv)
-            invariants = raw_inv.replace("**:**", "").replace(":", "").strip()
+        raw_inv = extract_heading_section(
+            domain_content,
+            ["Aggregates & Invariants", "Strict Invariants", "Domain Invariants"],
+        )
+        if raw_inv:
+            invariants = re.sub(r'\(.*?\)', '', raw_inv).replace("**:**", "").strip()
 
-        # Ubiquitous Language
-        glo_pattern = re.compile(r'Ubiquitous Language.*?\n(.*?)(?=## Proposed Skills|## Proposed MCP Tools|$)', re.DOTALL | re.IGNORECASE)
-        glo_match = glo_pattern.search(domain_content)
-        if glo_match:
-            raw_glo = glo_match.group(1).strip()
-            # Clean up potential instruction text in parentheses or bold colons
-            raw_glo = re.sub(r'\(.*?\)', '', raw_glo)
-            glossary = raw_glo.replace("**:**", "").replace(":", "").strip()
-            
+        raw_glo = extract_heading_section(domain_content, ["Ubiquitous Language"])
+        if raw_glo:
+            glossary = re.sub(r'\(.*?\)', '', raw_glo).replace("**:**", "").strip()
+
     except Exception as e:
         print(f"Warning: Failed to parse domain doc sections: {e}")
 
@@ -918,43 +649,52 @@ description: Subject Matter Expert and Guardian. Consult this agent before modif
             return None
 
 def patch_orchestrator_rules(target_dir: str, agent_name: str, harness_folder_name: str, target_syntax: str = "@"):
-    """Injects the new Domain SME into the Orchestrator's dispatch rules."""
+    """Injects the new Domain SME into the active orchestrator rules and agent.json config."""
     if not agent_name:
         return
 
-    rules_path = os.path.join(target_dir, harness_folder_name, "rules", "dispatch_rules.md")
-    if not os.path.exists(rules_path):
-         # If rules don't exist yet, try orchestrator.md directly
-         rules_path = os.path.join(target_dir, harness_folder_name, "orchestrator.md")
-         if not os.path.exists(rules_path):
-             print("Warning: Could not find rules to patch Domain SME.")
-             return
-    with open(rules_path, "r") as f:
-        content = f.read()
+    # 1. Patch orchestrator.md
+    rules_path = os.path.join(target_dir, harness_folder_name, "orchestrator.md")
+    if os.path.exists(rules_path):
+        with open(rules_path, "r") as f:
+            content = f.read()
+            
+        planner_ref = f"{target_syntax}planner"
+        sme_ref = f"{target_syntax}{agent_name}"
         
-    # Construct the patch
-    planner_ref = f"{target_syntax}planner"
-    sme_ref = f"{target_syntax}{agent_name}"
-    
-    sme_rule = f"""
+        sme_rule = f"""
 - **Domain SME Gateway**: If a task touches core logic or invariants, you MUST first dispatch the `{sme_ref}` to generate a "Domain Constraints Brief" before allowing the `{planner_ref}` to create the implementation plan.
 """
-    
-    # Try to insert after the Hierarchy section or at the top of Tool Delegation
-    if "</orchestration_hierarchy>" in content:
-        parts = content.split("</orchestration_hierarchy>")
-        new_content = parts[0] + "\n" + sme_rule + "\n</orchestration_hierarchy>" + parts[1]
-    elif "### DOMAIN DRIVEN DESIGN (DDD):" in content:
-        parts = content.split("### DOMAIN DRIVEN DESIGN (DDD):")
-        new_content = parts[0] + "### Domain SME Gateway\n" + sme_rule + "\n\n### DOMAIN DRIVEN DESIGN (DDD):" + parts[1]
+        if "</orchestration_hierarchy>" in content:
+            parts = content.split("</orchestration_hierarchy>")
+            new_content = parts[0] + "\n" + sme_rule + "\n</orchestration_hierarchy>" + parts[1]
+        elif "### DOMAIN DRIVEN DESIGN (DDD):" in content:
+            parts = content.split("### DOMAIN DRIVEN DESIGN (DDD):")
+            new_content = parts[0] + "### Domain SME Gateway\n" + sme_rule + "\n\n### DOMAIN DRIVEN DESIGN (DDD):" + parts[1]
+        else:
+            new_content = content + "\n\n### Domain SME Gateway\n" + sme_rule
+            
+        with open(rules_path, "w") as f:
+            f.write(new_content)
+        print(f"[HARNESS] Patched Orchestrator rules with {sme_ref}")
     else:
-        # Fallback append to bottom
-        new_content = content + "\n\n### Domain SME Gateway\n" + sme_rule
-        
-    with open(rules_path, "w") as f:
-        f.write(new_content)
-        
-    print(f"[HARNESS] Patched Orchestrator rules with {sme_ref}")
+        print("Warning: Could not find orchestrator.md to patch Domain SME.")
+
+    # 2. Patch agent.json
+    agent_json_path = os.path.join(target_dir, harness_folder_name, "agent.json")
+    if os.path.exists(agent_json_path):
+        try:
+            with open(agent_json_path, "r") as f:
+                agent_config = json.load(f)
+            
+            if "related_agents" in agent_config and agent_name not in agent_config["related_agents"]:
+                agent_config["related_agents"].append(agent_name)
+                
+            with open(agent_json_path, "w") as f:
+                json.dump(agent_config, f, indent=2)
+            print(f"[HARNESS] Added {agent_name} to agent.json related_agents")
+        except Exception as e:
+            print(f"Warning: Failed to patch agent.json with SME: {e}")
 
 def install_workspace_tools(target_dir: str, harness_folder_name: str, skills: list[dict], mcps: list[dict]):
     """Downloads remote skills and configures MCPs locally for the workspace."""

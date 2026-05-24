@@ -141,10 +141,13 @@ def test_config_change_guard():
 def test_stop_verifier():
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
-        scripts_dir = tmp_path / "scripts"
-        scripts_dir.mkdir(exist_ok=True)
-        mock_script = scripts_dir / "verify_contract.py"
-        mock_script.write_text("import sys\nprint('Verification failed')\nsys.exit(1)\n")
+        contracts_dir = tmp_path / "contracts"
+        contracts_dir.mkdir(exist_ok=True)
+        contract = contracts_dir / "default_verification_contract.json"
+        contract.write_text(json.dumps({
+            "schema_version": 1,
+            "checks": [{"type": "file_exists", "path": "missing.txt"}],
+        }))
         
         input_data = {}
         res = run_hook("stop_verifier.py", input_data, tmp_path)
@@ -152,7 +155,7 @@ def test_stop_verifier():
         assert "verification failed" in res["stderr"].lower()
         
         # Test success case
-        mock_script.write_text("import sys\nprint('Verification passed')\nsys.exit(0)\n")
+        contract.write_text(json.dumps({"schema_version": 1, "checks": []}))
         res = run_hook("stop_verifier.py", input_data, tmp_path)
         assert res["returncode"] == 0
 

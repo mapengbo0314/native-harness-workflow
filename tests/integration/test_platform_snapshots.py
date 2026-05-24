@@ -142,6 +142,9 @@ def test_gemini_layout(temp_project):
     assert (temp_project / ".gemini" / "rules").exists()
     assert (temp_project / ".gemini" / "skills").exists()
     assert (temp_project / ".gemini" / "agents" / "test-sme.md").exists()
+    assert not (temp_project / ".gemini" / "scripts").exists() or not list((temp_project / ".gemini" / "scripts").glob("*.sh"))
+    assert (temp_project / ".mcp.json").exists()
+    assert (temp_project / ".gemini" / "config" / ".harness_state.json").exists()
 
     check_snapshot(temp_project, "gemini", [
         "GEMINI.md",
@@ -158,6 +161,8 @@ def test_claude_layout(temp_project):
     assert (temp_project / ".claude" / "agents").exists()
     assert (temp_project / ".claude" / "rules").exists()
     assert (temp_project / ".claude" / "skills").exists()
+    assert (temp_project / ".mcp.json").exists()
+    assert (temp_project / ".claude" / "config" / ".harness_state.json").exists()
 
     check_snapshot(temp_project, "claude", ["CLAUDE.md"])
 
@@ -179,6 +184,11 @@ def test_claude_plugin_layout(temp_project):
     assert (plugin_path / "hooks" / "hooks.json").exists()
     assert (plugin_path / "agents").exists()
     assert (plugin_path / "skills").exists()
+    assert (plugin_path / "agents" / "test-sme.md").exists()
+    assert (temp_project / ".mcp.json").exists()
+    assert (plugin_path / "config" / ".harness_state.json").exists()
+    for config_file in (plugin_path / "config").glob("*.json"):
+        assert ".harness_tmp" not in config_file.read_text()
 
     check_snapshot(temp_project, "claude_plugin", [
         "CLAUDE.md",
@@ -196,6 +206,8 @@ def test_codex_layout(temp_project):
     with open(temp_project / ".codex" / "AGENTS.md", "r") as f:
         content = f.read()
         assert "## test-sme" in content
+    assert (temp_project / ".mcp.json").exists()
+    assert (temp_project / ".codex" / "config" / ".harness_state.json").exists()
 
     check_snapshot(temp_project, "codex", [
         "CODEX.md",

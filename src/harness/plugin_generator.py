@@ -352,11 +352,6 @@ def generate_orchestrator_plugin(
         print(f"[HARNESS] Generating plugin at {plugin_dir}")
         print(f"[HARNESS] Using boilerplate from {bp_dir}")
 
-        # Try boilerplate first, then fallback to harness
-        agents_src = bp_dir / "agents"
-        if not agents_src.exists():
-            agents_src = harness_dir / "agents"
-            
         # Copy canonical static plugin payload.
         copy_static_plugin_assets(plugin_dir, bp_dir, fallback_bp_dir)
         remove_obsolete_generated_files(plugin_dir)
@@ -375,16 +370,25 @@ def generate_orchestrator_plugin(
             if (harness_dir / "rules").exists():
                 export_rules_config(harness_dir / "rules", config_dir)
 
-        # Deep copy agents from the project/harness source and export config.
+        # Copy boilerplate agents first
+        agents_src = bp_dir / "agents"
         if agents_src.exists():
-            print(f"[HARNESS] Copying agents from {agents_src}...")
+            print(f"[HARNESS] Copying boilerplate agents from {agents_src}...")
             shutil.copytree(agents_src, plugin_dir / "agents", dirs_exist_ok=True, ignore=COPY_IGNORE)
             
+        # Copy dynamically generated agents from harness temp dir
+        harness_agents = harness_dir / "agents"
+        if harness_agents.exists():
+            print(f"[HARNESS] Copying dynamically generated agents from {harness_agents}...")
+            shutil.copytree(harness_agents, plugin_dir / "agents", dirs_exist_ok=True, ignore=COPY_IGNORE)
+
+        # Generate config if we copied any agents
+        if (plugin_dir / "agents").exists():
             # Use logical path for agents.json references
             logical_agents_dir = logical_plugin_dir / "agents"
             export_agents_config(plugin_dir / "agents", config_dir, logical_agents_dir=logical_agents_dir)
         else:
-            print(f"[HARNESS] Warning: Agents source {agents_src} not found.")
+            print(f"[HARNESS] Warning: No agents found to copy.")
 
         # Export DDD context
         context_path = project_path / "docs" / "domain" / "CONTEXT.md"

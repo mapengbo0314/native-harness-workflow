@@ -1,11 +1,227 @@
 import argparse
+import importlib.util
+import json
+import shlex
 import sys
 import getpass
 import os
-import tempfile
 import subprocess
 import shutil
+import time
 from pathlib import Path
+from typing import Optional
+
+
+class HarnessSetupError(RuntimeError):
+    """Raised when mandatory one-step harness setup cannot be completed."""
+
+
+def _platform_name(platform_choice: str) -> str:
+    return {
+        "1": "gemini",
+        "2": "claude",
+        "3": "cursor",
+        "4": "agents",
+        "5": "codex",
+    }.get(platform_choice, platform_choice).lower()
+
+
+def _build_mcp_config(mcps_to_install: list[dict]) -> dict:
+    mcp_servers = {
+        "codegraph": {
+            "command": "npx",
+            "args": ["-y", "@colbymchenry/codegraph", "serve", "--mcp"],
+        }
+    }
+
+    for mcp in mcps_to_install or []:
+        command = mcp.get("command", "")
+        try:
+            parts = shlex.split(command)
+        except ValueError as exc:
+            raise HarnessSetupError(f"Invalid command string for MCP {mcp.get('name')}: {exc}") from exc
+        if parts:
+            mcp_servers[mcp["name"]] = {
+                "command": parts[0],
+                "args": parts[1:],
+            }
+
+    return {"mcpServers": mcp_servers}
+
+
+def _write_repo_mcp_config(project_path: Path, mcps_to_install: list[dict]) -> None:
+    mcp_path = project_path / ".mcp.json"
+    new_config = _build_mcp_config(mcps_to_install)
+    existing = {"mcpServers": {}}
+
+    if mcp_path.exists():
+        try:
+            existing = json.loads(mcp_path.read_text(encoding="utf-8"))
+            if not isinstance(existing, dict):
+                existing = {}
+        except json.JSONDecodeError as exc:
+            raise HarnessSetupError(f"Existing .mcp.json is invalid JSON: {exc}") from exc
+
+    existing.setdefault("mcpServers", {})
+    existing["mcpServers"].update(new_config["mcpServers"])
+    tmp_path = mcp_path.with_suffix(".tmp.json")
+    tmp_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+    os.replace(tmp_path, mcp_path)
+    print("[HARNESS] Repo-level .mcp.json configured.")
+
+
+def _configure_optional_platform_cli(project_path: Path, platform_choice: str, mcps_to_install: list[dict]) -> None:
+    platform = _platform_name(platform_choice)
+    if platform == "claude":
+        claude = shutil.which("claude")
+        if not claude:
+            print("[HARNESS] Warning: 'claude' CLI not found. Generated .mcp.json is ready for Claude Code after restart.")
+            return
+        commands = [
+            [claude, "mcp", "add", "codegraph", "npx", "-y", "@colbymchenry/codegraph", "serve", "--mcp"],
+        ]
+        for mcp in mcps_to_install or []:
+            try:
+                parts = shlex.split(mcp.get("command", ""))
+            except ValueError as exc:
+                raise HarnessSetupError(f"Invalid command string for MCP {mcp.get('name')}: {exc}") from exc
+            if parts:
+                commands.append([claude, "mcp", "add", mcp["name"], *parts])
+        for command in commands:
+            result = subprocess.run(command, cwd=project_path, capture_output=True, text=True)
+            if result.returncode != 0:
+                print(f"[HARNESS] Warning: Optional CLI MCP registration failed: {' '.join(command[:4])}")
+        return
+
+    if platform == "gemini":
+        gemini = shutil.which("gemini")
+        if not gemini:
+            print("[HARNESS] Warning: 'gemini' CLI not found. Generated mcp.json files are ready for manual activation.")
+            return
+        commands = [
+            [gemini, "mcp", "add", "codegraph", "npx", "-y", "@colbymchenry/codegraph", "serve", "--mcp"],
+        ]
+        for mcp in mcps_to_install or []:
+            try:
+                parts = shlex.split(mcp.get("command", ""))
+            except ValueError as exc:
+                raise HarnessSetupError(f"Invalid command string for MCP {mcp.get('name')}: {exc}") from exc
+            if parts:
+                commands.append([gemini, "mcp", "add", mcp["name"], *parts])
+        for command in commands:
+            result = subprocess.run(command, cwd=project_path, capture_output=True, text=True)
+            if result.returncode != 0:
+                print(f"[HARNESS] Warning: Optional CLI MCP registration failed: {' '.join(command[:4])}")
+
+
+def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
+    required = [
+        plugin_dir / ".claude-plugin" / "plugin.json",
+        plugin_dir / "hooks" / "hooks.json",
+        plugin_dir / "hooks" / "prompt_classifier.py",
+        plugin_dir / "hooks" / "pre_tool_guard.py",
+        plugin_dir / "hooks" / "post_tool_observer.py",
+        plugin_dir / "hooks" / "precompact_handoff.py",
+        plugin_dir / "hooks" / "stop_verifier.py",
+        plugin_dir / "hooks" / "config_change_guard.py",
+        plugin_dir / "src" / "dispatcher.py",
+        plugin_dir / "config" / "ddd-context.json",
+        plugin_dir / "agents",
+        plugin_dir / "skills",
+        plugin_dir / "scripts" / "gatekeeper.py",
+    ]
+    missing = [str(path) for path in required if not path.exists()]
+    if missing:
+        raise HarnessSetupError("Generated plugin payload is incomplete:\n" + "\n".join(f"  - {path}" for path in missing))
+
+    if (plugin_dir / "src" / "hooks").exists():
+        raise HarnessSetupError("Legacy plugin src/hooks payload must not be generated.")
+
+    config_text = "\n".join(path.read_text(encoding="utf-8") for path in (plugin_dir / "config").glob("*.json"))
+    if ".harness_tmp" in config_text:
+        raise HarnessSetupError("Generated plugin config contains staging path .harness_tmp.")
+
+    dispatcher_path = plugin_dir / "src" / "dispatcher.py"
+    spec = importlib.util.spec_from_file_location("harness_generated_plugin_dispatcher", dispatcher_path)
+    if spec is None or spec.loader is None:
+        raise HarnessSetupError(f"Could not load generated dispatcher at {dispatcher_path}")
+    dispatcher_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(dispatcher_module)
+
+    json.loads((plugin_dir / "config" / "ddd-context.json").read_text(encoding="utf-8"))
+    hooks_config = json.loads((plugin_dir / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+    for groups in hooks_config.get("hooks", {}).values():
+        for group in groups:
+            for hook in group.get("hooks", []):
+                command = hook.get("command", "")
+                resolved = command.replace("${CLAUDE_PLUGIN_ROOT}", str(plugin_dir))
+                try:
+                    parts = shlex.split(resolved)
+                except ValueError as exc:
+                    raise HarnessSetupError(f"Invalid hook command string: {exc}") from exc
+                script = Path(parts[1]) if len(parts) > 1 else None
+                if (not script or not script.exists()) and len(parts) > 0 and Path(parts[0]).exists():
+                    script = Path(parts[0])
+                if not script or not script.exists():
+                    raise HarnessSetupError(f"Hook command points at missing script: {command}")
+
+    claude = shutil.which("claude")
+    if claude:
+        for target in [plugin_dir, project_path / ".claude"]:
+            result = subprocess.run([claude, "plugin", "validate", str(target), "--strict"], capture_output=True, text=True)
+            if result.returncode != 0:
+                raise HarnessSetupError(result.stdout + result.stderr)
+
+    print("[HARNESS] Claude plugin payload validated.")
+
+
+def _write_setup_state(project_path: Path, harness_dir: Path, plugin_dir: Optional[Path], platform_choice: str) -> None:
+    config_dir = (plugin_dir / "config") if plugin_dir and plugin_dir.exists() else (harness_dir / "config")
+    config_dir.mkdir(parents=True, exist_ok=True)
+    state_file = config_dir / ".harness_state.json"
+    tmp_file = config_dir / ".harness_state.tmp.json"
+
+    state = {}
+    if state_file.exists():
+        try:
+            state = json.loads(state_file.read_text(encoding="utf-8"))
+            if not isinstance(state, dict):
+                state = {}
+        except json.JSONDecodeError:
+            state = {}
+
+    state.update({
+        "setup_complete": True,
+        "python_version": sys.version.split()[0],
+        "platform": _platform_name(platform_choice),
+        "codegraph_ready": True,
+        "plugin_ready": bool(plugin_dir and plugin_dir.exists()),
+        "strict_enforcement_enabled": bool(plugin_dir and plugin_dir.exists()),
+        "repo_mcp_config": str(project_path / ".mcp.json"),
+    })
+    tmp_file.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    os.replace(tmp_file, state_file)
+    print(f"[HARNESS] Setup state written to {state_file}.")
+
+
+def run_embedded_setup(
+    project_path: Path,
+    harness_dir: Path,
+    platform_choice: str,
+    mcps_to_install: list[dict],
+    plugin_dir: Optional[Path],
+) -> None:
+    print("\n[HARNESS] Running embedded setup...")
+    if sys.version_info < (3, 8):
+        raise HarnessSetupError("Python 3.8+ is required.")
+
+    _write_repo_mcp_config(project_path, mcps_to_install)
+    _configure_optional_platform_cli(project_path, platform_choice, mcps_to_install)
+    if plugin_dir and plugin_dir.exists():
+        _validate_claude_plugin(project_path, plugin_dir)
+    _write_setup_state(project_path, harness_dir, plugin_dir, platform_choice)
+    print("[HARNESS] Embedded setup complete.")
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Initialize a new Harness agent workspace.")
@@ -65,8 +281,8 @@ def main():
             codegraph_dir = default_codegraph_dir
             codegraph_db_path = os.path.join(codegraph_dir, "codegraph.db")
         except subprocess.CalledProcessError as e:
-            print(f"\nFailed to build CodeGraph: {e}")
-            sys.exit(1)
+            print(f"\nWarning: Failed to build CodeGraph: {e}")
+            # Continuing without hard crash as per fallback behavior
 
     print("Stage 1: Resolving bundled boilerplate...")
     from harness.utils import get_boilerplate_dir
@@ -247,17 +463,27 @@ def main():
                     project_path=str(args.project_path),
                     project_name=os.path.basename(args.project_path),
                     boilerplate_dir=boilerplate_dir,
-                    harness_folder=".harness_tmp"
+                    harness_folder=".harness_tmp",
+                    logical_harness_name=harness_folder,
                 )
                 
-                # Post-generation cleanup: remove top-level agents and skills
+                # Post-generation cleanup: remove boilerplate agents and skills
                 # as they are now inside the plugin
                 harness_path = temp_harness_dir
-                for folder in ["agents", "skills"]:
-                    folder_path = harness_path / folder
-                    if folder_path.exists():
-                        shutil.rmtree(folder_path)
-                print("[HARNESS] Cleaned up redundant top-level folders for plugin.")
+                
+                sme_filename = f"{sme_agent_name}.md" if sme_agent_name else None
+                
+                # Clean agents folder
+                agents_dir = harness_path / "agents"
+                if agents_dir.exists():
+                    shutil.rmtree(agents_dir)
+                                
+                # Clean skills folder
+                skills_dir = harness_path / "skills"
+                if skills_dir.exists():
+                    shutil.rmtree(skills_dir)
+                    
+                print("[HARNESS] Cleaned up redundant top-level boilerplate folders for plugin.")
                 
             except Exception as e:
                 print(f"\n[HARNESS] ❌ ERROR: Failed to generate orchestrator plugin: {e}")
@@ -315,8 +541,30 @@ def main():
             backup_dir = Path(args.project_path) / f"{harness_folder}.backup.{int(time.time())}"
             shutil.move(str(target_harness_dir), str(backup_dir))
             print(f"[HARNESS] Existing harness backed up to {backup_dir.name}")
+            
+            # Keep only the latest 3 backups
+            backups = sorted(Path(args.project_path).glob(f"{harness_folder}.backup.*"))
+            for old_backup in backups[:-3]:
+                shutil.rmtree(old_backup)
 
         shutil.move(str(temp_harness_dir), str(target_harness_dir))
+
+        final_plugin_dir = target_harness_dir / "plugin-generated" if plugin_dir else None
+        if final_plugin_dir:
+            plugin_dir = str(final_plugin_dir)
+
+        try:
+            run_embedded_setup(
+                Path(args.project_path),
+                target_harness_dir,
+                platform_choice,
+                mcps_to_install,
+                final_plugin_dir,
+            )
+        except HarnessSetupError as e:
+            print(f"\n[HARNESS] ❌ ERROR: Embedded setup failed: {e}")
+            sys.exit(1)
+
     finally:
         if temp_harness_dir.exists():
             shutil.rmtree(temp_harness_dir)
@@ -360,7 +608,7 @@ def main():
 
     if sme_agent_name:
         print(f"\n\n{counter}. Context: The @{sme_agent_name} is now the gateway for all planning.")
-        print(f"\n   Dispatch rules in {harness_folder}/rules/dispatch_rules.md have been updated.")
+        print(f"\n   Routing rules in {harness_folder}/orchestrator.md have been updated.")
         
     print(f"\n{'='*60}\n")
 

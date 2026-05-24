@@ -1,6 +1,18 @@
 import os
 from unittest.mock import patch
+
+import pytest
+
 from harness.minting_engine import handle_code_conflicts
+
+
+@pytest.fixture(autouse=True)
+def clear_headless_mode():
+    previous = os.environ.pop("HARNESS_HEADLESS", None)
+    yield
+    if previous is not None:
+        os.environ["HARNESS_HEADLESS"] = previous
+
 
 def test_handle_code_conflicts_headless(capsys):
     """Test that in headless mode, the function returns the new content automatically."""

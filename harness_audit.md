@@ -53,7 +53,6 @@ Your verification relies on LLM judgment. Validation must be deterministic. The 
 
 ### Gap #8: 🟠 Structural Rot in Templates
 - `implementer.md` has a duplicated `Customization` block.
-- `agent.json` references `dispatch_rules.md` — which doesn't exist.
 
 ### Gap #9: 🟠 The "Two-Man Rule" Fallacy
 Relying on a second model to "grade" the first is over-engineered and costly. Better to use metadata-driven checkers (`grep`, `pytest`, `json_schema`).

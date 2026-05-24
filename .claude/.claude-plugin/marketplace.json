@@ -1,0 +1,19 @@
+{
+  "name": "local-orchestrator-marketplace",
+  "description": "Project-local marketplace for the generated orchestrator plugin",
+  "version": "1.0.0",
+  "owner": {
+    "name": "E2G Harness"
+  },
+  "plugins": [
+    {
+      "name": "orchestrator-plugin",
+      "source": "./plugin-generated",
+      "description": "Project-local orchestrator plugin for the generated harness",
+      "version": "1.0.0",
+      "author": {
+        "name": "E2G Harness"
+      }
+    }
+  ]
+}

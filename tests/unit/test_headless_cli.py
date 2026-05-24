@@ -6,7 +6,7 @@ import shutil
 import sys
 from io import StringIO
 
-from harness.cli import main
+from harness.cli import HarnessSetupError, main
 
 class TestHeadlessCLI(unittest.TestCase):
     def setUp(self):
@@ -58,6 +58,38 @@ class TestHeadlessCLI(unittest.TestCase):
             self.assertIn("Automated purpose", content)
             self.assertIn("Automated vocab", content)
             self.assertIn("Automated invariants", content)
+
+    @patch('harness.cli.parse_args')
+    @patch('harness.discovery_engine.acquire_mcp_context', return_value="fake context")
+    @patch('harness.cli.getpass.getpass', return_value="fake-key")
+    @patch('builtins.input', side_effect=AssertionError("input() called in headless mode!"))
+    @patch('subprocess.run')
+    @patch('sys.exit')
+    @patch.dict(os.environ, {"HARNESS_HEADLESS": "1", "GEMINI_API_KEY": "fake-key"})
+    def test_cli_headless_fails_when_embedded_setup_fails(self, mock_exit, mock_run, mock_input, mock_getpass, mock_acquire, mock_parse_args):
+        args = MagicMock()
+        args.project_path = self.test_dir
+        args.llm = "gemini"
+        args.model = None
+        args.bundle = None
+        mock_parse_args.return_value = args
+
+        with patch('harness.discovery_engine.generate_onboarding_domain_doc'), \
+             patch('harness.minting_engine.wait_for_user_review_and_read_domain', return_value="fake domain"), \
+             patch('harness.minting_engine.mint_workspace'), \
+             patch('harness.minting_engine.parse_tool_checklists', return_value=([], [])), \
+             patch('harness.minting_engine.install_workspace_tools'), \
+             patch('harness.minting_engine.synthesize_domain_sme_agent', return_value="fake-sme"), \
+             patch('harness.minting_engine.patch_orchestrator_rules'), \
+             patch('harness.minting_engine.should_generate_orchestrator_plugin', return_value=False), \
+             patch('harness.cli.run_embedded_setup', side_effect=HarnessSetupError("boom")):
+            
+            try:
+                main()
+            except SystemExit:
+                pass
+
+        mock_exit.assert_called_with(1)
 
 if __name__ == "__main__":
     unittest.main()
