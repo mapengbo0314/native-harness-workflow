@@ -1,0 +1,28 @@
+{
+  "hooks": [
+    {
+      "events": ["UserPromptSubmit"],
+      "script": "prompt_classifier.py"
+    },
+    {
+      "events": ["PreToolUse"],
+      "script": "pre_tool_guard.py"
+    },
+    {
+      "events": ["ConfigChange"],
+      "script": "config_change_guard.py"
+    },
+    {
+      "events": ["Stop"],
+      "script": "stop_verifier.py"
+    },
+    {
+      "events": ["PreCompact"],
+      "script": "precompact_handoff.py"
+    },
+    {
+      "events": ["PostToolUse", "PostToolUseFailure"],
+      "script": "post_tool_observer.py"
+    }
+  ]
+}

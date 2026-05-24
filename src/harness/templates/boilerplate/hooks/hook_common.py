@@ -14,6 +14,8 @@ def resolve_plugin_root() -> Path:
     return Path(__file__).parent.parent
 
 def resolve_state_path(input_json: dict = None) -> Path:
+    if input_json and "workspace_root" in input_json:
+        return Path(input_json["workspace_root"]) / "state" / "campaign_state.json"
     return resolve_plugin_root() / "state" / "campaign_state.json"
 
 @contextmanager
