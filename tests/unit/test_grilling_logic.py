@@ -17,8 +17,8 @@ class TestGrillingLogic(unittest.TestCase):
         
         mock_query_llm = MagicMock()
         mock_query_llm.return_value = json.dumps([
-            {"question": "Is this a Flask app?", "suggestions": ["Yes", "No"]},
-            {"question": "What is the domain?", "suggestions": ["Fintech", "E-commerce"]}
+            {"question": "Is this a Flask app?", "multiple_choice_options": ["Yes", "No"]},
+            {"question": "What is the domain?", "multiple_choice_options": ["Fintech", "E-commerce"]}
         ])
         
         questions = generate_grilling_questions(
@@ -27,7 +27,7 @@ class TestGrillingLogic(unittest.TestCase):
         
         self.assertEqual(len(questions), 2)
         self.assertEqual(questions[0]["question"], "Is this a Flask app?")
-        self.assertIn("Yes", questions[0]["suggestions"])
+        self.assertIn("Yes", questions[0]["multiple_choice_options"])
 
     @patch("src.harness.discovery_engine.get_file_tree_summary")
     @patch("src.harness.discovery_engine.get_symbol_census")

@@ -103,15 +103,21 @@ def main():
         qa_pairs = []
         for i, q_data in enumerate(questions):
             print(f"\n{i+1}. {q_data['question']}")
-            suggestions = q_data.get("suggestions", [])
-            if suggestions:
-                for j, sug in enumerate(suggestions):
-                    print(f"   {chr(65+j)}) {sug}")
+            options = q_data.get("multiple_choice_options", [])
+            if options:
+                for j, opt in enumerate(options):
+                    print(f"   {chr(65+j)}) {opt}")
+                
+                other_idx = len(options)
+                other_letter = chr(65 + other_idx)
+                print(f"   {other_letter}) Other [Please specify]")
                 
                 ans = input("> ").strip()
-                # Check if answer is a letter matching a suggestion
-                if len(ans) == 1 and 'A' <= ans.upper() <= chr(64 + len(suggestions)):
-                    ans = suggestions[ord(ans.upper()) - 65]
+                # Check if answer is a letter matching an option
+                if len(ans) == 1 and 'A' <= ans.upper() <= chr(64 + len(options)):
+                    ans = options[ord(ans.upper()) - 65]
+                elif len(ans) == 1 and ans.upper() == other_letter:
+                    ans = input("Please specify: ").strip()
             else:
                 ans = input("> ").strip()
             

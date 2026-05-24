@@ -631,11 +631,11 @@ def generate_grilling_questions(project_path: str, query_llm_fn, llm_provider: s
     Task:
     Generate 3-5 critical questions to clarify the project's domain, purpose, and strict invariants.
     Look for ambiguous acronyms, complex folder structures, or specific library usages.
-    For each question, provide 2-3 'suggestions' (suggested answers) to help the user.
+    For each question, provide 2-3 strictly structured multiple-choice options (e.g., "I see 'GWP'. Does it mean: A) Gross Written Premium, B) Global Web Portal, or C) Other [Please specify]?"). Do not ask open-ended questions without choices.
     
     Return ONLY valid JSON as a list of objects:
     [
-        {{"question": "...", "suggestions": ["...", "..."]}}
+        {{"question": "...", "multiple_choice_options": ["...", "..."]}}
     ]
     """
     
@@ -656,16 +656,16 @@ def generate_grilling_questions(project_path: str, query_llm_fn, llm_provider: s
     # Fallback questions
     return [
         {
-            "question": "In 1-2 sentences, what is the core purpose of this project?",
-            "suggestions": []
+            "question": "What is the core purpose of this project?",
+            "multiple_choice_options": ["Internal tool", "Customer-facing product"]
         },
         {
             "question": "What are 2-3 specific vocabulary terms (Ubiquitous Language) used in this codebase?",
-            "suggestions": []
+            "multiple_choice_options": ["User, Account", "Order, Product"]
         },
         {
             "question": "Are there any strict architectural rules or invariants? (e.g., 'Never delete users, only deactivate')",
-            "suggestions": []
+            "multiple_choice_options": ["Soft deletes only", "Stateless services only"]
         }
     ]
 

@@ -36,17 +36,19 @@ class TestInteractiveCLI(unittest.TestCase):
         mock_parse_args.return_value = args
 
         mock_gen.return_value = [
-            {"question": "Is this a Flask app?", "suggestions": ["Yes", "No"]},
-            {"question": "What is the domain?", "suggestions": []}
+            {"question": "Is this a Flask app?", "multiple_choice_options": ["Yes", "No"]},
+            {"question": "What is the domain?", "multiple_choice_options": []},
+            {"question": "What is the DB?", "multiple_choice_options": ["Postgres", "MySQL"]}
         ]
         
         # Inputs:
         # 1. Answer to "Is this a Flask app?" -> 'A' (mapped to Yes)
-        # 2. Answer to "What is the domain?" -> 'Fintech'
-        # 3. Answer to "Select target platform" -> '1'
-        mock_input.side_effect = ["A", "Fintech", "1"]
+        # 2. Answer to "What is the domain?" -> 'Fintech' (no options, open input)
+        # 3. Answer to "What is the DB?" -> 'C' (Other), then 'MongoDB'
+        # 4. Answer to "Select target platform" -> '1'
+        mock_input.side_effect = ["A", "Fintech", "C", "MongoDB", "1"]
         
-        mock_synth.return_value = "# Project Context\n\n## Purpose\nA Fintech Flask app."
+        mock_synth.return_value = "# Project Context\n\n## Purpose\nA Fintech Flask app with MongoDB."
 
         with patch('harness.discovery_engine.generate_onboarding_domain_doc'), \
              patch('harness.minting_engine.wait_for_user_review_and_read_domain', return_value="fake domain"), \
@@ -71,13 +73,14 @@ class TestInteractiveCLI(unittest.TestCase):
         qa_pairs = args_list[1]
         self.assertEqual(qa_pairs[0], ("Is this a Flask app?", "Yes"))
         self.assertEqual(qa_pairs[1], ("What is the domain?", "Fintech"))
+        self.assertEqual(qa_pairs[2], ("What is the DB?", "MongoDB"))
 
         # Verify CONTEXT.md was created with synth output
         context_file = os.path.join(self.test_dir, "docs", "domain", "CONTEXT.md")
         self.assertTrue(os.path.exists(context_file))
         with open(context_file, 'r') as f:
             content = f.read()
-            self.assertIn("A Fintech Flask app.", content)
+            self.assertIn("A Fintech Flask app with MongoDB.", content)
 
 if __name__ == "__main__":
     unittest.main()
