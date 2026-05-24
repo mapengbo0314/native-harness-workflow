@@ -53,6 +53,7 @@ def main():
             # Force non-interactive npm to prevent hidden prompts
             env = os.environ.copy()
             env["npm_config_yes"] = "true"
+            env["CODEGRAPH_DEBUG"] = "1"
             
             subprocess.run(
                 ["npx", "--yes", "@colbymchenry/codegraph", "init", "--index"],

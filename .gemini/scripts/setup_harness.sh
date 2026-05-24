@@ -4,7 +4,7 @@ set -e
 echo "=== Setting up Superpowers for Gemini CLI ==="
 if command -v gemini &> /dev/null; then
     echo "Ensuring CodeGraph is built..."
-    npx -y @colbymchenry/codegraph init --index || true
+    CODEGRAPH_DEBUG=1 npx -y @colbymchenry/codegraph init --index || true
 
     echo "Adding codegraph to Gemini CLI project MCP configuration..."
     gemini mcp add codegraph npx -y @colbymchenry/codegraph serve --mcp || true

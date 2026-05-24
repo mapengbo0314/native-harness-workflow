@@ -367,7 +367,7 @@ if command -v gemini &> /dev/null; then
 {skill_installs}
     
     echo "Ensuring CodeGraph is built..."
-    npx -y @colbymchenry/codegraph init --index || true
+    CODEGRAPH_DEBUG=1 npx -y @colbymchenry/codegraph init --index || true
 
     echo "Adding codegraph to Gemini CLI project MCP configuration..."
     gemini mcp add codegraph npx -y @colbymchenry/codegraph serve --mcp || true
@@ -459,31 +459,17 @@ PY
 echo "To install Skills for Claude Code workspace-wide, run these commands inside the Claude Code interface:"
 {skill_installs}
 
-# Orchestrator Plugin Installation
+# Orchestrator Plugin Validation
 if [ -d ".claude/plugin-generated" ]; then
-    echo "Checking for non-interactive Claude Code plugin install support..."
-    if command -v claude >/dev/null 2>&1 && claude plugin --help >/dev/null 2>&1; then
-        if claude plugin marketplace add "$PWD/.claude/plugin-generated" --scope project && claude plugin install orchestrator-plugin@local-orchestrator-marketplace --scope project; then
-            PLUGIN_READY=1
-            echo "Orchestrator plugin installed automatically."
-        else
-            echo "[ACTION REQUIRED] Automatic plugin installation failed."
-        fi
-    else
-        echo "[ACTION REQUIRED] Claude Code plugin CLI automation was not detected."
-    fi
-
-    if [ "$PLUGIN_READY" != "1" ]; then
-        echo "[ACTION REQUIRED] Open Claude Code in this repo and run:"
-        echo "  /plugin marketplace add \"\$PWD/.claude/plugin-generated\" --scope project"
-        echo "  /plugin install orchestrator-plugin@local-orchestrator-marketplace --scope project"
-        echo "Restart or reload Claude Code if hooks/tools do not appear immediately."
-    fi
+    echo "Orchestrator plugin generated at .claude/plugin-generated"
+    echo "To validate the plugin locally, run:"
+    echo "  claude --plugin-dir ./.claude/plugin-generated"
+    PLUGIN_READY=1
 fi
 
 # MCP Configuration for Claude via .mcp.json
 echo "Ensuring CodeGraph is built..."
-npx -y @colbymchenry/codegraph init --index || true
+CODEGRAPH_DEBUG=1 npx -y @colbymchenry/codegraph init --index || true
 
 echo "Generating repo-level .mcp.json..."
 cat << 'MCPJSON' > .mcp.json
@@ -594,7 +580,7 @@ jobs:
         with:
           node-version: '20'
       - name: Build CodeGraph
-        run: npx -y @colbymchenry/codegraph init --index
+        run: CODEGRAPH_DEBUG=1 npx -y @colbymchenry/codegraph init --index
 """
     with open(ci_path, "w") as f:
         f.write(ci_content)
