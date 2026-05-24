@@ -56,8 +56,8 @@ Verification note: phases 0, 1, 2, and 3 were checked against the current repo s
 - [x] Add plugin contract tests that assert no generated `.claude/plugin-generated/src/hooks/` directory exists.
 - [x] Add local marketplace/install readiness tests for generated plugin metadata instead of relying only on `claude --plugin-dir`.
 - [x] Refresh stale Claude plugin snapshots only after strict validation and runtime hook-command tests pass.
-- [ ] Enforce strict `exit 2` blocking protocol and global try/except fail-safes across all hook scripts.
-- [ ] Implement Circuit Breaker logic (`consecutive_tool_failures`) in state and hooks to prevent doom loops.
+- [x] Enforce strict `exit 2` blocking protocol and global try/except fail-safes across all hook scripts.
+- [x] Implement Circuit Breaker logic (`consecutive_tool_failures`) in state and hooks to prevent doom loops.
 - [x] Acceptance: `claude plugin validate <generated-plugin> --strict` passes with zero warnings.
 - [x] Acceptance: focused plugin, hook, minting, and snapshot tests pass.
 - [x] **STOP AND WAIT FOR HUMAN:** Manual Claude Code smoke test required with both `claude --plugin-dir` and documented marketplace/install flow before Phase 4 begins.

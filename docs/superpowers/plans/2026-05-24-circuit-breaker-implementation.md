@@ -23,18 +23,18 @@ We will rewrite the core logic of all hook templates to ensure robust error hand
 - *Alternative 2*: Let the Orchestrator manage the circuit breaker. *Rejected* because the harness needs to be agent-agnostic and protect against any agent, including orchestrators.
 
 ## Sphinch Marks
-- [ ] `JSONDecodeError` triggers `sys.exit(2)` in all hooks.
-- [ ] Inner `try/except` blocks removed from `prompt_classifier.py`, `stop_verifier.py`, and `precompact_handoff.py`.
-- [ ] `post_tool_observer.py` uses `captured_count` within `modifier`.
-- [ ] `stop_verifier.py` imports `os`, `subprocess`, and `Path`.
-- [ ] `post_tool_observer.py` checks `hook_event_name == "PostToolUseFailure"`.
-- [ ] `tests/hooks/test_claude_hooks.py` contains tests injecting `consecutive_tool_failures: 3`.
+- [x] `JSONDecodeError` triggers `sys.exit(2)` in all hooks.
+- [x] Inner `try/except` blocks removed from `prompt_classifier.py`, `stop_verifier.py`, and `precompact_handoff.py`.
+- [x] `post_tool_observer.py` uses `captured_count` within `modifier`.
+- [x] `stop_verifier.py` imports `os`, `subprocess`, and `Path`.
+- [x] `post_tool_observer.py` checks `hook_event_name == "PostToolUseFailure"`.
+- [x] `tests/hooks/test_claude_hooks.py` contains tests injecting `consecutive_tool_failures: 3`.
 
 ---
 
 # Circuit Breaker and Global Fail-Safes Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Enforce strict fail-safes across all hook templates to ensure any crash or malformed JSON blocks the agent (`exit 2`), and implement a circuit breaker that hard-stops the agent after 3 consecutive tool failures.
 
@@ -50,7 +50,7 @@ We will rewrite the core logic of all hook templates to ensure robust error hand
 - Modify: `src/harness/templates/boilerplate/hooks/post_tool_observer.py`
 - Modify: `src/harness/templates/boilerplate/hooks/pre_tool_guard.py`
 
-- [ ] **Step 1: Update `post_tool_observer.py`**
+- [x] **Step 1: Update `post_tool_observer.py`**
 Modify `src/harness/templates/boilerplate/hooks/post_tool_observer.py` to trigger the circuit breaker using a captured count and robust error detection:
 ```python
 import sys
@@ -100,7 +100,7 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 2: Update `pre_tool_guard.py`**
+- [x] **Step 2: Update `pre_tool_guard.py`**
 Replace `main()` in `src/harness/templates/boilerplate/hooks/pre_tool_guard.py` ensuring `JSONDecodeError` exits 2:
 ```python
 import sys
@@ -165,7 +165,7 @@ if __name__ == "__main__":
 - Modify: `src/harness/templates/boilerplate/hooks/prompt_classifier.py`
 - Modify: `src/harness/templates/boilerplate/hooks/stop_verifier.py`
 
-- [ ] **Step 1: Update `config_change_guard.py`**
+- [x] **Step 1: Update `config_change_guard.py`**
 Replace `main()` in `src/harness/templates/boilerplate/hooks/config_change_guard.py` to fix the JSON exit code:
 ```python
 import sys
@@ -205,7 +205,7 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 2: Update `precompact_handoff.py`**
+- [x] **Step 2: Update `precompact_handoff.py`**
 Replace `main()` in `src/harness/templates/boilerplate/hooks/precompact_handoff.py` to remove nested `try/except` and fix JSON parsing:
 ```python
 import sys
@@ -253,7 +253,7 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 3: Update `prompt_classifier.py`**
+- [x] **Step 3: Update `prompt_classifier.py`**
 Replace `main()` in `src/harness/templates/boilerplate/hooks/prompt_classifier.py` to remove nested `try/except` around state update:
 ```python
 import sys
@@ -294,7 +294,7 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 4: Update `stop_verifier.py`**
+- [x] **Step 4: Update `stop_verifier.py`**
 Add missing imports and remove nested `try/except` in `src/harness/templates/boilerplate/hooks/stop_verifier.py`. *(Note: Ensure you preserve existing imports and helper functions when updating `main()`)*:
 ```python
 import sys
@@ -351,7 +351,7 @@ if __name__ == "__main__":
 **Files:**
 - Modify: `tests/hooks/test_claude_hooks.py`
 
-- [ ] **Step 1: Add Circuit Breaker Tests**
+- [x] **Step 1: Add Circuit Breaker Tests**
 Inject 3 consecutive failures to test the circuit breaker correctly terminates execution.
 ```python
 import tempfile
