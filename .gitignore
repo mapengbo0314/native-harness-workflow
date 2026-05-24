@@ -39,7 +39,6 @@ depreciated_indexing/
 archive/
 .codegraph/
 .codegraph-cache/
-.env/
 # Harness Runtime & Debug Junk
 out/
 artifacts/
