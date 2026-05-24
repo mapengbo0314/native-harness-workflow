@@ -1,0 +1,32 @@
+{
+  "UserPromptSubmit": [
+    {
+      "type": "command",
+      "command": "python3 -m src.hooks.prompt_interceptor"
+    }
+  ],
+  "PreToolUse": [
+    {
+      "type": "command",
+      "command": "python3 -m src.hooks.pre_tool_guard"
+    }
+  ],
+  "PostToolUse": [
+    {
+      "type": "command",
+      "command": "python3 -m src.hooks.post_tool_monitor"
+    }
+  ],
+  "PreCompact": [
+    {
+      "type": "command",
+      "command": "python3 -m src.hooks.precompact_monitor"
+    }
+  ],
+  "Stop": [
+    {
+      "type": "command",
+      "command": "python3 -m src.hooks.stop_monitor"
+    }
+  ]
+}

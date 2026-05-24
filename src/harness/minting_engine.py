@@ -420,6 +420,7 @@ from pathlib import Path
 plugin = Path(".claude/plugin-generated")
 required = [
     plugin / ".claude-plugin" / "plugin.json",
+    plugin / "hooks" / "hooks.json",
     plugin / "src" / "dispatcher.py",
     plugin / "src" / "hooks" / "prompt_interceptor.py",
     plugin / "src" / "hooks" / "pre_tool_guard.py",

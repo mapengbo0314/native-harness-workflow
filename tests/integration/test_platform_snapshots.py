@@ -176,12 +176,14 @@ def test_claude_plugin_layout(temp_project):
     plugin_path = temp_project / ".claude" / "plugin-generated"
     assert plugin_path.exists()
     assert (plugin_path / ".claude-plugin" / "plugin.json").exists()
+    assert (plugin_path / "hooks" / "hooks.json").exists()
     assert (plugin_path / "agents").exists()
     assert (plugin_path / "skills").exists()
 
     check_snapshot(temp_project, "claude_plugin", [
         "CLAUDE.md",
-        ".claude/plugin-generated/.claude-plugin/plugin.json"
+        ".claude/plugin-generated/.claude-plugin/plugin.json",
+        ".claude/plugin-generated/hooks/hooks.json"
     ])
 
 def test_codex_layout(temp_project):

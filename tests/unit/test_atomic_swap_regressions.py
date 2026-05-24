@@ -77,20 +77,21 @@ def test_plugin_path_corruption(tmp_path):
         logical_harness_name=final_harness_name
     )
     
-    plugin_json_path = Path(plugin_dir_str) / ".claude-plugin" / "plugin.json"
-    assert plugin_json_path.exists()
+    plugin_settings_path = Path(plugin_dir_str) / ".claude-plugin" / "plugin.json"
+    assert plugin_settings_path.exists()
     
-    with open(plugin_json_path, "r") as f:
+    hooks_json_path = Path(plugin_dir_str) / "hooks" / "hooks.json"
+    assert hooks_json_path.exists()
+    
+    with open(hooks_json_path, "r") as f:
         manifest = json.load(f)
         
-    # Check PYTHONPATH in hooks
-    for hook_list in manifest["hooks"].values():
-        for hook_entry in hook_list:
-            for hook in hook_entry["hooks"]:
-                command = hook["command"]
-                # It should NOT contain .harness_tmp if we want it to work after the swap
-                assert harness_folder not in command
-                assert final_harness_name in command
+    # Hooks no longer contain PYTHONPATH or absolute paths, they are relative
+    for hook_list in manifest.values():
+        for hook in hook_list:
+            command = hook["command"]
+            assert harness_folder not in command
+            assert "python3" in command
 
     # Check agents.json
     agents_json_path = Path(plugin_dir_str) / "config" / "agents.json"
