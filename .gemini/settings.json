@@ -1,8 +1,8 @@
 {
   "telemetry": {
-    "enabled": false,
+    "enabled": true,
     "traces": false,
-    "logPrompts": false,
+    "logPrompts": true,
     "otlpProtocol": "http",
     "otlpEndpoint": "https://us.cloud.langfuse.com/api/public/otel"
   },
@@ -90,7 +90,6 @@
     "disabled": [
       "pre-tool-guard",
       "post-tool-observer",
-      "prompt-classifier",
       "stop-verifier",
       "precompact-handoff",
       "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" session-start"
