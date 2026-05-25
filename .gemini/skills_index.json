@@ -1,0 +1,70 @@
+{
+  "harness-systematic-debugging": {
+    "path": ".gemini/skills/harness-systematic-debugging/SKILL.md",
+    "description": "Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes"
+  },
+  "meta-learning": {
+    "path": ".gemini/skills/meta-learning/SKILL.md",
+    "description": "Use when tackling a completely new, complex subject to ensure deep understanding and avoid superficial knowledge or buzzword-heavy explanations."
+  },
+  "harness-subagent-driven-development": {
+    "path": ".gemini/skills/harness-subagent-driven-development/SKILL.md",
+    "description": "Use when executing implementation plans with independent tasks in the current session"
+  },
+  "ddd-alignment": {
+    "path": ".gemini/skills/ddd-alignment/SKILL.md",
+    "description": "Align implementation with the core domain, ubiquitous language, and architectural goals using the Deterministic DDD Framework. Use when resolving domain conflicts or refining the ubiquitous language."
+  },
+  "improve-codebase-architecture": {
+    "path": ".gemini/skills/improve-codebase-architecture/SKILL.md",
+    "description": "Find deepening opportunities in a codebase, informed by the domain language in CONTEXT.md and the decisions in docs/adr/. Use when the user wants to improve architecture, find refactoring opportunities, consolidate tightly-coupled modules, or make a codebase more testable and AI-navigable."
+  },
+  "diagnose": {
+    "path": ".gemini/skills/diagnose/SKILL.md",
+    "description": "Disciplined diagnosis loop for hard bugs and performance regressions, adapted for the Hub-and-Spoke architecture. Reproduce \u2192 minimise \u2192 hypothesise \u2192 instrument \u2192 handoff to planner \u2192 fix \u2192 regression-test. Use when the user reports a bug, exception, stack trace, or performance regression."
+  },
+  "harness-test-driven-development": {
+    "path": ".gemini/skills/harness-test-driven-development/SKILL.md",
+    "description": "Use when implementing any feature or bugfix, before writing implementation code"
+  },
+  "harness-finishing-a-development-branch": {
+    "path": ".gemini/skills/harness-finishing-a-development-branch/SKILL.md",
+    "description": "Use when implementation is complete, all tests pass, and you need to decide how to integrate the work - guides completion of development work by presenting structured options for merge, PR, or cleanup"
+  },
+  "harness-executing-plans": {
+    "path": ".gemini/skills/harness-executing-plans/SKILL.md",
+    "description": "Use when you have a written implementation plan to execute in a separate session with review checkpoints"
+  },
+  "grill-with-docs": {
+    "path": ".gemini/skills/grill-with-docs/SKILL.md",
+    "description": "Grilling session that challenges your plan against the existing domain model, sharpens terminology, and updates documentation (CONTEXT.md, ADRs) inline as decisions crystallise. Use when user wants to stress-test a plan against their project's language and documented decisions."
+  },
+  "harness-requesting-code-review": {
+    "path": ".gemini/skills/harness-requesting-code-review/SKILL.md",
+    "description": "Use when completing tasks, implementing major features, or before merging to verify work meets requirements"
+  },
+  "verification-before-completion": {
+    "path": ".gemini/skills/verification-before-completion/SKILL.md",
+    "description": "Use before finalizing any task to ensure all critical verification stages have passed."
+  },
+  "using-harness-superpowers": {
+    "path": ".gemini/skills/using-harness-superpowers/SKILL.md",
+    "description": "Use when starting any conversation - establishes how to find and use skills, requiring Skill tool invocation before ANY response including clarifying questions"
+  },
+  "grill-me": {
+    "path": ".gemini/skills/grill-me/SKILL.md",
+    "description": "Interview the user relentlessly about a plan or design until reaching shared understanding, resolving each branch of the decision tree. Use when user wants to stress-test a plan, get grilled on their design, or mentions \"grill me\"."
+  },
+  "harness-writing-plans": {
+    "path": ".gemini/skills/harness-writing-plans/SKILL.md",
+    "description": "Use when you have a spec or requirements for a multi-step task, before touching code"
+  },
+  "harness-brainstorming": {
+    "path": ".gemini/skills/harness-brainstorming/SKILL.md",
+    "description": "You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation."
+  },
+  "harness-dispatching-parallel-agents": {
+    "path": ".gemini/skills/harness-dispatching-parallel-agents/SKILL.md",
+    "description": "Use when facing 2+ independent tasks that can be worked on without shared state or sequential dependencies"
+  }
+}
