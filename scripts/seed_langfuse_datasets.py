@@ -14,7 +14,7 @@ def main():
     from langfuse import Langfuse
     langfuse = Langfuse()
 
-    dataset_name = "harness_test_dataset"
+    dataset_name = os.environ.get("LANGFUSE_DATASET_NAME", "harness_test_dataset")
     print(f"Creating or fetching Langfuse dataset: {dataset_name}")
     
     langfuse.create_dataset(name=dataset_name)

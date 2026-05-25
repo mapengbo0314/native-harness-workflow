@@ -57,7 +57,8 @@ def main():
         from harness.dispatcher import OrchestratorDispatcher
         
         langfuse = Langfuse()
-        dataset = langfuse.get_dataset("harness_test_dataset")
+        dataset_name = os.environ.get("LANGFUSE_DATASET_NAME", "harness_test_dataset")
+        dataset = langfuse.get_dataset(dataset_name)
         
         for item in dataset.items:
             print(f"Evaluating item: {item.input}")
@@ -73,6 +74,8 @@ def main():
             try:
                 dispatcher = OrchestratorDispatcher(config_dir)
                 result = dispatcher.dispatch_agent("orchestrator", {"prompt": item.input})
+                if result and result.get("trace_id"):
+                    trace_id = result["trace_id"]
                 print(f"Dispatched with result branch: {result.get('intent_branch')}")
             except Exception as dispatch_e:
                 print(f"Dispatch failed for item {item.input}: {dispatch_e}")
@@ -81,55 +84,29 @@ def main():
             finally:
                 shutil.rmtree(temp_dir, ignore_errors=True)
             
+            langfuse_context.flush()
+            
+            score_value = 1.0 if result and result.get("routed") else 0.0
+            
+            # Push real score asynchronously
+            # We do not need to wait for Langfuse to index the trace. We can push events to the ingestion queue immediately.
+            item.link(None, trace_id=trace_id, run_name="real_integration_eval")
+            langfuse.score(
+                trace_id=trace_id,
+                name="routing_accuracy",
+                value=score_value,
+                comment=f"Routed to branch {result.get('intent_branch') if result else 'unknown'}"
+            )
+            
+            results.append({
+                "item_input": item.input,
+                "score": score_value,
+                "status": "pass" if score_value > 0.5 else "fail",
+                "trace_id": trace_id
+            })
+            
+            # Ensure the score and link events are uploaded
             langfuse.flush()
-            
-            # Exponential backoff to fetch trace and wait for metrics
-            max_retries = 6
-            base_delay = 2.0
-            trace = None
-            
-            for i in range(max_retries):
-                time.sleep(base_delay * (2 ** i))
-                try:
-                    trace = langfuse.get_trace(trace_id)
-                    # wait until trace and total_cost is available
-                    if hasattr(trace, "total_cost") and trace.total_cost is not None and trace.total_cost > 0:
-                        print(f"Trace {trace_id} cost found: {trace.total_cost}")
-                        break
-                    elif hasattr(trace, "usage") and getattr(trace.usage, "total_cost", None) is not None and trace.usage.total_cost > 0:
-                        print(f"Trace {trace_id} usage cost found: {trace.usage.total_cost}")
-                        break
-                    else:
-                        print(f"Trace {trace_id} found but metrics not yet populated (cost is None or 0). Retrying...")
-                except Exception as e:
-                    print(f"Failed to fetch trace {trace_id} (attempt {i+1}/{max_retries}): {e}")
-            
-            if trace:
-                score_value = 1.0 if result and result.get("routed") else 0.0
-                
-                # Push real score
-                item.link(trace_or_observation=trace, run_name="real_integration_eval")
-                langfuse.score(
-                    trace_id=trace_id,
-                    name="routing_accuracy",
-                    value=score_value,
-                    comment=f"Routed to branch {result.get('intent_branch') if result else 'unknown'}"
-                )
-                
-                results.append({
-                    "item_input": item.input,
-                    "score": score_value,
-                    "status": "pass" if score_value > 0.5 else "fail",
-                    "trace_id": trace_id
-                })
-            else:
-                print(f"Failed to fetch trace {trace_id} after {max_retries} attempts.")
-                results.append({
-                    "item_input": item.input,
-                    "score": 0.0,
-                    "status": "fail",
-                    "error": "trace_fetch_timeout"
-                })
                 
     except Exception as e:
         print(f"Langfuse eval failed: {e}")

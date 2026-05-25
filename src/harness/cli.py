@@ -257,7 +257,8 @@ def main():
         
     tags = []
     if os.environ.get("HARNESS_EVAL_MODE") == "1":
-        tags = ["harness-goldens", "integration-test"]
+        env_tags = os.environ.get("LANGFUSE_TAGS")
+        tags = env_tags.split(",") if env_tags else ["integration-test"]
         
     langfuse_context.update_current_trace(session_id=session_id, tags=tags)
 

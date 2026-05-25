@@ -242,7 +242,8 @@ Return the result as JSON:
             
         tags = []
         if os.environ.get("HARNESS_EVAL_MODE") == "1":
-            tags = ["harness-goldens", "integration-test"]
+            env_tags = os.environ.get("LANGFUSE_TAGS")
+            tags = env_tags.split(",") if env_tags else ["integration-test"]
             
         langfuse_context.update_current_trace(session_id=session_id, tags=tags)
 
@@ -304,7 +305,8 @@ Return the result as JSON:
             "orchestrator_applied": True,
             "intent_branch": intent_branch,
             "intent_justification": intent_justification,
-            "state": state
+            "state": state,
+            "trace_id": langfuse_context.get_current_trace_id()
         }
 
     def validate_against_rules(self, agent_name: str) -> bool:
