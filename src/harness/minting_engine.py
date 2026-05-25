@@ -446,24 +446,10 @@ tools:
             
             with open(agent_file_path, 'w') as f:
                 f.write(final_content)
-            
-    # Strategy Persistence
-    _persist_verification_strategy(target_path, project_path, query_llm_fn, llm_provider, api_key, tech_stack_data)
 
     print(f"Successfully minted workspace at {target_dir}")
     print("\nNext Steps:")
     print("1. Activate your environment and Launch AI")
-
-def _persist_verification_strategy(target_path: Path, project_path: str, query_llm_fn, llm_provider, api_key, tech_stack_data: dict = None):
-    """Internal helper to identify and persist the verification strategy."""
-    try:
-        if not tech_stack_data:
-            tech_stack_data = detect_tech_stack(project_path, query_llm_fn, llm_provider, api_key)
-            
-        if tech_stack_data and "strategy" in tech_stack_data:
-            pass
-    except Exception as e:
-        print(f"Warning: Failed to persist strategy: {e}")
 
 def synthesize_domain_sme_agent(target_dir: str, domain_content: str, harness_folder_name: str, platform_choice: str = "1", model_choice: str = None, logical_harness_name: str = None):
     """Generates the domain SME agent deterministically based on the filled doc."""
@@ -728,28 +714,6 @@ def install_workspace_tools(target_dir: str, harness_folder_name: str, skills: l
                 
         with open(skills_json_path, "w") as f:
              json.dump(skills_data, f, indent=2)
-    if mcps:
-        mcp_json_path = os.path.join(harness_dir, "mcp.json")
-        mcp_data = {"mcpServers": {}}
-        if os.path.exists(mcp_json_path):
-             try:
-                 with open(mcp_json_path, "r") as f:
-                     mcp_data = json.load(f)
-             except json.JSONDecodeError:
-                 pass
-                 
-        for mcp in mcps:
-            print(f"[HARNESS] Configuring MCP: {mcp['name']}...")
-            import shlex
-            parts = shlex.split(mcp['command'])
-            if parts:
-                mcp_data["mcpServers"][mcp['name']] = {
-                    "command": parts[0],
-                    "args": parts[1:]
-                }
-
-        with open(mcp_json_path, "w") as f:
-             json.dump(mcp_data, f, indent=2)
 
 def perform_smart_merge(existing_path: Path, staged_path: Path):
     """

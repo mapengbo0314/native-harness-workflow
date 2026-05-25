@@ -139,8 +139,7 @@ def test_gemini_layout(temp_project):
 
     check_snapshot(temp_project, "gemini", [
         "GEMINI.md",
-        ".gemini/orchestrator.md",
-        ".gemini/mcp.json"
+        ".gemini/orchestrator.md"
     ])
 
 def test_claude_plugin_layout(temp_project):

@@ -55,8 +55,15 @@ def test_transactional_minting_and_smart_merge(tmp_path, monkeypatch):
             modified_content = orig_content + "\n\n## Custom Section\nCustom content here."
             orchestrator_path.write_text(modified_content)
             
-            # 2. Modify mcp.json (deep merge test)
-            # mcp.json generation was removed in task 2
+            # 2. Modify agent.json (deep merge test)
+            agent_json_path = harness_dir / "agent.json"
+            if agent_json_path.exists():
+                agent_data = json.loads(agent_json_path.read_text())
+                agent_data["custom_property"] = "this_should_persist"
+                agent_data["model"] = "mocked_model" # simulate user override
+                agent_json_path.write_text(json.dumps(agent_data, indent=2))
+            else:
+                agent_json_path.write_text('{"custom_property": "this_should_persist"}')
             
             # 3. Create a custom file in the harness that shouldn't be deleted by minting
             custom_file = harness_dir / "custom_agent.md"
@@ -88,8 +95,10 @@ def test_transactional_minting_and_smart_merge(tmp_path, monkeypatch):
             # And verify it still has standard content
             assert "# Orchestrator" in new_content
             
-            # 2. Verify mcp.json merged
-            # skipped as mcp.json is no longer generated
+            # 2. Verify agent.json merged
+            new_agent_data = json.loads(agent_json_path.read_text())
+            assert new_agent_data.get("custom_property") == "this_should_persist"
+            assert new_agent_data.get("model") == "mocked_model"
             
             # 3. Verify custom file preserved
             assert (harness_dir / "custom_agent.md").exists()
