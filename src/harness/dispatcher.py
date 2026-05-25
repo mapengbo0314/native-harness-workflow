@@ -88,23 +88,49 @@ class OrchestratorDispatcher:
                 return json.load(f)
         return {"rules": {}}
 
-    def _load_state(self) -> Dict[str, Any]:
+    def _get_state_files(self, session_id: Optional[str] = None) -> tuple[Path, Path]:
+        if session_id:
+            return (
+                self.config_dir / f".harness_state_{session_id}.json",
+                self.config_dir / f".harness_state_{session_id}.tmp.json"
+            )
+        return (
+            self.config_dir / ".harness_state.json",
+            self.config_dir / ".harness_state.tmp.json"
+        )
+
+    def _load_state(self, session_id: Optional[str] = None) -> Dict[str, Any]:
         """Load state from HarnessDB with fallback to .harness_state.json."""
         # Try DB first
-        db_state = self.db.get_state()
+        db_state = self.db.get_state(session_id)
         if db_state:
             return db_state
 
+        state_file, _ = self._get_state_files(session_id)
+        
         # Fallback to file for migration
-        if self.state_file.exists():
+        if state_file.exists():
             try:
-                with open(self.state_file, 'r') as f:
+                with open(state_file, 'r') as f:
                     state = json.load(f)
                     # Migrate to DB
-                    self.db.set_state(state)
+                    self.db.set_state(state, session_id)
                     return state
             except (json.JSONDecodeError, OSError, PermissionError):
                 pass
+                
+        # Base fallback if session specific doesn't exist
+        if session_id:
+            base_file, _ = self._get_state_files(None)
+            if base_file.exists():
+                try:
+                    with open(base_file, 'r') as f:
+                        state = json.load(f)
+                        self.db.set_state(state, session_id)
+                        return state
+                except (json.JSONDecodeError, OSError, PermissionError):
+                    pass
+
         return {
             "active_persona": "orchestrator",
             "tdd_status": "inactive",
@@ -114,12 +140,13 @@ class OrchestratorDispatcher:
             "strict_enforcement_enabled": False,
         }
 
-    def _save_state(self, state: Dict[str, Any], timeout: float = 5.0) -> None:
+    def _save_state(self, state: Dict[str, Any], session_id: Optional[str] = None, timeout: float = 5.0) -> None:
         """Save state to HarnessDB and .harness_state.json atomically using SQLite leases."""
         start_time = time.time()
         locked = False
+        lock_key = f"state_lock_{session_id}" if session_id else "state_lock"
         while time.time() - start_time < timeout:
-            if self.db.acquire_lease("state_lock", ttl_seconds=10):
+            if self.db.acquire_lease(lock_key, ttl_seconds=10):
                 locked = True
                 break
             time.sleep(0.05)
@@ -129,15 +156,16 @@ class OrchestratorDispatcher:
 
         try:
             # Save to DB
-            self.db.set_state(state)
+            self.db.set_state(state, session_id)
 
             # Also save to file for backward compatibility
-            with open(self.tmp_state_file, 'w') as f:
+            state_file, tmp_state_file = self._get_state_files(session_id)
+            with open(tmp_state_file, 'w') as f:
                 json.dump(state, f, indent=2)
-            os.replace(self.tmp_state_file, self.state_file)
+            os.replace(tmp_state_file, state_file)
         finally:
             # Release lock
-            self.db.release_lease("state_lock")
+            self.db.release_lease(lock_key)
 
     @observe(as_type="span")
     def classify_intent(self, prompt: str) -> Dict[str, str]:
@@ -273,7 +301,7 @@ Return the result as JSON:
             )
 
         # Update state and check for infinite loops
-        state = self._load_state()
+        state = self._load_state(session_id)
         
         # Infinite loop prevention (individual tracking)
         counts = state.get("agent_cycle_counts", {})
@@ -286,7 +314,7 @@ Return the result as JSON:
                 # Reset the counter for this agent so it's not permanently stuck, but block this dispatch
                 counts[agent_name] = 0
                 state["agent_cycle_counts"] = counts
-                self._save_state(state)
+                self._save_state(state, session_id)
                 raise PermissionError(
                     f"INFINITE LOOP DETECTED: The {agent_name} has been dispatched 5 times without breaking the cycle. "
                     "You MUST STOP dispatching subagents immediately. "
@@ -305,7 +333,7 @@ Return the result as JSON:
             state["intent_justification"] = intent_justification
         if agent_name == "implementer":
             state["tdd_status"] = "active"
-        self._save_state(state)
+        self._save_state(state, session_id)
 
         return {
             "agent": agent_name,

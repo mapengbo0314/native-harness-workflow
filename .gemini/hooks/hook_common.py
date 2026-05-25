@@ -18,9 +18,12 @@ def resolve_plugin_root() -> Path:
     return Path(__file__).parent.parent.resolve()
 
 def resolve_state_path(input_json: dict = None) -> Path:
+    session_id = os.environ.get("LANGFUSE_SESSION_ID")
+    filename = f"campaign_state_{session_id}.json" if session_id else "campaign_state.json"
+    
     if input_json and "workspace_root" in input_json:
-        return Path(input_json["workspace_root"]) / "state" / "campaign_state.json"
-    return resolve_plugin_root() / "state" / "campaign_state.json"
+        return Path(input_json["workspace_root"]) / "state" / filename
+    return resolve_plugin_root() / "state" / filename
 
 @contextmanager
 def acquire_lock(path: Path):
@@ -54,6 +57,22 @@ def read_json(path: Path | str, default: dict = None) -> dict:
     if default is None:
         default = {}
     path_obj = Path(path)
+    
+    # Fallback/Migration for session states
+    if not path_obj.exists() and path_obj.name.startswith("campaign_state_") and path_obj.name.endswith(".json"):
+        base_path = path_obj.parent / "campaign_state.json"
+        if base_path.exists():
+            with acquire_lock(base_path):
+                try:
+                    with open(base_path, "r") as f:
+                        data = json.load(f)
+                    # Migrate immediately by writing to namespaced path
+                    with acquire_lock(path_obj):
+                        _write_json_nolock(path_obj, data)
+                    return data
+                except (FileNotFoundError, json.JSONDecodeError):
+                    pass
+
     if not path_obj.exists():
         return default
         
@@ -69,6 +88,15 @@ def update_state(path: Path | str, modifier_fn):
     with acquire_lock(path_obj):
         if not path_obj.exists():
             data = {}
+            # Fallback check
+            if path_obj.name.startswith("campaign_state_") and path_obj.name.endswith(".json"):
+                base_path = path_obj.parent / "campaign_state.json"
+                if base_path.exists():
+                    try:
+                        with open(base_path, "r") as f:
+                            data = json.load(f)
+                    except (FileNotFoundError, json.JSONDecodeError):
+                        pass
         else:
             try:
                 with open(path_obj, "r") as f:

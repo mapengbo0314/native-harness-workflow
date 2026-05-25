@@ -34,24 +34,33 @@ class HarnessDB:
         finally:
             conn.close()
 
-    def get_state(self) -> Dict[str, Any]:
+    def get_state(self, session_id: Optional[str] = None) -> Dict[str, Any]:
         conn = self._get_connection()
         try:
-            cursor = conn.execute("SELECT value FROM state WHERE key = 'current_state'")
+            key = f"state_{session_id}" if session_id else "current_state"
+            cursor = conn.execute("SELECT value FROM state WHERE key = ?", (key,))
             row = cursor.fetchone()
             if row:
                 return json.loads(row[0])
+            
+            # Fallback for migration
+            if session_id:
+                cursor = conn.execute("SELECT value FROM state WHERE key = 'current_state'")
+                row = cursor.fetchone()
+                if row:
+                    return json.loads(row[0])
             return {}
         finally:
             conn.close()
 
-    def set_state(self, state: Dict[str, Any]):
+    def set_state(self, state: Dict[str, Any], session_id: Optional[str] = None):
         conn = self._get_connection()
         try:
+            key = f"state_{session_id}" if session_id else "current_state"
             with conn:
                 conn.execute(
-                    "INSERT OR REPLACE INTO state (key, value) VALUES ('current_state', ?)",
-                    (json.dumps(state),)
+                    "INSERT OR REPLACE INTO state (key, value) VALUES (?, ?)",
+                    (key, json.dumps(state))
                 )
         finally:
             conn.close()

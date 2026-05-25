@@ -32,7 +32,8 @@ def main():
         # 1. Setup paths to import OrchestratorDispatcher
         current_dir = Path(__file__).parent
         plugin_root = current_dir.parent
-        src_dir = plugin_root / "src"
+        project_root_dir = plugin_root.parent
+        src_dir = project_root_dir / "src"
         config_dir = plugin_root / "config"
         
         if str(src_dir) not in sys.path:
@@ -43,7 +44,7 @@ def main():
             if not os.environ.get("LANGFUSE_TRACE_ID"):
                 os.environ["LANGFUSE_TRACE_ID"] = str(uuid.uuid4())
                 
-            from dispatcher import OrchestratorDispatcher
+            from harness.dispatcher import OrchestratorDispatcher
             from langfuse.decorators import langfuse_context
             
             # 3. Instantiate dispatcher

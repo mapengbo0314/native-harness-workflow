@@ -1,7 +1,7 @@
 {
   "metadata": {},
   "events": [],
-  "current_branch": "A",
-  "last_prompt": "There is a bug in the code",
-  "intent_justification": "Fallback keyword match"
+  "current_branch": "B",
+  "last_prompt": "Hello!",
+  "intent_justification": "Default branch: could not reliably classify intent."
 }
