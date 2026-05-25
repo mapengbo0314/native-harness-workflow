@@ -94,8 +94,6 @@ def test_claude_plugin_contract():
             assert "post_tool_observer" in hooks["PostToolUseFailure"][0]["hooks"][0]["command"]
             assert "PreCompact" in hooks
             assert "precompact_handoff" in hooks["PreCompact"][0]["hooks"][0]["command"]
-            assert "Stop" in hooks
-            assert "stop_verifier" in hooks["Stop"][0]["hooks"][0]["command"]
             assert "ConfigChange" in hooks
             assert "config_change_guard" in hooks["ConfigChange"][0]["hooks"][0]["command"]
 

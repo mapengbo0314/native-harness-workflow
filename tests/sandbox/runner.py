@@ -224,7 +224,6 @@ class MockHost:
         "prompt_interceptor": "prompt_classifier",
         "pre_tool_guard": "pre_tool_guard",
         "post_tool_monitor": "post_tool_observer",
-        "stop_monitor": "stop_verifier",
     }
 
     def run_hook(self, hook_module: str, input_data: Dict[str, Any]) -> str:
@@ -330,12 +329,6 @@ class MockHost:
                     self.history.append({"role": "assistant", "content": response_text})
                     
                     if "I am done" in response_text or "Task complete" in response_text or turn > 15:
-                        # 7. Run stop_monitor
-                        stop_result = self.run_hook("stop_monitor", {"hook_event_name": "Stop"})
-                        if stop_result.startswith("HOOK_REJECTION:"):
-                            print(f"Stop Monitor Rejected: {stop_result}")
-                            self.history.append({"role": "user", "content": stop_result})
-                            continue
                         break
         finally:
             self.logger.log_event("SESSION_END", {"status": "finished"})

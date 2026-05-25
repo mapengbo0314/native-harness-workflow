@@ -50,7 +50,7 @@ class TestSandboxRunner(unittest.TestCase):
         hooks_dir.mkdir(parents=True)
         
         # Create dummy hooks that just return success
-        for hook in ["prompt_classifier", "pre_tool_guard", "post_tool_observer", "stop_verifier"]:
+        for hook in ["prompt_classifier", "pre_tool_guard", "post_tool_observer"]:
             (hooks_dir / f"{hook}.py").write_text("import sys; print('success')")
 
         # Mock OrchestratorDispatcher

@@ -25,9 +25,7 @@ def test_plugin_uses_single_root_hook_system():
             "pre_tool_guard.py",
             "post_tool_observer.py",
             "precompact_handoff.py",
-            "stop_verifier.py",
-            "config_change_guard.py",
-        ]:
+            "config_change_guard.py",        ]:
             assert (hooks_dir / hook_file).exists()
 
         hooks_config = json.loads((hooks_dir / "hooks.json").read_text())

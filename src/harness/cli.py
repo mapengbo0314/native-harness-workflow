@@ -66,7 +66,6 @@ def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
         plugin_dir / "hooks" / "pre_tool_guard.py",
         plugin_dir / "hooks" / "post_tool_observer.py",
         plugin_dir / "hooks" / "precompact_handoff.py",
-        plugin_dir / "hooks" / "stop_verifier.py",
         plugin_dir / "hooks" / "config_change_guard.py",
         plugin_dir / "src" / "dispatcher.py",
         plugin_dir / "ddd-context.json",
