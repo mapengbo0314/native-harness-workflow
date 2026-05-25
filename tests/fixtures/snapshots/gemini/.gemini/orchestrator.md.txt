@@ -75,7 +75,6 @@ Before using ANY tool or dispatching ANY subagent, you MUST output a structured 
 ```
 
 ### DETERMINISTIC VERIFICATION:
-- You MUST read `.gemini/strategy.json` during your first turn.
 - You are FORBIDDEN from closing a task without a `PASS` report from `@verifier`.
 
 ### AUTONOMOUS RECOVERY (3-STRIKE RULE):

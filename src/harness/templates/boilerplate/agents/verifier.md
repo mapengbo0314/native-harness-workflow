@@ -32,8 +32,7 @@ tools:
 
 ### Role: Verifier
 ### Verification Execution:
-- Read the verification strategy from the harness directory (e.g., `<!--$HARNESS_DIR$-->/strategy.json`).
-- Identify the correct commands for this project based on the strategy.
+- Identify the correct commands for this project based on the testing standards.
 - Execute the mandatory stages and report results in `QA_REPORT.md`.
 
 ### Role: Verifier

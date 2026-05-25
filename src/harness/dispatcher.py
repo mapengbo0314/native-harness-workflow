@@ -115,7 +115,7 @@ class OrchestratorDispatcher:
             "strict_enforcement_enabled": False,
         }
 
-    def _save_state(self, state: Dict[str, Any], session_id: Optional[str] = None, timeout: float = 5.0) -> None:
+    def _save_state(self, state: Dict[str, Any], session_id: Optional[str] = None) -> None:
         """Save state to .harness_state.json atomically."""
         state_file, tmp_state_file = self._get_state_files(session_id)
         with open(tmp_state_file, 'w') as f:

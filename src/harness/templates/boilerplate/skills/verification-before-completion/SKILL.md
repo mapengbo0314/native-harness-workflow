@@ -13,11 +13,10 @@ You MUST NOT finalize a task or declare it complete until all critical verificat
 
 ## Steps
 
-1.  **Read Strategy**: Read `<!--$HARNESS_DIR$-->/strategy.json` to understand the verification requirements for this project.
-2.  **Identify Critical Stages**: Identify all stages marked as 'critical' in the strategy.
-3.  **Execute Verification**: Dispatch `<!--$SUBAGENT_SYNTAX$-->verifier` to execute all identified critical stages.
-4.  **Review QA Report**: Ensure that `<!--$HARNESS_DIR$-->/artifacts/QA_REPORT.md` (or the project's equivalent QA report) contains empirical evidence of a PASS for all critical stages.
-5.  **Extract Metadata**: If verification fails, you MUST extract the JSON from the `<QA_METADATA>` block in `QA_REPORT.md` and present it to the Orchestrator.
+1.  **Identify Critical Stages**: Identify all critical verification stages based on the project's testing standards and guidelines.
+2.  **Execute Verification**: Dispatch `<!--$SUBAGENT_SYNTAX$-->verifier` to execute all identified critical stages.
+3.  **Review QA Report**: Ensure that `<!--$HARNESS_DIR$-->/artifacts/QA_REPORT.md` (or the project's equivalent QA report) contains empirical evidence of a PASS for all critical stages.
+4.  **Extract Metadata**: If verification fails, you MUST extract the JSON from the `<QA_METADATA>` block in `QA_REPORT.md` and present it to the Orchestrator.
 
 ## Red Flags
 

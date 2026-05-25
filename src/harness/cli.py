@@ -540,8 +540,7 @@ def main():
         if platform_choice == "1":
             print("   - In Gemini CLI, you will be prompted to 'Allow' each tool on first use.")
         elif platform_choice == "2":
-            print("   - In Claude Code, ensure you restart your session to load the new mcp.json.")
-        print("   - Review your workspace mcp.json to verify the command paths.")
+            print("   - In Claude Code, ensure you restart your session to load the new MCP configuration.")
         counter += 1
 
     print(f"\n\n{counter}. [ACTION REQUIRED] Context Automation:")

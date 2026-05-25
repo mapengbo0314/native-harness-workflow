@@ -67,7 +67,7 @@ class GeminiAdapter(PlatformAdapter):
         import shlex
         gemini = shutil.which("gemini")
         if not gemini:
-            print("[HARNESS] Warning: 'gemini' CLI not found. Generated mcp.json files are ready for manual activation.")
+            print("[HARNESS] Warning: 'gemini' CLI not found. Please register MCP tools manually.")
             return
             
         commands = [

@@ -63,7 +63,7 @@ class ClaudeAdapter(PlatformAdapter):
         import shlex
         claude = shutil.which("claude")
         if not claude:
-            print("[HARNESS] Warning: 'claude' CLI not found. Generated .mcp.json is ready for Claude Code after restart.")
+            print("[HARNESS] Warning: 'claude' CLI not found. Please register MCP tools manually.")
             return
             
         commands = [
