@@ -10,10 +10,7 @@ from jinja2 import Environment, BaseLoader
 from harness.plugin_generator import generate_orchestrator_plugin
 from harness.renderer import TemplateRenderer
 from harness.discovery_engine import detect_tech_stack
-
-def should_generate_orchestrator_plugin(domain_content: str, platform_choice: str) -> bool:
-    """Generate the local orchestrator plugin for Claude Code workspaces."""
-    return platform_choice == "2"
+from harness.adapters import get_adapter
 
 
 def parse_tool_checklists(domain_content: str) -> tuple[list[dict], list[dict]]:
@@ -163,39 +160,19 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
         # Tool mapping for specific platforms
         platform_map_normalized = {"1": "gemini", "2": "claude", "3": "cursor", "4": "agents", "5": "codex"}
         current_platform = platform_map_normalized.get(platform_choice, platform_choice).lower()
+        adapter = get_adapter(current_platform)
         
-        tool_replacements = {}
+        tool_replacements = adapter.get_tool_mappings()
         
         ingestion_key = os.environ.get("HARNESS_GLOBAL_INGESTION_BASE64", "YOUR_EMBEDDED_BASE64_STRING")
         project_slug = os.path.basename(os.path.abspath(project_path))
         
         renderer_context = {
             "HARNESS_DIR": target_dir_name,
-            "SUBAGENT_SYNTAX": "@",
+            "SUBAGENT_SYNTAX": adapter.get_subagent_syntax(),
             "INGESTION_KEY": ingestion_key,
             "PROJECT_SLUG": project_slug
         }
-
-        if current_platform == "claude":
-            renderer_context["SUBAGENT_SYNTAX"] = "Task tool: "
-            tool_replacements = {
-                "- read_file": "- Read",
-                "- grep_search": "- Grep",
-                "- replace": "- Edit",
-                "- write_file": "- Write",
-                "- run_shell_command": "- Bash",
-                "- glob": "- Glob",
-                "read_file": "Read",
-                "grep_search": "Grep",
-                "replace": "Edit",
-                "write_file": "Write",
-                "run_shell_command": "Bash",
-                "glob": "Glob"
-            }
-        elif current_platform == "codex":
-            renderer_context["SUBAGENT_SYNTAX"] = "Hand off to "
-        else:
-            renderer_context["SUBAGENT_SYNTAX"] = "@"
 
         renderer = TemplateRenderer()
 
@@ -309,6 +286,7 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
     
     # Generate Platform Rules Pointers IN THE ROOT DIRECTORY
     harness_prefix = f".{active_platform}" if active_platform in ["gemini", "claude", "cursor", "codex"] else target_dir_name
+    adapter = get_adapter(active_platform)
     
     # --- Generate CodeGraph CI Workflow ---
     root_staging_dir = target_path / "root_staging"
@@ -351,16 +329,7 @@ The Orchestrator agent and core rules are located in `{harness_prefix}/orchestra
             if s.get('type') != 'extension':
                 pointer_content += f"- **{s['name']}**: `{harness_prefix}/skills/{s['name']}/SKILL.md`\n"
 
-    # Map the platform to its specific pointer files
-    pointer_files_map = {
-        "gemini": ["GEMINI.md"],
-        "claude": ["CLAUDE.md"],
-        "cursor": [".cursorrules"],
-        "codex": ["CODEX.md"],
-        "agents": []
-    }
-    
-    files_to_generate = pointer_files_map.get(active_platform, [])
+    files_to_generate = adapter.get_rules_pointer_files()
     
     for rules_file in files_to_generate:
         staging_file_path = root_staging_dir / rules_file
@@ -368,12 +337,6 @@ The Orchestrator agent and core rules are located in `{harness_prefix}/orchestra
         with open(staging_file_path, "w") as f:
             f.write(pointer_content)
             
-    if active_platform == "cursor":
-        copilot_dir = root_staging_dir / ".github"
-        copilot_dir.mkdir(exist_ok=True)
-        with open(copilot_dir / "copilot-instructions.md", "w") as f:
-            f.write(pointer_content)
-        
     print(f"\nHarness files staged in {root_staging_dir}. They will be merged into the project root automatically.")
 
     # Create an MCP config for CodeGraph
@@ -402,7 +365,7 @@ The Orchestrator agent and core rules are located in `{harness_prefix}/orchestra
         return re.sub(r'-+', '-', s3).strip('-')
 
     # Generate Specialized Agents
-    if active_platform == "codex":
+    if adapter.get_agent_manifest_format() == "yaml":
         agents_md_content = "# Codex Agents Manifest\n\n"
         for agent in selected_agents:
             safe_name = to_slug(agent["name"])
@@ -439,7 +402,7 @@ The Orchestrator agent and core rules are located in `{harness_prefix}/orchestra
             agent_file_path = agent_dir_path / f"{safe_name}.md" 
             
             # Select base tools based on platform
-            if active_platform == "claude":
+            if adapter.get_platform_name() == "claude":
                 tools_list = """  - Read
   - Grep
   - Edit
@@ -510,6 +473,13 @@ def _persist_verification_strategy(target_path: Path, project_path: str, query_l
 
 def synthesize_domain_sme_agent(target_dir: str, domain_content: str, harness_folder_name: str, platform_choice: str = "1", model_choice: str = None, logical_harness_name: str = None):
     """Generates the domain SME agent deterministically based on the filled doc."""
+    from harness.adapters import get_adapter
+    
+    # Normalize platform choice
+    platform_map = {"1": "gemini", "2": "claude", "3": "cursor", "4": "agents", "5": "codex"}
+    active_platform = platform_map.get(str(platform_choice), str(platform_choice)).lower()
+    adapter = get_adapter(active_platform)
+    
     if not domain_content:
         return None
 
@@ -595,7 +565,7 @@ You are the definitive authority on the business logic, ubiquitous language, and
 3. **Reject:** Reject plans that violate domain rules. Provide architectural corrections, NOT implementation code.
 """
 
-    if platform_choice == "5":
+    if adapter.get_agent_manifest_format() == "yaml":
         try:
             agents_file_path = os.path.join(target_dir, harness_folder_name, "AGENTS.md")
             if os.path.exists(agents_file_path):

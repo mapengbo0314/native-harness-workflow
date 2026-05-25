@@ -56,6 +56,8 @@ def _build_mcp_config(mcps_to_install: list[dict]) -> dict:
     return {"mcpServers": mcp_servers}
 
 
+from harness.adapters import get_adapter
+
 def _write_repo_mcp_config(project_path: Path, mcps_to_install: list[dict]) -> None:
     mcp_path = project_path / ".mcp.json"
     new_config = _build_mcp_config(mcps_to_install)
@@ -75,51 +77,6 @@ def _write_repo_mcp_config(project_path: Path, mcps_to_install: list[dict]) -> N
     tmp_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
     os.replace(tmp_path, mcp_path)
     print("[HARNESS] Repo-level .mcp.json configured.")
-
-
-def _configure_optional_platform_cli(project_path: Path, platform_choice: str, mcps_to_install: list[dict]) -> None:
-    platform = _platform_name(platform_choice)
-    if platform == "claude":
-        claude = shutil.which("claude")
-        if not claude:
-            print("[HARNESS] Warning: 'claude' CLI not found. Generated .mcp.json is ready for Claude Code after restart.")
-            return
-        commands = [
-            [claude, "mcp", "add", "codegraph", "npx", "-y", "@colbymchenry/codegraph", "serve", "--mcp"],
-        ]
-        for mcp in mcps_to_install or []:
-            try:
-                parts = shlex.split(mcp.get("command", ""))
-            except ValueError as exc:
-                raise HarnessSetupError(f"Invalid command string for MCP {mcp.get('name')}: {exc}") from exc
-            if parts:
-                commands.append([claude, "mcp", "add", mcp["name"], *parts])
-        for command in commands:
-            result = subprocess.run(command, cwd=project_path, capture_output=True, text=True, env=os.environ.copy())
-            if result.returncode != 0:
-                print(f"[HARNESS] Warning: Optional CLI MCP registration failed: {' '.join(command[:4])}")
-        return
-
-    if platform == "gemini":
-        gemini = shutil.which("gemini")
-        if not gemini:
-            print("[HARNESS] Warning: 'gemini' CLI not found. Generated mcp.json files are ready for manual activation.")
-            return
-        commands = [
-            [gemini, "mcp", "add", "codegraph", "npx", "-y", "@colbymchenry/codegraph", "serve", "--mcp"],
-        ]
-        for mcp in mcps_to_install or []:
-            try:
-                parts = shlex.split(mcp.get("command", ""))
-            except ValueError as exc:
-                raise HarnessSetupError(f"Invalid command string for MCP {mcp.get('name')}: {exc}") from exc
-            if parts:
-                commands.append([gemini, "mcp", "add", mcp["name"], *parts])
-        for command in commands:
-            result = subprocess.run(command, cwd=project_path, capture_output=True, text=True, env=os.environ.copy())
-            if result.returncode != 0:
-                print(f"[HARNESS] Warning: Optional CLI MCP registration failed: {' '.join(command[:4])}")
-
 
 def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
     required = [
@@ -227,9 +184,13 @@ def run_embedded_setup(
         raise HarnessSetupError("Python 3.8+ is required.")
 
     _write_repo_mcp_config(project_path, mcps_to_install)
-    _configure_optional_platform_cli(project_path, platform_choice, mcps_to_install)
+    
+    adapter = get_adapter(_platform_name(platform_choice))
+    adapter.configure_cli(project_path, mcps_to_install)
+    
     if plugin_dir and plugin_dir.exists():
         _validate_claude_plugin(project_path, plugin_dir)
+        
     _write_setup_state(project_path, harness_dir, plugin_dir, platform_choice)
     print("[HARNESS] Embedded setup complete.")
 
@@ -473,22 +434,25 @@ def main():
         install_workspace_tools(args.project_path, ".harness_tmp", skills_to_install, mcps_to_install)
 
         # Determine subagent syntax for rule patching
-        target_syntax = "@"
-        if platform_choice == "2": # Claude
-            target_syntax = "Task tool: "
-        elif platform_choice == "5": # Codex
-            target_syntax = "Hand off to "
+        adapter = get_adapter(_platform_name(platform_choice))
+        target_syntax = adapter.get_subagent_syntax()
 
         # SME synthesis (targeting temp)
         sme_agent_name = synthesize_domain_sme_agent(args.project_path, domain_content, ".harness_tmp", platform_choice=platform_choice, model_choice=args.model, logical_harness_name=harness_folder)
         patch_orchestrator_rules(args.project_path, sme_agent_name, ".harness_tmp", target_syntax=target_syntax)
 
+        # Provision core infrastructure for all platforms
+        adapter.generate_core_infrastructure(Path(args.project_path))
+        
+        # Format hooks dynamically
+        adapter.install_hooks(Path(args.project_path))
+
         # --- Plugin Generation (targeting temp) ---
-        from harness.minting_engine import should_generate_orchestrator_plugin
         from harness.plugin_generator import generate_orchestrator_plugin
         
         plugin_dir = None
-        if should_generate_orchestrator_plugin(domain_content, platform_choice):
+        # Only Claude generates the distinct orchestrator plugin artifact
+        if adapter.get_platform_name() == "claude":
             try:
                 print(f"\n[{'='*60}]\n[HARNESS] Generating orchestrator plugin...")
                 plugin_dir = generate_orchestrator_plugin(

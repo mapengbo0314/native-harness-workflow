@@ -33,7 +33,6 @@ def run_harness_init(project_path, platform_choice, llm="gemini", include_plugin
          patch('subprocess.run') as mock_run, \
          patch('urllib.request.urlopen') as mock_urlopen, \
          patch('harness.cli.parse_args') as mock_parse_args, \
-         patch('harness.minting_engine.should_generate_orchestrator_plugin') as mock_should_gen, \
          patch('sys.exit'):
         
         # Mock LLM response
@@ -56,11 +55,6 @@ def run_harness_init(project_path, platform_choice, llm="gemini", include_plugin
         
         # Mock urlopen for skill downloads (empty response)
         mock_urlopen.return_value.__enter__.return_value.read.return_value = b""
-
-        if mock_should_gen_plugin is not None:
-            mock_should_gen.return_value = mock_should_gen_plugin
-        else:
-            mock_should_gen.return_value = (include_plugin and platform_choice == "2")
 
         args = MagicMock()
         args.command = "init"

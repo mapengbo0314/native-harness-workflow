@@ -40,8 +40,7 @@ class TestHeadlessCLI(unittest.TestCase):
              patch('harness.minting_engine.parse_tool_checklists', return_value=([], [])), \
              patch('harness.minting_engine.install_workspace_tools'), \
              patch('harness.minting_engine.synthesize_domain_sme_agent', return_value="fake-sme"), \
-             patch('harness.minting_engine.patch_orchestrator_rules'), \
-             patch('harness.minting_engine.should_generate_orchestrator_plugin', return_value=False):
+             patch('harness.minting_engine.patch_orchestrator_rules'):
             
             try:
                 main()
@@ -81,7 +80,6 @@ class TestHeadlessCLI(unittest.TestCase):
              patch('harness.minting_engine.install_workspace_tools'), \
              patch('harness.minting_engine.synthesize_domain_sme_agent', return_value="fake-sme"), \
              patch('harness.minting_engine.patch_orchestrator_rules'), \
-             patch('harness.minting_engine.should_generate_orchestrator_plugin', return_value=False), \
              patch('harness.cli.run_embedded_setup', side_effect=HarnessSetupError("boom")):
             
             try:

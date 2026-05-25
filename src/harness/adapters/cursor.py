@@ -1,0 +1,58 @@
+import os
+from pathlib import Path
+from typing import Dict, List
+from harness.adapters.base import PlatformAdapter
+
+
+class CursorAdapter(PlatformAdapter):
+    def get_platform_name(self) -> str:
+        return "cursor"
+
+    def get_config_dir_name(self) -> str:
+        return ".cursor"
+
+    def get_plugin_env_var_name(self) -> str:
+        return "CURSOR_PLUGIN_ROOT"
+
+    def get_tool_mappings(self) -> Dict[str, str]:
+        return {}
+
+    def get_subagent_syntax(self) -> str:
+        return "@"
+
+    def format_subagent_prompt(self, task_desc: str) -> str:
+        return task_desc
+
+    def get_rules_pointer_files(self) -> List[str]:
+        return [".cursorrules", ".github/copilot-instructions.md"]
+
+    def get_hook_directory(self) -> str:
+        return f"{self.get_config_dir_name()}/hooks"
+
+    def install_hooks(self, project_path: Path) -> None:
+        hooks_dir = project_path / self.get_hook_directory()
+        if not hooks_dir.exists():
+            return
+            
+        for root, _, files in os.walk(hooks_dir):
+            for file in files:
+                if file.endswith((".py", ".json", ".md")):
+                    filepath = Path(root) / file
+                    with open(filepath, "r") as f:
+                        content = f.read()
+                        
+                    new_content = content.replace("${CLAUDE_PLUGIN_ROOT}", f"${{{self.get_plugin_env_var_name()}}}")
+                    new_content = new_content.replace(".claude", self.get_config_dir_name())
+                    
+                    if new_content != content:
+                        with open(filepath, "w") as f:
+                            f.write(new_content)
+
+    def generate_core_infrastructure(self, project_path: Path) -> None:
+        pass
+
+    def configure_cli(self, project_path: Path, mcps_to_install: List[dict]) -> None:
+        pass
+
+    def get_agent_manifest_format(self) -> str:
+        return "markdown"

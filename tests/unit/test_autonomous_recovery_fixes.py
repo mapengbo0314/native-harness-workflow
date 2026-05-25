@@ -14,8 +14,12 @@ def test_root_pre_tool_guard_path_normalization_regressions():
         tmp_project.mkdir()
         (tmp_project / "docs" / "domain").mkdir(parents=True)
         (tmp_project / "docs" / "domain" / "CONTEXT.md").write_text("# Context")
-
+        (tmp_project / "artifacts").mkdir(parents=True)
+        (tmp_project / "artifacts" / "diagnosis_report.md").write_text("# Report")
         plugin_path = Path(generate_orchestrator_plugin(str(tmp_project), "TestProject"))
+        state_dir = plugin_path / "state"
+        state_dir.mkdir(parents=True, exist_ok=True)
+        (state_dir / "campaign_state.json").write_text(json.dumps({"current_branch": "D"}))
         env = {
             **os.environ,
             "CLAUDE_PLUGIN_ROOT": str(plugin_path),
