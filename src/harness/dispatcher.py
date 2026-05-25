@@ -39,7 +39,6 @@ class OrchestratorDispatcher:
         self.rules_config = self._load_rules_config()
         self.state_file = self.config_dir / ".harness_state.json"
         self.tmp_state_file = self.config_dir / ".harness_state.tmp.json"
-        self.db = HarnessDB(str(self.config_dir / "harness.db"))
 
     def _load_orchestrator_config(self) -> Dict[str, Any]:
         """Load orchestrator configuration."""
@@ -87,22 +86,13 @@ class OrchestratorDispatcher:
         )
 
     def _load_state(self, session_id: Optional[str] = None) -> Dict[str, Any]:
-        """Load state from HarnessDB with fallback to .harness_state.json."""
-        # Try DB first
-        db_state = self.db.get_state(session_id)
-        if db_state:
-            return db_state
-
+        """Load state from .harness_state.json."""
         state_file, _ = self._get_state_files(session_id)
         
-        # Fallback to file for migration
         if state_file.exists():
             try:
                 with open(state_file, 'r') as f:
-                    state = json.load(f)
-                    # Migrate to DB
-                    self.db.set_state(state, session_id)
-                    return state
+                    return json.load(f)
             except (json.JSONDecodeError, OSError, PermissionError):
                 pass
                 
@@ -112,9 +102,7 @@ class OrchestratorDispatcher:
             if base_file.exists():
                 try:
                     with open(base_file, 'r') as f:
-                        state = json.load(f)
-                        self.db.set_state(state, session_id)
-                        return state
+                        return json.load(f)
                 except (json.JSONDecodeError, OSError, PermissionError):
                     pass
 
@@ -128,31 +116,11 @@ class OrchestratorDispatcher:
         }
 
     def _save_state(self, state: Dict[str, Any], session_id: Optional[str] = None, timeout: float = 5.0) -> None:
-        """Save state to HarnessDB and .harness_state.json atomically using SQLite leases."""
-        start_time = time.time()
-        locked = False
-        lock_key = f"state_lock_{session_id}" if session_id else "state_lock"
-        while time.time() - start_time < timeout:
-            if self.db.acquire_lease(lock_key, ttl_seconds=10):
-                locked = True
-                break
-            time.sleep(0.05)
-
-        if not locked:
-            raise OSError("Could not acquire lock for state file")
-
-        try:
-            # Save to DB
-            self.db.set_state(state, session_id)
-
-            # Also save to file for backward compatibility
-            state_file, tmp_state_file = self._get_state_files(session_id)
-            with open(tmp_state_file, 'w') as f:
-                json.dump(state, f, indent=2)
-            os.replace(tmp_state_file, state_file)
-        finally:
-            # Release lock
-            self.db.release_lease(lock_key)
+        """Save state to .harness_state.json atomically."""
+        state_file, tmp_state_file = self._get_state_files(session_id)
+        with open(tmp_state_file, 'w') as f:
+            json.dump(state, f, indent=2)
+        os.replace(tmp_state_file, state_file)
 
     @observe(as_type="span")
     def classify_intent(self, prompt: str) -> Dict[str, str]:
