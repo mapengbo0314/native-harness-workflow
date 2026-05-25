@@ -69,7 +69,7 @@ class TestGraphEfficiency(unittest.TestCase):
         sys.path.insert(0, str(self.src_dir))
         from dispatcher import OrchestratorDispatcher
         dispatcher = OrchestratorDispatcher(str(self.config_dir))
-        state_file = Path(dispatcher.config_dir) / ".harness_state.json"
+        state_file = Path(dispatcher.config_dir) / ".test_state.json"
         with open(state_file, 'w') as f:
             json.dump(state, f)
         sys.path.pop(0)
@@ -78,7 +78,7 @@ class TestGraphEfficiency(unittest.TestCase):
         sys.path.insert(0, str(self.src_dir))
         from dispatcher import OrchestratorDispatcher
         dispatcher = OrchestratorDispatcher(str(self.config_dir))
-        state_file = Path(dispatcher.config_dir) / ".harness_state.json"
+        state_file = Path(dispatcher.config_dir) / ".test_state.json"
         state = {}
         if state_file.exists():
             with open(state_file, 'r') as f:
@@ -152,7 +152,7 @@ def reject(dispatcher, state, message):
 def check_tool_use(tool_name, tool_args):
     dispatcher = load_dispatcher()
     state = {}
-    state_file = Path(dispatcher.config_dir) / ".harness_state.json"
+    state_file = Path(dispatcher.config_dir) / ".test_state.json"
     if state_file.exists():
         with open(state_file, 'r') as f:
             state = json.load(f)
@@ -177,7 +177,7 @@ if __name__ == "__main__":
 def record_tool_result(payload):
     dispatcher = load_dispatcher()
     state = {}
-    state_file = Path(dispatcher.config_dir) / ".harness_state.json"
+    state_file = Path(dispatcher.config_dir) / ".test_state.json"
     if state_file.exists():
         with open(state_file, 'r') as f:
             state = json.load(f)
@@ -188,7 +188,7 @@ def record_tool_result(payload):
         state["last_codegraph_use_at"] = now
         state["last_codegraph_tool"] = tool_name
     
-    state_file = Path(dispatcher.config_dir) / ".harness_state.json"
+    state_file = Path(dispatcher.config_dir) / ".test_state.json"
     with open(state_file, 'w') as f:
         json.dump(state, f)
     return True

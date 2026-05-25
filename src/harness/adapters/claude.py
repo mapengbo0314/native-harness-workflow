@@ -49,8 +49,6 @@ class ClaudeAdapter(PlatformAdapter):
         pass
 
     def generate_core_infrastructure(self, project_path: Path) -> None:
-        from harness.utils import get_boilerplate_dir
-        
         # Claude specifically generates an orchestrator plugin
         # This replaces the logic that was conditionally driven by should_generate_orchestrator_plugin
         # Note: cli.py handles the actual generation call right now, but we can encapsulate it here or keep it in cli.py.

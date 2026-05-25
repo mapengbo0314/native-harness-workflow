@@ -32,8 +32,7 @@ def main():
         # 1. Setup paths to import OrchestratorDispatcher
         current_dir = Path(__file__).parent
         plugin_root = current_dir.parent
-        project_root_dir = plugin_root.parent
-        src_dir = project_root_dir / "src"
+        src_dir = plugin_root / "src"
         config_dir = plugin_root / "config"
         
         if str(src_dir) not in sys.path:

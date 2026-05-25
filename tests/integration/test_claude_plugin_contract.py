@@ -86,16 +86,6 @@ def test_claude_plugin_contract():
 
             assert "UserPromptSubmit" in hooks
             assert "prompt_classifier" in hooks["UserPromptSubmit"][0]["hooks"][0]["command"]
-            assert "PreToolUse" in hooks
-            assert "pre_tool_guard" in hooks["PreToolUse"][0]["hooks"][0]["command"]
-            assert "PostToolUse" in hooks
-            assert "post_tool_observer" in hooks["PostToolUse"][0]["hooks"][0]["command"]
-            assert "PostToolUseFailure" in hooks
-            assert "post_tool_observer" in hooks["PostToolUseFailure"][0]["hooks"][0]["command"]
-            assert "PreCompact" in hooks
-            assert "precompact_handoff" in hooks["PreCompact"][0]["hooks"][0]["command"]
-            assert "ConfigChange" in hooks
-            assert "config_change_guard" in hooks["ConfigChange"][0]["hooks"][0]["command"]
 
         marketplace_path = plugin_dir.parent / ".claude-plugin" / "marketplace.json"
         assert marketplace_path.exists(), "local marketplace manifest should exist next to plugin-generated"

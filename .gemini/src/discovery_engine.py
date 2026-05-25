@@ -3,24 +3,8 @@ import subprocess
 import time
 import urllib.request
 import os
+from harness.renderer import TemplateRenderer
 from harness.llm_client import query_llm
-from jinja2 import Environment, BaseLoader
-
-class TemplateRenderer:
-    def __init__(self):
-        self.env = Environment(
-            loader=BaseLoader(),
-            block_start_string='<!--%',
-            block_end_string='%-->',
-            variable_start_string='<!--$',
-            variable_end_string='$-->',
-            comment_start_string='<!--#',
-            comment_end_string='#-->',
-        )
-
-    def render_string(self, source: str, context: dict) -> str:
-        template = self.env.from_string(source)
-        return template.render(**context)
 
 def acquire_mcp_context(project_path: str) -> str:
     """Acquires project context using CodeGraph and domain documentation."""

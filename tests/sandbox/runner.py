@@ -16,10 +16,8 @@ sys.path.insert(0, os.path.join(project_root, "src"))
 
 from harness.dispatcher import OrchestratorDispatcher
 from harness.discovery_engine import query_llm
-from harness.instrumentation import HarnessEventLogger
 from harness.minting_engine import mint_workspace, synthesize_domain_sme_agent, patch_orchestrator_rules
 from harness.plugin_generator import generate_orchestrator_plugin
-from tests.sandbox.analytics import generate_report
 
 def mint_harness(project_path: str, project_name: str, model: str = None):
     """Simplified minting for sandbox runner."""

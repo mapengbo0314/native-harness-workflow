@@ -93,8 +93,7 @@ def test_plugin_path_corruption(tmp_path):
                 command = hook["command"]
                 assert harness_folder not in command
                 assert "${CLAUDE_PLUGIN_ROOT}" in command
-                assert "python3" in command
-
+                assert "uv run" in command
     # Check agents.json
     agents_json_path = Path(plugin_dir_str) / "agents.json"
     assert agents_json_path.exists()

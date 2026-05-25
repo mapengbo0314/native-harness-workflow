@@ -50,7 +50,7 @@ class GeminiAdapter(PlatformAdapter):
                     with open(filepath, "r", encoding="utf-8") as f:
                         content = f.read()
                         
-                    new_content = content.replace("${CLAUDE_PLUGIN_ROOT}", f"${{{self.get_plugin_env_var_name()}}}")
+                    new_content = content.replace("${HARNESS_PLUGIN_ROOT}", f"${{{self.get_plugin_env_var_name()}}}")
                     new_content = re.sub(r'(^|[\s/"\'])\.claude([\s/"\']|$)', r'\1' + self.get_config_dir_name() + r'\2', new_content)
                     
                     if new_content != content:

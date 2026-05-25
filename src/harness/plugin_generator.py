@@ -231,6 +231,21 @@ def copy_static_plugin_assets(plugin_dir: Path, bp_dir: Path, fallback_bp_dir: P
         if source.exists():
             print(f"[HARNESS] Copying {name} from {source}...")
             shutil.copytree(source, plugin_dir / name, dirs_exist_ok=True, ignore=COPY_IGNORE)
+            
+            # Template HARNESS_PLUGIN_ROOT for Claude
+            import os
+            for root, _, files in os.walk(plugin_dir / name):
+                for file in files:
+                    if file.endswith((".py", ".json", ".md")):
+                        filepath = Path(root) / file
+                        with open(filepath, "r", encoding="utf-8") as f:
+                            content = f.read()
+                        
+                        new_content = content.replace("${HARNESS_PLUGIN_ROOT}", "${CLAUDE_PLUGIN_ROOT}")
+                        
+                        if new_content != content:
+                            with open(filepath, "w", encoding="utf-8") as f:
+                                f.write(new_content)
         else:
             print(f"[HARNESS] Warning: {name.capitalize()} source {source} not found.")
 
@@ -252,7 +267,7 @@ def copy_runtime_modules(plugin_dir: Path) -> None:
     (src_dir / "__init__.py").write_text("")
 
     harness_module_dir = Path(__file__).parent
-    for core_file in ["dispatcher.py", "database.py", "instrumentation.py", "discovery_engine.py", "renderer.py", "utils.py"]:
+    for core_file in ["dispatcher.py", "discovery_engine.py", "llm_client.py"]:
         src_path = harness_module_dir / core_file
         if src_path.exists():
             print(f"[HARNESS] Copying {core_file}...")
@@ -344,9 +359,8 @@ def generate_orchestrator_plugin(
         logical_harness_dir = project_path / final_harness
         
         # Resolve boilerplate dir
-        from harness.utils import get_boilerplate_dir
-        bp_dir = Path(boilerplate_dir).resolve() if boilerplate_dir else get_boilerplate_dir()
-        fallback_bp_dir = get_boilerplate_dir()
+        bp_dir = Path(boilerplate_dir).resolve() if boilerplate_dir else Path(__file__).parent / "templates" / "boilerplate"
+        fallback_bp_dir = Path(__file__).parent / "templates" / "boilerplate"
 
         print(f"[HARNESS] Generating plugin at {plugin_dir}")
         print(f"[HARNESS] Using boilerplate from {bp_dir}")

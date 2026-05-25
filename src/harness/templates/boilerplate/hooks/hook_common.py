@@ -7,6 +7,8 @@ from pathlib import Path
 from contextlib import contextmanager
 
 def resolve_project_root(input_json: dict = None) -> Path:
+    if os.environ.get("HARNESS_PROJECT_DIR"):
+        return Path(os.environ["HARNESS_PROJECT_DIR"]).resolve()
     if os.environ.get("GEMINI_PROJECT_DIR"):
         return Path(os.environ["GEMINI_PROJECT_DIR"]).resolve()
     if os.environ.get("CLAUDE_PROJECT_DIR"):
@@ -16,6 +18,8 @@ def resolve_project_root(input_json: dict = None) -> Path:
     return Path.cwd().resolve()
 
 def resolve_plugin_root() -> Path:
+    if os.environ.get("HARNESS_PLUGIN_ROOT"):
+        return Path(os.environ["HARNESS_PLUGIN_ROOT"]).resolve()
     if os.environ.get("GEMINI_PLUGIN_ROOT"):
         return Path(os.environ["GEMINI_PLUGIN_ROOT"]).resolve()
     if os.environ.get("CLAUDE_PLUGIN_ROOT"):

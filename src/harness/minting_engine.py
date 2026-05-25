@@ -8,9 +8,24 @@ import difflib
 from pathlib import Path
 from jinja2 import Environment, BaseLoader
 from harness.plugin_generator import generate_orchestrator_plugin
-from harness.renderer import TemplateRenderer
 from harness.discovery_engine import detect_tech_stack
 from harness.adapters import get_adapter
+
+class TemplateRenderer:
+    def __init__(self):
+        self.env = Environment(
+            loader=BaseLoader(),
+            block_start_string='<!--%',
+            block_end_string='%-->',
+            variable_start_string='<!--$',
+            variable_end_string='$-->',
+            comment_start_string='<!--#',
+            comment_end_string='#-->',
+        )
+
+    def render_string(self, source: str, context: dict) -> str:
+        template = self.env.from_string(source)
+        return template.render(**context)
 
 
 def parse_tool_checklists(domain_content: str) -> tuple[list[dict], list[dict]]:
@@ -700,8 +715,7 @@ def install_workspace_tools(target_dir: str, harness_folder_name: str, skills: l
                 print(f"Network fetch failed for {skill['name']}: {e}. Checking local boilerplate fallback...")
                 import shutil
                 # We need to reach the boilerplate directory. We can guess it's roughly 2 dirs up from harness_dir
-                from harness.utils import get_boilerplate_dir
-                local_skill_path = get_boilerplate_dir() / "skills" / skill['name'] / "SKILL.md"
+                local_skill_path = Path(__file__).parent / "templates" / "boilerplate" / "skills" / skill['name'] / "SKILL.md"
                 if local_skill_path.exists():
                     skill_dir = os.path.join(harness_dir, "skills", skill['name'])
                     os.makedirs(skill_dir, exist_ok=True)
@@ -759,7 +773,7 @@ def perform_smart_merge(existing_path: Path, staged_path: Path):
             staged_file = staged_path / rel_path
             
             # Skip internal state files
-            if ".harness_state.json" in str(rel_path) or "harness.db" in str(rel_path):
+            if "harness.db" in str(rel_path):
                 continue
                 
             if not staged_file.exists():

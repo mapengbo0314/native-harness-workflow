@@ -63,10 +63,6 @@ def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
         plugin_dir / ".claude-plugin" / "plugin.json",
         plugin_dir / "hooks" / "hooks.json",
         plugin_dir / "hooks" / "prompt_classifier.py",
-        plugin_dir / "hooks" / "pre_tool_guard.py",
-        plugin_dir / "hooks" / "post_tool_observer.py",
-        plugin_dir / "hooks" / "precompact_handoff.py",
-        plugin_dir / "hooks" / "config_change_guard.py",
         plugin_dir / "src" / "dispatcher.py",
         plugin_dir / "ddd-context.json",
         plugin_dir / "agents",
@@ -101,7 +97,12 @@ def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
                     parts = shlex.split(resolved)
                 except ValueError as exc:
                     raise HarnessSetupError(f"Invalid hook command string: {exc}") from exc
-                script = Path(parts[1]) if len(parts) > 1 else None
+                script = None
+                for part in parts:
+                    if part.endswith((".py", ".sh", ".js")):
+                        script = Path(part)
+                        break
+                
                 if (not script or not script.exists()) and len(parts) > 0 and Path(parts[0]).exists():
                     script = Path(parts[0])
                 if not script or not script.exists():
@@ -223,8 +224,7 @@ def main():
             # Continuing without hard crash as per fallback behavior
 
     print("Stage 1: Resolving bundled boilerplate...")
-    from harness.utils import get_boilerplate_dir
-    boilerplate_dir = str(get_boilerplate_dir())
+    boilerplate_dir = Path(__file__).parent / "templates" / "boilerplate"
     
     if not os.path.exists(boilerplate_dir):
         print(f"\nError: Bundled boilerplate not found at {boilerplate_dir}")
@@ -390,8 +390,9 @@ def main():
         # Provision core infrastructure for all platforms
         adapter.generate_core_infrastructure(Path(args.project_path))
         
-        # Format hooks dynamically
-        adapter.install_hooks(Path(args.project_path))
+        # Copy runtime modules for ALL platforms (so hooks can load them locally)
+        from harness.plugin_generator import copy_runtime_modules
+        copy_runtime_modules(temp_harness_dir)
 
         # --- Plugin Generation (targeting temp) ---
         from harness.plugin_generator import generate_orchestrator_plugin
@@ -491,6 +492,9 @@ def main():
                 shutil.rmtree(old_backup)
 
         shutil.move(str(temp_harness_dir), str(target_harness_dir))
+        
+        # Format hooks dynamically now that they are in their final location
+        adapter.install_hooks(Path(args.project_path))
 
         final_plugin_dir = target_harness_dir / "plugin-generated" if plugin_dir else None
         if final_plugin_dir:

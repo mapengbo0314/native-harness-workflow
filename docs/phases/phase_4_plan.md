@@ -379,7 +379,7 @@ git commit -m "feat: implement cross-process telemetry flushes, UIDs, and token 
 
 Replace the mock loop with real execution logic:
 1. Fetch dataset items from the `harness_test_dataset` in Langfuse.
-2. For each item, initialize a real context (a temporary project directory). Ensure you initialize structural dependencies (like `orchestrator.json`, `.harness_state.json`, `harness.db`) by copying a fixture directory or running a programmatic setup command before dispatching tasks.
+2. For each item, initialize a real context (a temporary project directory). Ensure you initialize structural dependencies (like `orchestrator.json`, `harness.db`) by copying a fixture directory or running a programmatic setup command before dispatching tasks.
 3. Execute the `OrchestratorDispatcher` or trigger the `harness` CLI directly with the item's query, simulating real Domain-Driven Design selections. Pass `LANGFUSE_TRACE_ID` in the `env` dictionary to ensure traces link back to this evaluator session.
 4. Let the system make actual LLM calls (classifying intents, synthesizing SME context, etc.).
 5. **Eventual Consistency:** Implement a retry loop with exponential backoff when fetching trace metrics via the Langfuse API to ensure the metrics are populated before evaluating or asserting on them.

@@ -14,7 +14,7 @@ def test_plugin_uses_single_root_hook_system():
 
         plugin_path = Path(generate_orchestrator_plugin(str(tmp_project), "TestProject"))
 
-        assert (plugin_path / "src" / "instrumentation.py").exists()
+        assert (plugin_path / "src" / "dispatcher.py").exists()
         assert not (plugin_path / "src" / "hooks").exists()
         assert not (plugin_path / "src" / "hook_validator.py").exists()
 
