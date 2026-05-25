@@ -36,6 +36,7 @@ include = ["harness*"]
 "harness" = ["templates/boilerplate/**/*", "templates/boilerplate/**/.*"]
 
 [tool.pytest.ini_options]
+norecursedirs = ["tests/fixtures"]
 filterwarnings = [
     "error::SyntaxWarning",
 ]
