@@ -167,6 +167,33 @@ def query_llm(prompt: str, llm_provider: str, api_key: str, model: str = None) -
             return response.text
         except Exception as e:
             raise RuntimeError(f"Gemini API call failed: {e}")
+
+    elif llm_provider == "native_cli":
+        cli_name = api_key  # We use api_key param to pass the CLI binary name
+        langfuse_context.update_current_observation(model=f"native-cli-{cli_name}")
+        
+        # Prepare environment to strip ANSI colors
+        env = os.environ.copy()
+        env["NO_COLOR"] = "1"
+        env["CLAUDE_MD"] = "0"
+        
+        try:
+            if cli_name == "claude":
+                # claude -p reads from stdin if prompt is not fully provided, but -p - forces stdin reading
+                result = subprocess.run(["claude", "-p", "-"], input=prompt, capture_output=True, text=True, check=True, timeout=30, env=env)
+                return result.stdout
+            elif cli_name == "gemini":
+                # gemini CLI also accepts piping
+                result = subprocess.run(["gemini"], input=prompt, capture_output=True, text=True, check=True, timeout=30, env=env)
+                return result.stdout
+            else:
+                raise ValueError(f"Unsupported native CLI: {cli_name}")
+        except subprocess.TimeoutExpired as e:
+            raise RuntimeError(f"Native CLI {cli_name} timed out: {e}")
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"Native CLI {cli_name} failed: {e.stderr or e.output or str(e)}")
+        except Exception as e:
+            raise RuntimeError(f"Native CLI {cli_name} execution error: {e}")
         
     raise ValueError(f"Unsupported LLM provider: {llm_provider}")
 

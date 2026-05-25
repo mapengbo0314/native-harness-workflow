@@ -167,9 +167,12 @@ Return the result as JSON:
 }}
 """
             try:
-                # Use gemini-2.5-flash-lite as requested in mandate
-                model = os.environ.get("HARNESS_MODEL", "gemini-2.5-flash-lite")
-                response = query_llm(classification_prompt, "gemini", api_key, model=model)
+                if api_key:
+                    # Use gemini-2.5-flash-lite as requested in mandate
+                    model = os.environ.get("HARNESS_MODEL", "gemini-2.5-flash-lite")
+                    response = query_llm(classification_prompt, "gemini", api_key, model=model)
+                else:
+                    response = query_llm(classification_prompt, "native_cli", api_key=cli_name)
                 
                 # Extract JSON
                 cleaned = response.replace("```json", "").replace("```", "").strip()
