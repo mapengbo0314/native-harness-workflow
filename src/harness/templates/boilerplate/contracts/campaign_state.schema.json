@@ -11,6 +11,23 @@
       "items": {
         "type": "object"
       }
+    },
+    "tasks": {
+      "type": "object",
+      "properties": {
+        "current_goal": { "type": "string" },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "status": { "type": "string", "enum": ["pending", "completed"] }
+            },
+            "required": ["name", "status"]
+          }
+        }
+      }
     }
   },
   "required": ["events"]

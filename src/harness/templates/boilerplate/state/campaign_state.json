@@ -1,5 +1,9 @@
 {
   "metadata": {},
+  "tasks": {
+    "current_goal": "",
+    "steps": []
+  },
   "events": [],
   "current_branch": "A",
   "last_prompt": "There is a bug in the code",
