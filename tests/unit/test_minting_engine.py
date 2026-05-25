@@ -39,12 +39,8 @@ def test_mint_workspace_persists_strategy(tmp_path):
         )
         
         strategy_path = target_dir / "strategy.json"
-        assert strategy_path.exists(), f"strategy.json should exist at {strategy_path}"
+        assert not strategy_path.exists(), f"strategy.json should NOT exist at {strategy_path}"
         
-        with open(strategy_path, "r") as f:
-            strategy_data = json.load(f)
-            
-        assert strategy_data == mock_tech_stack["strategy"]
         mock_detect.assert_called_once()
 
 def test_mint_workspace_uses_provided_tech_stack(tmp_path):
@@ -78,12 +74,7 @@ def test_mint_workspace_uses_provided_tech_stack(tmp_path):
         )
         
         strategy_path = target_dir / "strategy.json"
-        assert strategy_path.exists()
-        
-        with open(strategy_path, "r") as f:
-            strategy_data = json.load(f)
-            
-        assert strategy_data == provided_tech_stack["strategy"]
+        assert not strategy_path.exists(), f"strategy.json should NOT exist at {strategy_path}"
         mock_detect.assert_not_called()
 
 def test_mint_workspace_does_not_generate_setup_script(tmp_path):

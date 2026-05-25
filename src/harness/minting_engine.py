@@ -151,7 +151,7 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
                 domain_content_str = f.read()
     
     def ignore_patterns(dir_path, contents):
-        ignored = ['.git', '__pycache__', '.DS_Store']
+        ignored = ['.git', '__pycache__', '.DS_Store', 'contracts', 'state']
         return [i for i in contents if i in ignored or i.endswith('.log')]
         
     if boilerplate_dir and os.path.exists(boilerplate_dir):
@@ -349,10 +349,7 @@ The Orchestrator agent and core rules are located in `{harness_prefix}/orchestra
         }
     }
     
-    # Generate mcp.json as a fallback/reference configuration
-    mcp_path = target_path / "mcp.json"
-    with open(mcp_path, 'w') as f:
-         json.dump(mcp_config, f, indent=2)
+    # mcp.json generation removed in task 2
          
     # Helper to generate a valid URL-safe slug
     def to_slug(text):
@@ -464,10 +461,7 @@ def _persist_verification_strategy(target_path: Path, project_path: str, query_l
             tech_stack_data = detect_tech_stack(project_path, query_llm_fn, llm_provider, api_key)
             
         if tech_stack_data and "strategy" in tech_stack_data:
-            strategy_path = target_path / "strategy.json"
-            with open(strategy_path, "w") as f:
-                json.dump(tech_stack_data["strategy"], f, indent=2)
-            print(f"[HARNESS] Persisted strategy to {strategy_path}")
+            pass
     except Exception as e:
         print(f"Warning: Failed to persist strategy: {e}")
 

@@ -47,8 +47,7 @@ def test_transactional_minting_and_smart_merge(tmp_path, monkeypatch):
             harness_dir = project_path / ".gemini"
             assert harness_dir.exists()
             assert (harness_dir / "orchestrator.md").exists()
-            assert (harness_dir / "mcp.json").exists()
-            
+            assert not (harness_dir / "mcp.json").exists()            
             # --- PHASE 2: Manual Modifications ---
             # 1. Modify a section in orchestrator.md
             orchestrator_path = harness_dir / "orchestrator.md"
@@ -57,10 +56,7 @@ def test_transactional_minting_and_smart_merge(tmp_path, monkeypatch):
             orchestrator_path.write_text(modified_content)
             
             # 2. Modify mcp.json (deep merge test)
-            mcp_path = harness_dir / "mcp.json"
-            mcp_data = json.loads(mcp_path.read_text())
-            mcp_data["mcpServers"]["custom-server"] = {"command": "echo", "args": ["hello"]}
-            mcp_path.write_text(json.dumps(mcp_data))
+            # mcp.json generation was removed in task 2
             
             # 3. Create a custom file in the harness that shouldn't be deleted by minting
             custom_file = harness_dir / "custom_agent.md"
@@ -93,10 +89,7 @@ def test_transactional_minting_and_smart_merge(tmp_path, monkeypatch):
             assert "# Orchestrator" in new_content
             
             # 2. Verify mcp.json merged
-            new_mcp_data = json.loads((harness_dir / "mcp.json").read_text())
-            assert "codegraph" in new_mcp_data["mcpServers"]
-            assert "custom-server" in new_mcp_data["mcpServers"]
-            assert new_mcp_data["mcpServers"]["custom-server"]["command"] == "echo"
+            # skipped as mcp.json is no longer generated
             
             # 3. Verify custom file preserved
             assert (harness_dir / "custom_agent.md").exists()
