@@ -123,35 +123,6 @@ def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
     print("[HARNESS] Claude plugin payload validated.")
 
 
-def _write_setup_state(project_path: Path, harness_dir: Path, plugin_dir: Optional[Path], platform_choice: str) -> None:
-    config_dir = plugin_dir if plugin_dir and plugin_dir.exists() else harness_dir
-    config_dir.mkdir(parents=True, exist_ok=True)
-    state_file = config_dir / ".harness_state.json"
-    tmp_file = config_dir / ".harness_state.tmp.json"
-
-    state = {}
-    if state_file.exists():
-        try:
-            state = json.loads(state_file.read_text(encoding="utf-8"))
-            if not isinstance(state, dict):
-                state = {}
-        except json.JSONDecodeError:
-            state = {}
-
-    state.update({
-        "setup_complete": True,
-        "python_version": sys.version.split()[0],
-        "platform": _platform_name(platform_choice),
-        "codegraph_ready": True,
-        "plugin_ready": bool(plugin_dir and plugin_dir.exists()),
-        "strict_enforcement_enabled": bool(plugin_dir and plugin_dir.exists()),
-        "repo_mcp_config": str(project_path / ".mcp.json"),
-    })
-    tmp_file.write_text(json.dumps(state, indent=2), encoding="utf-8")
-    os.replace(tmp_file, state_file)
-    print(f"[HARNESS] Setup state written to {state_file}.")
-
-
 def run_embedded_setup(
     project_path: Path,
     harness_dir: Path,

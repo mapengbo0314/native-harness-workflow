@@ -223,7 +223,7 @@ def export_rules_config(rules_dir: Path, config_dir: Path) -> str:
 
 def copy_static_plugin_assets(plugin_dir: Path, bp_dir: Path, fallback_bp_dir: Path) -> None:
     """Copy canonical static plugin payload directories and files."""
-    for name in ["skills", "scripts", "hooks", "contracts"]:
+    for name in ["skills", "scripts", "hooks"]:
         source = bp_dir / name
         if not source.exists():
             source = fallback_bp_dir / name
