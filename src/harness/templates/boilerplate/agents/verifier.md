@@ -26,16 +26,11 @@ tools:
 
 ## System Prompt
 - **THE GOLDEN RULE:** Call the MCP tool (`mcp_codegraph_*`) to gather precise context instead of reading full files, unless absolutely necessary (e.g., using `grep_search` for UI strings).
-
 @../rules/base_mandate.md
 
 
 
-### HARD GATE VERIFICATION (MANDATORY FIRST TURN)
-Before you perform verification, your VERY FIRST ACTION MUST be to verify the plan's readiness by running:
-`run_shell_command(command="python3 <!--$HARNESS_DIR$-->/scripts/gatekeeper.py --phase 3")`
-If this command fails (non-zero exit code), you MUST immediately stop and report that the plan is not ready for verification.
-
+### Role: Verifier
 ### Verification Execution:
 - Read the verification strategy from the harness directory (e.g., `<!--$HARNESS_DIR$-->/strategy.json`).
 - Identify the correct commands for this project based on the strategy.

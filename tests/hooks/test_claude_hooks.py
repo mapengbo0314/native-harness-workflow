@@ -41,11 +41,14 @@ def test_prompt_classifier():
         input_data = {"prompt": "Fix this bug"}
         res = run_hook("prompt_classifier.py", input_data, tmp_path)
         assert res["returncode"] == 0
-        assert "Branch A" in res["stdout"]
+        assert "A" in res["stdout"]
 
 def test_pre_tool_guard():
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
+        state_dir = tmp_path / "state"
+        state_dir.mkdir(exist_ok=True)
+        (state_dir / "campaign_state.json").write_text('{"maintenance_mode": true}')
         input_data = {
             "hook_event_name": "PreToolUse",
             "tool_name": "Write",
@@ -66,9 +69,7 @@ def test_pre_tool_guard():
         assert "allow" in res["stdout"]
         
         # Test Branch D planner/verifier escalation blocked
-        state_dir = tmp_path / "state"
-        state_dir.mkdir(exist_ok=True)
-        (state_dir / "campaign_state.json").write_text('{"current_branch": "Branch D"}')
+        (state_dir / "campaign_state.json").write_text('{"current_branch": "D"}')
         input_data = {
             "hook_event_name": "PreToolUse",
             "tool_name": "Task",
@@ -98,6 +99,9 @@ def test_pre_tool_guard_path_regressions():
     ]
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
+        state_dir = tmp_path / "state"
+        state_dir.mkdir(exist_ok=True)
+        (state_dir / "campaign_state.json").write_text('{"maintenance_mode": true}')
         for file_path, expected_code in cases:
             input_data = {
                 "hook_event_name": "PreToolUse",

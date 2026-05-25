@@ -86,6 +86,8 @@ def main():
         tool_name = input_data.get("tool_name") or input_data.get("toolName", "")
         tool_input = input_data.get("tool_input") or input_data.get("toolInput", {})
         
+        project_root = resolve_project_root(input_data)
+        
         if tool_name in ["Write", "Edit", "MultiEdit", "Bash", "run_shell_command", "write_file", "replace"]:
             for candidate in _candidate_paths(tool_input):
                 if is_protected_path(candidate, input_data):
@@ -104,8 +106,120 @@ def main():
             print("Error: Circuit breaker tripped! 3 consecutive tool failures detected. Hard stopping agent.", file=sys.stderr)
             sys.exit(2)
             
+        current_branch = state.get("current_branch")
+        
+        # Bypass for maintenance mode
+        if state.get("maintenance_mode"):
+            print(json.dumps({"hookSpecificOutput": {"permissionDecision": "allow"}}))
+            sys.exit(0)
+            
+        # New Gatekeeper V3 Logic
+        is_mutation_tool = tool_name in ["Write", "Edit", "MultiEdit", "write_file", "replace"]
+        is_bash_tool = tool_name in ["Bash", "run_shell_command"]
+        
+        is_mutating_action = False
+        if is_mutation_tool:
+            is_mutating_action = True
+        elif is_bash_tool:
+            command = tool_input.get("command", "") if isinstance(tool_input, dict) else str(tool_input)
+            try:
+                cmd_parts = shlex.split(command)
+                base_cmd = cmd_parts[0] if cmd_parts else ""
+                if base_cmd in ["echo", "sed", "patch", "rm", "mv", "cp", "touch", "mkdir"]:
+                    is_mutating_action = True
+            except ValueError:
+                pass
+                
+        is_dispatch_tool = tool_name in ["Task", "Agent", "generalist", "planner", "verifier", "implementer", "adversary", "reviewer", "refactorer"]
+
+        candidate_paths = _candidate_paths(tool_input) if is_mutation_tool else []
+        is_writing_artifact = False
+        if is_mutation_tool and candidate_paths:
+            if all("artifacts" in Path(p).parts for p in candidate_paths):
+                is_writing_artifact = True
+
+        # Branch C (Questioning) - STRICT READ-ONLY
+        if current_branch == "C" and is_mutating_action:
+            print("Error: Branch C is strict read-only. File mutations are blocked.", file=sys.stderr)
+            sys.exit(2)
+            
+        # Phase 1 (Diagnosis) - Branch A ONLY
+        if current_branch == "A" and is_mutating_action and not is_writing_artifact:
+            diagnosis_path = project_root / "artifacts" / "diagnosis_report.md"
+            if not diagnosis_path.exists():
+                print("Error: Gatekeeper Phase 1. Missing artifacts/diagnosis_report.md.", file=sys.stderr)
+                sys.exit(2)
+                
+        # Phase 3 (Planning) - Excluding Branch D & C
+        if current_branch not in ["D", "C"] and is_dispatch_tool:
+            is_exec_agent = tool_name in ["implementer", "verifier", "reviewer"]
+            if tool_name in ["Task", "Agent", "generalist"]:
+                prompt_str = str(tool_input).lower()
+                if any(x in prompt_str for x in ["implementer", "verifier", "reviewer"]):
+                    is_exec_agent = True
+                    
+            if is_exec_agent:
+                plan_path = project_root / "artifacts" / "implementation_plan.md"
+                has_plan = False
+                if plan_path.exists():
+                    content = plan_path.read_text()
+                    if "Verification Criteria" in content or "Sphinch Marks" in content:
+                        has_plan = True
+                
+                prompt = str(tool_input).lower()
+                if not has_plan and "explicit" not in prompt:
+                    print("Error: Gatekeeper Phase 3. Implementation plan missing or lacks Verification Criteria. Dispatch @planner first.", file=sys.stderr)
+                    sys.exit(2)
+
+        # Phase 4 (Execution - TDD) - Excluding Branch C & D
+        if current_branch not in ["C", "D"] and is_mutating_action and not is_writing_artifact:
+            # allow writes strictly to test directories
+            is_test_write = False
+            if is_mutation_tool:
+                paths = _candidate_paths(tool_input)
+                # If ALL paths are test files
+                if paths and all(any(test_dir in Path(p).parts or Path(p).name.startswith("test_") for test_dir in ["tests", "__tests__"]) for p in paths):
+                    is_test_write = True
+                
+            if not is_test_write:
+                # Require TDD log
+                tdd_log_path = project_root / "artifacts" / "tdd_failing_test.log"
+                has_valid_log = False
+                if tdd_log_path.exists():
+                    content = tdd_log_path.read_text()
+                    if any(x in content for x in ["AssertionError", "FAILED", "Expected", "ModuleNotFoundError", "ImportError"]):
+                        if not any(x in content for x in ["SyntaxError"]):
+                            has_valid_log = True
+                
+                if not has_valid_log:
+                    print("Error: Gatekeeper Phase 4 (TDD). tdd_failing_test.log is missing or does not contain a verifiable assertion failure. Write a proof of concept test that fails under current circumstances first.", file=sys.stderr)
+                    sys.exit(2)
+                    
+        # Phase 5 (Review/QA)
+        is_finalization_bash = False
+        if is_bash_tool:
+            command = tool_input.get("command", "") if isinstance(tool_input, dict) else str(tool_input)
+            try:
+                cmd_parts = shlex.split(command)
+                if len(cmd_parts) >= 2 and cmd_parts[0] == "git" and cmd_parts[1] in ["push", "commit"]:
+                    is_finalization_bash = True
+                elif len(cmd_parts) >= 2 and cmd_parts[0] == "gh" and cmd_parts[1] == "pr":
+                    is_finalization_bash = True
+            except ValueError:
+                pass
+                
+        is_finalization_tool = tool_name in ["complete_task", "finish_branch"]
+        
+        if is_finalization_tool or is_finalization_bash:
+            review_path = project_root / "artifacts" / "code_review_report.md"
+            qa_path = project_root / "artifacts" / "qa_report.md"
+            if not review_path.exists() or not qa_path.exists():
+                print("Error: Gatekeeper Phase 5. code_review_report.md and qa_report.md are required before finalization.", file=sys.stderr)
+                sys.exit(2)
+
+        # Legacy Branch D check for explicit planner override
         if tool_name in ["Task", "Agent", "generalist", "planner", "verifier"]:
-            if state.get("current_branch") == "Branch D":
+            if current_branch == "D":
                 prompt = str(tool_input).lower()
                 if "explicit" not in prompt:
                     print("Error: Planner/verifier escalation blocked in Branch D unless explicit.", file=sys.stderr)

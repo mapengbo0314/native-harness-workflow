@@ -9,9 +9,11 @@ import subprocess
 import shutil
 import time
 import uuid
+import logging
 from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
+
 from langfuse.decorators import observe, langfuse_context
 
 load_dotenv()
@@ -133,7 +135,6 @@ def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
         plugin_dir / "config" / "ddd-context.json",
         plugin_dir / "agents",
         plugin_dir / "skills",
-        plugin_dir / "scripts" / "gatekeeper.py",
     ]
     missing = [str(path) for path in required if not path.exists()]
     if missing:
@@ -526,7 +527,7 @@ def main():
         # --- Handle Root Staging ---
         root_staging_dir = temp_harness_dir / "root_staging"
         if root_staging_dir.exists():
-            from harness.minting_engine import merge_markdown, merge_structured
+            from harness.minting_engine import merge_markdown, merge_structured, handle_code_conflicts
             print(f"\n[HARNESS] Found root staging files. Merging into project root...")
             for root, _, files in os.walk(root_staging_dir):
                 for file in files:
@@ -548,8 +549,8 @@ def main():
                                 fmt = 'json' if file.endswith('.json') else 'yaml'
                                 merged = merge_structured(old_content, new_content, format=fmt)
                             else:
-                                # For other files, default to overwrite with new
-                                merged = new_content
+                                # Prompt user for conflict resolution on other files
+                                merged = handle_code_conflicts(old_content, new_content, str(rel_path))
                                 
                             with open(real_root_file, 'w', encoding='utf-8') as f:
                                 f.write(merged)

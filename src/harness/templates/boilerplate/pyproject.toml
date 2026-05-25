@@ -12,7 +12,9 @@ dependencies = [
     "anthropic",
     "openai",
     "tenacity",
-    "pyyaml"
+    "pyyaml",
+    "langfuse>=2.50.0",
+    "python-dotenv"
 ]
 
 [tool.poetry]

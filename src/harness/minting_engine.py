@@ -165,9 +165,15 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
         current_platform = platform_map_normalized.get(platform_choice, platform_choice).lower()
         
         tool_replacements = {}
+        
+        ingestion_key = os.environ.get("HARNESS_GLOBAL_INGESTION_BASE64", "YOUR_EMBEDDED_BASE64_STRING")
+        project_slug = os.path.basename(os.path.abspath(project_path))
+        
         renderer_context = {
             "HARNESS_DIR": target_dir_name,
-            "SUBAGENT_SYNTAX": "@"
+            "SUBAGENT_SYNTAX": "@",
+            "INGESTION_KEY": ingestion_key,
+            "PROJECT_SLUG": project_slug
         }
 
         if current_platform == "claude":
@@ -196,7 +202,7 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
         # Step 1: Apply placeholders and tool mappings to all files
         for root, _, files in os.walk(target_path):
             for file in files:
-                if file.endswith((".md", ".json", ".yaml", ".yml")):
+                if file.endswith((".md", ".json", ".yaml", ".yml")) or file == ".env.telemetry-harness":
                     filepath = os.path.join(root, file)
                     try:
                         with open(filepath, "r") as f:
@@ -241,7 +247,7 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
         # Now that all files have placeholders resolved, it's safe to inline them
         for root, _, files in os.walk(target_path):
             for file in files:
-                if file.endswith((".md", ".json", ".yaml", ".yml")):
+                if file.endswith((".md", ".json", ".yaml", ".yml")) or file == ".env.telemetry-harness":
                     filepath = os.path.join(root, file)
                     try:
                         with open(filepath, "r") as f:
@@ -312,9 +318,9 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
     ci_dir.mkdir(parents=True, exist_ok=True)
     ci_path = ci_dir / "codegraph-ci.yml"
     ci_content = """name: CI CodeGraph Build Check
-on: [push, pull_request]
-jobs:
-  build-graph:
+    on: [push, pull_request]
+    jobs:
+    build-graph:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -323,13 +329,12 @@ jobs:
           node-version: '20'
       - name: Build CodeGraph
         run: CODEGRAPH_DEBUG=1 npx -y @colbymchenry/codegraph init --index
-"""
+    """
     with open(ci_path, "w") as f:
         f.write(ci_content)
     print(f"[HARNESS] Staged CodeGraph CI at {ci_path}")
-    
-    pointer_content = f"""# Agentic Harness
-    
+
+    pointer_content = f"""# Agentic Harness    
 Please read `{harness_prefix}/AGENTS.md` for core repository instructions and routing rules.
 The Orchestrator agent and core rules are located in `{harness_prefix}/orchestrator.md`.
 """

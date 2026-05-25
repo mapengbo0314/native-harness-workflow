@@ -32,6 +32,14 @@ def create_mock_project():
     return temp_dir, config_dir
 
 def main():
+    # Map golden keys to standard Langfuse variables for evaluation
+    if os.getenv("HARNESS_GOLDEN_LANGFUSE_PUBLIC_KEY"):
+        os.environ["LANGFUSE_PUBLIC_KEY"] = os.getenv("HARNESS_GOLDEN_LANGFUSE_PUBLIC_KEY")
+    if os.getenv("HARNESS_GOLDEN_LANGFUSE_SECRET_KEY"):
+        os.environ["LANGFUSE_SECRET_KEY"] = os.getenv("HARNESS_GOLDEN_LANGFUSE_SECRET_KEY")
+    if os.getenv("HARNESS_GOLDEN_LANGFUSE_HOST"):
+        os.environ["LANGFUSE_HOST"] = os.getenv("HARNESS_GOLDEN_LANGFUSE_HOST")
+
     has_keys = bool(os.getenv("LANGFUSE_PUBLIC_KEY") and os.getenv("LANGFUSE_SECRET_KEY"))
     dataset_path = os.path.join(os.path.dirname(__file__), "..", "evals", "test_dataset.jsonl")
     results = []

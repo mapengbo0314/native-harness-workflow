@@ -97,7 +97,7 @@
 ---
 
 ## Phase 4: Observability and Langfuse Integration
-**Status**: Pending
+**Status**: Complete
 **Goal**: Create eval scaffolding before large rewrites so the revamp can be measured.
 
 ### Tasks

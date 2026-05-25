@@ -16,6 +16,11 @@ done
 echo "1. Minting fresh workspace with new hook (LLM: $LLM)..."
 HARNESS_HEADLESS=1 HARNESS_PLATFORM=2 python src/harness/cli.py init --project-path . --llm "$LLM"
 
+# Map golden keys for headless testing
+export LANGFUSE_PUBLIC_KEY="${HARNESS_GOLDEN_LANGFUSE_PUBLIC_KEY:-$LANGFUSE_PUBLIC_KEY}"
+export LANGFUSE_SECRET_KEY="${HARNESS_GOLDEN_LANGFUSE_SECRET_KEY:-$LANGFUSE_SECRET_KEY}"
+export LANGFUSE_HOST="${HARNESS_GOLDEN_LANGFUSE_HOST:-$LANGFUSE_HOST}"
+
 echo -e "\n2. Testing Branch D (Surgical Edit)"
 echo '{"prompt": "Fix the typo in README", "cwd": "'$(pwd)'"}' | python .claude/plugin-generated/hooks/prompt_classifier.py
 

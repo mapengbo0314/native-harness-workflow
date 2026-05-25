@@ -299,13 +299,10 @@ Return the result as JSON:
             # If we dispatch a planner or other agent, reset all execution cycle counts
             state["agent_cycle_counts"] = {}
 
-        # Apply orchestrator rules (like Gatekeeper)
-        if not self.validate_against_rules(agent_name):
-            raise PermissionError(f"Agent '{agent_name}' violates project rules")
-
         state["active_persona"] = agent_name
-        state["matrix_branch"] = intent_branch
-        state["intent_justification"] = intent_justification
+        if agent_name == "orchestrator" and intent_branch:
+            state["matrix_branch"] = intent_branch
+            state["intent_justification"] = intent_justification
         if agent_name == "implementer":
             state["tdd_status"] = "active"
         self._save_state(state)
@@ -320,34 +317,3 @@ Return the result as JSON:
             "state": state,
             "trace_id": langfuse_context.get_current_trace_id()
         }
-
-    def validate_against_rules(self, agent_name: str) -> bool:
-        """Validate agent request against project rules.
-
-        Args:
-            agent_name: Name of the agent
-
-        Returns:
-            True if valid
-        """
-        if agent_name == "implementer":
-            try:
-                gatekeeper = self.config_dir.parent / "scripts" / "gatekeeper.py"
-                workspace = self.config_dir.parent.parent.parent
-                if gatekeeper.exists():
-                    result = subprocess.run(
-                        [sys.executable, str(gatekeeper), "--phase", "3", "--workspace", str(workspace)],
-                        capture_output=True,
-                        text=True,
-                        env=os.environ.copy()
-                    )
-                    if result.returncode != 0:
-                        error_msg = result.stderr or result.stdout
-                        raise PermissionError(f"Gatekeeper Phase 3 failed: {error_msg}. Dispatch @planner first to create the implementation plan.")
-            except Exception as e:
-                if isinstance(e, PermissionError):
-                    raise
-                # Ignore if gatekeeper is missing or other errors occur during check
-                pass
-                
-        return True
