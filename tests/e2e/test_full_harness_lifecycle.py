@@ -98,7 +98,7 @@ def test_full_harness_lifecycle():
 
         # Step 3: Active Verification
         
-        assert (project_path / ".mcp.json").exists(), ".mcp.json missing after embedded setup"
+        assert not (project_path / ".mcp.json").exists(), ".mcp.json should not be generated"
 
         # Validate the generated plugin uses only root-level registered hooks.
         plugin_dir = project_path / ".claude" / "plugin-generated"

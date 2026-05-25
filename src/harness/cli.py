@@ -58,26 +58,6 @@ def _build_mcp_config(mcps_to_install: list[dict]) -> dict:
 
 from harness.adapters import get_adapter
 
-def _write_repo_mcp_config(project_path: Path, mcps_to_install: list[dict]) -> None:
-    mcp_path = project_path / ".mcp.json"
-    new_config = _build_mcp_config(mcps_to_install)
-    existing = {"mcpServers": {}}
-
-    if mcp_path.exists():
-        try:
-            existing = json.loads(mcp_path.read_text(encoding="utf-8"))
-            if not isinstance(existing, dict):
-                existing = {}
-        except json.JSONDecodeError as exc:
-            raise HarnessSetupError(f"Existing .mcp.json is invalid JSON: {exc}") from exc
-
-    existing.setdefault("mcpServers", {})
-    existing["mcpServers"].update(new_config["mcpServers"])
-    tmp_path = mcp_path.with_suffix(".tmp.json")
-    tmp_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
-    os.replace(tmp_path, mcp_path)
-    print("[HARNESS] Repo-level .mcp.json configured.")
-
 def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
     required = [
         plugin_dir / ".claude-plugin" / "plugin.json",
@@ -183,8 +163,6 @@ def run_embedded_setup(
     if sys.version_info < (3, 8):
         raise HarnessSetupError("Python 3.8+ is required.")
 
-    _write_repo_mcp_config(project_path, mcps_to_install)
-    
     adapter = get_adapter(_platform_name(platform_choice))
     adapter.configure_cli(project_path, mcps_to_install)
     
