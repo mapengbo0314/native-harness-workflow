@@ -14,7 +14,8 @@ def main():
             sys.exit(2)
             
         project_root = resolve_project_root(input_data)
-        plugin_root = Path(os.environ.get("CLAUDE_PLUGIN_ROOT", Path(__file__).resolve().parent.parent)).resolve()
+        plugin_root_env = os.environ.get("GEMINI_PLUGIN_ROOT") or os.environ.get("CLAUDE_PLUGIN_ROOT")
+        plugin_root = Path(plugin_root_env or Path(__file__).resolve().parent.parent).resolve()
         script_path = plugin_root / "scripts" / "verify_contract.py"
         
         if not script_path.exists():

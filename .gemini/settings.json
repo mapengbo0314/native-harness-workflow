@@ -20,5 +20,67 @@
         "@mseep/git-mcp-server"
       ]
     }
+  },
+  "hooks": {
+    "BeforeAgent": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "prompt-classifier",
+            "type": "command",
+            "command": "python3 .gemini/hooks/prompt_classifier.py"
+          }
+        ]
+      }
+    ],
+    "BeforeTool": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "pre-tool-guard",
+            "type": "command",
+            "command": "python3 .gemini/hooks/pre_tool_guard.py"
+          }
+        ]
+      }
+    ],
+    "AfterTool": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "post-tool-observer",
+            "type": "command",
+            "command": "python3 .gemini/hooks/post_tool_observer.py"
+          }
+        ]
+      }
+    ],
+    "PreCompress": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "precompact-handoff",
+            "type": "command",
+            "command": "python3 .gemini/hooks/precompact_handoff.py"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "stop-verifier",
+            "type": "command",
+            "command": "python3 .gemini/hooks/stop_verifier.py"
+          }
+        ]
+      }
+    ]
   }
 }

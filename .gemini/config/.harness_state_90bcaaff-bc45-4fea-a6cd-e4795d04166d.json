@@ -1,0 +1,13 @@
+{
+  "setup_complete": true,
+  "python_version": "3.11.3",
+  "platform": "gemini",
+  "codegraph_ready": true,
+  "plugin_ready": false,
+  "strict_enforcement_enabled": false,
+  "repo_mcp_config": ".mcp.json",
+  "agent_cycle_counts": {},
+  "active_persona": "orchestrator",
+  "matrix_branch": "C",
+  "intent_justification": "The user is asking a clarifying question about the nature of two SDKs. They want to understand which one is the Node.js SDK or how they relate. This is a request for knowledge retrieval and explanation, fitting the description of 'how does, where is, what is, explain'."
+}

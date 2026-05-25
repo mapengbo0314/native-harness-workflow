@@ -125,6 +125,8 @@ def verify_check(check, project_root):
 
 
 def resolve_plugin_root():
+    if os.environ.get("GEMINI_PLUGIN_ROOT"):
+        return Path(os.environ["GEMINI_PLUGIN_ROOT"]).resolve()
     if os.environ.get("CLAUDE_PLUGIN_ROOT"):
         return Path(os.environ["CLAUDE_PLUGIN_ROOT"]).resolve()
     return Path(__file__).resolve().parent.parent
@@ -150,7 +152,7 @@ def parse_args(argv):
     parser.add_argument(
         "project_root",
         nargs="?",
-        default=os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd()),
+        default=os.environ.get("GEMINI_PROJECT_DIR", os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())),
         help="Workspace root to verify.",
     )
     parser.add_argument(

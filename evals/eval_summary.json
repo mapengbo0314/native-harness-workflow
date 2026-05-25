@@ -1,6 +1,6 @@
 {
   "status": "completed",
-  "total_evals": 10,
+  "total_evals": 4,
   "results": [
     {
       "item_input": {
@@ -8,7 +8,7 @@
       },
       "score": 1.0,
       "status": "pass",
-      "trace_id": "6ffb971d-7516-4688-917a-0fda2a41927c"
+      "trace_id": "f44ac19d-debf-4d40-9f4e-821b6bd2cac6"
     },
     {
       "item_input": {
@@ -16,7 +16,7 @@
       },
       "score": 1.0,
       "status": "pass",
-      "trace_id": "ff6fb583-4cd3-4ea6-9952-360650f6d981"
+      "trace_id": "0e137e6b-0ea2-45af-a68d-35508b8ad565"
     },
     {
       "item_input": {
@@ -24,7 +24,7 @@
       },
       "score": 1.0,
       "status": "pass",
-      "trace_id": "d4d37729-4df4-437f-be62-4cb3aad09373"
+      "trace_id": "6423c4b3-2582-42b2-a10d-cc55b42b421c"
     },
     {
       "item_input": {
@@ -32,55 +32,7 @@
       },
       "score": 1.0,
       "status": "pass",
-      "trace_id": "8d829042-c0cd-4ae9-92d3-4c59cdd7b0e6"
-    },
-    {
-      "item_input": {
-        "query": "Fix the typo in the README"
-      },
-      "score": 1.0,
-      "status": "pass",
-      "trace_id": "11a85315-e9b1-4bf9-ad8c-be6d9d6fce85"
-    },
-    {
-      "item_input": {
-        "query": "How does the routing matrix work?"
-      },
-      "score": 1.0,
-      "status": "pass",
-      "trace_id": "f85392a6-ffc1-4c5a-896a-1d8ea7a04f28"
-    },
-    {
-      "item_input": {
-        "query": "Implement a new agent for reviewing documentation"
-      },
-      "score": 1.0,
-      "status": "pass",
-      "trace_id": "0f9a336f-d11f-494b-b745-0a4dcaccb4a7"
-    },
-    {
-      "item_input": {
-        "query": "I am getting a traceback in the discovery_engine.py"
-      },
-      "score": 1.0,
-      "status": "pass",
-      "trace_id": "f5470571-50fa-4908-b398-b84926a66301"
-    },
-    {
-      "item_input": {
-        "query": "Identify the performance bottleneck in this code"
-      },
-      "score": 1.0,
-      "status": "pass",
-      "trace_id": "78aadbd9-4c82-450d-ada8-b054f8835f25"
-    },
-    {
-      "item_input": {
-        "query": "Write a python function to compute fibonacci"
-      },
-      "score": 1.0,
-      "status": "pass",
-      "trace_id": "52116715-2f3c-4b80-b4de-af8b4cacd57e"
+      "trace_id": "ff83c332-8d52-4d2e-8e89-8bf0a8e3cf91"
     }
   ]
 }

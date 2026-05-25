@@ -1,7 +1,9 @@
 {
   "metadata": {},
   "events": [],
-  "current_branch": "B",
-  "last_prompt": "Hello!",
-  "intent_justification": "Default branch: could not reliably classify intent."
+  "current_branch": "D",
+  "last_prompt": "hwoo",
+  "intent_justification": "Fallback keyword match",
+  "handoff_written": true,
+  "consecutive_tool_failures": 0
 }

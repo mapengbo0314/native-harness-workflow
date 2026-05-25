@@ -1,4 +1,5 @@
 import os
+import sys
 import subprocess
 import tempfile
 import shutil
@@ -33,6 +34,12 @@ def test_full_harness_lifecycle():
         env["HARNESS_MODEL"] = model_name
         env["HARNESS_PLATFORM"] = "2" # Claude Code for plugin generation
         
+        # Force Golden telemetry keys for the headless E2E test
+        if env.get("HARNESS_GOLDEN_LANGFUSE_PUBLIC_KEY"):
+            env["LANGFUSE_PUBLIC_KEY"] = env["HARNESS_GOLDEN_LANGFUSE_PUBLIC_KEY"]
+            env["LANGFUSE_SECRET_KEY"] = env["HARNESS_GOLDEN_LANGFUSE_SECRET_KEY"]
+            env["LANGFUSE_HOST"] = env.get("HARNESS_GOLDEN_LANGFUSE_HOST", "https://us.cloud.langfuse.com")
+        
         # Run the REAL harness-wf init command with Retries
         # Gemini can return 503 UNAVAILABLE under load
         max_retries = 3
@@ -42,7 +49,7 @@ def test_full_harness_lifecycle():
         for attempt in range(max_retries):
             print(f"Attempt {attempt + 1}/{max_retries}: Running harness-wf init...")
             result = subprocess.run(
-                ["python3", "-m", "harness.cli", "init", "--project-path", str(project_path), "--llm", "gemini"],
+                [sys.executable, "-m", "harness.cli", "init", "--project-path", str(project_path), "--llm", "gemini"],
                 env=env,
                 capture_output=True,
                 text=True
