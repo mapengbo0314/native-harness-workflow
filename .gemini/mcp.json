@@ -9,10 +9,6 @@
         "--mcp"
       ]
     },
-    "orchestrator-plugin": {
-      "command": "local-plugin",
-      "args": []
-    },
     "git-mcp": {
       "command": "npx",
       "args": [

@@ -1,9 +1,0 @@
-{
-  "metadata": {},
-  "events": [],
-  "current_branch": "A",
-  "last_prompt": "liar \n\n[DEBUG] [IDEClient] IDE integration disabled. To enable it again, run /ide enable.\nCreated ex",
-  "intent_justification": "The user prompt contains multiple error messages, including stack traces and \"Received HTTP status code 464\". These are clear indicators of a problem or malfunction within the system. The presence of keywords like \"Error\", \"stack\", and \"code\" directly points to a bug or a need for diagnosis. Therefore, this prompt falls under the 'Bug Fix / Diagnosis' branch.",
-  "handoff_written": true,
-  "consecutive_tool_failures": 0
-}

@@ -1,9 +1,0 @@
-{
-  "metadata": {},
-  "events": [],
-  "current_branch": "C",
-  "last_prompt": "what is otlp and why is it now none?",
-  "intent_justification": "The user is asking for an explanation of 'otlp' and a reason for a specific state ('why is it now none?'). Both parts of the prompt are seeking knowledge and understanding.",
-  "handoff_written": true,
-  "consecutive_tool_failures": 0
-}

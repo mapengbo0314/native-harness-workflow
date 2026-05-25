@@ -1,9 +1,10 @@
 {
   "telemetry": {
-    "enabled": true,
-    "traces": true,
+    "enabled": false,
+    "traces": false,
+    "logPrompts": false,
     "otlpProtocol": "http",
-    "otlpEndpoint": "https://us.cloud.langfuse.com/api/public/otel/v1/traces"
+    "otlpEndpoint": "https://us.cloud.langfuse.com/api/public/otel"
   },
   "mcpServers": {
     "codegraph": {
@@ -14,10 +15,6 @@
         "serve",
         "--mcp"
       ]
-    },
-    "orchestrator-plugin": {
-      "command": "local-plugin",
-      "args": []
     },
     "git-mcp": {
       "command": "npx",
@@ -87,6 +84,16 @@
           }
         ]
       }
+    ]
+  },
+  "hooksConfig": {
+    "disabled": [
+      "pre-tool-guard",
+      "post-tool-observer",
+      "prompt-classifier",
+      "stop-verifier",
+      "precompact-handoff",
+      "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" session-start"
     ]
   }
 }

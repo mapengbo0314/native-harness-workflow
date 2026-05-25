@@ -96,8 +96,9 @@ def test_plugin_path_corruption(tmp_path):
                 assert "python3" in command
 
     # Check agents.json
-    agents_json_path = Path(plugin_dir_str) / "config" / "agents.json"
+    agents_json_path = Path(plugin_dir_str) / "agents.json"
     assert agents_json_path.exists()
+    
     with open(agents_json_path, "r") as f:
         agents_config = json.load(f)
         for agent_name, agent_data in agents_config["agents"].items():
@@ -106,8 +107,9 @@ def test_plugin_path_corruption(tmp_path):
             assert final_harness_name in agent_data["path"]
 
     # Check orchestrator.json
-    orch_json_path = Path(plugin_dir_str) / "config" / "orchestrator.json"
+    orch_json_path = Path(plugin_dir_str) / "orchestrator.json"
     assert orch_json_path.exists()
+    
     with open(orch_json_path, "r") as f:
         orch_config = json.load(f)
         assert harness_folder not in orch_config["source"]

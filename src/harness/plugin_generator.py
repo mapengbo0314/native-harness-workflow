@@ -223,7 +223,7 @@ def export_rules_config(rules_dir: Path, config_dir: Path) -> str:
 
 def copy_static_plugin_assets(plugin_dir: Path, bp_dir: Path, fallback_bp_dir: Path) -> None:
     """Copy canonical static plugin payload directories and files."""
-    for name in ["skills", "scripts", "hooks", "contracts", "state"]:
+    for name in ["skills", "scripts", "hooks", "contracts"]:
         source = bp_dir / name
         if not source.exists():
             source = fallback_bp_dir / name
@@ -337,9 +337,8 @@ def generate_orchestrator_plugin(
         final_harness = logical_harness_name if logical_harness_name else harness_folder
         logical_plugin_dir = project_path / final_harness / "plugin-generated"
 
-        config_dir = plugin_dir / "config"
+        config_dir = plugin_dir
         plugin_dir.mkdir(parents=True, exist_ok=True)
-        config_dir.mkdir(parents=True, exist_ok=True)
 
         harness_dir = project_path / harness_folder
         logical_harness_dir = project_path / final_harness

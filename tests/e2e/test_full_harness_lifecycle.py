@@ -106,9 +106,6 @@ def test_full_harness_lifecycle():
         assert not (plugin_dir / "src" / "hooks").exists(), "legacy src/hooks should not be generated"
         assert not (plugin_dir / "src" / "hook_validator.py").exists(), "legacy hook_validator should not be generated"
         assert (plugin_dir / "hooks" / "hooks.json").exists(), "root hooks.json missing"
-        state_path = plugin_dir / "config" / ".harness_state.json"
-        assert state_path.exists(), "embedded setup state missing"
-        assert '"setup_complete": true' in state_path.read_text()
 
         # Record results in Section 6: E2E Lifecycle
         manifest = f"""

@@ -1,9 +1,0 @@
-{
-  "metadata": {},
-  "events": [],
-  "current_branch": "C",
-  "last_prompt": "can we trace the cost per prompt with langchain on gemini too?",
-  "intent_justification": "The user is asking a question about the possibility and method of tracking cost per prompt using a specific technology stack (langchain on gemini). This falls under seeking knowledge or understanding of existing capabilities or implementation details.",
-  "handoff_written": true,
-  "consecutive_tool_failures": 0
-}

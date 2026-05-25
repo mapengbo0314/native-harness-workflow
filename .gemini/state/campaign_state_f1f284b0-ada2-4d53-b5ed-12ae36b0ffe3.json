@@ -1,9 +1,0 @@
-{
-  "metadata": {},
-  "events": [],
-  "current_branch": "None of the provided branches",
-  "last_prompt": "hello",
-  "intent_justification": "The user prompt is a simple greeting ('hello') and does not contain any keywords or context related to bug fixes, feature requests, codebase questions, surgical edits, or verification issues. Therefore, it does not map to any of the provided Matrix Routing Branches.",
-  "handoff_written": true,
-  "consecutive_tool_failures": 0
-}

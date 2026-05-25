@@ -4,7 +4,7 @@ import os
 import uuid
 import logging
 from pathlib import Path
-from hook_common import update_state, resolve_state_path, resolve_project_root
+from hook_common import resolve_project_root
 
 def fallback_classify(prompt):
     prompt = prompt.lower()
@@ -66,15 +66,6 @@ def main():
         if not branch:
             branch = fallback_classify(prompt)
             reason = "Fallback keyword match"
-        
-        def modifier(state):
-            state["current_branch"] = branch
-            state["last_prompt"] = prompt[:100]
-            if reason:
-                state["intent_justification"] = reason
-            
-        state_path = resolve_state_path(input_data)
-        update_state(state_path, modifier)
         
         project_root = resolve_project_root(input_data)
         current_phase = "Unknown"

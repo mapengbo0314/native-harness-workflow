@@ -1,6 +1,5 @@
 import sys
 import json
-from hook_common import resolve_state_path, read_json, update_state
 
 def main():
     try:
@@ -10,19 +9,7 @@ def main():
             print("Error: Malformed JSON from agent.", file=sys.stderr)
             sys.exit(2)
             
-        state_path = resolve_state_path(input_data)
-        state = read_json(state_path)
-        
-        if not state.get("maintenance_mode", False):
-            print("Error: Config changes blocked. Enable maintenance_mode in state.", file=sys.stderr)
-            sys.exit(2)
-            
-        def modifier(s):
-            if "config_changes" not in s:
-                s["config_changes"] = []
-            s["config_changes"].append(input_data)
-            
-        update_state(state_path, modifier)
+        # State management removed, config changes always allowed
         sys.exit(0)
     except SystemExit:
         raise

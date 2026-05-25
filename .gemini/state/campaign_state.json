@@ -1,9 +1,0 @@
-{
-  "metadata": {},
-  "events": [],
-  "current_branch": "D",
-  "last_prompt": "config get",
-  "intent_justification": "Fallback keyword match",
-  "handoff_written": true,
-  "consecutive_tool_failures": 0
-}

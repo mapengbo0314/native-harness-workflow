@@ -50,7 +50,6 @@ class TestGraphEfficiency(unittest.TestCase):
         
         # Copy necessary files from the project
         project_root = Path(__file__).parent.parent.parent
-        shutil.copy(project_root / "src" / "harness" / "database.py", self.src_dir / "database.py")
         shutil.copy(project_root / "src" / "harness" / "dispatcher.py", self.src_dir / "dispatcher.py")
         
         # Generate hooks using the templates from plugin_generator.py (simplified)
@@ -67,18 +66,23 @@ class TestGraphEfficiency(unittest.TestCase):
         shutil.rmtree(self.temp_dir)
 
     def _set_state(self, state):
-        # We need to use OrchestratorDispatcher to save state so it goes to the DB correctly
         sys.path.insert(0, str(self.src_dir))
         from dispatcher import OrchestratorDispatcher
         dispatcher = OrchestratorDispatcher(str(self.config_dir))
-        dispatcher._save_state(state)
+        state_file = Path(dispatcher.config_dir) / ".harness_state.json"
+        with open(state_file, 'w') as f:
+            json.dump(state, f)
         sys.path.pop(0)
 
     def _get_state(self):
         sys.path.insert(0, str(self.src_dir))
         from dispatcher import OrchestratorDispatcher
         dispatcher = OrchestratorDispatcher(str(self.config_dir))
-        state = dispatcher._load_state()
+        state_file = Path(dispatcher.config_dir) / ".harness_state.json"
+        state = {}
+        if state_file.exists():
+            with open(state_file, 'r') as f:
+                state = json.load(f)
         sys.path.pop(0)
         return state
 
@@ -147,7 +151,11 @@ def reject(dispatcher, state, message):
 
 def check_tool_use(tool_name, tool_args):
     dispatcher = load_dispatcher()
-    state = dispatcher._load_state()
+    state = {}
+    state_file = Path(dispatcher.config_dir) / ".harness_state.json"
+    if state_file.exists():
+        with open(state_file, 'r') as f:
+            state = json.load(f)
     tool_text = stringify(tool_args)
     if not setup_ready(state): return True
 
@@ -168,7 +176,11 @@ if __name__ == "__main__":
         post_tool_monitor_content = hook_header + """
 def record_tool_result(payload):
     dispatcher = load_dispatcher()
-    state = dispatcher._load_state()
+    state = {}
+    state_file = Path(dispatcher.config_dir) / ".harness_state.json"
+    if state_file.exists():
+        with open(state_file, 'r') as f:
+            state = json.load(f)
     tool_name, tool_args = extract_tool(payload)
     now = datetime.datetime.now().isoformat()
 
@@ -176,7 +188,9 @@ def record_tool_result(payload):
         state["last_codegraph_use_at"] = now
         state["last_codegraph_tool"] = tool_name
     
-    dispatcher._save_state(state)
+    state_file = Path(dispatcher.config_dir) / ".harness_state.json"
+    with open(state_file, 'w') as f:
+        json.dump(state, f)
     return True
 
 if __name__ == "__main__":

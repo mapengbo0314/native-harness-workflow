@@ -15,6 +15,7 @@ verification_cache/
 __pycache__/
 *.pyc
 .DS_Store
+node_modules/
 
 # Virtual environments
 .venv/
@@ -44,7 +45,6 @@ out/
 artifacts/
 test_repro_dir/
 local_outputs/
-.harness_state.db*
 
 # Caches and Build Artifacts
 .superpowers/

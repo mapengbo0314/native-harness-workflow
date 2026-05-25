@@ -1,9 +1,0 @@
-{
-  "metadata": {},
-  "events": [],
-  "current_branch": "A",
-  "last_prompt": "i don't believe langfuse doesn't have a way to receive metrics. that is bullshit",
-  "intent_justification": "The user is expressing disbelief and frustration that a specific functionality (receiving metrics) is missing from Langfuse. This implies they are encountering a problem or an unexpected limitation, which points towards a potential bug or a diagnostic need regarding the current state of the system. While it could lead to a feature request, the immediate sentiment is one of encountering an issue.",
-  "handoff_written": true,
-  "consecutive_tool_failures": 0
-}

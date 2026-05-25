@@ -89,7 +89,7 @@ def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
         plugin_dir / "hooks" / "stop_verifier.py",
         plugin_dir / "hooks" / "config_change_guard.py",
         plugin_dir / "src" / "dispatcher.py",
-        plugin_dir / "config" / "ddd-context.json",
+        plugin_dir / "ddd-context.json",
         plugin_dir / "agents",
         plugin_dir / "skills",
     ]
@@ -100,7 +100,7 @@ def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
     if (plugin_dir / "src" / "hooks").exists():
         raise HarnessSetupError("Legacy plugin src/hooks payload must not be generated.")
 
-    config_text = "\n".join(path.read_text(encoding="utf-8") for path in (plugin_dir / "config").glob("*.json"))
+    config_text = "\n".join(path.read_text(encoding="utf-8") for path in plugin_dir.glob("*.json"))
     if ".harness_tmp" in config_text:
         raise HarnessSetupError("Generated plugin config contains staging path .harness_tmp.")
 
@@ -111,7 +111,7 @@ def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
     dispatcher_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(dispatcher_module)
 
-    json.loads((plugin_dir / "config" / "ddd-context.json").read_text(encoding="utf-8"))
+    json.loads((plugin_dir / "ddd-context.json").read_text(encoding="utf-8"))
     hooks_config = json.loads((plugin_dir / "hooks" / "hooks.json").read_text(encoding="utf-8"))
     for groups in hooks_config.get("hooks", {}).values():
         for group in groups:
@@ -144,7 +144,7 @@ def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
 
 
 def _write_setup_state(project_path: Path, harness_dir: Path, plugin_dir: Optional[Path], platform_choice: str) -> None:
-    config_dir = (plugin_dir / "config") if plugin_dir and plugin_dir.exists() else (harness_dir / "config")
+    config_dir = plugin_dir if plugin_dir and plugin_dir.exists() else harness_dir
     config_dir.mkdir(parents=True, exist_ok=True)
     state_file = config_dir / ".harness_state.json"
     tmp_file = config_dir / ".harness_state.tmp.json"
@@ -190,10 +190,8 @@ def run_embedded_setup(
     
     if plugin_dir and plugin_dir.exists():
         _validate_claude_plugin(project_path, plugin_dir)
-        
-    _write_setup_state(project_path, harness_dir, plugin_dir, platform_choice)
-    print("[HARNESS] Embedded setup complete.")
 
+    print("[HARNESS] Embedded setup complete.")
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Initialize a new Harness agent workspace.")

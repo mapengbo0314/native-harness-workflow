@@ -3,20 +3,17 @@ import json
 import os
 import shlex
 from pathlib import Path
-from hook_common import resolve_plugin_root, resolve_project_root, resolve_state_path, read_json, update_state
+from hook_common import resolve_plugin_root, resolve_project_root
 
 PROTECTED_PROJECT_FILES = [
     ".claude/settings.json",
     ".claude/settings.local.json",
     ".env",
-    "state/campaign_state.json",
     ".claude/plugin-generated/hooks/hooks.json",
-    ".claude/plugin-generated/state/campaign_state.json",
 ]
 
 PROTECTED_PLUGIN_FILES = [
     "hooks/hooks.json",
-    "state/campaign_state.json",
 ]
 
 def _normalize_text(value) -> str:
@@ -94,24 +91,7 @@ def main():
                     print(f"Error: Access to protected path '{candidate}' is blocked.", file=sys.stderr)
                     sys.exit(2)
                     
-        # Check Circuit Breaker
-        state_path = resolve_state_path(input_data)
-        state = read_json(state_path)
-        
-        if state.get("consecutive_tool_failures", 0) >= 3:
-            # Reset the counter before hard stopping to prevent permanent system deadlocks across agent restarts
-            def reset_breaker(s):
-                s["consecutive_tool_failures"] = 0
-            update_state(state_path, reset_breaker)
-            print("Error: Circuit breaker tripped! 3 consecutive tool failures detected. Hard stopping agent.", file=sys.stderr)
-            sys.exit(2)
-            
-        current_branch = state.get("current_branch")
-        
-        # Bypass for maintenance mode
-        if state.get("maintenance_mode"):
-            print(json.dumps({"hookSpecificOutput": {"permissionDecision": "allow"}}))
-            sys.exit(0)
+        current_branch = None
             
         # New Gatekeeper V3 Logic
         is_mutation_tool = tool_name in ["Write", "Edit", "MultiEdit", "write_file", "replace"]

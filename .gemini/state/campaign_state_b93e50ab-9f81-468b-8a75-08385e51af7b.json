@@ -1,9 +1,0 @@
-{
-  "metadata": {},
-  "events": [],
-  "current_branch": "A",
-  "last_prompt": "and you said we fixed our 464 issue?",
-  "intent_justification": "The user is inquiring about the resolution of a previously identified problem, referred to as 'our 464 issue.' This indicates a focus on a bug or a problem that has been addressed or is being discussed in the context of being fixed.",
-  "handoff_written": true,
-  "consecutive_tool_failures": 0
-}

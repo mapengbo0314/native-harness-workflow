@@ -88,9 +88,8 @@ def test_registered_hook_commands_execute(temp_project):
 
     state_dir = plugin_dir / "state"
     state_dir.mkdir(exist_ok=True)
-    (state_dir / "campaign_state.json").write_text(json.dumps({"maintenance_mode": True}))
     (temp_project / "artifacts").mkdir(parents=True, exist_ok=True)
-
+    (temp_project / "artifacts" / "tdd_failing_test.log").write_text("AssertionError: mock failure")
     hooks_json = json.loads((plugin_dir / "hooks" / "hooks.json").read_text())
     payloads = {
         "UserPromptSubmit": {"hook_event_name": "UserPromptSubmit", "prompt": "build a login flow"},
@@ -133,7 +132,7 @@ def test_registered_hook_commands_execute(temp_project):
                 )
                 assert result.returncode == 0, f"{event_name} failed: {result.stdout}\n{result.stderr}"
 
-def test_hook_state_isolation(temp_project):
+def test_hook_state_persistence(temp_project):
     run_harness_init(temp_project, "2", llm="anthropic", include_plugin=True, mock_should_gen_plugin=True)
     plugin_dir = temp_project / ".claude" / "plugin-generated"
     state_dir = plugin_dir / "state"
@@ -148,28 +147,20 @@ def test_hook_state_isolation(temp_project):
     pre_tool_cmd = hooks_json["hooks"]["PreToolUse"][0]["hooks"][0]["command"].replace("${CLAUDE_PLUGIN_ROOT}", str(plugin_dir))
     
     payload = {"hook_event_name": "PreToolUse", "tool_name": "Bash", "tool_input": {"command": "ls"}}
-    env1 = {**os.environ, "CLAUDE_PLUGIN_ROOT": str(plugin_dir), "CLAUDE_PROJECT_DIR": str(temp_project), "LANGFUSE_SESSION_ID": "session_1"}
-    env2 = {**os.environ, "CLAUDE_PLUGIN_ROOT": str(plugin_dir), "CLAUDE_PROJECT_DIR": str(temp_project), "LANGFUSE_SESSION_ID": "session_2"}
+    env = {**os.environ, "CLAUDE_PLUGIN_ROOT": str(plugin_dir), "CLAUDE_PROJECT_DIR": str(temp_project)}
     
-    # Run hook for session 1
-    res1 = subprocess.run(shlex.split(pre_tool_cmd), input=json.dumps(payload), cwd=temp_project, capture_output=True, text=True, env=env1)
+    # Run hook
+    res1 = subprocess.run(shlex.split(pre_tool_cmd), input=json.dumps(payload), cwd=temp_project, capture_output=True, text=True, env=env)
     assert res1.returncode == 0
     
-    # Run hook for session 2
-    res2 = subprocess.run(shlex.split(pre_tool_cmd), input=json.dumps(payload), cwd=temp_project, capture_output=True, text=True, env=env2)
+    # Run hook again
+    res2 = subprocess.run(shlex.split(pre_tool_cmd), input=json.dumps(payload), cwd=temp_project, capture_output=True, text=True, env=env)
     assert res2.returncode == 0
     
-    # Check that isolated states were created and inherited base
-    state1_path = state_dir / "campaign_state_session_1.json"
-    state2_path = state_dir / "campaign_state_session_2.json"
-    
-    assert state1_path.exists()
-    assert state2_path.exists()
-    
-    st1 = json.loads(state1_path.read_text())
-    st2 = json.loads(state2_path.read_text())
-    assert st1["global"] == "base_val"
-    assert st2["global"] == "base_val"
+    # Check that state exists and retains the value
+    assert base_state_path.exists()
+    st = json.loads(base_state_path.read_text())
+    assert st["global"] == "base_val"
 
 if __name__ == "__main__":
     pytest.main([__file__])

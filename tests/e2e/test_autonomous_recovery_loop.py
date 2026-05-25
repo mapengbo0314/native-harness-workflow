@@ -24,7 +24,3 @@ def test_sandbox_uses_root_hook_guard_for_protected_paths():
 
         assert result.startswith("HOOK_REJECTION:")
         assert "blocked" in result.lower()
-
-        state_file = workspace / ".claude" / "plugin-generated" / "state" / "campaign_state.json"
-        assert state_file.exists()
-        json.loads(state_file.read_text())

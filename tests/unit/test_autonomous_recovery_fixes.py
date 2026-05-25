@@ -16,6 +16,7 @@ def test_root_pre_tool_guard_path_normalization_regressions():
         (tmp_project / "docs" / "domain" / "CONTEXT.md").write_text("# Context")
         (tmp_project / "artifacts").mkdir(parents=True)
         (tmp_project / "artifacts" / "diagnosis_report.md").write_text("# Report")
+        (tmp_project / "artifacts" / "tdd_failing_test.log").write_text("AssertionError: mock failure")
         plugin_path = Path(generate_orchestrator_plugin(str(tmp_project), "TestProject"))
         state_dir = plugin_path / "state"
         state_dir.mkdir(parents=True, exist_ok=True)

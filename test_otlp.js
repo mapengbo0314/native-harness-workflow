@@ -7,15 +7,21 @@ const exporter = new OTLPTraceExporter({
 });
 exporter.export([{
   resource: { attributes: {} },
-  instrumentationLibrary: { name: 'test' },
+  instrumentationLibrary: { name: 'test', version: '1.0.0' },
+  instrumentationScope: { name: 'test', version: '1.0.0' },
   name: 'test-span',
   kind: 0,
-  traceId: '12345678901234567890123456789012',
-  spanId: '1234567890123456',
+  spanContext: () => ({
+    traceId: '12345678901234567890123456789012',
+    spanId: '1234567890123456',
+    traceFlags: 1
+  }),
   startTime: [0, 0],
   endTime: [0, 0],
   status: { code: 0 },
-  attributes: {}
+  attributes: {},
+  events: [],
+  links: []
 }], (res) => {
   console.log('Result:', res);
 });

@@ -14,19 +14,6 @@ import uuid
 load_dotenv()
 
 try:
-    from harness.database import HarnessDB
-except (ImportError, ValueError):
-    try:
-        from .database import HarnessDB
-    except (ImportError, ValueError):
-        try:
-            import database
-            HarnessDB = database.HarnessDB
-        except ImportError:
-            # Fallback for environments where database.py might not be available yet
-            HarnessDB = None
-
-try:
     from harness.discovery_engine import query_llm
 except (ImportError, ValueError):
     try:
@@ -70,7 +57,7 @@ class OrchestratorDispatcher:
                 return json.load(f)
                 
         # Fallback for deep copy migration
-        agents_dir = self.config_dir.parent / "agents"
+        agents_dir = self.config_dir / "agents"
         agents = {}
         if agents_dir.exists():
             for agent_file in agents_dir.glob("*.md"):
@@ -175,7 +162,16 @@ class OrchestratorDispatcher:
             Dict with 'branch' and 'justification'
         """
         api_key = os.environ.get("GEMINI_API_KEY")
-        if query_llm and api_key:
+        cli_name = None
+        if not api_key:
+            cli_name = os.environ.get("HARNESS_PLATFORM_CLI")
+            if not cli_name:
+                if shutil.which("claude"):
+                    cli_name = "claude"
+                elif shutil.which("gemini"):
+                    cli_name = "gemini"
+
+        if query_llm and (api_key or cli_name):
             classification_prompt = f"""
 Analyze the following user prompt and classify it into one of the following Matrix Routing Branches:
 
