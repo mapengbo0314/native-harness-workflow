@@ -247,6 +247,27 @@ Return the result as JSON:
         """Validate if the intent starts with a valid 5-Verb."""
         return verb in self.VALID_VERBS
 
+    def assemble_branch_context(self, agent_name: str, intent_branch: str) -> str:
+        """Assemble a branch-specific context pointer string to reduce prompt bloat."""
+        pointers = []
+        pointers.append(f"Agent Persona: {agent_name}")
+        pointers.append(f"Routing Branch: {intent_branch}")
+        
+        # Add dynamic pointers rather than full text
+        pointers.append("Available Skills Index: .gemini/skills_index.json")
+        pointers.append("To load a skill, run: python3 scripts/activate_skill.py <skill_name>")
+        
+        if intent_branch == "A":
+            pointers.append("Branch A (Bug Fix): Focus on stack traces and isolate the error. Use mcp_codegraph_codegraph_callers.")
+        elif intent_branch == "B":
+            pointers.append("Branch B (Feature/Arch): Focus on step-by-step planning. Use harness-brainstorming and harness-writing-plans.")
+        elif intent_branch == "C":
+            pointers.append("Branch C (Question): Do not modify files. Use codegraph to explore.")
+        elif intent_branch == "D":
+            pointers.append("Branch D (Surgical Edit): Bypass heavy planning. Use implementer directly.")
+            
+        return "\n".join(pointers)
+
     @observe()
     def dispatch_agent(
         self,
@@ -334,6 +355,9 @@ Return the result as JSON:
         if agent_name == "implementer":
             state["tdd_status"] = "active"
         self._save_state(state, session_id)
+
+        branch_pointers = self.assemble_branch_context(agent_name, str(intent_branch) if intent_branch else "None")
+        context["branch_context_pointers"] = branch_pointers
 
         return {
             "agent": agent_name,
