@@ -97,7 +97,6 @@ Analyze the following user prompt and classify it into one of the following Matr
 - Branch B: Feature Request & Architectural Planning (e.g., build, create, implement, add feature, new)
 - Branch C: Codebase Questioning & Knowledge Retrieval (e.g., how does, where is, what is, explain)
 - Branch D: Surgical Edit / Fast Path (e.g., typo, change color, minor update, fix the)
-- Branch E: Verification Remediation (e.g., verification failed, tests failing, QA report issues)
 
 User Prompt: "{prompt}"
 

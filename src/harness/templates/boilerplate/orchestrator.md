@@ -99,11 +99,6 @@ Replace sequential waterfall phases with exact intention-based routing:
     *   *Action:* Orchestrator uses `codegraph_context` to grab the exact 5 lines of code.
     *   *Dispatch:* Sends context directly to `<!--$SUBAGENT_SYNTAX$-->implementer` (bypassing heavy workflows).
 
-*   **Branch E: Verification Remediation**
-    *   *Trigger:* `<!--$SUBAGENT_SYNTAX$-->verifier` returns `FAIL` or `QA_METADATA` shows unresolved issues.
-    *   *Action:* Analyze `QA_METADATA` to identify the root cause (logic vs. spec).
-    *   *Dispatch:* `<!--$SUBAGENT_SYNTAX$-->implementer` for code fixes or `<!--$SUBAGENT_SYNTAX$-->planner` if the plan needs modification.
-
 ### ROUTING INSTRUCTIONS:
 To delegate to any of the following specialized subagents, you MUST invoke them via your platform's native subagent tool (e.g., <!--$SUBAGENT_SYNTAX$-->agent_name):
 
