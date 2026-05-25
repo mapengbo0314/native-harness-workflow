@@ -139,6 +139,7 @@ class OrchestratorDispatcher:
             # Release lock
             self.db.release_lease("state_lock")
 
+    @observe(as_type="span")
     def classify_intent(self, prompt: str) -> Dict[str, str]:
         """Classify user intent into Matrix Routing Branches A/B/C/D.
 
@@ -259,6 +260,14 @@ Return the result as JSON:
             intent_info = self.classify_intent(context["prompt"])
             intent_branch = intent_info.get("branch")
             intent_justification = intent_info.get("justification")
+            
+            # Surface reasoning to the top-level trace
+            langfuse_context.update_current_trace(
+                metadata={
+                    "matrix_branch": intent_branch,
+                    "intent_justification": intent_justification
+                }
+            )
 
         # Update state and check for infinite loops
         state = self._load_state()

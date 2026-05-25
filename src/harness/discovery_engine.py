@@ -66,7 +66,7 @@ def fetch_skill(skill_name: str, remote_url: str) -> str:
 
     return None
 
-@observe()
+@observe(as_type="generation")
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=2, min=5, max=20),
@@ -101,6 +101,13 @@ def query_llm(prompt: str, llm_provider: str, api_key: str, model: str = None) -
             model=use_model,
             messages=[{"role": "user", "content": prompt}]
         )
+        if response.usage:
+            langfuse_context.update_current_observation(
+                usage={
+                    "input": response.usage.prompt_tokens, 
+                    "output": response.usage.completion_tokens
+                }
+            )
         return response.choices[0].message.content
         
     elif llm_provider == "anthropic":
