@@ -2,8 +2,18 @@ import json
 import sys
 from pathlib import Path
 
+def find_project_root() -> Path:
+    current = Path.cwd().resolve()
+    while current != current.parent:
+        if (current / ".gemini").exists():
+            return current
+        current = current.parent
+    # Fallback to the directory containing this script (assuming it's in a subfolder like scripts/)
+    return Path(__file__).resolve().parent.parent
+
 def activate_skill(skill_name: str):
-    index_path = Path(".gemini/skills_index.json")
+    root = find_project_root()
+    index_path = root / ".gemini" / "skills_index.json"
     if not index_path.exists():
         print("Error: skills_index.json not found. Run generate_skills_index.py first.")
         sys.exit(1)
@@ -16,7 +26,12 @@ def activate_skill(skill_name: str):
         print(f"Available skills: {', '.join(index.keys())}")
         sys.exit(1)
         
-    skill_path = Path(index[skill_name]["path"])
+    skill_path_raw = Path(index[skill_name]["path"])
+    if not skill_path_raw.is_absolute():
+        skill_path = root / skill_path_raw
+    else:
+        skill_path = skill_path_raw
+        
     if not skill_path.exists():
         print(f"Error: Skill file not found at {skill_path}")
         sys.exit(1)

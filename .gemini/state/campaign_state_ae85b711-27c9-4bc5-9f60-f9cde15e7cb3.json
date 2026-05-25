@@ -1,0 +1,9 @@
+{
+  "metadata": {},
+  "events": [],
+  "current_branch": "A",
+  "last_prompt": "I had setup tracing but it seems 2 things, it's actually givine me a lot of issues with it. First, w",
+  "intent_justification": "The user is reporting significant issues with their tracing setup, mentioning 'a lot of issues' and specific problems like 'not tracking model, the prompt sent' and '464 error'. The statement 'it worked in other instances, but here or soem reason it is not' further suggests a diagnostic need to identify and fix a bug.",
+  "handoff_written": true,
+  "consecutive_tool_failures": 0
+}

@@ -1,7 +1,8 @@
 import json
 import os
-import fcntl
 import tempfile
+import sys
+import shutil
 from pathlib import Path
 from contextlib import contextmanager
 
@@ -34,11 +35,27 @@ def acquire_lock(path: Path):
     lock_path = str(path) + ".lock"
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(lock_path, "a") as lock_file:
-        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            import fcntl
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        except ImportError:
+            try:
+                import msvcrt
+                msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
+            except ImportError:
+                pass
         try:
             yield
         finally:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+            try:
+                import fcntl
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+            except ImportError:
+                try:
+                    import msvcrt
+                    msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+                except ImportError:
+                    pass
 
 def _write_json_nolock(path: Path, data: dict):
     tmp_fd, tmp_path = tempfile.mkstemp(dir=path.parent, text=True)
@@ -57,6 +74,19 @@ def atomic_write_json(path: Path | str, data: dict):
     with acquire_lock(path_obj):
         _write_json_nolock(path_obj, data)
 
+def _safe_load_json(path_obj: Path) -> dict:
+    try:
+        with open(path_obj, "r") as f:
+            return json.load(f)
+    except json.JSONDecodeError as e:
+        if path_obj.stat().st_size == 0:
+            return {}
+        backup_path = path_obj.with_suffix('.json.bak')
+        shutil.copy2(path_obj, backup_path)
+        raise RuntimeError(f"Corrupted JSON in {path_obj}. Backed up to {backup_path}") from e
+    except FileNotFoundError:
+        return {}
+
 def read_json(path: Path | str, default: dict = None) -> dict:
     if default is None:
         default = {}
@@ -67,25 +97,19 @@ def read_json(path: Path | str, default: dict = None) -> dict:
         base_path = path_obj.parent / "campaign_state.json"
         if base_path.exists():
             with acquire_lock(base_path):
-                try:
-                    with open(base_path, "r") as f:
-                        data = json.load(f)
+                data = _safe_load_json(base_path)
+                if data:
                     # Migrate immediately by writing to namespaced path
                     with acquire_lock(path_obj):
                         _write_json_nolock(path_obj, data)
                     return data
-                except (FileNotFoundError, json.JSONDecodeError):
-                    pass
 
     if not path_obj.exists():
         return default
         
     with acquire_lock(path_obj):
-        try:
-            with open(path_obj, "r") as f:
-                return json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            return default
+        data = _safe_load_json(path_obj)
+        return data if data else default
 
 def update_state(path: Path | str, modifier_fn):
     path_obj = Path(path)
@@ -96,17 +120,9 @@ def update_state(path: Path | str, modifier_fn):
             if path_obj.name.startswith("campaign_state_") and path_obj.name.endswith(".json"):
                 base_path = path_obj.parent / "campaign_state.json"
                 if base_path.exists():
-                    try:
-                        with open(base_path, "r") as f:
-                            data = json.load(f)
-                    except (FileNotFoundError, json.JSONDecodeError):
-                        pass
+                    data = _safe_load_json(base_path)
         else:
-            try:
-                with open(path_obj, "r") as f:
-                    data = json.load(f)
-            except (FileNotFoundError, json.JSONDecodeError):
-                data = {}
+            data = _safe_load_json(path_obj)
         
         modifier_fn(data)
         

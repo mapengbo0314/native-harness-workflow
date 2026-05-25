@@ -1,0 +1,9 @@
+{
+  "metadata": {},
+  "events": [],
+  "current_branch": "A",
+  "last_prompt": "\"stack\":\"OTLPExporterError: Not Found\\n    at IncomingMessage.<anonymous> (file:///opt/homebrew/lib/",
+  "intent_justification": "Keyword match: detected error-related keywords.",
+  "handoff_written": true,
+  "consecutive_tool_failures": 0
+}

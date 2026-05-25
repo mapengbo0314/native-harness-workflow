@@ -30,6 +30,7 @@ class CursorAdapter(PlatformAdapter):
         return f"{self.get_config_dir_name()}/hooks"
 
     def install_hooks(self, project_path: Path) -> None:
+        import re
         hooks_dir = project_path / self.get_hook_directory()
         if not hooks_dir.exists():
             return
@@ -38,14 +39,14 @@ class CursorAdapter(PlatformAdapter):
             for file in files:
                 if file.endswith((".py", ".json", ".md")):
                     filepath = Path(root) / file
-                    with open(filepath, "r") as f:
+                    with open(filepath, "r", encoding="utf-8") as f:
                         content = f.read()
                         
                     new_content = content.replace("${CLAUDE_PLUGIN_ROOT}", f"${{{self.get_plugin_env_var_name()}}}")
-                    new_content = new_content.replace(".claude", self.get_config_dir_name())
+                    new_content = re.sub(r'(^|[\s/"\'])\.claude([\s/"\']|$)', r'\1' + self.get_config_dir_name() + r'\2', new_content)
                     
                     if new_content != content:
-                        with open(filepath, "w") as f:
+                        with open(filepath, "w", encoding="utf-8") as f:
                             f.write(new_content)
 
     def generate_core_infrastructure(self, project_path: Path) -> None:

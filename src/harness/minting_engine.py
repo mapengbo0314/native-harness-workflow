@@ -444,7 +444,7 @@ tools:
             final_content = frontmatter + include_pointer + system_prompt + "\n"
             
             # Final post-processing for placeholders and includes
-            final_content = final_content.replace(".claude", target_dir_name)
+            final_content = re.sub(r'(^|[\s/"\'])\.claude([\s/"\']|$)', r'\1' + target_dir_name + r'\2', final_content)
             final_content = process_includes(final_content, str(agent_file_path), target_path, tool_replacements, target_dir_name)
             
             with open(agent_file_path, 'w') as f:
