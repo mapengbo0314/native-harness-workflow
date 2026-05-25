@@ -57,6 +57,8 @@ digraph skill_flow {
     "Has checklist?" [shape=diamond];
     "Create TodoWrite todo per item" [shape=box];
     "Follow skill exactly" [shape=box];
+    "Ready to complete task?" [shape=diamond];
+    "Invoke verification-before-completion skill" [shape=box];
     "Respond (including clarifications)" [shape=doublecircle];
 
     "About to EnterPlanMode?" -> "Already brainstormed?";
@@ -72,6 +74,10 @@ digraph skill_flow {
     "Has checklist?" -> "Create TodoWrite todo per item" [label="yes"];
     "Has checklist?" -> "Follow skill exactly" [label="no"];
     "Create TodoWrite todo per item" -> "Follow skill exactly";
+    "Follow skill exactly" -> "Ready to complete task?";
+    "Ready to complete task?" -> "Invoke verification-before-completion skill" [label="yes"];
+    "Ready to complete task?" -> "Respond (including clarifications)" [label="no"];
+    "Invoke verification-before-completion skill" -> "Respond (including clarifications)";
 }
 ```
 
@@ -100,9 +106,11 @@ When multiple skills could apply, use this order:
 
 1. **Process skills first** (brainstorming, debugging) - these determine HOW to approach the task
 2. **Implementation skills second** (frontend-design, mcp-builder) - these guide execution
+3. **Verification skills last** (verification-before-completion) - these MUST be used before finalization
 
 "Let's build X" → harness-brainstorming first, then implementation skills.
 "Fix this bug" → debugging first, then domain-specific skills.
+"I'm done" → verification-before-completion MUST be invoked before responding with finality.
 
 ## Skill Types
 

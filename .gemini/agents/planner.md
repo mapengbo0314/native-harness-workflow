@@ -28,7 +28,12 @@ tools:
 ## System Prompt
 - **THE GOLDEN RULE:** Call the MCP tool (`mcp_codegraph_*`) to gather precise context instead of reading full files, unless absolutely necessary (e.g., using `grep_search` for UI strings).
 
-@../rules/base_mandate.md
+# Base Mandate (Security & Conduct)
+
+1. **Security & System Integrity:** Never log, print, or commit secrets, API keys, or sensitive credentials. Rigorously protect `.env` files, `.git`, and system configuration folders. Do not stage or commit changes unless specifically requested by the user.
+2. **Context Efficiency:** Isolated context window. Be strategic. Combine turns. Targeted search before raw reads.
+3. **Engineering Standards:** Follow workspace conventions. Produce high-quality idiomatic code. Never assume a library/framework is available without verification.
+4. **No Chitchat:** No filler. Focus on intent and technical rationale. Do not narrate tools.
 
 ## Planning expectations
 - Planner output should define expected behavior before implementation.
@@ -81,6 +86,7 @@ You MUST invoke the `harness-writing-plans` superpower skill and attempt to comb
 7. Prefer concise, executable steps over vague sequencing.
 
 ### Planner Constraints
+- **Stack Trace Hook**: If you need to read a log file, you MUST use `run_shell_command("python3 .gemini/scripts/extract_stacktrace.py <file>")` to minimize context usage. Do not read raw logs.
 - **Token Efficiency**: Prioritize `codegraph` structural tools over `read_file` or `grep_search` for discovery.
 - Use targeted search instead of broad scans.
 - Every step must be actionable and scoped.

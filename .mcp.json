@@ -22,6 +22,10 @@
         "serve",
         "--mcp"
       ]
+    },
+    "orchestrator-plugin": {
+      "command": "local-plugin",
+      "args": []
     }
   }
 }

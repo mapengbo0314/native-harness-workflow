@@ -1,0 +1,10 @@
+{
+  "unit": {
+    "framework": "pytest",
+    "command": "pytest tests/unit"
+  },
+  "e2e": {
+    "framework": "pytest",
+    "command": "pytest tests/e2e"
+  }
+}

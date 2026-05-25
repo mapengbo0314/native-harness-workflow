@@ -8,6 +8,17 @@
         "serve",
         "--mcp"
       ]
+    },
+    "orchestrator-plugin": {
+      "command": "local-plugin",
+      "args": []
+    },
+    "git-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@mseep/git-mcp-server"
+      ]
     }
   }
 }

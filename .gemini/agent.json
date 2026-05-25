@@ -10,23 +10,11 @@
     "grill-with-docs",
     "improve-codebase-architecture",
     "ddd-alignment",
-    "meta-learning",
-    "using-harness-superpowers",
-    "harness-brainstorming",
-    "harness-writing-plans",
-    "harness-test-driven-development",
-    "harness-subagent-driven-development",
-    "harness-dispatching-parallel-agents",
-    "harness-executing-plans",
-    "harness-systematic-debugging",
-    "harness-finishing-a-development-branch",
-    "harness-requesting-code-review",
-    "agentic-eval",
-    "prompt-engineer"
+    "meta-learning"
   ],
   "related_agents": [
     "planner",
-    "architect",
+    "adversary",
     "implementer",
     "reviewer",
     "verifier",
@@ -35,6 +23,6 @@
     "refactorer",
     "performance-profiler",
     "security-auditor",
-    "token-optimizer"
+    "workflow-architect"
   ]
 }

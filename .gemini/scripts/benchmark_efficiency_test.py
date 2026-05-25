@@ -99,15 +99,15 @@ def run_multi_benchmark(tasks: list[str], rules_content: str, harness_dir: Path)
     
     # Load actual agent prompts from disk to ground the token counts
     orch_path = harness_dir / "orchestrator.md"
-    arch_path = harness_dir / "agents" / "architect.md"
+    adv_path = harness_dir / "agents" / "adversary.md"
     impl_path = harness_dir / "agents" / "implementer.md"
     
     orch_base = orch_path.read_text() if orch_path.exists() else "Orchestrator prompt"
-    arch_base = arch_path.read_text() if arch_path.exists() else "Architect prompt"
+    adv_base = adv_path.read_text() if adv_path.exists() else "Adversary prompt"
     impl_base = impl_path.read_text() if impl_path.exists() else "Implementer prompt"
     
     # A monolithic agent needs all instructions (rules + orchestration + all skills/roles)
-    mono_base = f"{rules_content}\n\n{orch_base}\n\n{arch_base}\n\n{impl_base}"
+    mono_base = f"{rules_content}\n\n{orch_base}\n\n{adv_base}\n\n{impl_base}"
     
     mono_results = []
     harness_results = []
@@ -152,14 +152,14 @@ def run_multi_benchmark(tasks: list[str], rules_content: str, harness_dir: Path)
         orch_in_tokens = count_tokens(orch_prompt)
         
         # B. Architect (Fresh context per task: rules + role + task + file reads)
-        arch_prompt = f"{rules_content}\n\n{arch_base}\n\nTASK: {task}\nAssistant: ToolCall: read_file('app.py')\nSystem: {file_read_simulation}"
+        arch_prompt = f"{rules_content}\n\n{adv_base}\n\nTASK: {task}\nAssistant: ToolCall: read_file('app.py')\nSystem: {file_read_simulation}"
         arch_in_tokens = count_tokens(arch_prompt)
         # Architect outputs a concise plan
-        arch_output = f"Architect parsed: {task}. Proceed with step 1, 2, 3.\n" + ("plan\n" * 50)
-        arch_out_tokens = count_tokens(arch_output)
+        adv_output = f"Architect parsed: {task}. Proceed with step 1, 2, 3.\n" + ("plan\n" * 50)
+        adv_out_tokens = count_tokens(adv_output)
         
         # C. Implementer (Fresh context: rules + role + Architect's summary + task)
-        impl_prompt = f"{rules_content}\n\n{impl_base}\n\nSummary of research: {arch_output}\n\nTask: {task}"
+        impl_prompt = f"{rules_content}\n\n{impl_base}\n\nSummary of research: {adv_output}\n\nTask: {task}"
         impl_in_tokens = count_tokens(impl_prompt)
         # Implementer outputs the actual code
         impl_output = f"Implementation complete for: {task}\n" + ("code\n" * 150)
@@ -169,9 +169,9 @@ def run_multi_benchmark(tasks: list[str], rules_content: str, harness_dir: Path)
         orch_response = f"Delegated. Result snippet: {impl_output[:150]}..."
         orch_out_tokens = count_tokens(orch_response)
         
-        task_tokens = orch_in_tokens + arch_in_tokens + arch_out_tokens + impl_in_tokens + impl_out_tokens + orch_out_tokens
+        task_tokens = orch_in_tokens + arch_in_tokens + adv_out_tokens + impl_in_tokens + impl_out_tokens + orch_out_tokens
         harness_results.append({
-            "orch_in": orch_in_tokens, "arch_in": arch_in_tokens, "arch_out": arch_out_tokens,
+            "orch_in": orch_in_tokens, "arch_in": arch_in_tokens, "arch_out": adv_out_tokens,
             "impl_in": impl_in_tokens, "impl_out": impl_out_tokens, "orch_out": orch_out_tokens,
             "total": task_tokens
         })
@@ -227,35 +227,35 @@ def run_harness_benchmark(task_prompt: str, harness_dir: Path, cli_tool: str = "
     rules_path = harness_dir / "rules" / "core_mandates.md"
     rules_content = rules_path.read_text() if rules_path.exists() else ""
     
-    architect_agent_path = harness_dir / "agents" / "architect.md"
+    adversary_agent_path = harness_dir / "agents" / "adversary.md"
     implementer_agent_path = harness_dir / "agents" / "implementer.md"
     
-    arch_base = architect_agent_path.read_text() if architect_agent_path.exists() else "Architect prompt"
+    adv_base = adversary_agent_path.read_text() if adversary_agent_path.exists() else "Adversary prompt"
     impl_base = implementer_agent_path.read_text() if implementer_agent_path.exists() else "Implementer prompt"
     
     print("Running Harness Step 1: Architect...")
-    # Architect input = rules + architect role + task
-    arch_input_full = f"{rules_content}\n\n{arch_base}\n\nTASK: {task_prompt}"
-    architect_input_tokens = count_tokens(arch_input_full)
+    # Adversary input = rules + adversary role + task
+    adv_input_full = f"{rules_content}\n\n{adv_base}\n\nTASK: {task_prompt}"
+    adversary_input_tokens = count_tokens(adv_input_full)
     
     try:
-        args = ["-p", f"Role: Architect\n\nInstructions:\n{rules_content}\n\n{arch_base}\n\nTask: {task_prompt}"]
+        args = ["-p", f"Role: Architect\n\nInstructions:\n{rules_content}\n\n{adv_base}\n\nTask: {task_prompt}"]
         if cli_tool == "gemini":
             args = ["-y"] + args
-        arch_output = run_cli_command(cli_tool, args)
+        adv_output = run_cli_command(cli_tool, args)
     except Exception as e:
         print(f"Warning: Architect CLI call failed, using estimation. Error: {e}")
-        arch_output = "Simulated architect plan"
+        adv_output = "Simulated adversary plan"
         
-    arch_out_tokens = count_tokens(arch_output)
+    adv_out_tokens = count_tokens(adv_output)
     
     print("Running Harness Step 2: Implementer...")
-    # Implementer input = rules + implementer role + architect summary + task
-    impl_input_full = f"{rules_content}\n\n{impl_base}\n\nSummary of research: {arch_output}\n\nTask: {task_prompt}"
+    # Implementer input = rules + implementer role + adversary summary + task
+    impl_input_full = f"{rules_content}\n\n{impl_base}\n\nSummary of research: {adv_output}\n\nTask: {task_prompt}"
     impl_input_tokens = count_tokens(impl_input_full)
     
     try:
-        args = ["-p", f"Role: Implementer\n\nInstructions:\n{rules_content}\n\n{impl_base}\n\nSummary of research: {arch_output}\n\nTask: {task_prompt}"]
+        args = ["-p", f"Role: Implementer\n\nInstructions:\n{rules_content}\n\n{impl_base}\n\nSummary of research: {adv_output}\n\nTask: {task_prompt}"]
         if cli_tool == "gemini":
             args = ["-y"] + args
         impl_output = run_cli_command(cli_tool, args)
@@ -265,7 +265,7 @@ def run_harness_benchmark(task_prompt: str, harness_dir: Path, cli_tool: str = "
         
     impl_out_tokens = count_tokens(impl_output)
     
-    total_tokens = architect_input_tokens + arch_out_tokens + impl_input_tokens + impl_out_tokens
+    total_tokens = adversary_input_tokens + adv_out_tokens + impl_input_tokens + impl_out_tokens
     return total_tokens
 
 def main():

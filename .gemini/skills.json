@@ -7,7 +7,7 @@
       "path": "grill-me/SKILL.md"
     },
     "grill-with-docs": {
-      "path": "grill-with-docs/SKILL.md"
+      "path": "skills/grill-with-docs/SKILL.md"
     },
     "improve-codebase-architecture": {
       "path": "improve-codebase-architecture/SKILL.md"
@@ -47,12 +47,6 @@
     },
     "harness-requesting-code-review": {
       "path": "harness-requesting-code-review/SKILL.md"
-    },
-    "agentic-eval": {
-      "path": "agentic-eval/SKILL.md"
-    },
-    "prompt-engineer": {
-      "path": "prompt-engineer/SKILL.md"
     }
   }
 }

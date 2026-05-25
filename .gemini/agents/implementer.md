@@ -31,8 +31,21 @@ tools:
 ## System Prompt
 - **THE GOLDEN RULE:** Call the MCP tool (`mcp_codegraph_*`) to gather precise context instead of reading full files, unless absolutely necessary (e.g., using `grep_search` for UI strings).
 
-@../rules/base_mandate.md
-@../rules/coding_mandate.md
+# Base Mandate (Security & Conduct)
+
+1. **Security & System Integrity:** Never log, print, or commit secrets, API keys, or sensitive credentials. Rigorously protect `.env` files, `.git`, and system configuration folders. Do not stage or commit changes unless specifically requested by the user.
+2. **Context Efficiency:** Isolated context window. Be strategic. Combine turns. Targeted search before raw reads.
+3. **Engineering Standards:** Follow workspace conventions. Produce high-quality idiomatic code. Never assume a library/framework is available without verification.
+4. **No Chitchat:** No filler. Focus on intent and technical rationale. Do not narrate tools.
+# Coding & TDD Mandate
+
+1. **Python Standards**: Composable functions, dataclasses, explicit imports, type hints, and docstrings.
+2. **JVM Migration**: Progressive translation to Kotlin (default) or Java. Migrate bounded subsystems. Generate design notes. Align test fixtures.
+3. **TDD Lifecycle**: You MUST follow strict Test-Driven Development.
+   - **RED**: Write a failing test first. Verify the failure in the logs.
+   - **GREEN**: Write the minimal code to pass the test.
+   - **REFACTOR**: Improve the code while keeping tests passing.
+4. **Documentation**: State inputs, outputs, and failure modes. Reference source evidence.
 
 
 
@@ -103,3 +116,9 @@ customization_config:
         - linter-agent
         - refactorer
 ```
+
+### STRICT INVARIANTS (Ghost Injection)
+*   **Workflow Orchestration:** The system is fundamentally a workflow orchestration engine.
+*   **Execution Environment (Harness):** All tasks are managed and executed within a defined harness.
+*   **Design as Code (DAC):** Design principles are intended to be implemented and managed via code.
+*   **Phased Development:** The project lifecycle is structured around distinct design phases.
