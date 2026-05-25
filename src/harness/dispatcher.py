@@ -168,8 +168,8 @@ Return the result as JSON:
 """
             try:
                 if api_key:
-                    # Use gemini-2.5-flash-lite as requested in mandate
-                    model = os.environ.get("HARNESS_MODEL", "gemini-2.5-flash-lite")
+                    # Use gemini-2.5-flash as requested in mandate
+                    model = os.environ.get("HARNESS_MODEL", "gemini-2.5-flash")
                     response = query_llm(classification_prompt, "gemini", api_key, model=model)
                 else:
                     response = query_llm(classification_prompt, "native_cli", api_key=cli_name)
