@@ -4,7 +4,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "mcp-server-fetch-typescript"
+        "@modelcontextprotocol/server-fetch"
       ]
     },
     "git-mcp": {

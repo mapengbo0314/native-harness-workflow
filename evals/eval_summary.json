@@ -1,0 +1,38 @@
+{
+  "status": "completed",
+  "total_evals": 4,
+  "results": [
+    {
+      "item_input": {
+        "query": "Fix the typo in the README"
+      },
+      "score": 1.0,
+      "status": "pass",
+      "trace_id": "a7dfde41-e7f7-4841-be95-2f094bbda751"
+    },
+    {
+      "item_input": {
+        "query": "How does the routing matrix work?"
+      },
+      "score": 1.0,
+      "status": "pass",
+      "trace_id": "d2dcc088-4a1e-4a40-a8ae-373f22cff8a1"
+    },
+    {
+      "item_input": {
+        "query": "Implement a new agent for reviewing documentation"
+      },
+      "score": 1.0,
+      "status": "pass",
+      "trace_id": "1d3794b6-0d75-4754-9ae2-99e7799b0494"
+    },
+    {
+      "item_input": {
+        "query": "I am getting a traceback in the discovery_engine.py"
+      },
+      "score": 1.0,
+      "status": "pass",
+      "trace_id": "f7a88660-b5e8-4b29-9744-ccb7e04889f2"
+    }
+  ]
+}

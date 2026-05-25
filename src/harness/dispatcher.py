@@ -250,7 +250,7 @@ Return the result as JSON:
 
         # Validate agent exists in config
         agents = self.agents_config.get("agents", {})
-        if agent_name not in agents:
+        if agent_name != "orchestrator" and agent_name not in agents:
             raise ValueError(f"Agent '{agent_name}' not found in configuration")
 
         # Basic intent classification if prompt is provided

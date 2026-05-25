@@ -1,4 +1,4 @@
-{"input": {"query": "I am getting a traceback in the discovery_engine.py"}, "expected_output": {"branch": "A"}}
-{"input": {"query": "Implement a new agent for reviewing documentation"}, "expected_output": {"branch": "B"}}
-{"input": {"query": "How does the routing matrix work?"}, "expected_output": {"branch": "C"}}
-{"input": {"query": "Fix the typo in the README"}, "expected_output": {"branch": "D"}}
+{"input": {"query": "I'm getting a lot of error in this system for discovery_engine.py. Can you help me resolve it? Here's the error."}, "expected_output": {"branch": "A"}}
+{"input": {"query": "I want to begin implementation on this new UI system to create a module setup for a new payment plan."}, "expected_output": {"branch": "B"}}
+{"input": {"query": "Can you explain to me how this documented system works in Frontend?"}, "expected_output": {"branch": "C"}}
+{"input": {"query": "I have some issues with this typing error. Can you fix it?"}, "expected_output": {"branch": "D"}}
