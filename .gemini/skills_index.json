@@ -57,11 +57,7 @@
   },
   "harness-brainstorming-plans": {
     "path": ".gemini/skills/harness-brainstorming-plans/SKILL.md",
-    "description": "Use when you have a spec or requirements for a multi-step task, before touching code"
-  },
-  "harness-brainstorming-plans": {
-    "path": ".gemini/skills/harness-brainstorming-plans/SKILL.md",
-    "description": "You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation."
+    "description": "You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation. Use when you have a spec or requirements for a multi-step task, before touching code."
   },
   "harness-dispatching-parallel-agents": {
     "path": ".gemini/skills/harness-dispatching-parallel-agents/SKILL.md",
