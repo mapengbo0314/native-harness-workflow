@@ -260,30 +260,6 @@ def copy_static_plugin_assets(plugin_dir: Path, bp_dir: Path, fallback_bp_dir: P
         print(f"[HARNESS] Warning: pyproject.toml source {pyproject_src} not found.")
 
 
-def copy_runtime_modules(plugin_dir: Path) -> None:
-    """Copy the runtime Python modules still used by setup smoke tests."""
-    src_dir = plugin_dir / "src"
-    src_dir.mkdir(parents=True, exist_ok=True)
-    (src_dir / "__init__.py").write_text("")
-
-    harness_module_dir = Path(__file__).parent
-    harness_runtime_dir = harness_module_dir.parent / "runtime"
-    
-    file_locations = {
-        "dispatcher.py": harness_runtime_dir,
-        "llm_client.py": harness_runtime_dir,
-        "discovery_engine.py": harness_module_dir
-    }
-
-    for core_file, source_dir in file_locations.items():
-        src_path = source_dir / core_file
-        if src_path.exists():
-            print(f"[HARNESS] Copying {core_file}...")
-            shutil.copy(src_path, src_dir / core_file)
-        else:
-            print(f"[HARNESS] Warning: {core_file} not found at {src_path}")
-
-
 def remove_obsolete_generated_files(plugin_dir: Path) -> None:
     """Remove legacy generated plugin payloads that are no longer registered."""
     obsolete_files = [
@@ -417,6 +393,7 @@ def generate_orchestrator_plugin(
         export_ddd_context(context_path, config_dir)
 
         print(f"[HARNESS] Copying runtime modules...")
+        from harness.init.minting_engine import copy_runtime_modules
         copy_runtime_modules(plugin_dir)
 
         render_plugin_readme(plugin_dir, bp_dir, fallback_bp_dir, project_name)

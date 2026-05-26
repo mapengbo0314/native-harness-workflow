@@ -555,3 +555,33 @@ def _deep_merge_logic(base, update):
         return res
     else:
         return update
+
+
+def copy_runtime_modules(target_dir: Path):
+    """Copies runtime dispatcher and discovery_engine to the harness environment."""
+    import shutil
+    runtime_src = Path(__file__).parent.parent / "runtime"
+    
+    # Ensure src directory exists inside the harness plugin payload
+    src_dir = target_dir / "src"
+    src_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Copy dispatcher
+    dispatcher_src = runtime_src / "dispatcher.py"
+    if dispatcher_src.exists():
+        print(f"[HARNESS] Copying dispatcher.py...")
+        shutil.copy2(dispatcher_src, src_dir / "dispatcher.py")
+        
+    # Copy llm client
+    llm_client_src = runtime_src / "llm_client.py"
+    if llm_client_src.exists():
+        print(f"[HARNESS] Copying llm_client.py...")
+        shutil.copy2(llm_client_src, src_dir / "llm_client.py")
+        
+    # Copy discovery engine 
+    # (Discovery engine lives in init, not runtime, but is needed at runtime)
+    discovery_src = Path(__file__).parent / "discovery_engine.py"
+    if discovery_src.exists():
+        print(f"[HARNESS] Copying discovery_engine.py...")
+        shutil.copy2(discovery_src, src_dir / "discovery_engine.py")
+

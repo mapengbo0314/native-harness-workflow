@@ -286,7 +286,7 @@ def main():
         adapter.generate_core_infrastructure(Path(args.project_path))
         
         # Copy runtime modules for ALL platforms (so hooks can load them locally)
-        from harness.init.plugin_generator import copy_runtime_modules
+        from harness.init.minting_engine import copy_runtime_modules
         copy_runtime_modules(temp_harness_dir)
 
         # --- Plugin Generation (targeting temp) ---
