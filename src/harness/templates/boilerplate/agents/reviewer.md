@@ -97,5 +97,4 @@ customization_config:
       related_agents:
         - implementer
         - verifier
-```er
 ```
