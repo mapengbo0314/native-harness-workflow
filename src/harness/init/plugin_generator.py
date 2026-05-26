@@ -1,11 +1,7 @@
 """Plugin generator for orchestrator-based Claude Code integration."""
 import json
-import shutil
 from pathlib import Path
 from typing import Optional
-
-
-COPY_IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc", ".pytest_cache")
 
 
 def generate_plugin_manifest(
@@ -219,65 +215,6 @@ def export_rules_config(rules_dir: Path, config_dir: Path) -> str:
         json.dump(rules_json, f, indent=2)
 
     return str(export_path)
-
-
-def copy_static_plugin_assets(plugin_dir: Path, bp_dir: Path, fallback_bp_dir: Path) -> None:
-    """Copy canonical static plugin payload directories and files."""
-    for name in ["skills", "scripts", "hooks"]:
-        source = bp_dir / name
-        if not source.exists():
-            source = fallback_bp_dir / name
-
-        if source.exists():
-            print(f"[HARNESS] Copying {name} from {source}...")
-            shutil.copytree(source, plugin_dir / name, dirs_exist_ok=True, ignore=COPY_IGNORE)
-            
-            # Template HARNESS_PLUGIN_ROOT for Claude
-            import os
-            for root, _, files in os.walk(plugin_dir / name):
-                for file in files:
-                    if file.endswith((".py", ".json", ".md")):
-                        filepath = Path(root) / file
-                        with open(filepath, "r", encoding="utf-8") as f:
-                            content = f.read()
-                        
-                        new_content = content.replace("${HARNESS_PLUGIN_ROOT}", "${CLAUDE_PLUGIN_ROOT}")
-                        
-                        if new_content != content:
-                            with open(filepath, "w", encoding="utf-8") as f:
-                                f.write(new_content)
-        else:
-            print(f"[HARNESS] Warning: {name.capitalize()} source {source} not found.")
-
-    pyproject_src = bp_dir / "pyproject.toml"
-    if not pyproject_src.exists():
-        pyproject_src = fallback_bp_dir / "pyproject.toml"
-
-    if pyproject_src.exists():
-        print(f"[HARNESS] Copying pyproject.toml from {pyproject_src}...")
-        shutil.copy(pyproject_src, plugin_dir / "pyproject.toml")
-    else:
-        print(f"[HARNESS] Warning: pyproject.toml source {pyproject_src} not found.")
-
-
-def remove_obsolete_generated_files(plugin_dir: Path) -> None:
-    """Remove legacy generated plugin payloads that are no longer registered."""
-    obsolete_files = [
-        plugin_dir / "src" / "orchestrator_plugin.py",
-        plugin_dir / "src" / "interceptor.py",
-        plugin_dir / "src" / "tools.py",
-        plugin_dir / "src" / "hook_validator.py",
-    ]
-    for path in obsolete_files:
-        if path.exists():
-            path.unlink()
-
-    obsolete_dirs = [
-        plugin_dir / "src" / "hooks",
-    ]
-    for path in obsolete_dirs:
-        if path.exists():
-            shutil.rmtree(path)
 
 
 def render_plugin_readme(plugin_dir: Path, bp_dir: Path, fallback_bp_dir: Path, project_name: str) -> str:
