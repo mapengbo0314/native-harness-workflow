@@ -18,7 +18,12 @@ To fix the bugs in `harness-wf init` that cause `skills/` and `agents/` to not b
   - Update `ClaudeAdapter.generate_core_infrastructure()` in `src/harness/adapters/claude.py` to move the payload directories (`skills`, `agents`, `hooks`, `scripts`, `pyproject.toml`) from the top level into the `plugin-generated/` folder.
   - Simplify `generate_orchestrator_plugin` to exclusively handle the generation of Claude-specific manifests (`plugin.json`, `hooks.json`, `README.md`) without copying boilerplate.
 
-## 4. Spec Self-Review
+## 4. Testing Strategy
+- **Headless Tests:** Perform end-to-end headless testing (`HARNESS_HEADLESS=1`) for all platform selections (Gemini, Claude, Cursor, Codex, Agents).
+- **Validation:** Assert that the resulting directory (`.gemini`, `.claude`, etc.) correctly contains the generated features (`skills/`, `agents/`, `rules/`, etc.) in the correct paths (accounting for Claude's `plugin-generated` relocation).
+- **Cleanup:** Ensure that any staging or test output directories created during the headless tests are strictly cleaned up afterward to prevent straggler files from polluting the workspace.
+
+## 5. Spec Self-Review
 - **Placeholder scan:** None found.
 - **Internal consistency:** Yes, all three points align to correctly initialize a workspace based on platform via adapters.
 - **Scope check:** Scope is tightly constrained to the initialization logic (`cli.py`, `minting_engine.py`, `plugin_generator.py`, `adapters/claude.py`).
