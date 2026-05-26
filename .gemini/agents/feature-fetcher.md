@@ -18,7 +18,7 @@ tools:
 
 ## Metadata
 - Skills:
-  - harness-brainstorming
+  - harness-brainstorming-plans
 - Related Agents:
   - adversary
   - orchestrator

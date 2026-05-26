@@ -50,7 +50,7 @@ digraph skill_flow {
     "User message received" [shape=doublecircle];
     "About to EnterPlanMode?" [shape=doublecircle];
     "Already brainstormed?" [shape=diamond];
-    "Invoke harness-brainstorming skill" [shape=box];
+    "Invoke harness-brainstorming-plans skill" [shape=box];
     "Might any skill apply?" [shape=diamond];
     "Invoke Skill tool" [shape=box];
     "Announce: 'Using [skill] to [purpose]'" [shape=box];
@@ -62,9 +62,9 @@ digraph skill_flow {
     "Respond (including clarifications)" [shape=doublecircle];
 
     "About to EnterPlanMode?" -> "Already brainstormed?";
-    "Already brainstormed?" -> "Invoke harness-brainstorming skill" [label="no"];
+    "Already brainstormed?" -> "Invoke harness-brainstorming-plans skill" [label="no"];
     "Already brainstormed?" -> "Might any skill apply?" [label="yes"];
-    "Invoke harness-brainstorming skill" -> "Might any skill apply?";
+    "Invoke harness-brainstorming-plans skill" -> "Might any skill apply?";
 
     "User message received" -> "Might any skill apply?";
     "Might any skill apply?" -> "Invoke Skill tool" [label="yes, even 1%"];
@@ -108,7 +108,7 @@ When multiple skills could apply, use this order:
 2. **Implementation skills second** (frontend-design, mcp-builder) - these guide execution
 3. **Verification skills last** (verification-before-completion) - these MUST be used before finalization
 
-"Let's build X" → harness-brainstorming first, then implementation skills.
+"Let's build X" → harness-brainstorming-plans first, then implementation skills.
 "Fix this bug" → debugging first, then domain-specific skills.
 "I'm done" → verification-before-completion MUST be invoked before responding with finality.
 

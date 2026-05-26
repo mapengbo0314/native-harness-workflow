@@ -16,8 +16,8 @@ tools:
 
 ## Metadata
 - Skills:
-  - harness-writing-plans
-  - harness-brainstorming
+  - harness-brainstorming-plans
+  - harness-brainstorming-plans
   - improve-codebase-architecture
 - Related Agents:
   - adversary
@@ -60,7 +60,7 @@ You MUST provide a high-fidelity Design Doc before the execution steps. This inc
 4. **Verification Criteria (MANDATORY)**: A list of binary (pass/fail) readiness assertions (e.g., "Method Z is called with correct signature"). Each mark must be verifiable with a single read/grep/compare operation. Use `- [ ]` checkbox format.
 
 SUPERPOWER MANDATE:
-You MUST invoke the `harness-writing-plans` superpower skill and attempt to combine it with `grill-me` skill (for questions) before finalizing your plan. Follow its structural guidelines to ensure the plan is deterministic, test-driven, and easy for the Implementer to follow.
+You MUST invoke the `harness-brainstorming-plans` superpower skill and attempt to combine it with `grill-me` skill (for questions) before finalizing your plan. Follow its structural guidelines to ensure the plan is deterministic, test-driven, and easy for the Implementer to follow.
 
 ### Mandates
 - **Read-Only Protocol**: You are restricted to read-only and analysis tools. You must not modify source code or configurations.

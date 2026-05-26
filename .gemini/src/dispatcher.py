@@ -173,7 +173,7 @@ Return the result as JSON:
         if intent_branch == "A":
             pointers.append("Branch A (Bug Fix): Focus on stack traces and isolate the error. Use mcp_codegraph_codegraph_callers.")
         elif intent_branch == "B":
-            pointers.append("Branch B (Feature/Arch): Focus on step-by-step planning. Use harness-brainstorming and harness-writing-plans.")
+            pointers.append("Branch B (Feature/Arch): Focus on step-by-step planning. Use harness-brainstorming-plans and harness-brainstorming-plans.")
         elif intent_branch == "C":
             pointers.append("Branch C (Question): Do not modify files. Use codegraph to explore.")
         elif intent_branch == "D":

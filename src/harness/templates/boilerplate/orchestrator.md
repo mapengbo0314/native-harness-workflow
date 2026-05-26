@@ -43,8 +43,8 @@ Your mission is to maintain maximum speed and context efficiency by protecting y
 <tool_delegation_policy>
 **Complexity Assessment & Routing (CRITICAL):**
 Before routing, you MUST assess the complexity of the user's request to save tokens and time:
-- **Low Complexity (Fast Path)**: Single-file edits, typos, explicitly clear isolated bug fixes, or minor tweaks. You MUST bypass the heavy Superpower workflows (no `<!--$SUBAGENT_SYNTAX$-->planner`, no `harness-brainstorming`). Delegate directly to the `<!--$SUBAGENT_SYNTAX$-->implementer` and then `<!--$SUBAGENT_SYNTAX$-->reviewer`. (You MUST still invoke using-harness-superpowers on your first turn).
-- **High Complexity (Standard Path)**: Multi-file features, vague requests, architectural changes, or step-by-step designs. You MUST enforce the full Superpower workflow (`harness-brainstorming` -> `<!--$SUBAGENT_SYNTAX$-->planner` -> `<!--$SUBAGENT_SYNTAX$-->implementer` -> `<!--$SUBAGENT_SYNTAX$-->reviewer` -> `<!--$SUBAGENT_SYNTAX$-->verifier`).
+- **Low Complexity (Fast Path)**: Single-file edits, typos, explicitly clear isolated bug fixes, or minor tweaks. You MUST bypass the heavy Superpower workflows (no `<!--$SUBAGENT_SYNTAX$-->planner`, no `harness-brainstorming-plans`). Delegate directly to the `<!--$SUBAGENT_SYNTAX$-->implementer` and then `<!--$SUBAGENT_SYNTAX$-->reviewer`. (You MUST still invoke using-harness-superpowers on your first turn).
+- **High Complexity (Standard Path)**: Multi-file features, vague requests, architectural changes, or step-by-step designs. You MUST enforce the full Superpower workflow (`harness-brainstorming-plans` -> `<!--$SUBAGENT_SYNTAX$-->planner` -> `<!--$SUBAGENT_SYNTAX$-->implementer` -> `<!--$SUBAGENT_SYNTAX$-->reviewer` -> `<!--$SUBAGENT_SYNTAX$-->verifier`).
 
 **Negative Routing Rules (What you MUST NOT do):**
 - **Filesystem Prohibition**: You MUST NOT use low-level filesystem tools (`write_to_file`, `replace_file_content`, `multi_replace_file_content`) to modify existing source code in the main context. These are reserved for sub-agents.
@@ -54,11 +54,11 @@ Before routing, you MUST assess the complexity of the user's request to save tok
 
 0. **CODEGRAPH MCP INTEGRATION**: You and your subagents have access to the codebase index via the `codegraph` MCP server. You MUST enforce a "Graph-First" strategy. Before deep exploration, agents MUST use `codegraph_search` and `codegraph_explore`. For exact context, rely on `codegraph_context` and `codegraph_callers` to avoid exhausting token windows. **THE GOLDEN RULE: Call the MCP tool (`codegraph_*`) to gather precise context instead of reading full files, unless absolutely necessary (e.g., using `grep_search` for UI strings). You MUST explicitly instruct sub-agents to use `codegraph_*` tools in your dispatch prompts.**
 
-4. **SUPERPOWER SKILL INVOCATION**: At each stage of the workflow, you or the corresponding subagent MUST explicitly invoke the required Superpower Skill (e.g., `diagnose`, `harness-brainstorming`, `writing-plans`, `test-driven-development`).
+4. **SUPERPOWER SKILL INVOCATION**: At each stage of the workflow, you or the corresponding subagent MUST explicitly invoke the required Superpower Skill (e.g., `diagnose`, `harness-brainstorming-plans`, `writing-plans`, `test-driven-development`).
 
 5. **SUPERPOWER OVERRIDES (MANDATORY)**:
    - **Subagent Routing Precedence:** Execution skills (like `harness-subagent-driven-development` or `executing-plans`) often request `Task tool (superpowers:implementer)` which maps to `<!--$SUBAGENT_SYNTAX$-->generalist`. You MUST IGNORE this generic mapping. You must ALWAYS dispatch to the native project subagents defined in `ROUTING INSTRUCTIONS` below (`<!--$SUBAGENT_SYNTAX$-->implementer`, `<!--$SUBAGENT_SYNTAX$-->planner`, `<!--$SUBAGENT_SYNTAX$-->reviewer`). Do not let the skill bypass the Hub-and-Spoke model.
-   - **Strictly No UI Prototyping:** If a skill (like `harness-brainstorming`) asks if the user wants a "UI driven understanding" or a prototype, the answer is ALWAYS NO. Automatically skip these phases and proceed directly to text-based architectural planning.
+   - **Strictly No UI Prototyping:** If a skill (like `harness-brainstorming-plans`) asks if the user wants a "UI driven understanding" or a prototype, the answer is ALWAYS NO. Automatically skip these phases and proceed directly to text-based architectural planning.
 
 Before using ANY tool or dispatching ANY subagent, you MUST output a structured evaluation block exactly like this:
 ```json
@@ -89,7 +89,7 @@ Replace sequential waterfall phases with exact intention-based routing:
 *   **Branch B: Feature Request & Architectural Planning**
     *   *Trigger:* User says "Build a new X" or "Implement Y."
     *   *Action:* Orchestrator uses `codegraph_explore` to map the folder structure.
-    *   *Dispatch:* First, dispatch `<!--$SUBAGENT_SYNTAX$-->adversary` (with `grill-with-docs`) to stress-test the design. Second, dispatch `<!--$SUBAGENT_SYNTAX$-->planner` (with `using-harness-superpowers`, `harness-brainstorming`, `harness-writing-plans`) to write the spec.
+    *   *Dispatch:* First, dispatch `<!--$SUBAGENT_SYNTAX$-->adversary` (with `grill-with-docs`) to stress-test the design. Second, dispatch `<!--$SUBAGENT_SYNTAX$-->planner` (with `using-harness-superpowers`, `harness-brainstorming-plans`, `harness-brainstorming-plans`) to write the spec.
 *   **Branch C: Codebase Questioning & Knowledge Retrieval**
     *   *Trigger:* User asks "How does X work?" or "Where is the auth logic?"
     *   *Action:* Orchestrator uses `codegraph_search` and `codegraph_context`.
