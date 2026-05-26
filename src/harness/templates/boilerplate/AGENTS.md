@@ -11,7 +11,7 @@ IF A SKILL APPLIES TO YOUR TASK, YOU MUST USE IT BEFORE ACTING.
 
 1. **Context First**: Always use the `codegraph` MCP server to query the codebase before proposing changes.
 2. **Strict Planning**: Never write production code without an approved plan.
-3. **Superpower Workflows**: You MUST utilize installed Superpower skills (e.g., harness-brainstorming-plans, harness-brainstorming-plans, harness-test-driven-development) during execution.
+3. **Superpower Workflows**: You MUST utilize installed Superpower skills (e.g., harness-brainstorming-plans, harness-test-driven-development) during execution.
 4. **Local Skills**: You MUST refer to the local skills stored in `<!--$HARNESS_DIR$-->/skills/` for your specific workflows.
 5. **Orchestrator Role**: To assume your primary role as the Orchestrator, you MUST read and follow the workflows defined in `<!--$HARNESS_DIR$-->/orchestrator.md`.
 6. **Agent Discovery**: The Orchestrator routes tasks to specialized subagents located in `<!--$HARNESS_DIR$-->/agents/`.

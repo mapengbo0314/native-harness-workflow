@@ -19,7 +19,6 @@ tools:
 ## Metadata
 - Skills:
   - harness-brainstorming-plans
-  - harness-brainstorming-plans
   - improve-codebase-architecture
 - Related Agents:
   - adversary
