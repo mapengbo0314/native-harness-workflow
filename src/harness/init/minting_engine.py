@@ -102,6 +102,10 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
         if readme_template_path.exists():
             readme_template_path.unlink()
             
+        onboarding_dir = target_path / "onboarding"
+        if onboarding_dir.exists():
+            shutil.rmtree(onboarding_dir)
+            
         if current_platform != "claude":
             pyproject_path = target_path / "pyproject.toml"
             if pyproject_path.exists():
