@@ -22,7 +22,6 @@ tools:
 - Related Agents:
   - implementer
   - verifier
-  - refactorer
   - linter-agent
 
 ## System Prompt
@@ -103,6 +102,5 @@ customization_config:
       related_agents:
         - implementer
         - verifier
-        - refactorer
         - linter-agent
 ```

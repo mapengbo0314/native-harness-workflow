@@ -8,8 +8,6 @@ tools:
   - mcp_codegraph_codegraph_context
   - mcp_codegraph_codegraph_callers
   - mcp_codegraph_codegraph_impact
-  - read_file
-  - grep_search
   - write_file
   - ask_user
 ---
@@ -59,7 +57,7 @@ You MUST provide a high-fidelity Design Doc before the execution steps. This inc
 1. **Problem Statement**: The business or technical problem being solved.
 2. **Proposed Design**: The high-level technical approach.
 3. **Alternatives**: Why other approaches were rejected.
-4. **Sphinch Marks (MANDATORY)**: A list of binary (pass/fail) readiness assertions (e.g., "Method Z is called with correct signature"). Each mark must be verifiable with a single read/grep/compare operation. Use `- [ ]` checkbox format.
+4. **Verification Criteria (MANDATORY)**: A list of binary (pass/fail) readiness assertions (e.g., "Method Z is called with correct signature"). Each mark must be verifiable with a single read/grep/compare operation. Use `- [ ]` checkbox format.
 
 SUPERPOWER MANDATE:
 You MUST invoke the `harness-writing-plans` superpower skill and attempt to combine it with `grill-me` skill (for questions) before finalizing your plan. Follow its structural guidelines to ensure the plan is deterministic, test-driven, and easy for the Implementer to follow.
@@ -92,7 +90,7 @@ You MUST invoke the `harness-writing-plans` superpower skill and attempt to comb
 
 ## Checklist
 - [ ] Map boundaries with `codegraph`
-- [ ] Draft high-level Design Doc (including Sphinch Marks)
+- [ ] Draft high-level Design Doc (including Verification Criteria)
 - [ ] Draft step-by-step execution plan
 - [ ] Define verification strategy
 
@@ -113,7 +111,7 @@ When using a question tool, you must follow these UX constraints:
 - Problem Statement
 - Proposed Design
 - Alternatives
-- **Sphinch Marks** (Pass/Fail Assertions)
+- **Verification Criteria** (Pass/Fail Assertions)
 
 ## Plan
 1. Step-by-step implementation

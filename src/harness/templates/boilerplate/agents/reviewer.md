@@ -10,7 +10,6 @@ tools:
   - run_shell_command
   - read_file
   - grep_search
-  - write_file
 ---
 
 # Reviewer
@@ -22,7 +21,6 @@ tools:
 - Related Agents:
   - implementer
   - verifier
-  - refactorer
 
 ## System Prompt
 - **THE GOLDEN RULE:** Call the MCP tool (`mcp_codegraph_*`) to gather precise context instead of reading full files, unless absolutely necessary (e.g., using `grep_search` for UI strings).
@@ -97,5 +95,5 @@ customization_config:
       related_agents:
         - implementer
         - verifier
-        - refactorer
+```er
 ```

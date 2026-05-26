@@ -22,7 +22,7 @@ We will rewrite the core logic of all hook templates to ensure robust error hand
 - *Alternative 1*: Use a synchronous file lock for state reading/writing. *Rejected* because the `update_state` function already handles atomicity; the issue was simply fetching the state again asynchronously instead of capturing the value during the atomic update.
 - *Alternative 2*: Let the Orchestrator manage the circuit breaker. *Rejected* because the harness needs to be agent-agnostic and protect against any agent, including orchestrators.
 
-## Sphinch Marks
+## Verification Criteria
 - [x] `JSONDecodeError` triggers `sys.exit(2)` in all hooks.
 - [x] Inner `try/except` blocks removed from `prompt_classifier.py`, `stop_verifier.py`, and `precompact_handoff.py`.
 - [x] `post_tool_observer.py` uses `captured_count` within `modifier`.

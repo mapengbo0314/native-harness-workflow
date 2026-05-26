@@ -112,10 +112,7 @@ To delegate to any of the following specialized subagents, you MUST invoke them 
 - **@implementer** (`agents/implementer.md`): Writes production code strictly using TDD.
 - **@reviewer** (`agents/reviewer.md`): Checks code quality and style.
 - **@verifier** (`agents/verifier.md`): Performs QA, edge-case testing, and generates `artifacts/qa_report.md`.
-- **@refactorer** (`agents/refactorer.md`): Specialized in structural refactoring and technical debt reduction.
 - **@linterAgent** (`agents/linter-agent.md`): Specialized in fixing lint, type errors, and formatting issues.
-- **@securityAuditor** (`agents/security-auditor.md`): Performs deep security audits and vulnerability scanning.
-- **@performanceProfiler** (`agents/performance-profiler.md`): Identifies performance bottlenecks and suggests optimizations.
 
 ### DOMAIN DRIVEN DESIGN (DDD):
 - Use skills like `grill-me`, `grill-with-docs`, `improve-codebase-architecture`, `ddd-alignment`, and `meta-learning` if you encounter domain conflicts, need to refine the ubiquitous language, or want to align implementation with architectural goals.

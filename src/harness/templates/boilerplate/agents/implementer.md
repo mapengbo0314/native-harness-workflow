@@ -8,8 +8,6 @@ tools:
   - mcp_codegraph_codegraph_context
   - mcp_codegraph_codegraph_callers
   - mcp_codegraph_codegraph_impact
-  - read_file
-  - grep_search
   - replace
   - write_file
   - run_shell_command
@@ -25,7 +23,6 @@ tools:
   - planner
   - reviewer
   - verifier
-  - refactorer
 
 ## System Prompt
 - **THE GOLDEN RULE:** Call the MCP tool (`mcp_codegraph_*`) to gather precise context instead of reading full files, unless absolutely necessary (e.g., using `grep_search` for UI strings).
@@ -99,5 +96,4 @@ customization_config:
         - planner
         - reviewer
         - verifier
-        - refactorer
 ```

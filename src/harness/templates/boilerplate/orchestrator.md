@@ -107,9 +107,6 @@ To delegate to any of the following specialized subagents, you MUST invoke them 
 - **<!--$SUBAGENT_SYNTAX$-->implementer** (`agents/implementer.md`): Writes production code strictly using TDD.
 - **<!--$SUBAGENT_SYNTAX$-->reviewer** (`agents/reviewer.md`): Checks code quality and style.
 - **<!--$SUBAGENT_SYNTAX$-->verifier** (`agents/verifier.md`): Performs QA, edge-case testing, and generates `artifacts/qa_report.md`.
-- **<!--$SUBAGENT_SYNTAX$-->refactorer** (`agents/refactorer.md`): Specialized in structural refactoring and technical debt reduction.
-- **<!--$SUBAGENT_SYNTAX$-->securityAuditor** (`agents/security-auditor.md`): Performs deep security audits and vulnerability scanning.
-- **<!--$SUBAGENT_SYNTAX$-->performanceProfiler** (`agents/performance-profiler.md`): Identifies performance bottlenecks and suggests optimizations.
 
 ### DOMAIN DRIVEN DESIGN (DDD):
 - Use skills like `grill-me`, `grill-with-docs`, `improve-codebase-architecture`, `ddd-alignment`, and `meta-learning` if you encounter domain conflicts, need to refine the ubiquitous language, or want to align implementation with architectural goals.

@@ -26,7 +26,6 @@ tools:
   - reviewer
   - verifier
   - linter-agent
-  - refactorer
 
 ## System Prompt
 - **THE GOLDEN RULE:** Call the MCP tool (`mcp_codegraph_*`) to gather precise context instead of reading full files, unless absolutely necessary (e.g., using `grep_search` for UI strings).
@@ -114,11 +113,10 @@ customization_config:
         - reviewer
         - verifier
         - linter-agent
-        - refactorer
 ```
 
 ### STRICT INVARIANTS (Ghost Injection)
 *   **Workflow Orchestration:** The system is fundamentally a workflow orchestration engine.
 *   **Execution Environment (Harness):** All tasks are managed and executed within a defined harness.
 *   **Design as Code (DAC):** Design principles are intended to be implemented and managed via code.
-*   **Phased Development:** The project lifecycle is structured around distinct design phases.
+*   **Phased Development:** The project lifecycle is structured around distinct design phases.hases.

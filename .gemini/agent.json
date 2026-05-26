@@ -19,9 +19,6 @@
     "verifier",
     "feature-fetcher",
     "linter-agent",
-    "refactorer",
-    "performance-profiler",
-    "security-auditor",
     "workflow-architect"
   ]
 }

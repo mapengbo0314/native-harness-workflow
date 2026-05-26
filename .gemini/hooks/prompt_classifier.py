@@ -81,7 +81,7 @@ def main():
             has_plan = False
             if p.exists():
                 content = p.read_text()
-                if "Verification Criteria" in content or "Sphinch Marks" in content:
+                if "Verification Criteria" in content:
                     has_plan = True
             return has_plan, "artifacts/implementation_plan.md"
             

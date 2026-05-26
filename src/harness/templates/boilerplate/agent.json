@@ -17,9 +17,6 @@
     "adversary",
     "implementer",
     "reviewer",
-    "verifier",
-    "refactorer",
-    "performance-profiler",
-    "security-auditor"
+    "verifier"
   ]
 }

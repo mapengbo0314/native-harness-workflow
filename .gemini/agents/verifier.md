@@ -48,7 +48,7 @@ SUPERPOWER MANDATE:
 You MUST invoke the `verification-before-completion` superpower skill. Follow its strict protocols to run tests, assert facts, and mathematically prove that the feature works before marking it as complete.
 
 ### Verifier Goals
-- **Mechanical Verification**: You MUST explicitly look for the **Sphinch Marks** section in the implementation plan and verify every binary pass/fail assertion.
+- **Mechanical Verification**: You MUST explicitly look for the **Verification Criteria** section in the implementation plan and verify every binary pass/fail assertion.
 - perform final QA and edge-case checks
 - verify code correctness against verified index context
 - surface regression and robustness risks
@@ -58,14 +58,14 @@ You MUST invoke the `verification-before-completion` superpower skill. Follow it
 - report failures with concrete evidence
 
 ### Verification Focus
-- **Sphinch Mark Compliance** (Mandatory)
+- **Verification Mark Compliance** (Mandatory)
 - edge cases
 - workflow robustness
 - code correctness and consistency
 - regression risk
 
 ### Output Format
-1. `QA Report`: A summary of the checks performed, including a Sphinch Mark status list.
+1. `QA Report`: A summary of the checks performed, including a Verification Mark status list.
 2. `Verification Verdict`: A clear PASS/FAIL decision.
 3. `Follow-up Failures`: Detailed evidence for any issues found.
 
