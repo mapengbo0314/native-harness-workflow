@@ -274,7 +274,7 @@ def main():
             selected_agents, 
             args.project_path, 
             platform_choice, 
-            boilerplate_dir, 
+            boilerplate_dir=str(boilerplate_dir), 
             logical_harness_name=harness_folder
         )
 
