@@ -144,10 +144,10 @@ def test_hook_state_persistence(temp_project):
     
     # Load hook definitions
     hooks_json = json.loads((plugin_dir / "hooks" / "hooks.json").read_text())
-    pre_tool_cmd = hooks_json["hooks"]["PreToolUse"][0]["hooks"][0]["command"].replace("${CLAUDE_PLUGIN_ROOT}", str(plugin_dir))
+    pre_tool_cmd = hooks_json["hooks"]["UserPromptSubmit"][0]["hooks"][0]["command"].replace("${HARNESS_PLUGIN_ROOT}", str(plugin_dir)).replace("${CLAUDE_PLUGIN_ROOT}", str(plugin_dir))
     
-    payload = {"hook_event_name": "PreToolUse", "tool_name": "Bash", "tool_input": {"command": "ls"}}
-    env = {**os.environ, "CLAUDE_PLUGIN_ROOT": str(plugin_dir), "CLAUDE_PROJECT_DIR": str(temp_project)}
+    payload = {"hook_event_name": "UserPromptSubmit", "prompt": "Hello"}
+    env = {**os.environ, "HARNESS_PLUGIN_ROOT": str(plugin_dir), "CLAUDE_PLUGIN_ROOT": str(plugin_dir), "CLAUDE_PROJECT_DIR": str(temp_project)}
     
     # Run hook
     res1 = subprocess.run(shlex.split(pre_tool_cmd), input=json.dumps(payload), cwd=temp_project, capture_output=True, text=True, env=env)

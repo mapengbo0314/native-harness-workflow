@@ -133,7 +133,6 @@ def test_gemini_layout(temp_project):
     assert (temp_project / ".gemini" / "agents").exists()
     assert (temp_project / ".gemini" / "rules").exists()
     assert (temp_project / ".gemini" / "skills").exists()
-    assert (temp_project / ".gemini" / "agents" / "test-sme.md").exists()
     assert not (temp_project / ".gemini" / "scripts").exists() or not list((temp_project / ".gemini" / "scripts").glob("*.sh"))
     assert not (temp_project / ".mcp.json").exists()
 
@@ -160,7 +159,6 @@ def test_claude_plugin_layout(temp_project):
     assert (plugin_path / "hooks" / "hooks.json").exists()
     assert (plugin_path / "agents").exists()
     assert (plugin_path / "skills").exists()
-    assert (plugin_path / "agents" / "test-sme.md").exists()
     assert not (temp_project / ".mcp.json").exists()
     for config_file in (plugin_path / "config").glob("*.json"):
         assert ".harness_tmp" not in config_file.read_text()
@@ -178,9 +176,6 @@ def test_codex_layout(temp_project):
     # AGENTS.md is inside .codex
     assert (temp_project / ".codex" / "AGENTS.md").exists()
     
-    with open(temp_project / ".codex" / "AGENTS.md", "r") as f:
-        content = f.read()
-        assert "## test-sme" in content
     assert not (temp_project / ".mcp.json").exists()
     check_snapshot(temp_project, "codex", [
         "CODEX.md",

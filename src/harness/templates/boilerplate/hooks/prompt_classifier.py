@@ -1,21 +1,10 @@
-# /// script
-# requires-python = ">=3.11"
-# dependencies = [
-#     "langfuse",
-#     "python-dotenv",
-#     "pydantic",
-#     "openai",
-#     "anthropic",
-#     "google-genai"
-# ]
-# ///
 import sys
 import json
 import os
 import uuid
 import logging
 from pathlib import Path
-from hook_common import resolve_project_root, resolve_plugin_root
+from hook_common import resolve_project_root
 
 def fallback_classify(prompt):
     prompt = prompt.lower()
@@ -41,7 +30,8 @@ def main():
         reason = None
         
         # 1. Setup paths to import OrchestratorDispatcher
-        plugin_root = resolve_plugin_root()
+        current_dir = Path(__file__).parent
+        plugin_root = current_dir.parent
         src_dir = plugin_root / "src"
         config_dir = plugin_root / "config"
         

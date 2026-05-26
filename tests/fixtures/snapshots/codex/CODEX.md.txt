@@ -5,4 +5,20 @@ The Orchestrator agent and core rules are located in `.codex/orchestrator.md`.
 ## Available Agent Skills
 To activate a skill, you MUST use your file reading tool to read its instructions into your context before beginning work.
 
-- **using-superpowers**: `.codex/skills/using-superpowers/SKILL.md`
+- **ddd-alignment**: `.codex/skills/ddd-alignment/SKILL.md`
+- **diagnose**: `.codex/skills/diagnose/SKILL.md`
+- **grill-me**: `.codex/skills/grill-me/SKILL.md`
+- **grill-with-docs**: `.codex/skills/grill-with-docs/SKILL.md`
+- **harness-brainstorming**: `.codex/skills/harness-brainstorming/SKILL.md`
+- **harness-dispatching-parallel-agents**: `.codex/skills/harness-dispatching-parallel-agents/SKILL.md`
+- **harness-executing-plans**: `.codex/skills/harness-executing-plans/SKILL.md`
+- **harness-finishing-a-development-branch**: `.codex/skills/harness-finishing-a-development-branch/SKILL.md`
+- **harness-requesting-code-review**: `.codex/skills/harness-requesting-code-review/SKILL.md`
+- **harness-subagent-driven-development**: `.codex/skills/harness-subagent-driven-development/SKILL.md`
+- **harness-systematic-debugging**: `.codex/skills/harness-systematic-debugging/SKILL.md`
+- **harness-test-driven-development**: `.codex/skills/harness-test-driven-development/SKILL.md`
+- **harness-writing-plans**: `.codex/skills/harness-writing-plans/SKILL.md`
+- **improve-codebase-architecture**: `.codex/skills/improve-codebase-architecture/SKILL.md`
+- **meta-learning**: `.codex/skills/meta-learning/SKILL.md`
+- **using-harness-superpowers**: `.codex/skills/using-harness-superpowers/SKILL.md`
+- **verification-before-completion**: `.codex/skills/verification-before-completion/SKILL.md`
