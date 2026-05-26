@@ -309,8 +309,6 @@ def main():
                 # as they are now inside the plugin
                 harness_path = temp_harness_dir
                 
-                sme_filename = f"{sme_agent_name}.md" if sme_agent_name else None
-                
                 # Clean agents folder
                 agents_dir = harness_path / "agents"
                 if agents_dir.exists():
