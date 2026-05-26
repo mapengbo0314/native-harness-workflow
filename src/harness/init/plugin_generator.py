@@ -349,10 +349,6 @@ def generate_orchestrator_plugin(
         print(f"[HARNESS] Generating plugin at {plugin_dir}")
         print(f"[HARNESS] Using boilerplate from {bp_dir}")
 
-        # Copy canonical static plugin payload.
-        copy_static_plugin_assets(plugin_dir, bp_dir, fallback_bp_dir)
-        remove_obsolete_generated_files(plugin_dir)
-
         # Generate manifest
         print(f"[HARNESS] Generating manifest...")
         generate_plugin_manifest(str(plugin_dir), project_name, plugin_version, logical_plugin_dir=str(logical_plugin_dir))
@@ -366,18 +362,6 @@ def generate_orchestrator_plugin(
                 export_orchestrator_config(harness_dir / "orchestrator.md", config_dir, logical_orchestrator_path=logical_orchestrator)
             if (harness_dir / "rules").exists():
                 export_rules_config(harness_dir / "rules", config_dir)
-
-        # Copy boilerplate agents first
-        agents_src = bp_dir / "agents"
-        if agents_src.exists():
-            print(f"[HARNESS] Copying boilerplate agents from {agents_src}...")
-            shutil.copytree(agents_src, plugin_dir / "agents", dirs_exist_ok=True, ignore=COPY_IGNORE)
-            
-        # Copy dynamically generated agents from harness temp dir
-        harness_agents = harness_dir / "agents"
-        if harness_agents.exists():
-            print(f"[HARNESS] Copying dynamically generated agents from {harness_agents}...")
-            shutil.copytree(harness_agents, plugin_dir / "agents", dirs_exist_ok=True, ignore=COPY_IGNORE)
 
         # Generate config if we copied any agents
         if (plugin_dir / "agents").exists():
