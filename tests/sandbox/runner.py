@@ -14,10 +14,10 @@ project_root = str(Path(__file__).parent.parent.parent)
 sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, "src"))
 
-from harness.dispatcher import OrchestratorDispatcher
-from harness.discovery_engine import query_llm
-from harness.minting_engine import mint_workspace, synthesize_domain_sme_agent, patch_orchestrator_rules
-from harness.plugin_generator import generate_orchestrator_plugin
+from harness.runtime.dispatcher import OrchestratorDispatcher
+from harness.init.discovery_engine import query_llm
+from harness.init.minting_engine import mint_workspace, synthesize_domain_sme_agent, patch_orchestrator_rules
+from harness.init.plugin_generator import generate_orchestrator_plugin
 
 def mint_harness(project_path: str, project_name: str, model: str = None):
     """Simplified minting for sandbox runner."""

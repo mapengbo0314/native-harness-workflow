@@ -7,8 +7,8 @@ import urllib.request
 import difflib
 from pathlib import Path
 from jinja2 import Environment, BaseLoader
-from harness.plugin_generator import generate_orchestrator_plugin
-from harness.discovery_engine import detect_tech_stack
+from harness.init.plugin_generator import generate_orchestrator_plugin
+from harness.init.discovery_engine import detect_tech_stack
 from harness.adapters import get_adapter
 
 class TemplateRenderer:
@@ -715,7 +715,7 @@ def install_workspace_tools(target_dir: str, harness_folder_name: str, skills: l
                 print(f"Network fetch failed for {skill['name']}: {e}. Checking local boilerplate fallback...")
                 import shutil
                 # We need to reach the boilerplate directory. We can guess it's roughly 2 dirs up from harness_dir
-                local_skill_path = Path(__file__).parent / "templates" / "boilerplate" / "skills" / skill['name'] / "SKILL.md"
+                local_skill_path = Path(__file__).parent.parent / "templates" / "boilerplate" / "skills" / skill['name'] / "SKILL.md"
                 if local_skill_path.exists():
                     skill_dir = os.path.join(harness_dir, "skills", skill['name'])
                     os.makedirs(skill_dir, exist_ok=True)

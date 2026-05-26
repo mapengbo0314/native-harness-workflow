@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 import pytest
-from harness.cli import main
+from harness.init.cli import main
 
 def check_snapshot(project_path: Path, platform: str, relative_paths: list[str]):
     snapshot_dir = Path("tests/fixtures/snapshots") / platform
@@ -75,10 +75,10 @@ def temp_project():
 
 def run_harness_init(project_path, platform_choice, llm="gemini", include_plugin=False, mock_should_gen_plugin=None):
     # Mock LLM response for discovery
-    with patch('harness.discovery_engine.query_llm') as mock_query_llm, \
+    with patch('harness.init.discovery_engine.query_llm') as mock_query_llm, \
          patch('subprocess.run') as mock_run, \
          patch('urllib.request.urlopen') as mock_urlopen, \
-         patch('harness.cli.parse_args') as mock_parse_args, \
+         patch('harness.init.cli.parse_args') as mock_parse_args, \
          patch('sys.exit'):
         
         # Mock LLM response

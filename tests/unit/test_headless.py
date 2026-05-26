@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock
 import tempfile
 import shutil
 
-from harness.minting_engine import wait_for_user_review_and_read_domain
+from harness.init.minting_engine import wait_for_user_review_and_read_domain
 
 class TestHeadlessMode(unittest.TestCase):
     def setUp(self):

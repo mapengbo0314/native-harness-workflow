@@ -2,7 +2,7 @@ import json
 import tempfile
 from pathlib import Path
 
-from harness.plugin_generator import generate_orchestrator_plugin
+from harness.init.plugin_generator import generate_orchestrator_plugin
 
 
 def test_plugin_uses_single_root_hook_system():

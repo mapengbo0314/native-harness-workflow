@@ -3,8 +3,8 @@ import json
 import shutil
 from pathlib import Path
 from unittest.mock import patch
-from harness.minting_engine import mint_workspace, perform_smart_merge
-from harness.plugin_generator import generate_orchestrator_plugin
+from harness.init.minting_engine import mint_workspace, perform_smart_merge
+from harness.init.plugin_generator import generate_orchestrator_plugin
 
 def test_placeholder_corruption(tmp_path):
     """

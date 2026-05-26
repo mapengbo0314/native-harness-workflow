@@ -49,7 +49,7 @@ def test_full_harness_lifecycle():
         for attempt in range(max_retries):
             print(f"Attempt {attempt + 1}/{max_retries}: Running harness-wf init...")
             result = subprocess.run(
-                [sys.executable, "-m", "harness.cli", "init", "--project-path", str(project_path), "--llm", "gemini"],
+                [sys.executable, "-m", "harness.init.cli", "init", "--project-path", str(project_path), "--llm", "gemini"],
                 env=env,
                 capture_output=True,
                 text=True

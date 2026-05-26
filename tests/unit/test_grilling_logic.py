@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock, patch
 import json
-from src.harness.discovery_engine import generate_grilling_questions, synthesize_grilled_context
+from src.harness.init.discovery_engine import generate_grilling_questions, synthesize_grilled_context
 
 class TestGrillingLogic(unittest.TestCase):
     def setUp(self):
@@ -9,8 +9,8 @@ class TestGrillingLogic(unittest.TestCase):
         self.llm_provider = "gemini"
         self.api_key = "fake_key"
 
-    @patch("src.harness.discovery_engine.get_file_tree_summary")
-    @patch("src.harness.discovery_engine.get_symbol_census")
+    @patch("src.harness.init.discovery_engine.get_file_tree_summary")
+    @patch("src.harness.init.discovery_engine.get_symbol_census")
     def test_generate_grilling_questions_success(self, mock_census, mock_tree):
         mock_tree.return_value = "src/\n  main.py"
         mock_census.return_value = ["@app.route", "import flask"]
@@ -29,8 +29,8 @@ class TestGrillingLogic(unittest.TestCase):
         self.assertEqual(questions[0]["question"], "Is this a Flask app?")
         self.assertIn("Yes", questions[0]["multiple_choice_options"])
 
-    @patch("src.harness.discovery_engine.get_file_tree_summary")
-    @patch("src.harness.discovery_engine.get_symbol_census")
+    @patch("src.harness.init.discovery_engine.get_file_tree_summary")
+    @patch("src.harness.init.discovery_engine.get_symbol_census")
     def test_generate_grilling_questions_fallback(self, mock_census, mock_tree):
         mock_tree.return_value = "src/\n  main.py"
         mock_census.return_value = []

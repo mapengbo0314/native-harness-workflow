@@ -5,7 +5,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from harness.plugin_generator import generate_orchestrator_plugin
+from harness.init.plugin_generator import generate_orchestrator_plugin
 
 
 def test_root_pre_tool_guard_path_normalization_regressions():

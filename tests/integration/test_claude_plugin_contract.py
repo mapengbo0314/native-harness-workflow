@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 import pytest
-from harness.plugin_generator import generate_orchestrator_plugin
+from harness.init.plugin_generator import generate_orchestrator_plugin
 import tempfile
 import shutil
 import subprocess

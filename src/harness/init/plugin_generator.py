@@ -267,8 +267,16 @@ def copy_runtime_modules(plugin_dir: Path) -> None:
     (src_dir / "__init__.py").write_text("")
 
     harness_module_dir = Path(__file__).parent
-    for core_file in ["dispatcher.py", "discovery_engine.py", "llm_client.py"]:
-        src_path = harness_module_dir / core_file
+    harness_runtime_dir = harness_module_dir.parent / "runtime"
+    
+    file_locations = {
+        "dispatcher.py": harness_runtime_dir,
+        "llm_client.py": harness_runtime_dir,
+        "discovery_engine.py": harness_module_dir
+    }
+
+    for core_file, source_dir in file_locations.items():
+        src_path = source_dir / core_file
         if src_path.exists():
             print(f"[HARNESS] Copying {core_file}...")
             shutil.copy(src_path, src_dir / core_file)
@@ -359,8 +367,8 @@ def generate_orchestrator_plugin(
         logical_harness_dir = project_path / final_harness
         
         # Resolve boilerplate dir
-        bp_dir = Path(boilerplate_dir).resolve() if boilerplate_dir else Path(__file__).parent / "templates" / "boilerplate"
-        fallback_bp_dir = Path(__file__).parent / "templates" / "boilerplate"
+        bp_dir = Path(boilerplate_dir).resolve() if boilerplate_dir else Path(__file__).parent.parent / "templates" / "boilerplate"
+        fallback_bp_dir = Path(__file__).parent.parent / "templates" / "boilerplate"
 
         print(f"[HARNESS] Generating plugin at {plugin_dir}")
         print(f"[HARNESS] Using boilerplate from {bp_dir}")

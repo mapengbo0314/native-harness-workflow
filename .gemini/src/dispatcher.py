@@ -14,7 +14,7 @@ import uuid
 load_dotenv()
 
 try:
-    from harness.llm_client import query_llm
+    from harness.runtime.llm_client import query_llm
 except (ImportError, ValueError):
     try:
         from .llm_client import query_llm

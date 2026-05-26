@@ -224,7 +224,7 @@ def main():
             # Continuing without hard crash as per fallback behavior
 
     print("Stage 1: Resolving bundled boilerplate...")
-    boilerplate_dir = Path(__file__).parent / "templates" / "boilerplate"
+    boilerplate_dir = Path(__file__).parent.parent / "templates" / "boilerplate"
     
     if not os.path.exists(boilerplate_dir):
         print(f"\nError: Bundled boilerplate not found at {boilerplate_dir}")
@@ -232,7 +232,7 @@ def main():
         sys.exit(1)
         
     print("Stage 2: Dynamic Context Acquisition")
-    from harness.discovery_engine import acquire_mcp_context, generate_onboarding_domain_doc, generate_grilling_questions, synthesize_grilled_context, query_llm
+    from harness.init.discovery_engine import acquire_mcp_context, generate_onboarding_domain_doc, generate_grilling_questions, synthesize_grilled_context, query_llm
     
     # Acquire context once
     context_str = acquire_mcp_context(args.project_path)
@@ -335,7 +335,7 @@ def main():
         shutil.rmtree(temp_harness_dir)
     temp_harness_dir.mkdir(parents=True)
 
-    from harness.minting_engine import (
+    from harness.init.minting_engine import (
         mint_workspace,
         wait_for_user_review_and_read_domain,
         synthesize_domain_sme_agent,
@@ -345,7 +345,7 @@ def main():
     )
 
     print("\nStage 2.7: Phased Onboarding & Domain SME Discovery")
-    from harness.discovery_engine import query_llm
+    from harness.init.discovery_engine import query_llm
     tech_stack_data = generate_onboarding_domain_doc(
         args.project_path, 
         "Analyzed Codebase Context", 
@@ -391,11 +391,11 @@ def main():
         adapter.generate_core_infrastructure(Path(args.project_path))
         
         # Copy runtime modules for ALL platforms (so hooks can load them locally)
-        from harness.plugin_generator import copy_runtime_modules
+        from harness.init.plugin_generator import copy_runtime_modules
         copy_runtime_modules(temp_harness_dir)
 
         # --- Plugin Generation (targeting temp) ---
-        from harness.plugin_generator import generate_orchestrator_plugin
+        from harness.init.plugin_generator import generate_orchestrator_plugin
         
         plugin_dir = None
         # Only Claude generates the distinct orchestrator plugin artifact
@@ -438,7 +438,7 @@ def main():
         # --- Handle Root Staging ---
         root_staging_dir = temp_harness_dir / "root_staging"
         if root_staging_dir.exists():
-            from harness.minting_engine import merge_markdown, merge_structured, handle_code_conflicts
+            from harness.init.minting_engine import merge_markdown, merge_structured, handle_code_conflicts
             print(f"\n[HARNESS] Found root staging files. Merging into project root...")
             for root, _, files in os.walk(root_staging_dir):
                 for file in files:
@@ -478,7 +478,7 @@ def main():
 
         # --- Atomic Swap Execution ---
         if target_harness_dir.exists():
-            from harness.minting_engine import perform_smart_merge
+            from harness.init.minting_engine import perform_smart_merge
             print(f"\n[HARNESS] Existing harness found at {harness_folder}. Performing smart merge...")
             perform_smart_merge(target_harness_dir, temp_harness_dir)
             

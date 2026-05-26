@@ -6,7 +6,7 @@ import shutil
 import sys
 from io import StringIO
 
-from harness.cli import HarnessSetupError, main
+from harness.init.cli import HarnessSetupError, main
 
 class TestHeadlessCLI(unittest.TestCase):
     def setUp(self):
@@ -18,9 +18,9 @@ class TestHeadlessCLI(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.test_dir)
 
-    @patch('harness.cli.parse_args')
-    @patch('harness.discovery_engine.acquire_mcp_context', return_value="fake context")
-    @patch('harness.cli.getpass.getpass', return_value="fake-key")
+    @patch('harness.init.cli.parse_args')
+    @patch('harness.init.discovery_engine.acquire_mcp_context', return_value="fake context")
+    @patch('harness.init.cli.getpass.getpass', return_value="fake-key")
     @patch('builtins.input', side_effect=AssertionError("input() called in headless mode!"))
     @patch('subprocess.run')
     @patch('sys.exit')
@@ -34,13 +34,13 @@ class TestHeadlessCLI(unittest.TestCase):
         mock_parse_args.return_value = args
 
         # Mocking items imported inside main()
-        with patch('harness.discovery_engine.generate_onboarding_domain_doc'), \
-             patch('harness.minting_engine.wait_for_user_review_and_read_domain', return_value="fake domain"), \
-             patch('harness.minting_engine.mint_workspace'), \
-             patch('harness.minting_engine.parse_tool_checklists', return_value=([], [])), \
-             patch('harness.minting_engine.install_workspace_tools'), \
-             patch('harness.minting_engine.synthesize_domain_sme_agent', return_value="fake-sme"), \
-             patch('harness.minting_engine.patch_orchestrator_rules'):
+        with patch('harness.init.discovery_engine.generate_onboarding_domain_doc'), \
+             patch('harness.init.minting_engine.wait_for_user_review_and_read_domain', return_value="fake domain"), \
+             patch('harness.init.minting_engine.mint_workspace'), \
+             patch('harness.init.minting_engine.parse_tool_checklists', return_value=([], [])), \
+             patch('harness.init.minting_engine.install_workspace_tools'), \
+             patch('harness.init.minting_engine.synthesize_domain_sme_agent', return_value="fake-sme"), \
+             patch('harness.init.minting_engine.patch_orchestrator_rules'):
             
             try:
                 main()
@@ -58,9 +58,9 @@ class TestHeadlessCLI(unittest.TestCase):
             self.assertIn("Automated vocab", content)
             self.assertIn("Automated invariants", content)
 
-    @patch('harness.cli.parse_args')
-    @patch('harness.discovery_engine.acquire_mcp_context', return_value="fake context")
-    @patch('harness.cli.getpass.getpass', return_value="fake-key")
+    @patch('harness.init.cli.parse_args')
+    @patch('harness.init.discovery_engine.acquire_mcp_context', return_value="fake context")
+    @patch('harness.init.cli.getpass.getpass', return_value="fake-key")
     @patch('builtins.input', side_effect=AssertionError("input() called in headless mode!"))
     @patch('subprocess.run')
     @patch('sys.exit')
@@ -73,14 +73,14 @@ class TestHeadlessCLI(unittest.TestCase):
         args.bundle = None
         mock_parse_args.return_value = args
 
-        with patch('harness.discovery_engine.generate_onboarding_domain_doc'), \
-             patch('harness.minting_engine.wait_for_user_review_and_read_domain', return_value="fake domain"), \
-             patch('harness.minting_engine.mint_workspace'), \
-             patch('harness.minting_engine.parse_tool_checklists', return_value=([], [])), \
-             patch('harness.minting_engine.install_workspace_tools'), \
-             patch('harness.minting_engine.synthesize_domain_sme_agent', return_value="fake-sme"), \
-             patch('harness.minting_engine.patch_orchestrator_rules'), \
-             patch('harness.cli.run_embedded_setup', side_effect=HarnessSetupError("boom")):
+        with patch('harness.init.discovery_engine.generate_onboarding_domain_doc'), \
+             patch('harness.init.minting_engine.wait_for_user_review_and_read_domain', return_value="fake domain"), \
+             patch('harness.init.minting_engine.mint_workspace'), \
+             patch('harness.init.minting_engine.parse_tool_checklists', return_value=([], [])), \
+             patch('harness.init.minting_engine.install_workspace_tools'), \
+             patch('harness.init.minting_engine.synthesize_domain_sme_agent', return_value="fake-sme"), \
+             patch('harness.init.minting_engine.patch_orchestrator_rules'), \
+             patch('harness.init.cli.run_embedded_setup', side_effect=HarnessSetupError("boom")):
             
             try:
                 main()

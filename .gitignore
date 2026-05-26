@@ -51,3 +51,4 @@ local_outputs/
 *.egg-info/
 .pytest_cache/
 .env
+temp_pdf_copy.pdf

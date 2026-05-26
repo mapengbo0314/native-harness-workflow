@@ -2,7 +2,7 @@
 import os
 from pathlib import Path
 import pytest
-from harness.minting_engine import mint_workspace
+from harness.init.minting_engine import mint_workspace
 
 def test_scripts_folder_is_empty(tmp_path):
     # Setup mock project

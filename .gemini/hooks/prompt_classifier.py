@@ -43,7 +43,7 @@ def main():
             if not os.environ.get("LANGFUSE_TRACE_ID"):
                 os.environ["LANGFUSE_TRACE_ID"] = str(uuid.uuid4())
                 
-            from harness.dispatcher import OrchestratorDispatcher
+            from harness.runtime.dispatcher import OrchestratorDispatcher
             from langfuse.decorators import langfuse_context
             
             # 3. Instantiate dispatcher

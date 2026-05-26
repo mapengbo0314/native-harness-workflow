@@ -3,7 +3,7 @@ import shutil
 import tempfile
 from pathlib import Path
 import os
-from harness.minting_engine import mint_workspace
+from harness.init.minting_engine import mint_workspace
 
 def test_repro_unbound_local():
     with tempfile.TemporaryDirectory() as tmp_dir:

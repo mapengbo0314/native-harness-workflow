@@ -4,7 +4,7 @@ import json
 import shutil
 from pathlib import Path
 from unittest.mock import patch
-from harness.minting_engine import mint_workspace
+from harness.init.minting_engine import mint_workspace
 
 def test_mint_workspace_does_not_generate_setup_script(tmp_path):
     # Setup mock project

@@ -7,7 +7,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from harness.plugin_generator import generate_orchestrator_plugin
+from harness.init.plugin_generator import generate_orchestrator_plugin
 
 
 def main() -> int:

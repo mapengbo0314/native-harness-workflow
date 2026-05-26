@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from harness.minting_engine import handle_code_conflicts
+from harness.init.minting_engine import handle_code_conflicts
 
 
 @pytest.fixture(autouse=True)

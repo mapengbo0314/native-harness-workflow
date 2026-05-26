@@ -62,7 +62,7 @@ def main():
     try:
         from langfuse import Langfuse
         from langfuse.decorators import langfuse_context
-        from harness.dispatcher import OrchestratorDispatcher
+        from harness.runtime.dispatcher import OrchestratorDispatcher
         
         langfuse = Langfuse()
         dataset_name = os.environ.get("LANGFUSE_DATASET_NAME", "harness_test_dataset")

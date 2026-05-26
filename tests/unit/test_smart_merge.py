@@ -1,7 +1,7 @@
 import pytest
 import json
 import yaml
-from harness.minting_engine import merge_markdown, merge_structured
+from harness.init.minting_engine import merge_markdown, merge_structured
 
 def test_merge_markdown_sections():
     """
@@ -60,7 +60,7 @@ def test_perform_smart_merge(tmp_path, monkeypatch):
     """
     Test that perform_smart_merge correctly walks a directory and merges files.
     """
-    from harness.minting_engine import perform_smart_merge
+    from harness.init.minting_engine import perform_smart_merge
     
     existing_dir = tmp_path / "existing"
     staged_dir = tmp_path / "staged"

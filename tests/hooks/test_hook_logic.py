@@ -12,7 +12,7 @@ import pytest
 # Add src to sys.path to allow importing harness modules
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-from harness.cli import main
+from harness.init.cli import main
 
 @pytest.fixture
 def temp_project():
@@ -29,10 +29,10 @@ def temp_project():
 
 def run_harness_init(project_path, platform_choice, llm="gemini", include_plugin=False, mock_should_gen_plugin=None):
     # Mock LLM response for discovery
-    with patch('harness.discovery_engine.query_llm') as mock_query_llm, \
+    with patch('harness.init.discovery_engine.query_llm') as mock_query_llm, \
          patch('subprocess.run') as mock_run, \
          patch('urllib.request.urlopen') as mock_urlopen, \
-         patch('harness.cli.parse_args') as mock_parse_args, \
+         patch('harness.init.cli.parse_args') as mock_parse_args, \
          patch('sys.exit'):
         
         # Mock LLM response

@@ -4,7 +4,7 @@ import time
 import urllib.request
 import os
 from harness.renderer import TemplateRenderer
-from harness.llm_client import query_llm
+from harness.runtime.llm_client import query_llm
 
 def acquire_mcp_context(project_path: str) -> str:
     """Acquires project context using CodeGraph and domain documentation."""

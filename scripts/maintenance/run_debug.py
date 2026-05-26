@@ -1,4 +1,4 @@
-from harness.discovery_engine import detect_tech_stack
+from harness.init.discovery_engine import detect_tech_stack
 import os
 import tempfile
 

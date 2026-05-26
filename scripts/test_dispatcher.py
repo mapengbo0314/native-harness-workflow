@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 sys.path.append(str(Path("src")))
-from harness.dispatcher import OrchestratorDispatcher
+from harness.runtime.dispatcher import OrchestratorDispatcher
 
 def test():
     # Setup dummy environment

@@ -3,7 +3,7 @@ import subprocess
 import time
 import urllib.request
 import os
-from harness.llm_client import query_llm
+from harness.runtime.llm_client import query_llm
 from jinja2 import Environment, BaseLoader
 
 class TemplateRenderer:

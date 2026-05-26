@@ -3,7 +3,7 @@ import shutil
 from pathlib import Path
 from typing import Dict, List, Optional
 from harness.adapters.base import PlatformAdapter
-from harness.plugin_generator import generate_orchestrator_plugin
+from harness.init.plugin_generator import generate_orchestrator_plugin
 
 
 class ClaudeAdapter(PlatformAdapter):
