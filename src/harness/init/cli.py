@@ -282,12 +282,12 @@ def main():
         adapter = get_adapter(_platform_name(platform_choice))
         target_syntax = adapter.get_subagent_syntax()
 
-        # Provision core infrastructure for all platforms
-        adapter.generate_core_infrastructure(Path(args.project_path))
-        
         # Copy runtime modules for ALL platforms (so hooks can load them locally)
         from harness.init.minting_engine import copy_runtime_modules
         copy_runtime_modules(temp_harness_dir)
+
+        # Provision core infrastructure for all platforms
+        adapter.generate_core_infrastructure(Path(args.project_path))
 
         # --- Plugin Generation (targeting temp) ---
         from harness.init.plugin_generator import generate_orchestrator_plugin

@@ -50,6 +50,7 @@ class ClaudeAdapter(PlatformAdapter):
 
     def generate_core_infrastructure(self, project_path: Path) -> None:
         import shutil
+        import re
         harness_dir = project_path / ".harness_tmp"
         if not harness_dir.exists():
             harness_dir = project_path / self.get_config_dir_name()
@@ -73,6 +74,24 @@ class ClaudeAdapter(PlatformAdapter):
             src_path = harness_dir / p_file
             if src_path.exists():
                 shutil.move(str(src_path), str(plugin_dir / p_file))
+
+        # Restore template logic for plugin assets
+        for p_dir in ["skills", "scripts", "hooks"]:
+            dir_path = plugin_dir / p_dir
+            if dir_path.exists():
+                for root, _, files in os.walk(dir_path):
+                    for file in files:
+                        if file.endswith((".py", ".json", ".md")):
+                            filepath = Path(root) / file
+                            with open(filepath, "r", encoding="utf-8") as f:
+                                content = f.read()
+                                
+                            new_content = content.replace("${HARNESS_PLUGIN_ROOT}", f"${{{self.get_plugin_env_var_name()}}}")
+                            new_content = re.sub(r'(^|[\s/"\'])\.claude([\s/"\']|$)', r'\1' + self.get_config_dir_name() + r'\2', new_content)
+                            
+                            if new_content != content:
+                                with open(filepath, "w", encoding="utf-8") as f:
+                                    f.write(new_content)
 
     def configure_cli(self, project_path: Path) -> None:
         import subprocess

@@ -7,13 +7,33 @@ import shutil
 import subprocess
 
 def test_claude_plugin_contract():
+    from harness.init.minting_engine import mint_workspace, copy_runtime_modules
+    from harness.adapters.claude import ClaudeAdapter
     with tempfile.TemporaryDirectory() as temp_dir:
         project_path = Path(temp_dir)
+        harness_folder = ".claude"
+        temp_harness_dir = project_path / ".harness_tmp"
+        boilerplate_dir = Path(__file__).parent.parent.parent / "src" / "harness" / "templates" / "boilerplate"
+        
+        mint_workspace(
+            str(temp_harness_dir),
+            [],
+            str(project_path),
+            "2",
+            boilerplate_dir=str(boilerplate_dir),
+            logical_harness_name=harness_folder
+        )
+        
+        copy_runtime_modules(temp_harness_dir)
+        adapter = ClaudeAdapter()
+        adapter.generate_core_infrastructure(project_path)
+        
         plugin_dir = Path(generate_orchestrator_plugin(
             project_path=str(project_path),
             project_name="test_project",
             plugin_version="1.0.0",
-            harness_folder=".claude"
+            harness_folder=".harness_tmp",
+            logical_harness_name=harness_folder
         ))
 
         # Check for plugin.json in .claude-plugin
@@ -112,13 +132,32 @@ def test_claude_plugin_contract():
 
 
 def test_claude_plugin_regeneration_removes_legacy_payloads():
+    from harness.init.minting_engine import mint_workspace, copy_runtime_modules
+    from harness.adapters.claude import ClaudeAdapter
     with tempfile.TemporaryDirectory() as temp_dir:
         project_path = Path(temp_dir)
+        harness_folder = ".claude"
+        temp_harness_dir = project_path / ".harness_tmp"
+        boilerplate_dir = Path(__file__).parent.parent.parent / "src" / "harness" / "templates" / "boilerplate"
+        
+        mint_workspace(
+            str(temp_harness_dir),
+            [],
+            str(project_path),
+            "2",
+            boilerplate_dir=str(boilerplate_dir),
+            logical_harness_name=harness_folder
+        )
+        copy_runtime_modules(temp_harness_dir)
+        adapter = ClaudeAdapter()
+        adapter.generate_core_infrastructure(project_path)
+        
         plugin_dir = Path(generate_orchestrator_plugin(
             project_path=str(project_path),
             project_name="test_project",
             plugin_version="1.0.0",
-            harness_folder=".claude"
+            harness_folder=".harness_tmp",
+            logical_harness_name=harness_folder
         ))
 
         legacy_files = [
@@ -135,11 +174,22 @@ def test_claude_plugin_regeneration_removes_legacy_payloads():
         legacy_hooks_dir.mkdir(parents=True)
         (legacy_hooks_dir / "pre_tool_guard.py").write_text("legacy")
 
+        mint_workspace(
+            str(temp_harness_dir),
+            [],
+            str(project_path),
+            "2",
+            boilerplate_dir=str(boilerplate_dir),
+            logical_harness_name=harness_folder
+        )
+        copy_runtime_modules(temp_harness_dir)
+        adapter.generate_core_infrastructure(project_path)
         generate_orchestrator_plugin(
             project_path=str(project_path),
             project_name="test_project",
             plugin_version="1.0.0",
-            harness_folder=".claude"
+            harness_folder=".harness_tmp",
+            logical_harness_name=harness_folder
         )
 
         for path in legacy_files:
