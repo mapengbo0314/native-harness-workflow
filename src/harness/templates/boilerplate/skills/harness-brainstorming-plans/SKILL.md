@@ -18,10 +18,10 @@ Do NOT invoke any implementation skill, write any code, scaffold any project, or
 
 ## The 4-Part HITL Design Process
 
-You MUST write the design document interactively with the user, one section at a time. After writing each section, you MUST invoke the `ask_user` tool to present the section and wait for the user to review and correct it before moving to the next.
+You MUST write the design document interactively with the user, one section at a time. After writing each section, you MUST invoke the `ask_user` tool to present the section and wait for the user to review and correct it before moving to the next. Interview the user relentlessly about every aspect of this plan until we reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one. For each question, provide your recommended answer.
 
 ### Part 1: Problem Understanding
-- **Prompt:** "Gemini, I want you to write a design doc for me in Markdown. Let's do it one section at a time. Start with Section Zero: A plain English description of your understanding of the business problem we are trying to solve for our user."
+- **Prompt:** "Agent, I want you to write a design doc for me in Markdown. Let's do it one section at a time. Start with Section Zero: A plain English description of your understanding of the business problem we are trying to solve for our user."
 - **Content:** Write a plain English description of your understanding of the business problem.
 - **Action for Results:** Invoke `ask_user` to present Part 1. Review and correct based on user feedback.
 

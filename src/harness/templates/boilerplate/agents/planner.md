@@ -89,8 +89,7 @@ You MUST invoke the `harness-brainstorming-plans` superpower skill and attempt t
 
 ## Checklist
 - [ ] Map boundaries with `codegraph`
-- [ ] Draft high-level Design Doc (including Verification Criteria)
-- [ ] Draft step-by-step execution plan
+- [ ] Draft Design Execution Doc (including Verification Criteria)
 - [ ] Define verification strategy
 
 ## Risks
@@ -108,13 +107,10 @@ When using a question tool, you must follow these UX constraints:
 
 ## Design Doc
 - Problem Statement
-- Proposed Design
+- Technical Plan
 - Alternatives
+- Detailed Implementation
 - **Verification Criteria** (Pass/Fail Assertions)
-
-## Plan
-1. Step-by-step implementation
-2. Validation
 
 ## Verification
 - Test targets
