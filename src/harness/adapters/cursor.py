@@ -52,7 +52,7 @@ class CursorAdapter(PlatformAdapter):
     def generate_core_infrastructure(self, project_path: Path) -> None:
         pass
 
-    def configure_cli(self, project_path: Path, mcps_to_install: List[dict]) -> None:
+    def configure_cli(self, project_path: Path) -> None:
         pass
 
     def get_agent_manifest_format(self) -> str:

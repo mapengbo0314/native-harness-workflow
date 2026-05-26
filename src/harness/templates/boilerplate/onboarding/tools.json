@@ -1,6 +1,16 @@
 {
   "categories": {
     "frontend": [
+      {
+        "name": "nextjs",
+        "url": "https://raw.githubusercontent.com/PatrickJS/awesome-cursorrules/main/rules/cursorrules-cursor-ai-nextjs-14-tailwind-seo-setup/.cursorrules",
+        "keywords": [
+          "react",
+          "nextjs",
+          "next.js",
+          "frontend"
+        ]
+      }
     ],
     "backend": [],
     "database": [],

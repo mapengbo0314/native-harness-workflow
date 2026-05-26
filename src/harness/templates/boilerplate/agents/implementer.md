@@ -25,7 +25,6 @@ tools:
   - planner
   - reviewer
   - verifier
-  - linter-agent
   - refactorer
 
 ## System Prompt
@@ -100,6 +99,5 @@ customization_config:
         - planner
         - reviewer
         - verifier
-        - linter-agent
         - refactorer
 ```

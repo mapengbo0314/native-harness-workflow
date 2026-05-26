@@ -149,7 +149,7 @@ def process_includes(content: str, current_file_path: str, target_root: Path, to
             
     return "\n".join(new_lines)
 
-def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: str, platform_choice: str, model_choice: str = None, boilerplate_dir: str = None, ddd_context: dict = None, query_llm_fn=None, llm_provider=None, api_key=None, tech_stack_data: dict = None, logical_harness_name: str = None):
+def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: str, platform_choice: str, model_choice: str = None, boilerplate_dir: str = None, logical_harness_name: str = None):
     """Copies boilerplate, injects styled configs, and writes setup prerequisites."""
     target_path = Path(target_dir)
     target_dir_name = logical_harness_name if logical_harness_name else target_path.name
@@ -157,14 +157,6 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
     if target_path.exists():
         print(f"Warning: Target directory {target_dir} already exists. Minting may overwrite files.")
         
-    # Get selected tools from the domain doc to check if plugin is selected
-    domain_content_str = ddd_context.get("source", "") if ddd_context else ""
-    if not domain_content_str:
-        domain_doc_path = os.path.join(project_path, "ONBOARDING_DOMAIN.md")
-        if os.path.exists(domain_doc_path):
-            with open(domain_doc_path, "r") as f:
-                domain_content_str = f.read()
-    
     def ignore_patterns(dir_path, contents):
         ignored = ['.git', '__pycache__', '.DS_Store', 'contracts', 'state']
         return [i for i in contents if i in ignored or i.endswith('.log')]
@@ -290,15 +282,6 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
     }
     active_platform = platform_map.get(platform_choice, platform_choice).lower()
 
-    # Get selected tools from the domain doc
-    domain_content_str = ddd_context.get("source", "") if ddd_context else ""
-    if not domain_content_str:
-        domain_doc_path = os.path.join(project_path, "ONBOARDING_DOMAIN.md")
-        if os.path.exists(domain_doc_path):
-            with open(domain_doc_path, "r") as f:
-                domain_content_str = f.read()
-    selected_skills, selected_mcps = parse_tool_checklists(domain_content_str)
-    
     # Generate Platform Rules Pointers IN THE ROOT DIRECTORY
     harness_prefix = f".{active_platform}" if active_platform in ["gemini", "claude", "cursor", "codex"] else target_dir_name
     adapter = get_adapter(active_platform)

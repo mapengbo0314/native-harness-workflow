@@ -48,15 +48,6 @@ class TestHeadlessCLI(unittest.TestCase):
                 pass
         
         mock_input.assert_not_called()
-        
-        # Verify CONTEXT.md was created with defaults
-        context_file = os.path.join(self.test_dir, "docs", "domain", "CONTEXT.md")
-        self.assertTrue(os.path.exists(context_file))
-        with open(context_file, 'r') as f:
-            content = f.read()
-            self.assertIn("Automated purpose", content)
-            self.assertIn("Automated vocab", content)
-            self.assertIn("Automated invariants", content)
 
     @patch('harness.init.cli.parse_args')
     @patch('harness.init.discovery_engine.acquire_mcp_context', return_value="fake context")

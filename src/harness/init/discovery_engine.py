@@ -154,51 +154,6 @@ def discover_agents(context_str: str, feature_fetcher_yaml_path: str, llm_provid
 
 
 
-def discover_custom_agent(name: str, specs: str, context_str: str, ddd_context: dict, llm_provider: str, api_key: str, model: str = None) -> dict:
-    """Generates a system prompt for a custom user-defined agent."""
-    
-    ddd_prompt_section = ""
-    if ddd_context:
-        ddd_prompt_section = (
-            "=== DOMAIN-DRIVEN DESIGN (DDD) CONTEXT ===\n"
-            f"Ubiquitous Language: {ddd_context.get('ubiquitous_language', 'None provided')}\n"
-            f"Translation Map: {json.dumps(ddd_context.get('translation_map', {}))}\n"
-            f"Additional Knowledge: {ddd_context.get('additional_domain_knowledge', 'None provided')}\n\n"
-        )
-
-    prompt = (
-        "You are an Agent Architect. Your task is to generate a high-quality system prompt for a new specialized agent.\n\n"
-        "=== PROJECT CONTEXT ===\n"
-        f"{context_str}\n\n"
-        f"{ddd_prompt_section}"
-        "=== USER REQUEST ===\n"
-        f"Agent Name: {name}\n"
-        f"Agent Role/Specs: {specs}\n\n"
-        "=== TASK ===\n"
-        "Generate a comprehensive, 300-500 word Markdown system prompt for this agent. The prompt MUST:\n"
-        "1. Define their specific expertise relative to the project files.\n"
-        "2. Enforce the use of 'codegraph' MCP tools and local skills.\n"
-        "3. Enforce a 'Graph-First' strategy using `mcp_codegraph_codegraph_search` and `mcp_codegraph_codegraph_node`.\n"
-        "4. Define their role in the Goldfish Protocol (Phase 3) and Implementation (Phase 4).\n"
-        "4. Incorporate the DDD context and ubiquitous language intrinsically.\n\n"
-        "Return as JSON: {'name': '...', 'role': '...', 'zone': '...', 'system_prompt': '...'}"
-    )
-    
-    print(f"Generating specialized prompt for custom agent: {name}...")
-    response_text = query_llm(prompt, llm_provider, api_key, model)
-    
-    try:
-        cleaned = response_text.replace("```json", "").replace("```", "").strip()
-        start_idx = cleaned.find("{")
-        end_idx = cleaned.rfind("}") + 1
-        if start_idx != -1 and end_idx != 0:
-            cleaned = cleaned[start_idx:end_idx]
-            
-        data = json.loads(cleaned)
-        return data
-    except Exception as e:
-        print(f"Error generating custom agent: {e}")
-        return {"name": name, "role": specs, "zone": "Core", "system_prompt": f"# {name}\n\n{specs}"}
 
 def get_symbol_census(project_path: str) -> list:
     """Extracts a list of symbols, imports, and decorators to identify patterns."""

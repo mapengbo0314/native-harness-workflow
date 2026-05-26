@@ -57,7 +57,7 @@ class PlatformAdapter(ABC):
         pass
 
     @abstractmethod
-    def configure_cli(self, project_path: Path, mcps_to_install: List[dict]) -> None:
+    def configure_cli(self, project_path: Path) -> None:
         """Handles CLI setup (e.g., claude mcp add vs gemini mcp add)."""
         pass
 

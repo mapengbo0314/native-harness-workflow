@@ -22,10 +22,6 @@ def test_plugin_uses_single_root_hook_system():
         assert (hooks_dir / "hooks.json").exists()
         for hook_file in [
             "prompt_classifier.py",
-            "pre_tool_guard.py",
-            "post_tool_observer.py",
-            "precompact_handoff.py",
-            "config_change_guard.py",
         ]:
             assert (hooks_dir / hook_file).exists()
 

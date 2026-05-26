@@ -27,7 +27,6 @@ When a skill says to dispatch a named agent type, use `@generalist` with the ful
 | `Task tool (superpowers:implementer)` | `@implementer` |
 | `Task tool (superpowers:spec-reviewer)` | `@reviewer` |
 | `Task tool (superpowers:code-reviewer)` | `@reviewer` |
-| `Task tool (superpowers:code-quality-reviewer)` | `@linter-agent` |
 | `Task tool (general-purpose)` with inline prompt | `@planner` or `@implementer` depending on context |
 
 ### Prompt filling

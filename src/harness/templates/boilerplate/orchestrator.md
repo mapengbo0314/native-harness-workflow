@@ -108,7 +108,6 @@ To delegate to any of the following specialized subagents, you MUST invoke them 
 - **<!--$SUBAGENT_SYNTAX$-->reviewer** (`agents/reviewer.md`): Checks code quality and style.
 - **<!--$SUBAGENT_SYNTAX$-->verifier** (`agents/verifier.md`): Performs QA, edge-case testing, and generates `artifacts/qa_report.md`.
 - **<!--$SUBAGENT_SYNTAX$-->refactorer** (`agents/refactorer.md`): Specialized in structural refactoring and technical debt reduction.
-- **<!--$SUBAGENT_SYNTAX$-->linterAgent** (`agents/linter-agent.md`): Specialized in fixing lint, type errors, and formatting issues.
 - **<!--$SUBAGENT_SYNTAX$-->securityAuditor** (`agents/security-auditor.md`): Performs deep security audits and vulnerability scanning.
 - **<!--$SUBAGENT_SYNTAX$-->performanceProfiler** (`agents/performance-profiler.md`): Identifies performance bottlenecks and suggests optimizations.
 

@@ -56,7 +56,7 @@ class ClaudeAdapter(PlatformAdapter):
         # And "Obsolete function should_generate_orchestrator_plugin is entirely removed"
         pass
 
-    def configure_cli(self, project_path: Path, mcps_to_install: List[dict]) -> None:
+    def configure_cli(self, project_path: Path) -> None:
         import subprocess
         import shlex
         claude = shutil.which("claude")
@@ -67,16 +67,7 @@ class ClaudeAdapter(PlatformAdapter):
         commands = [
             [claude, "mcp", "add", "codegraph", "npx", "-y", "@colbymchenry/codegraph", "serve", "--mcp"],
         ]
-        
-        for mcp in mcps_to_install or []:
-            try:
-                parts = shlex.split(mcp.get("command", ""))
-            except ValueError as exc:
-                print(f"[HARNESS] Warning: Invalid command string for MCP {mcp.get('name')}: {exc}")
-                continue
-            if parts:
-                commands.append([claude, "mcp", "add", mcp["name"], *parts])
-                
+
         for command in commands:
             result = subprocess.run(command, cwd=project_path, capture_output=True, text=True, env=os.environ.copy())
             if result.returncode != 0:
