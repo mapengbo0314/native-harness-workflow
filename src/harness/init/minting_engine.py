@@ -247,13 +247,11 @@ The Orchestrator agent and core rules are located in `{harness_prefix}/orchestra
         pointer_content += "\n## Available Agent Skills\n"
         pointer_content += "To activate a skill, you MUST use your file reading tool to read its instructions into your context before beginning work.\n\n"
         
-        has_sp = any(s.get('name') == 'using-superpowers' for s in selected_skills)
-        if not has_sp:
-            pointer_content += f"- **using-superpowers**: `{harness_prefix}/skills/using-superpowers/SKILL.md`\n"
-            
-        for s in selected_skills:
-            if s.get('type') != 'extension':
-                pointer_content += f"- **{s['name']}**: `{harness_prefix}/skills/{s['name']}/SKILL.md`\n"
+        skills_dir = target_path / "skills"
+        if skills_dir.exists():
+            for skill_path in sorted(skills_dir.iterdir()):
+                if skill_path.is_dir() and (skill_path / "SKILL.md").exists():
+                    pointer_content += f"- **{skill_path.name}**: `{harness_prefix}/skills/{skill_path.name}/SKILL.md`\n"
 
     files_to_generate = adapter.get_rules_pointer_files()
     
