@@ -392,10 +392,6 @@ def generate_orchestrator_plugin(
         print(f"[HARNESS] Exporting DDD context from {context_path}...")
         export_ddd_context(context_path, config_dir)
 
-        print(f"[HARNESS] Copying runtime modules...")
-        from harness.init.minting_engine import copy_runtime_modules
-        copy_runtime_modules(plugin_dir)
-
         render_plugin_readme(plugin_dir, bp_dir, fallback_bp_dir, project_name)
 
         print(f"[HARNESS] Plugin generation complete.")

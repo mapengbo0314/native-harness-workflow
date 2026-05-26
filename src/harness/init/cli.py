@@ -305,22 +305,6 @@ def main():
                     logical_harness_name=harness_folder,
                 )
                 
-                # Post-generation cleanup: remove boilerplate agents and skills
-                # as they are now inside the plugin
-                harness_path = temp_harness_dir
-                
-                # Clean agents folder
-                agents_dir = harness_path / "agents"
-                if agents_dir.exists():
-                    shutil.rmtree(agents_dir)
-                                
-                # Clean skills folder
-                skills_dir = harness_path / "skills"
-                if skills_dir.exists():
-                    shutil.rmtree(skills_dir)
-                    
-                print("[HARNESS] Cleaned up redundant top-level boilerplate folders for plugin.")
-                
             except Exception as e:
                 print(f"\n[HARNESS] ❌ ERROR: Failed to generate orchestrator plugin: {e}")
                 import traceback

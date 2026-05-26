@@ -49,12 +49,30 @@ class ClaudeAdapter(PlatformAdapter):
         pass
 
     def generate_core_infrastructure(self, project_path: Path) -> None:
-        # Claude specifically generates an orchestrator plugin
-        # This replaces the logic that was conditionally driven by should_generate_orchestrator_plugin
-        # Note: cli.py handles the actual generation call right now, but we can encapsulate it here or keep it in cli.py.
-        # Since the plan says "Call adapter.generate_core_infrastructure() to provision common harness assets... for all platforms."
-        # And "Obsolete function should_generate_orchestrator_plugin is entirely removed"
-        pass
+        import shutil
+        harness_dir = project_path / ".harness_tmp"
+        if not harness_dir.exists():
+            harness_dir = project_path / self.get_config_dir_name()
+            
+        plugin_dir = harness_dir / "plugin-generated"
+        plugin_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Move payload directories into plugin-generated
+        payload_dirs = ["skills", "agents", "hooks", "scripts", "src"]
+        payload_files = ["pyproject.toml"]
+        
+        for p_dir in payload_dirs:
+            src_path = harness_dir / p_dir
+            if src_path.exists():
+                dest_path = plugin_dir / p_dir
+                if dest_path.exists():
+                    shutil.rmtree(dest_path)
+                shutil.move(str(src_path), str(dest_path))
+                
+        for p_file in payload_files:
+            src_path = harness_dir / p_file
+            if src_path.exists():
+                shutil.move(str(src_path), str(plugin_dir / p_file))
 
     def configure_cli(self, project_path: Path) -> None:
         import subprocess
