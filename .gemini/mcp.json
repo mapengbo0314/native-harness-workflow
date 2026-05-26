@@ -8,13 +8,6 @@
         "serve",
         "--mcp"
       ]
-    },
-    "git-mcp": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@mseep/git-mcp-server"
-      ]
     }
   }
 }

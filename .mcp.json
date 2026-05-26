@@ -1,19 +1,5 @@
 {
   "mcpServers": {
-    "fetch": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-fetch"
-      ]
-    },
-    "git-mcp": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@mseep/git-mcp-server"
-      ]
-    },
     "codegraph": {
       "command": "npx",
       "args": [

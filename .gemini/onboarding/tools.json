@@ -1,50 +1,11 @@
 {
   "categories": {
     "frontend": [
-      {
-        "name": "nextjs",
-        "url": "https://raw.githubusercontent.com/PatrickJS/awesome-cursorrules/main/rules/cursorrules-cursor-ai-nextjs-14-tailwind-seo-setup/.cursorrules",
-        "keywords": [
-          "react",
-          "nextjs",
-          "next.js",
-          "frontend"
-        ]
-      }
     ],
     "backend": [
-      {
-        "name": "fetch",
-        "command": "npx -y @modelcontextprotocol/server-fetch",
-        "type": "mcp",
-        "keywords": [
-          "api",
-          "rest",
-          "graphql"
-        ]
-      }
     ],
     "database": [],
     "universal": [
-      {
-        "name": "orchestrator-plugin",
-        "url": "local-plugin",
-        "type": "extension",
-        "keywords": [
-          "claude",
-          "orchestrator",
-          "plugin"
-        ]
-      },
-      {
-        "name": "git-mcp",
-        "command": "npx -y @mseep/git-mcp-server",
-        "type": "mcp",
-        "keywords": [
-          "git",
-          "version control"
-        ]
-      },
       {
         "name": "grill-with-docs",
         "url": "https://raw.githubusercontent.com/mattpocock/skills/main/skills/engineering/grill-with-docs/SKILL.md",
