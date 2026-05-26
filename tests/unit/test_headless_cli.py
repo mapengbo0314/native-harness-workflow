@@ -23,6 +23,9 @@ class TestHeadlessCLI(unittest.TestCase):
     @patch('sys.exit')
     @patch.dict(os.environ, {"HARNESS_HEADLESS": "1"})
     def test_cli_headless(self, mock_exit, mock_run, mock_input, mock_parse_args):
+        mock_run.return_value.returncode = 0
+        mock_run.return_value.stdout = ""
+        mock_run.return_value.stderr = ""
         args = MagicMock()
         args.project_path = self.test_dir
         args.bundle = None
@@ -42,6 +45,9 @@ class TestHeadlessCLI(unittest.TestCase):
     @patch('sys.exit')
     @patch.dict(os.environ, {"HARNESS_HEADLESS": "1"})
     def test_cli_headless_fails_when_embedded_setup_fails(self, mock_exit, mock_run, mock_input, mock_parse_args):
+        mock_run.return_value.returncode = 0
+        mock_run.return_value.stdout = ""
+        mock_run.return_value.stderr = ""
         args = MagicMock()
         args.project_path = self.test_dir
         args.bundle = None
@@ -62,6 +68,9 @@ class TestHeadlessCLI(unittest.TestCase):
     @patch('sys.exit')
     @patch.dict(os.environ, clear=True)
     def test_cli_claude_plugin_generation(self, mock_exit, mock_run, mock_input, mock_parse_args):
+        mock_run.return_value.returncode = 0
+        mock_run.return_value.stdout = ""
+        mock_run.return_value.stderr = ""
         args = MagicMock()
         args.project_path = self.test_dir
         args.bundle = None

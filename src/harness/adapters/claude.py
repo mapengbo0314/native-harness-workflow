@@ -102,13 +102,13 @@ class ClaudeAdapter(PlatformAdapter):
             return
             
         commands = [
-            [claude, "mcp", "add", "codegraph", "npx", "-y", "@colbymchenry/codegraph", "serve", "--mcp"],
+            [claude, "mcp", "add", "codegraph", "--", "npx", "-y", "@colbymchenry/codegraph", "serve", "--mcp"],
         ]
 
         for command in commands:
             result = subprocess.run(command, cwd=project_path, capture_output=True, text=True, env=os.environ.copy())
             if result.returncode != 0:
-                print(f"[HARNESS] Warning: Optional CLI MCP registration failed: {' '.join(command[:4])}")
+                raise Exception(f"CLI MCP registration failed: {' '.join(command)}\nError: {result.stderr}")
 
     def get_agent_manifest_format(self) -> str:
         return "markdown"
