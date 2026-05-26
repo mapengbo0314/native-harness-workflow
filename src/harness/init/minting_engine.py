@@ -97,6 +97,16 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
         current_platform = platform_map_normalized.get(platform_choice, platform_choice).lower()
         adapter = get_adapter(current_platform)
         
+        # Cleanup files that are only used as source templates or specific to certain platforms
+        readme_template_path = target_path / "README.md.template"
+        if readme_template_path.exists():
+            readme_template_path.unlink()
+            
+        if current_platform != "claude":
+            pyproject_path = target_path / "pyproject.toml"
+            if pyproject_path.exists():
+                pyproject_path.unlink()
+        
         tool_replacements = adapter.get_tool_mappings()
         
         ingestion_key = os.environ.get("HARNESS_GLOBAL_INGESTION_BASE64", "YOUR_EMBEDDED_BASE64_STRING")
