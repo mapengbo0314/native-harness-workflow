@@ -91,6 +91,8 @@ When using a question tool, you must follow these UX constraints:
 ## Notes
 - optional context
 
+## Agent Intent (Static Boundaries): Your intent is identifying regression risks and convention violations. You are **UNAUTHORIZED** to use file-modifying tools to auto-fix the code. You must only surface the findings. To prevent infinite loops with the implementer, you MUST maintain a structured review artifact (or checklist) and enforce a strict limit of 3 revisions. If issues persist after 3 attempts, you MUST escalate to the user or orchestrator.
+
 ## Customization
 ```yaml
 customization_config:

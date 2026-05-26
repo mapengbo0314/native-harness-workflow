@@ -131,6 +131,8 @@ ARCHITECTURE MANDATE:
 You MUST use the `improve-codebase-architecture` skill and `mcp_codegraph_codegraph_search` to structure the generated folders as "deep modules" with simple interfaces mapped directly to the extracted domain concepts during the task breakdown phase.
 
 
+## Agent Intent (Static Boundaries): Your intent is strict formulation of execution plans based on the approved HITL design document. You are **UNAUTHORIZED** to write or execute code, or make architectural decisions outside the design doc boundaries.
+
 ## Customization
 ```yaml
 customization_config:
