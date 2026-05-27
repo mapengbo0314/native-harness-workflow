@@ -85,7 +85,7 @@ class GeminiAdapter(PlatformAdapter):
     def format_hook_response(self, original_prompt: str, routing_decision: dict, context_extension: str, hook_event_name: str) -> dict:
         branch = routing_decision.get("classification")
         reason = routing_decision.get("reason")
-        target_agent = routing_decision.get("target_agent", "@generalist")
+        target_agent = routing_decision.get("target_agent") or "@generalist"
 
         # For Gemini, prepend the target_agent syntax
         modified_prompt = f"{target_agent} {original_prompt}" if target_agent else original_prompt
