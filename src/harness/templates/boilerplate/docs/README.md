@@ -53,10 +53,8 @@ Valid state transitions:
 
 ### Upon Starting Implementation
 
-1. Move the design from `docs/proposed/{design_name}.md` to `docs/inprogress/{design_name}.md`.
-2. Create a **progress document** at `docs/inprogress/{design_name}-progress.md`.
-3. Update `docs/manifest.json`:
-   - Change state from `proposed` to `inprogress`
+1. Create a **progress document** at `docs/inprogress/{design_name}-progress.md`.
+2. Update `docs/manifest.json` to change state from `proposed` to `inprogress`. (The system will automatically move the design doc via a pre-commit hook).
    - Set `inprogress_since` to current ISO8601 timestamp
    - Set `progress_doc_path` to `inprogress/{design_name}-progress.md`
 
@@ -119,16 +117,13 @@ Progress documents externalize implementation context. If a context reset occurs
 
 ### On PASS: State Transition to Completed
 
-1. Move design from `docs/inprogress/{design_name}.md` to `docs/completed/{design_name}.md`.
-2. Move progress doc from `docs/inprogress/{design_name}-progress.md` to `docs/reference/{design_name}-progress.md`.
-3. Update `docs/manifest.json`:
-   - Change state from `inprogress` to `completed`
+1. Update `docs/manifest.json` to change state from `inprogress` to `completed`. (The system will automatically move the design and progress docs via a pre-commit hook).
    - Keep `inprogress_since` (immutable timestamp for history)
    - Update `progress_doc_path` to `reference/{design_name}-progress.md`
 
 ### On FAIL: Escalate to Implementer
 
-If verification fails, document blockers in the progress doc and return to Implementer with specific gaps. Do not mark as completed.
+If verification fails, append findings and required fixes to the "Current Blockers" section in the progress doc and return to Implementer. Do not create separate failure report files. Do not mark as completed.
 
 ### Example Manifest Entry (Completed)
 
@@ -228,9 +223,8 @@ The `manifest.json` file is the central registry of all documents. Each entry ha
 ### Implementer Agent Checklist
 
 - [ ] Read design from `proposed/`
-- [ ] Move design to `inprogress/`
 - [ ] Create progress doc at `inprogress/{name}-progress.md`
-- [ ] Update `manifest.json` (state, inprogress_since, progress_doc_path)
+- [ ] Update `manifest.json` (state=inprogress, inprogress_since, progress_doc_path)
 - [ ] Implement per design specification
 - [ ] Update progress doc with milestones as work progresses
 
@@ -239,8 +233,8 @@ The `manifest.json` file is the central registry of all documents. Each entry ha
 - [ ] Read design from `inprogress/`
 - [ ] Review progress doc to verify all sections complete
 - [ ] Test implementation against specification
-- [ ] On PASS: Move files and update `manifest.json` (state=completed)
-- [ ] On FAIL: Document blockers in progress doc and escalate
+- [ ] On PASS: Update `manifest.json` (state=completed) (System moves docs)
+- [ ] On FAIL: Append findings to blockers in progress doc and escalate
 
 ## Best Practices
 
@@ -248,5 +242,5 @@ The `manifest.json` file is the central registry of all documents. Each entry ha
 2. **Use consistent naming**: Kebab-case for document names (e.g., `feature-x-design`, `bug-fix-auth`).
 3. **Update progress docs frequently**: This is your context resumption lifeline.
 4. **Immutable timestamps**: created_date and inprogress_since never change once set.
-5. **Archive aggressively**: Move completed docs to reference/ to keep inprogress/ clean.
+5. **Archive aggressively**: The system handles moving completed docs to reference/ to keep inprogress/ clean.
 6. **Check manifest first**: Always consult manifest.json before starting work to avoid duplication.
