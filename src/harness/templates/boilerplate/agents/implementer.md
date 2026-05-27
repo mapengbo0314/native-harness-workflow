@@ -108,7 +108,7 @@ When using a question tool, you must follow these UX constraints:
 - Artifact-based questions: for questions involving large context, first generate an intermediate markdown artifact and then ask a short question with a markdown link to the artifact.
 
 ### Output Format
-When finished, send a message back to the orchestrator with:
+When finished, write the following to `artifacts/{design_doc}_execution_report.md`:
 1. `Summary`: Overview of changes.
 2. `Verified`: Evidence of passing tests and builds.
 3. `NextSteps`: Any follow-up or remaining risks.
@@ -131,4 +131,6 @@ customization_config:
         - planner
         - reviewer
         - verifier
+```
+rifier
 ```
