@@ -9,6 +9,15 @@
           }
         ]
       }
+    ],
+    "PreCommit": [
+      {
+        "filters": [],
+        "hooks": [
+          {"command": "${HARNESS_PLUGIN_ROOT}/hooks/doc-manifest-validator.sh"},
+          {"command": "python3 ${HARNESS_PLUGIN_ROOT}/scripts/sync_manifest_state.py"}
+        ]
+      }
     ]
   }
 }
