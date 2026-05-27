@@ -30,6 +30,7 @@ def main():
         branch = None
         reason = None
         routing_decision = {}
+        dispatcher = None
         
         # 1. Setup paths to import OrchestratorDispatcher
         current_dir = Path(__file__).parent
@@ -112,4 +113,5 @@ def main():
         sys.exit(2)
 
 if __name__ == "__main__":
+    main()":
     main()

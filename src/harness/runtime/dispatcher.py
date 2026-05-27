@@ -191,28 +191,32 @@ Return the result as JSON:
         target_agent = "@generalist"
         auth_msg = ""
         
+        DIAGNOSIS_REPORT_PATH = "artifacts/diagnosis_report.md"
+        IMPLEMENTATION_PLAN_PATH = "artifacts/implementation_plan.md"
+        TDD_FAILING_TEST_PATH = "artifacts/tdd_failing_test.log"
+        
         def check_diagnosis() -> Tuple[bool, str]:
-            p = project_root / "artifacts" / "diagnosis_report.md"
-            return p.exists(), "artifacts/diagnosis_report.md"
+            p = project_root / DIAGNOSIS_REPORT_PATH
+            return p.exists(), DIAGNOSIS_REPORT_PATH
             
         def check_plan() -> Tuple[bool, str]:
-            p = project_root / "artifacts" / "implementation_plan.md"
+            p = project_root / IMPLEMENTATION_PLAN_PATH
             has_plan = False
             if p.exists():
                 content = p.read_text()
                 if "Verification Criteria" in content:
                     has_plan = True
-            return has_plan, "artifacts/implementation_plan.md"
+            return has_plan, IMPLEMENTATION_PLAN_PATH
             
         def check_tdd() -> Tuple[bool, str]:
-            p = project_root / "artifacts" / "tdd_failing_test.log"
+            p = project_root / TDD_FAILING_TEST_PATH
             has_log = False
             if p.exists():
                 content = p.read_text()
                 if any(x in content for x in ["AssertionError", "FAILED", "Expected", "ModuleNotFoundError", "ImportError", "Traceback"]):
                     if "SyntaxError" not in content:
                         has_log = True
-            return has_log, "artifacts/tdd_failing_test.log"
+            return has_log, TDD_FAILING_TEST_PATH
 
         if branch == "C":
             current_phase = "Read-Only"
