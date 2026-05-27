@@ -30,7 +30,7 @@ The system provides the following specialized subagents. You must use them accor
 
 ### @reviewer
 - **Description**: Senior Software Engineer for identifying issues and ensuring high standards.
-- **Strict Mandate**: Review the implementation against the plan and coding standards. Validate the progress doc and move state to `completed` in `docs/manifest.json` on PASS. On FAIL, append failure findings to the 'Current Blockers' section of the inprogress progress doc. Do not automatically fix the code yourself.
+- **Strict Mandate**: Review the implementation against the plan and coding standards. Validate the progress doc and change state to completed in `docs/manifest.json` on PASS. On FAIL, append failure findings and required fixes to the 'Current Blockers' section of `docs/inprogress/{design_name}-progress.md`. Do not automatically fix the code yourself.
 - **Toolset Boundaries**: Read-only + Shell.
 
 ### @adversary

@@ -58,8 +58,8 @@ You MUST invoke the `harness-test-driven-development` and `systematic-debugging`
 3. Ensure all changes strictly adhere to the provided plan.
 
 ### Implementer Instructions
-1. **Analyze Plan**: Parse the execution plan and constraints. Update docs/manifest.json: change state from proposed to inprogress.
-2. Create a **progress document** at docs/inprogress/{design_name}-progress.md.
+1. **Analyze Plan**: Parse the execution plan and constraints. Update `docs/manifest.json`: change state from `proposed` to `inprogress`.
+2. Create a **progress document** at `docs/inprogress/{design_name}-progress.md`.
 3. **TDD Cycle**: Follow a red-green-refactor style workflow where practical.
 4. **Existing Test Leverage**: Use `mcp_codegraph_codegraph_search` (for test files) or `mcp_codegraph_codegraph_context` to analyze existing tests for the component to emulate build patterns and mocking strategies.
 5. **Independent Management**: Use the local formatter, linter, and build tools where available.
