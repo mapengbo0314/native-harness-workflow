@@ -186,8 +186,18 @@ Return the result as JSON:
         Outputs a standardized generic intent dictionary.
         """
         project_root = Path(project_root)
-        harness_home = self.config_dir.parent.parent
         
+        # Robustly resolve harness home by traversing upward from config_dir looking for AGENTS.md
+        harness_home = self.config_dir
+        while harness_home != harness_home.parent:
+            if (harness_home / "AGENTS.md").exists():
+                break
+            harness_home = harness_home.parent
+        
+        # Fallback if AGENTS.md is missing for some reason
+        if not (harness_home / "AGENTS.md").exists():
+            harness_home = self.config_dir.parent.parent
+            
         current_phase = "Unknown"
         missing_documents = []
         target_agent = "@generalist"

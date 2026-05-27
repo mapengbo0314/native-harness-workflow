@@ -18,15 +18,24 @@ def move_tracked_file(src: Path, dest: Path, project_root: Path, action: str = "
 def main():
     project_root = Path.cwd()
     
-    # Resolve harness home directory (e.g., .gemini/)
-    # Prefer HARNESS_PLUGIN_ROOT if available (set by the hook runner)
+    # Robustly resolve harness home directory (e.g., .gemini/)
+    # Prefer HARNESS_PLUGIN_ROOT if available
+    harness_home = None
     plugin_root_env = os.environ.get("HARNESS_PLUGIN_ROOT")
     if plugin_root_env:
         harness_home = Path(plugin_root_env).parent
     else:
-        # Fallback: Script is in .gemini/plugin-generated/scripts/sync_manifest_state.py
-        script_path = Path(__file__).resolve()
-        harness_home = script_path.parent.parent.parent
+        # Traverse upwards from the script path looking for AGENTS.md
+        current = Path(__file__).resolve().parent
+        while current != current.parent:
+            if (current / "AGENTS.md").exists():
+                harness_home = current
+                break
+            current = current.parent
+            
+        # Fallback
+        if not harness_home:
+            harness_home = Path(__file__).resolve().parent.parent.parent
     
     docs_dir = harness_home / "docs"
     manifest_path = docs_dir / "manifest.json"
