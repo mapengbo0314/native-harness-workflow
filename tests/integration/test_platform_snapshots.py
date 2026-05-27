@@ -137,8 +137,7 @@ def test_gemini_layout(temp_project):
     assert not (temp_project / ".mcp.json").exists()
 
     check_snapshot(temp_project, "gemini", [
-        "GEMINI.md",
-        ".gemini/orchestrator.md"
+        "GEMINI.md"
     ])
 
 def test_claude_plugin_layout(temp_project):
