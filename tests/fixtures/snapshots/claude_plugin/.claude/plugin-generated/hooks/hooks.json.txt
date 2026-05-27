@@ -9,6 +9,21 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "filters": [],
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/doc-manifest-validator.sh"
+          },
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/sync_manifest_state.py"
+          }
+        ]
+      }
     ]
   }
 }
