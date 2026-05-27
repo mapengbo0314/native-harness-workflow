@@ -21,7 +21,7 @@ When exploring the codebase, use the `codegraph` MCP server and project domain g
 
 If a bug is reported, the Orchestrator MUST NOT delegate to the `@planner` immediately.
 1. The Orchestrator MUST route the task to the `@planner` sub-agent.
-2. The Orchestrator MUST instruct the `@planner` to activate the `diagnose` skill and produce a `artifacts/diagnosis_report.md`.
+2. The Orchestrator MUST instruct the `@planner` to activate the `diagnose` skill and produce a `docs/reference/diagnosis_report.md`.
 
 ---
 
@@ -59,7 +59,7 @@ Generate **3–5 ranked hypotheses** before testing any of them. Single-hypothes
 
 Each probe must map to a specific prediction from Phase 3. Change one variable at a time using targeted logs or debugger inspection. Tag debug logs (e.g., `[DEBUG-a4f2]`).
 
-Once the root cause is isolated, **DO NOT FIX IT**. You must write your findings to `artifacts/diagnosis_report.md`. The report MUST include:
+Once the root cause is isolated, **DO NOT FIX IT**. You must write your findings to `docs/reference/diagnosis_report.md`. The report MUST include:
 1. The reproduction command/loop used.
 2. The proven root cause.
 3. Recommended seams for a regression test.
@@ -70,7 +70,7 @@ Once the root cause is isolated, **DO NOT FIX IT**. You must write your findings
 ## Phase 5 — The Fix Plan
 **Actor: `@planner`**
 
-The `@planner` consumes `artifacts/diagnosis_report.md`.
+The `@planner` consumes `docs/reference/diagnosis_report.md`.
 It creates a design doc and execution plan for the fix, focusing heavily on how to safely implement the fix without breaking adjacent features.
 
 ---
