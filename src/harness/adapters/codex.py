@@ -64,7 +64,7 @@ class CodexAdapter(PlatformAdapter):
         target_agent = routing_decision.get("target_agent", "@generalist")
 
         agent_name = target_agent.lstrip("@")
-        modified_prompt = f"Hand off to {agent_name}:\\n{original_prompt}" if target_agent else original_prompt
+        modified_prompt = f"Hand off to {agent_name}:\n{original_prompt}" if target_agent else original_prompt
         modified_prompt += context_extension
 
         return {
