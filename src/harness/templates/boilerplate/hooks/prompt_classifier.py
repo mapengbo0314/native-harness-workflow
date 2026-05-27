@@ -84,6 +84,7 @@ def main():
         artifacts_missing = routing_decision.get("artifacts_missing", [])
         auth_msg = routing_decision.get("auth_msg", "")
         target_agent = routing_decision.get("target_agent", "@generalist")
+        manifest_state = routing_decision.get("manifest_state", None)
 
         try:
             from harness.runtime.context_builder import build_context
@@ -92,13 +93,18 @@ def main():
                 target_agent=target_agent,
                 auth_msg=auth_msg,
                 branch=branch,
-                artifacts_missing=artifacts_missing
+                missing_documents=artifacts_missing,
+                manifest_state=manifest_state
             )
         except Exception as e:
             print(f"DEBUG: context_builder failed: {e}", file=sys.stderr)
             system_state = ""
             if current_phase != "Unknown":
-                system_state = f"\n\n=== SYSTEM STATE ===\nActive Branch: {branch}\nCurrent Phase: {current_phase}\nTarget Agent: {target_agent}\nArtifacts Missing: {', '.join(artifacts_missing) if artifacts_missing else 'None'}\nAuthorization: {auth_msg}\n====================\n"
+                system_state = f"\n\n=== SYSTEM STATE ===\nActive Branch: {branch}\nCurrent Phase: {current_phase}\nTarget Agent: {target_agent}\nArtifacts Missing: {', '.join(artifacts_missing) if artifacts_missing else 'None'}\nAuthorization: {auth_msg}\n"
+                if manifest_state:
+                    system_state += f"Proposed Designs: {', '.join(manifest_state.get('proposed', [])) or 'None'}\n"
+                    system_state += f"In-Progress Designs: {', '.join(manifest_state.get('inprogress', [])) or 'None'}\n"
+                system_state += "====================\n"
             
         hook_event_name = input_data.get("hookEventName") or input_data.get("hook_event_name", "UserPromptSubmit")
         

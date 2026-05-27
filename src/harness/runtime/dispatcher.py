@@ -204,18 +204,23 @@ Return the result as JSON:
         auth_msg = ""
 
         manifest_path = harness_home / "docs" / "manifest.json"
-        has_proposed = False
-        has_inprogress = False
+        proposed_docs = []
+        inprogress_docs = []
+        completed_docs = []
 
         if manifest_path.exists():
             try:
                 with open(manifest_path, 'r') as f:
                     manifest = json.load(f)
                     for doc in manifest.get("docs", []):
-                        if doc.get("state") == "inprogress":
-                            has_inprogress = True
-                        elif doc.get("state") == "proposed":
-                            has_proposed = True
+                        state = doc.get("state")
+                        name = doc.get("name", "Unknown")
+                        if state == "inprogress":
+                            inprogress_docs.append(name)
+                        elif state == "proposed":
+                            proposed_docs.append(name)
+                        elif state == "completed":
+                            completed_docs.append(name)
             except Exception:
                 pass
 
@@ -227,26 +232,29 @@ Return the result as JSON:
             current_phase = "4 (Surgical Edit authorized)"
             target_agent = "@implementer"
             auth_msg = "You are authorized for surgical edits. Bypass planner."
-        else:
-            if has_inprogress:
-                current_phase = "Execution/TDD"
-                target_agent = "@implementer"
-                auth_msg = "You are authorized to execute. In-progress document exists."
-            elif has_proposed:
-                current_phase = "Planning"
-                target_agent = "@planner"
-                auth_msg = "You are UNAUTHORIZED to write code or dispatch @implementer. You MUST dispatch @planner next."
-            else:
-                current_phase = "Discovery"
-                target_agent = "@diagnose" if branch == "A" else "@planner"
-                auth_msg = "You are UNAUTHORIZED to modify any files. You MUST use read-only tools to diagnose the issue and output the diagnosis report." if branch == "A" else "You are UNAUTHORIZED to write code. You MUST dispatch @planner next."
+        elif branch == "A":
+            current_phase = "Discovery"
+            target_agent = "@diagnose"
+            auth_msg = "You are UNAUTHORIZED to modify any files. You MUST use read-only tools to diagnose the issue and output the diagnosis report."
+            if not manifest_path.exists():
+                missing_documents.append("docs/manifest.json")
+        else: # Branch B
+            current_phase = "Planning/Execution"
+            target_agent = "@planner"
+            auth_msg = "You are authorized to plan or execute based on document state."
+            if not manifest_path.exists():
                 missing_documents.append("docs/manifest.json")
 
         return {
             "phase": current_phase,
             "target_agent": target_agent,
             "missing_documents": missing_documents,
-            "auth_msg": auth_msg
+            "auth_msg": auth_msg,
+            "manifest_state": {
+                "proposed": proposed_docs,
+                "inprogress": inprogress_docs,
+                "completed": completed_docs
+            }
         }
 
     @observe()

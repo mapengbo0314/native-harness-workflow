@@ -1,4 +1,4 @@
-def build_context(phase: str, target_agent: str, auth_msg: str, branch: str, missing_documents: list[str]) -> str:
+def build_context(phase: str, target_agent: str, auth_msg: str, branch: str, missing_documents: list[str], manifest_state: dict = None) -> str:
     if phase == "Unknown":
         return ""
         
@@ -12,6 +12,10 @@ def build_context(phase: str, target_agent: str, auth_msg: str, branch: str, mis
         f"Missing Documents: {documents_str}\n"
         f"Authorization: {auth_msg}\n"
     )
+    
+    if manifest_state:
+        system_state += f"Proposed Designs: {', '.join(manifest_state.get('proposed', [])) or 'None'}\n"
+        system_state += f"In-Progress Designs: {', '.join(manifest_state.get('inprogress', [])) or 'None'}\n"
     
     if phase == "3 (Planning)":
         system_state += "JIT RULE: You MUST adhere to Domain-Driven Design (DDD) principles. Ensure the ubiquitous language is used.\n"
