@@ -186,12 +186,24 @@ Return the result as JSON:
         Outputs a standardized generic intent dictionary.
         """
         project_root = Path(project_root)
+        
+        # Robustly resolve harness home by traversing upward from config_dir looking for AGENTS.md
+        harness_home = self.config_dir
+        while harness_home != harness_home.parent:
+            if (harness_home / "AGENTS.md").exists():
+                break
+            harness_home = harness_home.parent
+        
+        # Fallback if AGENTS.md is missing for some reason
+        if not (harness_home / "AGENTS.md").exists():
+            harness_home = self.config_dir.parent.parent
+            
         current_phase = "Unknown"
         missing_documents = []
         target_agent = "@generalist"
         auth_msg = ""
 
-        manifest_path = project_root / "docs" / "manifest.json"
+        manifest_path = harness_home / "docs" / "manifest.json"
         has_proposed = False
         has_inprogress = False
 
@@ -209,7 +221,7 @@ Return the result as JSON:
 
         if branch == "C":
             current_phase = "Read-Only"
-            target_agent = "@architect" # Defaulting for tests
+            target_agent = "@general-purpose" # Defaulting for tests
             auth_msg = "You are STRICTLY UNAUTHORIZED to mutate any files. You must only read and answer questions."
         elif branch == "D":
             current_phase = "4 (Surgical Edit authorized)"

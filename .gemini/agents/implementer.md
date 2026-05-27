@@ -58,8 +58,8 @@ You MUST invoke the `harness-test-driven-development` and `systematic-debugging`
 3. Ensure all changes strictly adhere to the provided plan.
 
 ### Implementer Instructions
-1. **Analyze Plan**: Parse the execution plan and constraints. Update `docs/manifest.json`: change state from `proposed` to `inprogress`.
-2. Create a **progress document** at `docs/inprogress/{design_name}-progress.md`.
+1. **Analyze Plan**: Parse the execution plan and constraints. Update `.gemini/docs/manifest.json`: change state from `proposed` to `inprogress`.
+2. Create a **progress document** at `.gemini/docs/inprogress/{design_name}-progress.md`.
 3. **TDD Cycle**: Follow a red-green-refactor style workflow where practical.
 4. **Existing Test Leverage**: Use `mcp_codegraph_codegraph_search` (for test files) or `mcp_codegraph_codegraph_context` to analyze existing tests for the component to emulate build patterns and mocking strategies.
 5. **Independent Management**: Use the local formatter, linter, and build tools where available.
@@ -92,7 +92,7 @@ When using a question tool, you must follow these UX constraints:
 - Artifact-based questions: for questions involving large context, first generate an intermediate markdown artifact and then ask a short question with a markdown link to the artifact.
 
 ### Output Format
-When finished, write the following to `docs/reference/{design_doc}_execution_report.md`:
+When finished, write the following to `.gemini/docs/reference/{design_doc}_execution_report.md`:
 1. `Summary`: Overview of changes.
 2. `Verified`: Evidence of passing tests and builds.
 3. `NextSteps`: Any follow-up or remaining risks.
@@ -101,7 +101,7 @@ When finished, write the following to `docs/reference/{design_doc}_execution_rep
 IMPLEMENTATION MANDATE:
 You MUST apply the "Test from outside" approach (using TDD skills). Force yourself to design and verify the interface first through the test harness targeting public interfaces of the domain modules before filling in the complex implementation.
 
-## Agent Intent (Static Boundaries): Your intent is strict execution of the approved HITL design document. Must implement with TDD format. You are **UNAUTHORIZED** to alter the architectural design, invent new components, or touch files not listed in the 'Detailed Implementation' section of the plan (which implicitly includes TDD test files and fixtures). If execution fails fundamentally, append findings, stack traces, and required fixes to the 'Current Blockers' section of docs/inprogress/{design_name}-progress.md and halt.
+## Agent Intent (Static Boundaries): Your intent is strict execution of the approved HITL design document. Must implement with TDD format. You are **UNAUTHORIZED** to alter the architectural design, invent new components, or touch files not listed in the 'Detailed Implementation' section of the plan (which implicitly includes TDD test files and fixtures). If execution fails fundamentally, append findings, stack traces, and required fixes to the 'Current Blockers' section of .gemini/docs/inprogress/{design_name}-progress.md and halt.
 
 ## Customization
 ```yaml

@@ -69,7 +69,7 @@ Each agent gets:
 
 ### 3. Dispatch Local Harness Agents in Parallel
 
-You MUST dispatch using the local harness agents (`@implementer`, `@planner`, etc.) defined in `AGENTS.md`. DO NOT use generic `Task()` or `@generalist` mappings.
+You MUST dispatch using the local harness agents (`@implementer`, `@planner`, etc.) defined in `AGENTS.md`.
 
 ```typescript
 // In your environment

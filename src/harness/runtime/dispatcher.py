@@ -177,7 +177,7 @@ Return the result as JSON:
         elif intent_branch == "C":
             pointers.append("Branch C (Question): Do not modify files. Use codegraph to explore.")
         elif intent_branch == "D":
-            pointers.append("Branch D (Surgical Edit): Bypass heavy planning. Use implementer directly.")
+            pointers.append("Branch D (Surgical Edit): Bypass heavy planning. Use generalist directly.")
             
         return "\n".join(pointers)
 
@@ -203,30 +203,23 @@ Return the result as JSON:
         target_agent = "@generalist"
         auth_msg = ""
 
-        manifest_path = harness_home / "docs" / "manifest.json"
-        proposed_docs = []
-        inprogress_docs = []
-        completed_docs = []
+        designs_dir = harness_home / "docs" / "designs"
+        progress_dir = harness_home / "docs" / "progress"
+        
+        active_designs = []
+        active_progress = []
 
-        if manifest_path.exists():
-            try:
-                with open(manifest_path, 'r') as f:
-                    manifest = json.load(f)
-                    for doc in manifest.get("docs", []):
-                        state = doc.get("state")
-                        name = doc.get("name", "Unknown")
-                        if state == "inprogress":
-                            inprogress_docs.append(name)
-                        elif state == "proposed":
-                            proposed_docs.append(name)
-                        elif state == "completed":
-                            completed_docs.append(name)
-            except Exception:
-                pass
+        if designs_dir.exists():
+            for doc in designs_dir.glob("*.md"):
+                active_designs.append(doc.name)
+                
+        if progress_dir.exists():
+            for doc in progress_dir.glob("*.md"):
+                active_progress.append(doc.name)
 
         if branch == "C":
             current_phase = "Read-Only"
-            target_agent = "@architect" # Defaulting for tests
+            target_agent = "@generalist"
             auth_msg = "You are STRICTLY UNAUTHORIZED to mutate any files. You must only read and answer questions."
         elif branch == "D":
             current_phase = "4 (Surgical Edit authorized)"
@@ -236,14 +229,10 @@ Return the result as JSON:
             current_phase = "Discovery"
             target_agent = "@diagnose"
             auth_msg = "You are UNAUTHORIZED to modify any files. You MUST use read-only tools to diagnose the issue and output the diagnosis report."
-            if not manifest_path.exists():
-                missing_documents.append("docs/manifest.json")
         else: # Branch B
             current_phase = "Planning/Execution"
             target_agent = "@planner"
             auth_msg = "You are authorized to plan or execute based on document state."
-            if not manifest_path.exists():
-                missing_documents.append("docs/manifest.json")
 
         return {
             "phase": current_phase,
@@ -251,9 +240,8 @@ Return the result as JSON:
             "missing_documents": missing_documents,
             "auth_msg": auth_msg,
             "manifest_state": {
-                "proposed": proposed_docs,
-                "inprogress": inprogress_docs,
-                "completed": completed_docs
+                "designs_found": active_designs,
+                "progress_found": active_progress
             }
         }
 

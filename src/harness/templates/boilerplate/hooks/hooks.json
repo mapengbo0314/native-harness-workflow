@@ -9,21 +9,6 @@
           }
         ]
       }
-    ],
-    "PostToolUse": [
-      {
-        "filters": [],
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${HARNESS_PLUGIN_ROOT}/hooks/doc-manifest-validator.sh"
-          },
-          {
-            "type": "command",
-            "command": "python3 ${HARNESS_PLUGIN_ROOT}/scripts/sync_manifest_state.py"
-          }
-        ]
-      }
     ]
   }
 }

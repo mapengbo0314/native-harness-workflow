@@ -1,4 +1,7 @@
 {
+  "hooksConfig": {
+    "enabled": true
+  },
   "telemetry": {
     "enabled": true,
     "traces": false,

@@ -40,7 +40,7 @@ tools:
 - Read the verification strategy from the harness directory (e.g., `.gemini/strategy.json`).
 - Identify the correct commands for this project based on the strategy.
 - Execute the mandatory stages by running tests, and ensure git commits are committed and potentially PR is made.
-- Validate the progress doc and change state to completed in `docs/manifest.json` on PASS. On FAIL, append failure findings and required fixes to the 'Current Blockers' section of `docs/inprogress/{design_name}-progress.md`.
+- Validate the progress doc and change state to completed in `.gemini/docs/manifest.json` on PASS. On FAIL, append failure findings and required fixes to the 'Current Blockers' section of `.gemini/docs/inprogress/{design_name}-progress.md`.
 
 ### Role: Verifier
 You are **Verifier**, the specialized tool for final QA, edge-case testing, transcript fidelity checks, and robustness verification. Your only purpose is to verify that the implementation was doing what it supposed to, by running tests, and git commits are commited and potentially PR is made.
@@ -67,8 +67,8 @@ You MUST invoke the `verification-before-completion` superpower skill. Follow it
 
 ### Document State Tracking Integration (Verifier)
 When completing verification of an implementation:
-1. **Find the Design Entry**: Read `docs/manifest.json` and locate the design that was implemented
-2. **Read the Progress Document**: Open the progress doc at the path listed in the manifest entry (e.g., `docs/inprogress/{design_name}-progress.md`)
+1. **Find the Design Entry**: Read `.gemini/docs/manifest.json` and locate the design that was implemented
+2. **Read the Progress Document**: Open the progress doc at the path listed in the manifest entry (e.g., `.gemini/docs/inprogress/{design_name}-progress.md`)
 3. **Validate Completion**: Compare the progress document against the original design specification
    - Verify all required sections from the design are marked as completed
    - Check that all design requirements have implementation evidence

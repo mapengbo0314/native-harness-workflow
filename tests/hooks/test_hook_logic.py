@@ -92,8 +92,8 @@ def test_registered_hook_commands_execute(temp_project):
     (temp_project / "artifacts" / "tdd_failing_test.log").write_text("AssertionError: mock failure")
     
     docs_dir = temp_project / "docs"
-    docs_dir.mkdir(parents=True, exist_ok=True)
-    (docs_dir / "manifest.json").write_text(json.dumps({"docs": []}))
+    (docs_dir / "designs").mkdir(parents=True, exist_ok=True)
+    (docs_dir / "progress").mkdir(parents=True, exist_ok=True)
     hooks_json = json.loads((plugin_dir / "hooks" / "hooks.json").read_text())
     payloads = {
         "UserPromptSubmit": {"hook_event_name": "UserPromptSubmit", "prompt": "build a login flow"},

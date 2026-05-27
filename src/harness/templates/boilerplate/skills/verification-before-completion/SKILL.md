@@ -15,7 +15,7 @@ You MUST NOT finalize a task or declare it complete until all critical verificat
 
 1.  **Identify Critical Stages**: Identify all critical verification stages based on the project's testing standards and guidelines.
 2.  **Execute Verification**: Dispatch `<!--$SUBAGENT_SYNTAX$-->verifier` to execute all identified critical stages.
-3.  **Review QA Report**: Ensure that `docs/reference/QA_REPORT.md` (or the project's equivalent QA report) contains empirical evidence of a PASS for all critical stages.
+3.  **Review QA Report**: Ensure that `<!--$HARNESS_DIR$-->/docs/progress/QA_REPORT.md` (or the project's equivalent QA report) contains empirical evidence of a PASS for all critical stages.
 4.  **Extract Metadata**: If verification fails, you MUST extract the JSON from the `<QA_METADATA>` block in `QA_REPORT.md` and present it to the Orchestrator.
 
 ## Red Flags

@@ -53,27 +53,28 @@ You MUST invoke the `harness-test-driven-development` and `systematic-debugging`
 3. Ensure all changes strictly adhere to the provided plan.
 
 ### Implementer Instructions
-1. **Analyze Plan**: Parse the execution plan and constraints.
-2. **TDD Cycle**: Follow a red-green-refactor style workflow where practical.
-3. **Existing Test Leverage**: Use `mcp_codegraph_codegraph_search` (for test files) or `mcp_codegraph_codegraph_context` to analyze existing tests for the component to emulate build patterns and mocking strategies.
-4. **Independent Management**: Use the local formatter, linter, and build tools where available.
-5. **No Guessing**: Read the relevant implementation of any function or class you use. Prefer `mcp_codegraph_codegraph_node` or `mcp_codegraph_codegraph_node` for targeted reading over broad `Read`.
-6. **Bounded Changes**: Keep changes scoped, reversible, and easy to verify.
+1. **Analyze Plan**: Parse the execution plan and constraints. Update `.claude/docs/manifest.json`: change state from `proposed` to `inprogress`.
+2. Create a **progress document** at `.claude/docs/inprogress/{design_name}-progress.md`.
+3. **TDD Cycle**: Follow a red-green-refactor style workflow where practical.
+4. **Existing Test Leverage**: Use `mcp_codegraph_codegraph_search` (for test files) or `mcp_codegraph_codegraph_context` to analyze existing tests for the component to emulate build patterns and mocking strategies.
+5. **Independent Management**: Use the local formatter, linter, and build tools where available.
+6. **No Guessing**: Read the relevant implementation of any function or class you use. Prefer `mcp_codegraph_codegraph_node` or `mcp_codegraph_codegraph_node` for targeted reading over broad `Read`.
+7. **Bounded Changes**: Keep changes scoped, reversible, and easy to verify.
 
 ### Implementer Constraints
 - **Stack Trace Hook**: Before reading large log files, you MUST run `Bash("python3 .claude/scripts/extract_stacktrace.py <logfile>")` to minimize context usage.
 - **Token Efficiency**: Prioritize `codegraph` structural tools over `Read` or `Grep` for discovery.
 - Prefer targeted search instead of broad scans.
 - Sequential execution is preferred when validating changes.
-- Do not attempt architecture or planning redesigns. If execution fails fundamentally, write findings to `docs/reference/{design_doc}_failure_report.md` and halt.
+- Do not attempt architecture or planning redesigns. If execution fails fundamentally, append findings, stack traces, and required fixes to the 'Current Blockers' section of .claude/docs/inprogress/{design_name}-progress.md and halt.
 
 ### Document State Tracking Integration (Implementer)
 When beginning implementation of a design from the design registry:
-1. **Find the Design Entry**: Read `docs/manifest.json` and locate the design you're implementing
+1. **Find the Design Entry**: Read `.claude/docs/manifest.json` and locate the design you're implementing
 2. **Update Manifest State**: Change the design entry's state from "proposed" to "inprogress" and set:
    - `inprogress_since`: ISO8601 timestamp of when you started work
-   - `progress_doc_path`: "docs/inprogress/{design_name}-progress.md" (where you'll track progress)
-3. **Create Progress Document**: Create `docs/inprogress/{design_name}-progress.md` that mirrors the design document structure
+   - `progress_doc_path`: ".claude/docs/inprogress/{design_name}-progress.md" (where you'll track progress)
+3. **Create Progress Document**: Create `.claude/docs/inprogress/{design_name}-progress.md` that mirrors the design document structure
 4. **Progress Document Structure**:
    ```markdown
    # {Design Name} - Progress Tracking
@@ -119,11 +120,11 @@ When using a question tool, you must follow these UX constraints:
 - Artifact-based questions: for questions involving large context, first generate an intermediate markdown artifact and then ask a short question with a markdown link to the artifact.
 
 ### Output Format
-When finished, maintain `docs/inprogress/{design_name}-progress.md` with the following:
+When finished, maintain `.claude/docs/inprogress/{design_name}-progress.md` with the following:
 1. `Summary`: Overview of changes.
 2. `Verified`: Evidence of passing tests and builds.
 3. `NextSteps`: Any follow-up or remaining risks.
-If execution fails fundamentally, write findings to `docs/reference/{design_doc}_failure_report.md` and halt.
+If execution fails fundamentally, append findings, stack traces, and required fixes to the 'Current Blockers' section of .claude/docs/inprogress/{design_name}-progress.md and halt.
 
 ### DDD: Test From Outside
 IMPLEMENTATION MANDATE:
@@ -144,8 +145,3 @@ customization_config:
         - reviewer
         - verifier
 ```
-
-### STRICT INVARIANTS (Ghost Injection)
-*   **Single Unified Artifact:** Do not generate separate design and implementation documents. Design decisions and execution steps must be consolidated into a single, deterministic artifact.
-*   **TDD First:** All feature intent must be testable. An implementation plan is only valid if it includes the criteria for a failing test (Red phase) that proves the issue/feature intent.
-*   **Static Subagent Boundaries:** Subagents (like linters or security auditors) must never mutate business logic or architecture outside their strict, predefined roles.

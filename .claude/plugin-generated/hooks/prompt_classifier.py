@@ -83,7 +83,7 @@ def main():
         current_phase = routing_decision.get("phase", "Unknown")
         artifacts_missing = routing_decision.get("artifacts_missing", [])
         auth_msg = routing_decision.get("auth_msg", "")
-        target_agent = routing_decision.get("target_agent", "@generalist")
+        target_agent = routing_decision.get("target_agent", "@implementer")
 
         try:
             from harness.runtime.context_builder import build_context

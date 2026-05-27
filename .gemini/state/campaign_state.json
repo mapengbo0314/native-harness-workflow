@@ -1,0 +1,38 @@
+{
+  "sessions": {
+    "default": {
+      "active_persona": "architect"
+    },
+    "92997": {
+      "active_persona": "planner"
+    },
+    "c1d4af70-7557-49c7-bb1b-d058f515837d": {
+      "active_persona": "diagnose"
+    },
+    "c6a2efa9-7068-4fa8-bcdb-20e6e78755e6": {
+      "active_persona": "architect"
+    },
+    "98078b82-8702-4f74-8eb1-bf303e74f719": {
+      "active_persona": "planner"
+    },
+    "c707c184-a4d1-48f6-89ed-4dea1b0f80a6": {
+      "active_persona": "diagnose"
+    },
+    "6218a309-4e4c-40a6-9c17-07814ecb9c64": {
+      "active_persona": "planner"
+    },
+    "40c7fd0e-7c9a-4c4e-8ea7-56d12091aec6": {
+      "active_persona": "planner"
+    },
+    "1193c6ba-bd01-4be4-98f2-8e220149eae0": {
+      "active_persona": "implementer"
+    },
+    "9a87c5b1-4817-4e3c-9b06-7cc07996e47f": {
+      "active_persona": "planner"
+    },
+    "1db24c4e-e70a-4b31-9246-af38bf349ac6": {
+      "active_persona": "planner"
+    }
+  },
+  "active_persona": "planner"
+}

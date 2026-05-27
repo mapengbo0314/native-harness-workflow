@@ -86,6 +86,37 @@ def main():
         target_agent = routing_decision.get("target_agent", "@generalist")
 
         try:
+            from hook_common import resolve_plugin_root, get_session_id
+            state_dir = resolve_plugin_root() / "state"
+            state_dir.mkdir(exist_ok=True)
+            state_file = state_dir / "campaign_state.json"
+            
+            state_data = {}
+            if state_file.exists():
+                try:
+                    with open(state_file, "r") as f:
+                        state_data = json.load(f)
+                except json.JSONDecodeError:
+                    pass
+                    
+            session_id = get_session_id()
+            
+            if "sessions" not in state_data:
+                state_data["sessions"] = {}
+                
+            if session_id not in state_data["sessions"]:
+                state_data["sessions"][session_id] = {}
+                
+            active_persona = target_agent.lstrip("@")
+            state_data["sessions"][session_id]["active_persona"] = active_persona
+            state_data["active_persona"] = active_persona
+            
+            with open(state_file, "w") as f:
+                json.dump(state_data, f, indent=2)
+        except Exception as e:
+            print(f"DEBUG: Failed to save campaign state: {e}", file=sys.stderr)
+
+        try:
             from harness.runtime.context_builder import build_context
             system_state = build_context(
                 phase=current_phase,

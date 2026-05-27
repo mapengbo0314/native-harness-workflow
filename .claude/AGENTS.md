@@ -20,17 +20,17 @@ The system provides the following specialized subagents. You must use them accor
 
 ### @planner
 - **Description**: The specialized tool for breaking down a design into a detailed, step-by-step plan before execution.
-- **Strict Mandate**: You MUST append your new designs to `docs/manifest.json` with `state=proposed` when finished. Do not write production code.
+- **Strict Mandate**: You MUST append your new designs to `.claude/docs/manifest.json` with `state=proposed` when finished. Do not write production code.
 - **Toolset Boundaries**: Read-only + Web Search + Shell.
 
 ### @implementer
 - **Description**: The specialized tool for TDD execution and production code changes.
-- **Strict Mandate**: Execute the provided plan. Move the target design from `proposed` to `inprogress` in `docs/manifest.json` and maintain `docs/inprogress/{design_name}-progress.md`. If execution fails fundamentally, write findings to `docs/reference/{design_doc}_failure_report.md` and halt. Do not request review; simply execute and verify locally.
+- **Strict Mandate**: Execute the provided plan. Move the target design from `proposed` to `inprogress` in `.claude/docs/manifest.json` and maintain `.claude/docs/inprogress/{design_name}-progress.md`. If execution fails fundamentally, write findings to `.claude/docs/reference/{design_doc}_failure_report.md` and halt. Do not request review; simply execute and verify locally.
 - **Toolset Boundaries**: Full file system access (Read/Write/Replace) + Shell + Git.
 
 ### @reviewer
 - **Description**: Senior Software Engineer for identifying issues and ensuring high standards.
-- **Strict Mandate**: Review the implementation against the plan and coding standards. Validate the progress doc and move state to `completed` in `docs/manifest.json` on PASS, or write failure reports to `docs/reference/` on FAIL. Do not automatically fix the code yourself.
+- **Strict Mandate**: Review the implementation against the plan and coding standards. Validate the progress doc and move state to `completed` in `.claude/docs/manifest.json` on PASS, or write failure reports to `.claude/docs/reference/` on FAIL. Do not automatically fix the code yourself.
 - **Toolset Boundaries**: Read-only + Shell.
 
 ### @adversary

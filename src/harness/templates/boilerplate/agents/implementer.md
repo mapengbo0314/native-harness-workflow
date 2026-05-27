@@ -42,30 +42,30 @@ You MUST invoke the `harness-test-driven-development` and `systematic-debugging`
 3. Ensure all changes strictly adhere to the provided plan.
 
 ### Implementer Instructions
-1. **Analyze Plan**: Parse the execution plan and constraints. Update `docs/manifest.json`: change state from `proposed` to `inprogress`.
-2. Create a **progress document** at `docs/inprogress/{design_name}-progress.md`.
-3. **TDD Cycle**: Follow a red-green-refactor style workflow where practical.
-4. **Existing Test Leverage**: Use `mcp_codegraph_codegraph_search` (for test files) or `mcp_codegraph_codegraph_context` to analyze existing tests for the component to emulate build patterns and mocking strategies.
-5. **Independent Management**: Use the local formatter, linter, and build tools where available.
-6. **No Guessing**: Read the relevant implementation of any function or class you use. Prefer `mcp_codegraph_codegraph_node` or `mcp_codegraph_codegraph_node` for targeted reading over broad `read_file`.
-7. **Bounded Changes**: Keep changes scoped, reversible, and easy to verify.
+1. **Analyze Plan**: Parse the execution plan and constraints.
+2. **TDD Cycle**: Follow a red-green-refactor style workflow where practical.
+3. **Existing Test Leverage**: Use `mcp_codegraph_codegraph_search` (for test files) or `mcp_codegraph_codegraph_context` to analyze existing tests for the component to emulate build patterns and mocking strategies.
+4. **Independent Management**: Use the local formatter, linter, and build tools where available.
+5. **No Guessing**: Read the relevant implementation of any function or class you use. Prefer `mcp_codegraph_codegraph_node` or `mcp_codegraph_codegraph_node` for targeted reading over broad `read_file`.
+6. **Bounded Changes**: Keep changes scoped, reversible, and easy to verify.
 
 ### Implementer Constraints
 - **Stack Trace Hook**: Before reading large log files, you MUST run `run_shell_command("python3 <!--$HARNESS_DIR$-->/scripts/extract_stacktrace.py <logfile>")` to minimize context usage.
 - **Token Efficiency**: Prioritize `codegraph` structural tools over `read_file` or `grep_search` for discovery.
 - Prefer targeted search instead of broad scans.
 - Sequential execution is preferred when validating changes.
-- Do not attempt architecture or planning redesigns. If execution fails fundamentally, append findings, stack traces, and required fixes to the 'Current Blockers' section of docs/inprogress/{design_name}-progress.md and halt.
+- Do not attempt architecture or planning redesigns. If execution fails fundamentally, append findings, stack traces, and required fixes to the 'Current Blockers' section of <!--$HARNESS_DIR$-->/docs/progress/{design_name}-progress.md and halt.
 
-### Document State Tracking Integration (Implementer)
-When beginning implementation of a design from the design registry:
-1. **Find the Design Entry**: Read `docs/manifest.json` and locate the design you're implementing
-2. **Update Manifest State**: Change the design entry's state from "proposed" to "inprogress" and set:
-   - `inprogress_since`: ISO8601 timestamp of when you started work
-   - `progress_doc_path`: "docs/inprogress/{design_name}-progress.md" (where you'll track progress)
-3. **Create Progress Document**: Create `docs/inprogress/{design_name}-progress.md` that mirrors the design document structure
-4. **Progress Document Structure**:
+### Externalized Context Management
+*Conditional Requirement: ONLY required if you are provided with a design document from `docs/designs/`. Skip this section if performing an ad-hoc or surgical edit.*
+
+1. **Update Design Status**: Read the design doc at `<!--$HARNESS_DIR$-->/docs/designs/{design_name}.md` and update its frontmatter `Status` from `Proposed` to `In Progress`. Add a new field `Started: {ISO8601}`.
+2. **Create Progress Document**: Create `<!--$HARNESS_DIR$-->/docs/progress/{design_name}-progress.md` that mirrors the design document structure.
+3. **Progress Document Structure**:
    ```markdown
+   ---
+   Status: In Progress
+   ---
    # {Design Name} - Progress Tracking
    
    ## Completed
@@ -82,11 +82,7 @@ When beginning implementation of a design from the design registry:
    - [ ] Section/Task 3
    - [ ] Section/Task 4
    ```
-5. **Update Progress Document**: As you complete milestones, update the progress doc to track:
-   - What's been completed (move items from Remaining to Completed)
-   - Current blockers
-   - What remains
-6. **Context Externalization**: The progress document externalizes your context, making it easy to resume work after a context reset or agent handoff
+4. **Update Progress Document**: As you complete milestones, update the progress doc to track what is done, blockers, and what remains.
 
 This ensures the verifier can validate progress against the design spec, and context is preserved across sessions.
 
@@ -109,11 +105,11 @@ When using a question tool, you must follow these UX constraints:
 - Artifact-based questions: for questions involving large context, first generate an intermediate markdown artifact and then ask a short question with a markdown link to the artifact.
 
 ### Output Format
-When finished, maintain `docs/inprogress/{design_name}-progress.md` with the following:
+When finished, maintain `<!--$HARNESS_DIR$-->/docs/progress/{design_name}-progress.md` with the following:
 1. `Summary`: Overview of changes.
 2. `Verified`: Evidence of passing tests and builds.
 3. `NextSteps`: Any follow-up or remaining risks.
-If execution fails fundamentally, append findings, stack traces, and required fixes to the 'Current Blockers' section of docs/inprogress/{design_name}-progress.md and halt.
+If execution fails fundamentally, append findings, stack traces, and required fixes to the 'Current Blockers' section of <!--$HARNESS_DIR$-->/docs/progress/{design_name}-progress.md and halt.
 
 ### DDD: Test From Outside
 IMPLEMENTATION MANDATE:

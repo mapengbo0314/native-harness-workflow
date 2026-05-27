@@ -28,13 +28,13 @@ Valid state transitions:
 
 ### Before Creating a Design
 
-1. Check `docs/manifest.json` to ensure your design doesn't duplicate existing work.
+1. Check `.claude/docs/manifest.json` to ensure your design doesn't duplicate existing work.
 2. Verify the design is not already in `proposed/`, `inprogress/`, or `completed/` states.
 
 ### After Design Completion
 
-1. Place the design document in `docs/proposed/{design_name}.md`.
-2. Add an entry to `docs/manifest.json` with state `proposed`.
+1. Place the design document in `.claude/docs/proposed/{design_name}.md`.
+2. Add an entry to `.claude/docs/manifest.json` with state `proposed`.
 
 ### Example Manifest Entry (Proposed)
 
@@ -53,9 +53,9 @@ Valid state transitions:
 
 ### Upon Starting Implementation
 
-1. Move the design from `docs/proposed/{design_name}.md` to `docs/inprogress/{design_name}.md`.
-2. Create a **progress document** at `docs/inprogress/{design_name}-progress.md`.
-3. Update `docs/manifest.json`:
+1. Move the design from `.claude/docs/proposed/{design_name}.md` to `.claude/docs/inprogress/{design_name}.md`.
+2. Create a **progress document** at `.claude/docs/inprogress/{design_name}-progress.md`.
+3. Update `.claude/docs/manifest.json`:
    - Change state from `proposed` to `inprogress`
    - Set `inprogress_since` to current ISO8601 timestamp
    - Set `progress_doc_path` to `inprogress/{design_name}-progress.md`
@@ -110,8 +110,8 @@ Progress documents externalize implementation context. If a context reset occurs
 
 ### Verification Workflow
 
-1. **Read the design spec** from `docs/inprogress/{design_name}.md`.
-2. **Review the progress document** at `docs/inprogress/{design_name}-progress.md`.
+1. **Read the design spec** from `.claude/docs/inprogress/{design_name}.md`.
+2. **Review the progress document** at `.claude/docs/inprogress/{design_name}-progress.md`.
 3. **Compare requirements against completion**:
    - Verify all design sections are marked complete in progress doc
    - Confirm implementation adheres to specification
@@ -119,9 +119,9 @@ Progress documents externalize implementation context. If a context reset occurs
 
 ### On PASS: State Transition to Completed
 
-1. Move design from `docs/inprogress/{design_name}.md` to `docs/completed/{design_name}.md`.
-2. Move progress doc from `docs/inprogress/{design_name}-progress.md` to `docs/reference/{design_name}-progress.md`.
-3. Update `docs/manifest.json`:
+1. Move design from `.claude/docs/inprogress/{design_name}.md` to `docs/completed/{design_name}.md`.
+2. Move progress doc from `.claude/docs/inprogress/{design_name}-progress.md` to `.claude/docs/reference/{design_name}-progress.md`.
+3. Update `.claude/docs/manifest.json`:
    - Change state from `inprogress` to `completed`
    - Keep `inprogress_since` (immutable timestamp for history)
    - Update `progress_doc_path` to `reference/{design_name}-progress.md`

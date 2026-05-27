@@ -87,6 +87,37 @@ def main():
         manifest_state = routing_decision.get("manifest_state", None)
 
         try:
+            from hook_common import resolve_plugin_root, get_session_id
+            state_dir = resolve_plugin_root() / "state"
+            state_dir.mkdir(exist_ok=True)
+            state_file = state_dir / "campaign_state.json"
+            
+            state_data = {}
+            if state_file.exists():
+                try:
+                    with open(state_file, "r") as f:
+                        state_data = json.load(f)
+                except json.JSONDecodeError:
+                    pass
+                    
+            session_id = get_session_id()
+            
+            if "sessions" not in state_data:
+                state_data["sessions"] = {}
+                
+            if session_id not in state_data["sessions"]:
+                state_data["sessions"][session_id] = {}
+                
+            active_persona = target_agent.lstrip("@")
+            state_data["sessions"][session_id]["active_persona"] = active_persona
+            state_data["active_persona"] = active_persona
+            
+            with open(state_file, "w") as f:
+                json.dump(state_data, f, indent=2)
+        except Exception as e:
+            print(f"DEBUG: Failed to save campaign state: {e}", file=sys.stderr)
+
+        try:
             from harness.runtime.context_builder import build_context
             system_state = build_context(
                 phase=current_phase,
@@ -102,8 +133,8 @@ def main():
             if current_phase != "Unknown":
                 system_state = f"\n\n=== SYSTEM STATE ===\nActive Branch: {branch}\nCurrent Phase: {current_phase}\nTarget Agent: {target_agent}\nArtifacts Missing: {', '.join(artifacts_missing) if artifacts_missing else 'None'}\nAuthorization: {auth_msg}\n"
                 if manifest_state and branch == "B":
-                    system_state += f"Proposed Designs: {', '.join(manifest_state.get('proposed', [])) or 'None'}\n"
-                    system_state += f"In-Progress Designs: {', '.join(manifest_state.get('inprogress', [])) or 'None'}\n"
+                    system_state += f"Proposed Designs: {', '.join(manifest_state.get('designs_found', [])) or 'None'}\n"
+                    system_state += f"In-Progress Designs: {', '.join(manifest_state.get('progress_found', [])) or 'None'}\n"
                 system_state += "====================\n"
             
         hook_event_name = input_data.get("hookEventName") or input_data.get("hook_event_name", "UserPromptSubmit")
