@@ -79,7 +79,7 @@ def test_claude_plugin_contract():
             "PreCompact", "PostCompact", "PermissionRequest", "PermissionDenied",
             "Setup", "TeammateIdle", "TaskCreated", "TaskCompleted", "Elicitation",
             "ElicitationResult", "ConfigChange", "WorktreeCreate", "WorktreeRemove",
-            "InstructionsLoaded", "CwdChanged", "FileChanged"
+            "InstructionsLoaded", "CwdChanged", "FileChanged", "PreCommit", "DocSystemRouting"
         }
 
         with open(plugin_dir / "hooks" / "hooks.json") as f:

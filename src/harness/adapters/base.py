@@ -65,3 +65,8 @@ class PlatformAdapter(ABC):
     def get_agent_manifest_format(self) -> str:
         """Determines if agents are rendered as standalone markdown files or combined Codex YAML."""
         pass
+
+    @abstractmethod
+    def format_hook_response(self, original_prompt: str, routing_decision: dict, context_extension: str, hook_event_name: str) -> dict:
+        """Formats the final JSON output for the prompt classifier hook."""
+        pass

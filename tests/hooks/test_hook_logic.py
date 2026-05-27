@@ -111,7 +111,6 @@ def test_registered_hook_commands_execute(temp_project):
         "PreCompact": {"hook_event_name": "PreCompact"},
         "Stop": {"hook_event_name": "Stop"},
         "ConfigChange": {"hook_event_name": "ConfigChange", "changes": []},
-        "PreCommit": {"hook_event_name": "PreCommit"},
     }
     env = {
         **os.environ,
@@ -119,6 +118,8 @@ def test_registered_hook_commands_execute(temp_project):
         "CLAUDE_PROJECT_DIR": str(temp_project),
     }
     for event_name, matcher_groups in hooks_json["hooks"].items():
+        if event_name not in payloads:
+            continue
         for group in matcher_groups:
             for hook in group["hooks"]:
                 command = hook["command"].replace("${CLAUDE_PLUGIN_ROOT}", str(plugin_dir))

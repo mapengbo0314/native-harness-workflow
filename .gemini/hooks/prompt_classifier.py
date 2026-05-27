@@ -90,20 +90,36 @@ def main():
             system_state = f"\n\n=== SYSTEM STATE ===\nActive Branch: {branch}\nCurrent Phase: {current_phase}\nTarget Agent: {target_agent}\nArtifacts Missing: {', '.join(artifacts_missing) if artifacts_missing else 'None'}\nAuthorization: {auth_msg}\n====================\n"
             
         hook_event_name = input_data.get("hookEventName") or input_data.get("hook_event_name", "UserPromptSubmit")
-        # Output expected JSON format
-        output = {
-            "classification": branch, 
-            "reason": reason,
-            "modifiedPrompt": prompt + system_state,
-            "system_prompt_extension": system_state,
-            "target_agent": target_agent,
-            "hookSpecificOutput": {
-                "hookEventName": hook_event_name,
-                "systemPromptExtension": system_state,
+        
+        routing_decision["classification"] = branch
+        routing_decision["reason"] = reason
+
+        try:
+            from harness.adapters import get_adapter
+            platform_id = os.environ.get("HARNESS_PLATFORM_CLI", "generic")
+            adapter = get_adapter(platform_id)
+            output = adapter.format_hook_response(
+                original_prompt=prompt,
+                routing_decision=routing_decision,
+                context_extension=system_state,
+                hook_event_name=hook_event_name
+            )
+        except Exception as e:
+            print(f"DEBUG: Adapter formatting failed: {e}", file=sys.stderr)
+            output = {
+                "classification": branch, 
+                "reason": reason,
                 "modifiedPrompt": prompt + system_state,
-                "target_agent": target_agent
+                "system_prompt_extension": system_state,
+                "target_agent": target_agent,
+                "hookSpecificOutput": {
+                    "hookEventName": hook_event_name,
+                    "systemPromptExtension": system_state,
+                    "modifiedPrompt": prompt + system_state,
+                    "target_agent": target_agent
+                }
             }
-        }
+            
         print(json.dumps(output))
         sys.exit(0)
     except SystemExit:

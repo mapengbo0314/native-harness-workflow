@@ -9,28 +9,6 @@
           }
         ]
       }
-    ],
-    "PreCommit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash ./hooks/doc-manifest-validator.sh",
-            "description": "Validate doc-system manifest.json integrity and state transitions"
-          }
-        ]
-      }
-    ],
-    "DocSystemRouting": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash ./hooks/doc-state-router.sh json",
-            "description": "Query manifest.json for document states to inform routing decisions"
-          }
-        ]
-      }
     ]
   }
 }

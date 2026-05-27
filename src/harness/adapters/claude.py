@@ -112,3 +112,26 @@ class ClaudeAdapter(PlatformAdapter):
 
     def get_agent_manifest_format(self) -> str:
         return "markdown"
+
+    def format_hook_response(self, original_prompt: str, routing_decision: dict, context_extension: str, hook_event_name: str) -> dict:
+        branch = routing_decision.get("classification")
+        reason = routing_decision.get("reason")
+        target_agent = routing_decision.get("target_agent", "@generalist")
+
+        agent_name = target_agent.lstrip("@")
+        modified_prompt = f"Task tool (superpowers:{agent_name}):\\n{original_prompt}" if target_agent else original_prompt
+        modified_prompt += context_extension
+
+        return {
+            "classification": branch,
+            "reason": reason,
+            "modifiedPrompt": modified_prompt,
+            "system_prompt_extension": context_extension,
+            "target_agent": target_agent,
+            "hookSpecificOutput": {
+                "hookEventName": hook_event_name,
+                "systemPromptExtension": context_extension,
+                "modifiedPrompt": modified_prompt,
+                "target_agent": target_agent
+            }
+        }
