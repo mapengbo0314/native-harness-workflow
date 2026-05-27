@@ -1,4 +1,4 @@
-def build_context(phase: str, target_agent: str, auth_msg: str, branch: str, artifacts_missing: list) -> str:
+def build_context(phase: str, target_agent: str, auth_msg: str, branch: str, artifacts_missing: list[str]) -> str:
     if phase == "Unknown":
         return ""
         
