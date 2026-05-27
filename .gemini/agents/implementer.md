@@ -58,7 +58,7 @@ You MUST invoke the `harness-test-driven-development` and `systematic-debugging`
 3. Ensure all changes strictly adhere to the provided plan.
 
 ### Implementer Instructions
-1. **Analyze Plan**: Parse the execution plan and constraints.
+1. **Analyze Plan**: Parse the execution plan and constraints. Move the design from `proposed` to `inprogress` in `docs/manifest.json`.
 2. **TDD Cycle**: Follow a red-green-refactor style workflow where practical.
 3. **Existing Test Leverage**: Use `mcp_codegraph_codegraph_search` (for test files) or `mcp_codegraph_codegraph_context` to analyze existing tests for the component to emulate build patterns and mocking strategies.
 4. **Independent Management**: Use the local formatter, linter, and build tools where available.
@@ -121,4 +121,4 @@ customization_config:
 *   **Workflow Orchestration:** The system is fundamentally a workflow orchestration engine.
 *   **Execution Environment (Harness):** All tasks are managed and executed within a defined harness.
 *   **Design as Code (DAC):** Design principles are intended to be implemented and managed via code.
-*   **Phased Development:** The project lifecycle is structured around distinct design phases.
+*   **Phased Development:** The project lifecycle is structured around distinct design phases.structured around distinct design phases.

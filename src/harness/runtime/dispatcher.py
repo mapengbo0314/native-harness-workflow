@@ -190,33 +190,22 @@ Return the result as JSON:
         artifacts_missing = []
         target_agent = "@generalist"
         auth_msg = ""
-        
-        DIAGNOSIS_REPORT_PATH = "artifacts/diagnosis_report.md"
-        IMPLEMENTATION_PLAN_PATH = "artifacts/implementation_plan.md"
-        TDD_FAILING_TEST_PATH = "artifacts/tdd_failing_test.log"
-        
-        def check_diagnosis() -> Tuple[bool, str]:
-            p = project_root / DIAGNOSIS_REPORT_PATH
-            return p.exists(), DIAGNOSIS_REPORT_PATH
-            
-        def check_plan() -> Tuple[bool, str]:
-            p = project_root / IMPLEMENTATION_PLAN_PATH
-            has_plan = False
-            if p.exists():
-                content = p.read_text()
-                if "Verification Criteria" in content:
-                    has_plan = True
-            return has_plan, IMPLEMENTATION_PLAN_PATH
-            
-        def check_tdd() -> Tuple[bool, str]:
-            p = project_root / TDD_FAILING_TEST_PATH
-            has_log = False
-            if p.exists():
-                content = p.read_text()
-                if any(x in content for x in ["AssertionError", "FAILED", "Expected", "ModuleNotFoundError", "ImportError", "Traceback"]):
-                    if "SyntaxError" not in content:
-                        has_log = True
-            return has_log, TDD_FAILING_TEST_PATH
+
+        manifest_path = project_root / "docs" / "manifest.json"
+        has_proposed = False
+        has_inprogress = False
+
+        if manifest_path.exists():
+            try:
+                with open(manifest_path, 'r') as f:
+                    manifest = json.load(f)
+                    for doc in manifest.get("docs", []):
+                        if doc.get("state") == "inprogress":
+                            has_inprogress = True
+                        elif doc.get("state") == "proposed":
+                            has_proposed = True
+            except Exception:
+                pass
 
         if branch == "C":
             current_phase = "Read-Only"
@@ -227,33 +216,19 @@ Return the result as JSON:
             target_agent = "@implementer"
             auth_msg = "You are authorized for surgical edits. Bypass planner."
         else:
-            is_phase1_ok = True
-            if branch == "A":
-                is_phase1_ok, m = check_diagnosis()
-                if not is_phase1_ok:
-                    current_phase = "1 (Diagnosis)"
-                    artifacts_missing.append(m)
-                    target_agent = "@diagnose"
-                    auth_msg = "You are UNAUTHORIZED to modify any files. You MUST use read-only tools to diagnose the issue and output the diagnosis report."
-            
-            if is_phase1_ok:
-                is_phase3_ok, m = check_plan()
-                if not is_phase3_ok:
-                    current_phase = "3 (Planning)"
-                    artifacts_missing.append(m)
-                    target_agent = "@planner"
-                    auth_msg = "You are UNAUTHORIZED to write code or dispatch @implementer. You MUST dispatch @planner next."
-                else:
-                    is_phase4_ok, m = check_tdd()
-                    if not is_phase4_ok:
-                        current_phase = "4 (Pre-TDD)"
-                        artifacts_missing.append(m)
-                        target_agent = "@implementer"
-                        auth_msg = "You are UNAUTHORIZED to write production code. You MUST write a proof of concept test that fails under current circumstances first."
-                    else:
-                        current_phase = "4 (Execution authorized) or 5"
-                        target_agent = "@implementer"
-                        auth_msg = "You are authorized to execute. Test logs exist."
+            if has_inprogress:
+                current_phase = "Execution/TDD"
+                target_agent = "@implementer"
+                auth_msg = "You are authorized to execute. In-progress document exists."
+            elif has_proposed:
+                current_phase = "Planning"
+                target_agent = "@planner"
+                auth_msg = "You are UNAUTHORIZED to write code or dispatch @implementer. You MUST dispatch @planner next."
+            else:
+                current_phase = "Discovery"
+                target_agent = "@diagnose" if branch == "A" else "@planner"
+                auth_msg = "You are UNAUTHORIZED to modify any files. You MUST use read-only tools to diagnose the issue and output the diagnosis report." if branch == "A" else "You are UNAUTHORIZED to write code. You MUST dispatch @planner next."
+                artifacts_missing.append("docs/manifest.json")
 
         return {
             "phase": current_phase,

@@ -72,7 +72,7 @@ You MUST invoke the `harness-brainstorming-plans` superpower skill and attempt t
 - **Read-Only Protocol**: You are restricted to read-only and analysis tools. You must not modify source code or configurations.
 - **Build First**: When working in a new area, consult the relevant build and configuration files first to understand the system boundary.
 - **Architecture Awareness**: Use the mcp_codegraph_codegraph_node tool or `codegraph` tools to understand architecture before drafting the plan.
-- **Execution Boundaries**: A plan does not authorize implementation. You MUST write your final design to `artifacts/implementation_plan.md` and then halt.
+- **Execution Boundaries**: A plan does not authorize implementation. You MUST append your new designs to `docs/manifest.json` with `state=proposed` when finished, instead of saving to `artifacts/`.
 - **Goldfish Protocol**: Ensure your plans are stand-alone and verifiable by an agent with zero previous context.
 
 ### Planner Instructions

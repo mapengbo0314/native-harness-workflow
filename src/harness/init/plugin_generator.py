@@ -37,6 +37,16 @@ def generate_plugin_manifest(
         }
     }
 
+    hooks_json_path = hooks_dir / "hooks.json"
+    if hooks_json_path.exists():
+        try:
+            with open(hooks_json_path, 'r', encoding='utf-8') as f:
+                hooks_data = json.load(f)
+                if "hooks" in hooks_data:
+                    settings["hooks"] = hooks_data["hooks"]
+        except Exception as e:
+            print(f"[HARNESS] Warning: Could not read {hooks_json_path}: {e}")
+
     claude_plugin_dir = plugin_dir / ".claude-plugin"
     claude_plugin_dir.mkdir(parents=True, exist_ok=True)
     settings_path = claude_plugin_dir / "plugin.json"
