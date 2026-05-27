@@ -187,7 +187,7 @@ Return the result as JSON:
         """
         project_root = Path(project_root)
         current_phase = "Unknown"
-        artifacts_missing = []
+        missing_documents = []
         target_agent = "@generalist"
         auth_msg = ""
 
@@ -228,12 +228,12 @@ Return the result as JSON:
                 current_phase = "Discovery"
                 target_agent = "@diagnose" if branch == "A" else "@planner"
                 auth_msg = "You are UNAUTHORIZED to modify any files. You MUST use read-only tools to diagnose the issue and output the diagnosis report." if branch == "A" else "You are UNAUTHORIZED to write code. You MUST dispatch @planner next."
-                artifacts_missing.append("docs/manifest.json")
+                missing_documents.append("docs/manifest.json")
 
         return {
             "phase": current_phase,
             "target_agent": target_agent,
-            "artifacts_missing": artifacts_missing,
+            "missing_documents": missing_documents,
             "auth_msg": auth_msg
         }
 

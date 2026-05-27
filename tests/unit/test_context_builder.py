@@ -7,14 +7,14 @@ def test_build_context_base():
         target_agent="@generalist",
         auth_msg="Authorized",
         branch="A",
-        artifacts_missing=["docs/plan.md"]
+        missing_documents=["docs/plan.md"]
     )
     
     assert "=== SYSTEM STATE ===" in result
     assert "Active Branch: A" in result
     assert "Current Phase: 1 (Discovery)" in result
     assert "Target Agent: @generalist" in result
-    assert "Artifacts Missing: docs/plan.md" in result
+    assert "Missing Documents: docs/plan.md" in result
     assert "Authorization: Authorized" in result
     assert "JIT RULE:" not in result
 
@@ -24,7 +24,7 @@ def test_build_context_planning_jit():
         target_agent="@generalist",
         auth_msg="Authorized",
         branch="B",
-        artifacts_missing=[]
+        missing_documents=[]
     )
     
     assert "=== SYSTEM STATE ===" in result
@@ -36,7 +36,7 @@ def test_build_context_execution_jit():
         target_agent="@implementer",
         auth_msg="Authorized",
         branch="C",
-        artifacts_missing=[]
+        missing_documents=[]
     )
     
     assert "=== SYSTEM STATE ===" in result
@@ -48,7 +48,7 @@ def test_build_context_unknown_phase():
         target_agent="@generalist",
         auth_msg="",
         branch="Unknown",
-        artifacts_missing=[]
+        missing_documents=[]
     )
     
     assert result == ""
@@ -59,7 +59,7 @@ def test_build_context_no_missing_artifacts():
         target_agent="@generalist",
         auth_msg="",
         branch="A",
-        artifacts_missing=[]
+        missing_documents=[]
     )
     
-    assert "Artifacts Missing: None" in result
+    assert "Missing Documents: None" in result

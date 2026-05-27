@@ -1,15 +1,15 @@
-def build_context(phase: str, target_agent: str, auth_msg: str, branch: str, artifacts_missing: list[str]) -> str:
+def build_context(phase: str, target_agent: str, auth_msg: str, branch: str, missing_documents: list[str]) -> str:
     if phase == "Unknown":
         return ""
         
-    artifacts_str = ', '.join(artifacts_missing) if artifacts_missing else 'None'
+    documents_str = ', '.join(missing_documents) if missing_documents else 'None'
     
     system_state = (
         f"\n\n=== SYSTEM STATE ===\n"
         f"Active Branch: {branch}\n"
         f"Current Phase: {phase}\n"
         f"Target Agent: {target_agent}\n"
-        f"Artifacts Missing: {artifacts_str}\n"
+        f"Missing Documents: {documents_str}\n"
         f"Authorization: {auth_msg}\n"
     )
     

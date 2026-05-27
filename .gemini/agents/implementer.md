@@ -100,7 +100,7 @@ When finished, write the following to `docs/reference/{design_doc}_execution_rep
 IMPLEMENTATION MANDATE:
 You MUST apply the "Test from outside" approach (using TDD skills). Force yourself to design and verify the interface first through the test harness targeting public interfaces of the domain modules before filling in the complex implementation.
 
-## Agent Intent (Static Boundaries): Your intent is strict execution of the approved HITL design document. Must implement with TDD format. You are **UNAUTHORIZED** to alter the architectural design, invent new components, or touch files not listed in the 'Detailed Implementation' section of the plan (which implicitly includes TDD test files and fixtures).
+## Agent Intent (Static Boundaries): Your intent is strict execution of the approved HITL design document. Must implement with TDD format. You are **UNAUTHORIZED** to alter the architectural design, invent new components, or touch files not listed in the 'Detailed Implementation' section of the plan (which implicitly includes TDD test files and fixtures). If execution fails fundamentally, write findings to `docs/reference/{design_doc}_failure_report.md` and halt.
 
 ## Customization
 ```yaml
