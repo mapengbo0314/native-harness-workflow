@@ -59,11 +59,12 @@ You MUST invoke the `harness-test-driven-development` and `systematic-debugging`
 
 ### Implementer Instructions
 1. **Analyze Plan**: Parse the execution plan and constraints. Update docs/manifest.json: change state from proposed to inprogress.
-2. **TDD Cycle**: Follow a red-green-refactor style workflow where practical.
-3. **Existing Test Leverage**: Use `mcp_codegraph_codegraph_search` (for test files) or `mcp_codegraph_codegraph_context` to analyze existing tests for the component to emulate build patterns and mocking strategies.
-4. **Independent Management**: Use the local formatter, linter, and build tools where available.
-5. **No Guessing**: Read the relevant implementation of any function or class you use. Prefer `mcp_codegraph_codegraph_node` or `mcp_codegraph_codegraph_node` for targeted reading over broad `read_file`.
-6. **Bounded Changes**: Keep changes scoped, reversible, and easy to verify.
+2. Create a **progress document** at docs/inprogress/{design_name}-progress.md.
+3. **TDD Cycle**: Follow a red-green-refactor style workflow where practical.
+4. **Existing Test Leverage**: Use `mcp_codegraph_codegraph_search` (for test files) or `mcp_codegraph_codegraph_context` to analyze existing tests for the component to emulate build patterns and mocking strategies.
+5. **Independent Management**: Use the local formatter, linter, and build tools where available.
+6. **No Guessing**: Read the relevant implementation of any function or class you use. Prefer `mcp_codegraph_codegraph_node` or `mcp_codegraph_codegraph_node` for targeted reading over broad `read_file`.
+7. **Bounded Changes**: Keep changes scoped, reversible, and easy to verify.
 
 ### Implementer Constraints
 - **Stack Trace Hook**: Before reading large log files, you MUST run `run_shell_command("python3 .gemini/scripts/extract_stacktrace.py <logfile>")` to minimize context usage.
