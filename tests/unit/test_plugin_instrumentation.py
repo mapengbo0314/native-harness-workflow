@@ -21,7 +21,4 @@ def test_plugin_manifest_generation():
         # Check generated marketplace
         marketplace_path = tmp_project / ".claude" / ".claude-plugin" / "marketplace.json"
         assert marketplace_path.exists()
-        
-        # Check ddd-context.json is generated
-        assert (plugin_path / "ddd-context.json").exists()
 

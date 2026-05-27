@@ -38,14 +38,8 @@ def generate_plugin_manifest(
     }
 
     hooks_json_path = hooks_dir / "hooks.json"
-    if hooks_json_path.exists():
-        try:
-            with open(hooks_json_path, 'r', encoding='utf-8') as f:
-                hooks_data = json.load(f)
-                if "hooks" in hooks_data:
-                    settings["hooks"] = hooks_data["hooks"]
-        except Exception as e:
-            print(f"[HARNESS] Warning: Could not read {hooks_json_path}: {e}")
+    if not hooks_json_path.exists():
+        print(f"[HARNESS] Warning: Could not find {hooks_json_path}")
 
     claude_plugin_dir = plugin_dir / ".claude-plugin"
     claude_plugin_dir.mkdir(parents=True, exist_ok=True)
@@ -164,35 +158,6 @@ def export_agents_config(agents_dir: Path, config_dir: Path, logical_agents_dir:
     return str(export_path)
 
 
-def export_ddd_context(context_path: Path, config_dir: Path) -> str:
-    """Export DDD context from CONTEXT.md to ddd-context.json.
-
-    Args:
-        context_path: Path to docs/domain/CONTEXT.md
-        config_dir: Directory to export config to
-
-    Returns:
-        Path to exported ddd-context.json
-    """
-    config_dir = Path(config_dir)
-    config_dir.mkdir(parents=True, exist_ok=True)
-
-    ddd_context = {
-        "purpose": "",
-        "ubiquitous_language": {},
-        "strict_invariants": []
-    }
-
-    if context_path.exists():
-        with open(context_path, 'r') as f:
-            content = f.read()
-        ddd_context["source"] = content
-
-    export_path = config_dir / "ddd-context.json"
-    with open(export_path, 'w') as f:
-        json.dump(ddd_context, f, indent=2)
-
-    return str(export_path)
 
 
 def export_rules_config(rules_dir: Path, config_dir: Path) -> str:
@@ -317,11 +282,6 @@ def generate_orchestrator_plugin(
             export_agents_config(plugin_dir / "agents", config_dir, logical_agents_dir=logical_agents_dir)
         else:
             print(f"[HARNESS] Warning: No agents found to copy.")
-
-        # Export DDD context
-        context_path = project_path / "docs" / "domain" / "CONTEXT.md"
-        print(f"[HARNESS] Exporting DDD context from {context_path}...")
-        export_ddd_context(context_path, config_dir)
 
         render_plugin_readme(plugin_dir, bp_dir, fallback_bp_dir, project_name)
 

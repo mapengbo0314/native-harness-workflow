@@ -64,7 +64,6 @@ def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
         plugin_dir / "hooks" / "hooks.json",
         plugin_dir / "hooks" / "prompt_classifier.py",
         plugin_dir / "src" / "dispatcher.py",
-        plugin_dir / "ddd-context.json",
         plugin_dir / "agents",
         plugin_dir / "skills",
     ]
@@ -86,7 +85,6 @@ def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
     dispatcher_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(dispatcher_module)
 
-    json.loads((plugin_dir / "ddd-context.json").read_text(encoding="utf-8"))
     hooks_config = json.loads((plugin_dir / "hooks" / "hooks.json").read_text(encoding="utf-8"))
     for groups in hooks_config.get("hooks", {}).values():
         for group in groups:

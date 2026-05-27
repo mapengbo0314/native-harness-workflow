@@ -108,6 +108,9 @@ class ClaudeAdapter(PlatformAdapter):
         for command in commands:
             result = subprocess.run(command, cwd=project_path, capture_output=True, text=True, env=os.environ.copy())
             if result.returncode != 0:
+                if "already exists" in result.stderr or "already exists" in result.stdout:
+                    print(f"[HARNESS] Info: MCP server already registered for command: {' '.join(command)}")
+                    continue
                 raise Exception(f"CLI MCP registration failed: {' '.join(command)}\nError: {result.stderr}")
 
     def get_agent_manifest_format(self) -> str:
