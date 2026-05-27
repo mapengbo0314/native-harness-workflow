@@ -101,7 +101,7 @@ def main():
             system_state = ""
             if current_phase != "Unknown":
                 system_state = f"\n\n=== SYSTEM STATE ===\nActive Branch: {branch}\nCurrent Phase: {current_phase}\nTarget Agent: {target_agent}\nArtifacts Missing: {', '.join(artifacts_missing) if artifacts_missing else 'None'}\nAuthorization: {auth_msg}\n"
-                if manifest_state:
+                if manifest_state and branch == "B":
                     system_state += f"Proposed Designs: {', '.join(manifest_state.get('proposed', [])) or 'None'}\n"
                     system_state += f"In-Progress Designs: {', '.join(manifest_state.get('inprogress', [])) or 'None'}\n"
                 system_state += "====================\n"

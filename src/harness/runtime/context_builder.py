@@ -13,7 +13,7 @@ def build_context(phase: str, target_agent: str, auth_msg: str, branch: str, mis
         f"Authorization: {auth_msg}\n"
     )
     
-    if manifest_state:
+    if manifest_state and branch == "B":
         system_state += f"Proposed Designs: {', '.join(manifest_state.get('proposed', [])) or 'None'}\n"
         system_state += f"In-Progress Designs: {', '.join(manifest_state.get('inprogress', [])) or 'None'}\n"
     
