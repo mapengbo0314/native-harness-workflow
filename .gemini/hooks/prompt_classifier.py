@@ -85,9 +85,14 @@ def main():
         auth_msg = routing_decision.get("auth_msg", "")
         target_agent = routing_decision.get("target_agent", "@generalist")
 
-        system_state = ""
-        if current_phase != "Unknown":
-            system_state = f"\n\n=== SYSTEM STATE ===\nActive Branch: {branch}\nCurrent Phase: {current_phase}\nTarget Agent: {target_agent}\nArtifacts Missing: {', '.join(artifacts_missing) if artifacts_missing else 'None'}\nAuthorization: {auth_msg}\n====================\n"
+        from harness.runtime.context_builder import build_context
+        system_state = build_context(
+            phase=current_phase,
+            target_agent=target_agent,
+            auth_msg=auth_msg,
+            branch=branch,
+            artifacts_missing=artifacts_missing
+        )
             
         hook_event_name = input_data.get("hookEventName") or input_data.get("hook_event_name", "UserPromptSubmit")
         
@@ -129,5 +134,4 @@ def main():
         sys.exit(2)
 
 if __name__ == "__main__":
-    main()":
     main()
