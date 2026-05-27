@@ -26,24 +26,22 @@ def main():
         target_dir = docs_dir / state
         expected_path = target_dir / f"{name}.md"
         
-        # If the file is already in the right place, skip
-        if expected_path.exists():
-            continue
-            
-        # Look for it in other state directories
-        for other_state in ["proposed", "inprogress", "completed", "reference"]:
-            if other_state == state:
-                continue
-            
-            wrong_path = docs_dir / other_state / f"{name}.md"
-            if wrong_path.exists():
-                print(f"[DocSync] Moving {wrong_path.relative_to(project_root)} to {expected_path.relative_to(project_root)}")
-                # Use git mv to preserve history if tracked
-                try:
-                    subprocess.run(["git", "mv", str(wrong_path), str(expected_path)], check=True, capture_output=True)
-                except subprocess.CalledProcessError:
-                    # Fallback to normal mv if not tracked by git
-                    wrong_path.rename(expected_path)
+        # If the file is not in the right place, find and move it
+        if not expected_path.exists():
+            # Look for it in other state directories
+            for other_state in ["proposed", "inprogress", "completed", "reference"]:
+                if other_state == state:
+                    continue
+                
+                wrong_path = docs_dir / other_state / f"{name}.md"
+                if wrong_path.exists():
+                    print(f"[DocSync] Moving {wrong_path.relative_to(project_root)} to {expected_path.relative_to(project_root)}")
+                    # Use git mv to preserve history if tracked
+                    try:
+                        subprocess.run(["git", "mv", str(wrong_path), str(expected_path)], check=True, capture_output=True)
+                    except subprocess.CalledProcessError:
+                        # Fallback to normal mv if not tracked by git
+                        wrong_path.rename(expected_path)
                     
         # Handle progress docs for 'completed' state
         progress_path = doc.get("progress_doc_path")
