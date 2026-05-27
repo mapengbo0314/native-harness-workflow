@@ -55,6 +55,26 @@ You MUST invoke the `verification-before-completion` superpower skill. Follow it
 - code correctness and consistency
 - regression risk
 
+### Document State Tracking Integration (Verifier)
+When completing verification of an implementation:
+1. **Find the Design Entry**: Read `docs/manifest.json` and locate the design that was implemented
+2. **Read the Progress Document**: Open the progress doc at the path listed in the manifest entry (e.g., `docs/inprogress/{design_name}-progress.md`)
+3. **Validate Completion**: Compare the progress document against the original design specification
+   - Verify all required sections from the design are marked as completed
+   - Check that all design requirements have implementation evidence
+   - Confirm no blockers remain unsolved
+4. **On PASS (All Requirements Met)**:
+   - Update manifest entry: change state from "inprogress" to "completed"
+   - Move progress document from `docs/inprogress/` to `docs/reference/` for archival
+   - This signals to the orchestrator that the design work is done
+5. **On FAIL (Requirements Not Met)**:
+   - Return findings to the Implementer with specific gaps identified
+   - Do NOT update the manifest state
+   - Implementer will fix gaps and update progress doc
+   - Verifier will re-check until PASS
+
+This ensures quality gates are applied and design work is properly tracked through completion.
+
 ## Agent Intent (Static Boundaries): Your intent is edge-case testing and binary (pass/fail) verification of the design doc criteria. You are **UNAUTHORIZED** to modify source code.
 
 ## Customization

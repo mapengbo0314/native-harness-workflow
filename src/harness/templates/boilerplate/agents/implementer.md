@@ -56,6 +56,39 @@ You MUST invoke the `harness-test-driven-development` and `systematic-debugging`
 - Sequential execution is preferred when validating changes.
 - Do not attempt architecture or planning redesigns. If the provided plan is fundamentally flawed or ambiguous, push back to the orchestrator or planner for clarification instead of improvising.
 
+### Document State Tracking Integration (Implementer)
+When beginning implementation of a design from the design registry:
+1. **Find the Design Entry**: Read `docs/manifest.json` and locate the design you're implementing
+2. **Update Manifest State**: Change the design entry's state from "proposed" to "inprogress" and set:
+   - `inprogress_since`: ISO8601 timestamp of when you started work
+   - `progress_doc_path`: "docs/inprogress/{design_name}-progress.md" (where you'll track progress)
+3. **Create Progress Document**: Create `docs/inprogress/{design_name}-progress.md` that mirrors the design document structure
+4. **Progress Document Structure**:
+   ```markdown
+   # {Design Name} - Progress Tracking
+   
+   ## Completed
+   - [ ] Section/Task 1
+   - [ ] Section/Task 2
+   
+   ## In Progress
+   - Task being worked on now
+   
+   ## Blockers
+   - Any blockers encountered
+   
+   ## Remaining
+   - [ ] Section/Task 3
+   - [ ] Section/Task 4
+   ```
+5. **Update Progress Document**: As you complete milestones, update the progress doc to track:
+   - What's been completed (move items from Remaining to Completed)
+   - Current blockers
+   - What remains
+6. **Context Externalization**: The progress document externalizes your context, making it easy to resume work after a context reset or agent handoff
+
+This ensures the verifier can validate progress against the design spec, and context is preserved across sessions.
+
 ### Scratchpad Template
 ## Progress
 - Task Step 1

@@ -84,6 +84,31 @@ You MUST invoke the `harness-brainstorming-plans` superpower skill and attempt t
 - Every step must be actionable and scoped.
 - Use investigation tools when standard inspection is insufficient.
 
+### Document State Tracking Integration (Planner)
+When creating a new design plan:
+1. **Check for Duplicates**: Before proposing a new design, read `docs/manifest.json` to see if a similar design already exists
+2. **Register New Designs**: After your design spec is complete, you MUST add an entry to `docs/manifest.json` with:
+   - `name`: design document name
+   - `state`: "proposed" (always for new designs)
+   - `created_date`: ISO8601 timestamp (e.g., "2026-05-26T14:30:00Z")
+   - `inprogress_since`: null (set only when implementation starts)
+   - `progress_doc_path`: null (set only when implementation starts)
+   - `description`: one-line description of the design
+3. **Manifest Entry Example**:
+   ```json
+   {
+     "name": "feature-x-design",
+     "state": "proposed",
+     "created_date": "2026-05-26T14:30:00Z",
+     "inprogress_since": null,
+     "progress_doc_path": null,
+     "description": "Add user authentication with OAuth2 support"
+   }
+   ```
+4. **Place Design Spec**: Save the design document to `docs/proposed/{design_name}.md`
+
+This ensures all design work is tracked and visible to the orchestrator and implementer.
+
 ### Scratchpad Template
 # Scratchpad
 
