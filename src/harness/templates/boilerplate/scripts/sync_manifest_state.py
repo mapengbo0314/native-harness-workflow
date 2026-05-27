@@ -3,6 +3,18 @@ import json
 import subprocess
 from pathlib import Path
 
+def move_tracked_file(src: Path, dest: Path, project_root: Path, action: str = "Moving"):
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    print(f"[DocSync] {action} {src.relative_to(project_root)} to {dest.relative_to(project_root)}")
+    try:
+        try:
+            subprocess.run(["git", "mv", str(src), str(dest)], check=True, capture_output=True)
+        except subprocess.CalledProcessError:
+            # Fallback to normal mv if not tracked by git
+            src.rename(dest)
+    except Exception as e:
+        print(f"[DocSync] Warning: Failed to move {src} to {dest}: {e}")
+
 def main():
     project_root = Path.cwd()
     docs_dir = project_root / "docs"
@@ -35,13 +47,7 @@ def main():
                 
                 wrong_path = docs_dir / other_state / f"{name}.md"
                 if wrong_path.exists():
-                    print(f"[DocSync] Moving {wrong_path.relative_to(project_root)} to {expected_path.relative_to(project_root)}")
-                    # Use git mv to preserve history if tracked
-                    try:
-                        subprocess.run(["git", "mv", str(wrong_path), str(expected_path)], check=True, capture_output=True)
-                    except subprocess.CalledProcessError:
-                        # Fallback to normal mv if not tracked by git
-                        wrong_path.rename(expected_path)
+                    move_tracked_file(wrong_path, expected_path, project_root)
                     
         # Handle progress docs for 'completed' state
         progress_path = doc.get("progress_doc_path")
@@ -52,11 +58,7 @@ def main():
             expected_prog_path = docs_dir / new_prog_rel
             
             if wrong_prog_path.exists():
-                print(f"[DocSync] Archiving progress doc {wrong_prog_path.relative_to(project_root)} to {expected_prog_path.relative_to(project_root)}")
-                try:
-                    subprocess.run(["git", "mv", str(wrong_prog_path), str(expected_prog_path)], check=True, capture_output=True)
-                except subprocess.CalledProcessError:
-                    wrong_prog_path.rename(expected_prog_path)
+                move_tracked_file(wrong_prog_path, expected_prog_path, project_root, action="Archiving progress doc")
                     
                 # We do NOT rewrite the manifest progress_doc_path here to avoid infinite loops with git commits,
                 # the prompt templates will instruct agents to update the manifest path.
