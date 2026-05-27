@@ -65,7 +65,6 @@ When completing verification of an implementation:
    - Confirm no blockers remain unsolved
 4. **On PASS (All Requirements Met)**:
    - Update manifest entry: change state from "inprogress" to "completed"
-   - Move progress document from `docs/inprogress/` to `docs/reference/` for archival
    - This signals to the orchestrator that the design work is done
 5. **On FAIL (Requirements Not Met)**:
    - Return findings to the Implementer with specific gaps identified

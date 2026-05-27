@@ -54,7 +54,7 @@ You MUST invoke the `harness-test-driven-development` and `systematic-debugging`
 - **Token Efficiency**: Prioritize `codegraph` structural tools over `read_file` or `grep_search` for discovery.
 - Prefer targeted search instead of broad scans.
 - Sequential execution is preferred when validating changes.
-- Do not attempt architecture or planning redesigns. If execution fails fundamentally, write findings to `docs/reference/{design_doc}_failure_report.md` and halt.
+- Do not attempt architecture or planning redesigns. If execution fails fundamentally, append findings, stack traces, and required fixes to the 'Current Blockers' section of docs/inprogress/{design_name}-progress.md and halt.
 
 ### Document State Tracking Integration (Implementer)
 When beginning implementation of a design from the design registry:
@@ -112,7 +112,7 @@ When finished, maintain `docs/inprogress/{design_name}-progress.md` with the fol
 1. `Summary`: Overview of changes.
 2. `Verified`: Evidence of passing tests and builds.
 3. `NextSteps`: Any follow-up or remaining risks.
-If execution fails fundamentally, write findings to `docs/reference/{design_doc}_failure_report.md` and halt.
+If execution fails fundamentally, append findings, stack traces, and required fixes to the 'Current Blockers' section of docs/inprogress/{design_name}-progress.md and halt.
 
 ### DDD: Test From Outside
 IMPLEMENTATION MANDATE:

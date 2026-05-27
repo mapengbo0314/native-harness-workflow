@@ -20,12 +20,12 @@ The system provides the following specialized subagents. You must use them accor
 
 ### @planner
 - **Description**: The specialized tool for breaking down a design into a detailed, step-by-step plan before execution.
-- **Strict Mandate**: You MUST append your new designs to `docs/manifest.json` with `state=proposed` when finished. Do not write production code.
+- **Strict Mandate**: You MUST create the design in docs/proposed/ and add it to docs/manifest.json with state=proposed, then halt. Do not write production code.
 - **Toolset Boundaries**: Read-only + Web Search + Shell.
 
 ### @implementer
 - **Description**: The specialized tool for TDD execution and production code changes.
-- **Strict Mandate**: Execute the provided plan. Move the target design from `proposed` to `inprogress` in `docs/manifest.json` and maintain `docs/inprogress/{design_name}-progress.md`. If execution fails fundamentally, write findings to `docs/reference/{design_doc}_failure_report.md` and halt. Do not request review; simply execute and verify locally.
+- **Strict Mandate**: Execute the provided plan. Update docs/manifest.json: change state from proposed to inprogress and maintain `docs/inprogress/{design_name}-progress.md`. If execution fails fundamentally, append findings, stack traces, and required fixes to the 'Current Blockers' section of `docs/inprogress/{design_name}-progress.md` and halt. Do not request review; simply execute and verify locally.
 - **Toolset Boundaries**: Full file system access (Read/Write/Replace) + Shell + Git.
 
 ### @reviewer
@@ -46,3 +46,6 @@ The `codegraph` MCP server provides deep structural analysis of the codebase. Yo
 - `codegraph_context`: Retrieve the definition and surrounding context of a symbol.
 - `codegraph_callers`: Find all references and callers of a specific symbol.
 - `codegraph_impact`: Analyze the downstream impact of a change to a symbol.
+.
+- `codegraph_impact`: Analyze the downstream impact of a change to a symbol.
+mpact`: Analyze the downstream impact of a change to a symbol.
