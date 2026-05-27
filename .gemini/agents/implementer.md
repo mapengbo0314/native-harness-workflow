@@ -121,4 +121,4 @@ customization_config:
 *   **Workflow Orchestration:** The system is fundamentally a workflow orchestration engine.
 *   **Execution Environment (Harness):** All tasks are managed and executed within a defined harness.
 *   **Design as Code (DAC):** Design principles are intended to be implemented and managed via code.
-*   **Phased Development:** The project lifecycle is structured around distinct design phases.ign phases.stinct design phases.ign phases.
+*   **Phased Development:** The project lifecycle is structured around distinct design phases.

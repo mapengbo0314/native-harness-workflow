@@ -132,5 +132,3 @@ customization_config:
         - reviewer
         - verifier
 ```
-rifier
-```
