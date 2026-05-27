@@ -186,12 +186,14 @@ Return the result as JSON:
         Outputs a standardized generic intent dictionary.
         """
         project_root = Path(project_root)
+        harness_home = self.config_dir.parent.parent
+        
         current_phase = "Unknown"
         missing_documents = []
         target_agent = "@generalist"
         auth_msg = ""
 
-        manifest_path = project_root / "docs" / "manifest.json"
+        manifest_path = harness_home / "docs" / "manifest.json"
         has_proposed = False
         has_inprogress = False
 

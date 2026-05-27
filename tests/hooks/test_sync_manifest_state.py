@@ -29,9 +29,12 @@ def test_sync_manifest_moves_files(tmp_path):
     progress_file.write_text("# Progress")
     subprocess.run(["git", "add", "docs/inprogress/test-doc-progress.md"], cwd=tmp_path, check=True)
     
+    env = os.environ.copy()
+    env["HARNESS_PLUGIN_ROOT"] = str(tmp_path / "plugin-generated")
+    
     # Run the script
     script_path = Path("src/harness/templates/boilerplate/scripts/sync_manifest_state.py").resolve()
-    result = subprocess.run(["python3", str(script_path)], cwd=tmp_path, capture_output=True, text=True)
+    result = subprocess.run(["python3", str(script_path)], cwd=tmp_path, env=env, capture_output=True, text=True)
     
     # Verify file moved
     assert not proposed_file.exists()
@@ -61,9 +64,12 @@ def test_sync_manifest_moves_progress_doc_on_completion(tmp_path):
     progress_file.write_text("# Progress")
     subprocess.run(["git", "add", "docs/inprogress/test-doc-progress.md"], cwd=tmp_path, check=True)
     
+    env = os.environ.copy()
+    env["HARNESS_PLUGIN_ROOT"] = str(tmp_path / "plugin-generated")
+    
     # Run the script
     script_path = Path("src/harness/templates/boilerplate/scripts/sync_manifest_state.py").resolve()
-    result = subprocess.run(["python3", str(script_path)], cwd=tmp_path, capture_output=True, text=True)
+    result = subprocess.run(["python3", str(script_path)], cwd=tmp_path, env=env, capture_output=True, text=True)
     
     # Verify both files moved to the correct locations
     assert not inprogress_file.exists()
@@ -96,9 +102,12 @@ def test_sync_manifest_moves_progress_doc_when_main_doc_already_completed(tmp_pa
     progress_file.write_text("# Progress")
     subprocess.run(["git", "add", "docs/inprogress/test-doc-progress.md"], cwd=tmp_path, check=True)
     
+    env = os.environ.copy()
+    env["HARNESS_PLUGIN_ROOT"] = str(tmp_path / "plugin-generated")
+    
     # Run the script
     script_path = Path("src/harness/templates/boilerplate/scripts/sync_manifest_state.py").resolve()
-    result = subprocess.run(["python3", str(script_path)], cwd=tmp_path, capture_output=True, text=True)
+    result = subprocess.run(["python3", str(script_path)], cwd=tmp_path, env=env, capture_output=True, text=True)
     
     # Verify main doc remains, progress doc moved
     assert completed_file.exists()
