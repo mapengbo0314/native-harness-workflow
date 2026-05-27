@@ -57,7 +57,7 @@ When detailing the implementation in Part 4, strictly adhere to these standards:
 Once all 4 parts are completed and approved by the user, compile the final deterministic design document.
 
 **Documentation:**
-- Save the final document to `docs/superpowers/plans/YYYY-MM-DD-<topic>-design.md` (or the user's preferred spec location).
+- Save the final document to `docs/proposed/YYYY-MM-DD-<topic>-design.md` (or the user's preferred spec location).
 - Commit the design document to git.
 
 **Self-Review:**
