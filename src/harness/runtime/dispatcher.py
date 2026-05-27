@@ -181,6 +181,83 @@ Return the result as JSON:
             
         return "\n".join(pointers)
 
+    def evaluate_artifacts(self, branch: str, project_root: Union[str, Path]) -> Dict[str, Any]:
+        """Evaluate physical artifacts on disk to deterministically calculate the current Phase.
+        Outputs a standardized generic intent dictionary.
+        """
+        project_root = Path(project_root)
+        current_phase = "Unknown"
+        artifacts_missing = []
+        target_agent = "@generalist"
+        auth_msg = ""
+        
+        def check_diagnosis() -> Tuple[bool, str]:
+            p = project_root / "artifacts" / "diagnosis_report.md"
+            return p.exists(), "artifacts/diagnosis_report.md"
+            
+        def check_plan() -> Tuple[bool, str]:
+            p = project_root / "artifacts" / "implementation_plan.md"
+            has_plan = False
+            if p.exists():
+                content = p.read_text()
+                if "Verification Criteria" in content:
+                    has_plan = True
+            return has_plan, "artifacts/implementation_plan.md"
+            
+        def check_tdd() -> Tuple[bool, str]:
+            p = project_root / "artifacts" / "tdd_failing_test.log"
+            has_log = False
+            if p.exists():
+                content = p.read_text()
+                if any(x in content for x in ["AssertionError", "FAILED", "Expected", "ModuleNotFoundError", "ImportError", "Traceback"]):
+                    if "SyntaxError" not in content:
+                        has_log = True
+            return has_log, "artifacts/tdd_failing_test.log"
+
+        if branch == "C":
+            current_phase = "Read-Only"
+            target_agent = "@architect" # Defaulting for tests
+            auth_msg = "You are STRICTLY UNAUTHORIZED to mutate any files. You must only read and answer questions."
+        elif branch == "D":
+            current_phase = "4 (Surgical Edit authorized)"
+            target_agent = "@implementer"
+            auth_msg = "You are authorized for surgical edits. Bypass planner."
+        else:
+            is_phase1_ok = True
+            if branch == "A":
+                is_phase1_ok, m = check_diagnosis()
+                if not is_phase1_ok:
+                    current_phase = "1 (Diagnosis)"
+                    artifacts_missing.append(m)
+                    target_agent = "@diagnose"
+                    auth_msg = "You are UNAUTHORIZED to modify any files. You MUST use read-only tools to diagnose the issue and output the diagnosis report."
+            
+            if is_phase1_ok:
+                is_phase3_ok, m = check_plan()
+                if not is_phase3_ok:
+                    current_phase = "3 (Planning)"
+                    artifacts_missing.append(m)
+                    target_agent = "@planner"
+                    auth_msg = "You are UNAUTHORIZED to write code or dispatch @implementer. You MUST dispatch @planner next."
+                else:
+                    is_phase4_ok, m = check_tdd()
+                    if not is_phase4_ok:
+                        current_phase = "4 (Pre-TDD)"
+                        artifacts_missing.append(m)
+                        target_agent = "@implementer"
+                        auth_msg = "You are UNAUTHORIZED to write production code. You MUST write a proof of concept test that fails under current circumstances first."
+                    else:
+                        current_phase = "4 (Execution authorized) or 5"
+                        target_agent = "@implementer"
+                        auth_msg = "You are authorized to execute. Test logs exist."
+
+        return {
+            "phase": current_phase,
+            "target_agent": target_agent,
+            "artifacts_missing": artifacts_missing,
+            "auth_msg": auth_msg
+        }
+
     @observe()
     def dispatch_agent(
         self,
@@ -221,16 +298,22 @@ Return the result as JSON:
         # Basic intent classification if prompt is provided
         intent_branch = None
         intent_justification = None
+        routing_decision = {}
         if "prompt" in context:
             intent_info = self.classify_intent(context["prompt"])
             intent_branch = intent_info.get("branch")
             intent_justification = intent_info.get("justification")
             
+            if "project_root" in context and intent_branch:
+                routing_decision = self.evaluate_artifacts(intent_branch, context["project_root"])
+            
             # Surface reasoning to the top-level trace
             langfuse_context.update_current_trace(
                 metadata={
                     "matrix_branch": intent_branch,
-                    "intent_justification": intent_justification
+                    "intent_justification": intent_justification,
+                    "target_agent": routing_decision.get("target_agent"),
+                    "phase": routing_decision.get("phase")
                 }
             )
 
@@ -244,5 +327,6 @@ Return the result as JSON:
             "orchestrator_applied": True,
             "intent_branch": intent_branch,
             "intent_justification": intent_justification,
+            "routing_decision": routing_decision,
             "trace_id": langfuse_context.get_current_trace_id()
         }

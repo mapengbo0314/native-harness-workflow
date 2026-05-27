@@ -111,8 +111,8 @@ def test_registered_hook_commands_execute(temp_project):
         "PreCompact": {"hook_event_name": "PreCompact"},
         "Stop": {"hook_event_name": "Stop"},
         "ConfigChange": {"hook_event_name": "ConfigChange", "changes": []},
+        "PreCommit": {"hook_event_name": "PreCommit"},
     }
-
     env = {
         **os.environ,
         "CLAUDE_PLUGIN_ROOT": str(plugin_dir),
