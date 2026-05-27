@@ -130,6 +130,7 @@ def main():
         if current_phase != "Unknown":
             system_state = f"\n\n=== SYSTEM STATE ===\nActive Branch: {branch}\nCurrent Phase: {current_phase}\nArtifacts Missing: {', '.join(artifacts_missing) if artifacts_missing else 'None'}\nAuthorization: {auth_msg}\n====================\n"
             
+        hook_event_name = input_data.get("hookEventName") or input_data.get("hook_event_name", "UserPromptSubmit")
         # Output expected JSON format
         output = {
             "classification": branch, 
@@ -137,6 +138,7 @@ def main():
             "modifiedPrompt": prompt + system_state,
             "system_prompt_extension": system_state,
             "hookSpecificOutput": {
+                "hookEventName": hook_event_name,
                 "systemPromptExtension": system_state,
                 "modifiedPrompt": prompt + system_state
             }

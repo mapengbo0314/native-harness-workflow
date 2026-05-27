@@ -1,0 +1,49 @@
+{
+  "skills": {
+    "diagnose": {
+      "path": "diagnose/SKILL.md"
+    },
+    "grill-me": {
+      "path": "grill-me/SKILL.md"
+    },
+    "grill-with-docs": {
+      "path": "grill-with-docs/SKILL.md"
+    },
+    "improve-codebase-architecture": {
+      "path": "improve-codebase-architecture/SKILL.md"
+    },
+    "ddd-alignment": {
+      "path": "ddd-alignment/SKILL.md"
+    },
+    "meta-learning": {
+      "path": "meta-learning/SKILL.md"
+    },
+    "using-harness-superpowers": {
+      "path": "using-harness-superpowers/SKILL.md"
+    },
+    "harness-brainstorming-plans": {
+      "path": "harness-brainstorming-plans/SKILL.md"
+    },
+    "harness-test-driven-development": {
+      "path": "harness-test-driven-development/SKILL.md"
+    },
+    "harness-subagent-driven-development": {
+      "path": "harness-subagent-driven-development/SKILL.md"
+    },
+    "harness-dispatching-parallel-agents": {
+      "path": "harness-dispatching-parallel-agents/SKILL.md"
+    },
+    "harness-executing-plans": {
+      "path": "harness-executing-plans/SKILL.md"
+    },
+    "harness-systematic-debugging": {
+      "path": "harness-systematic-debugging/SKILL.md"
+    },
+    "harness-finishing-a-development-branch": {
+      "path": "harness-finishing-a-development-branch/SKILL.md"
+    },
+    "harness-requesting-code-review": {
+      "path": "harness-requesting-code-review/SKILL.md"
+    }
+  }
+}

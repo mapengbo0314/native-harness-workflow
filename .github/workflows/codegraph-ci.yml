@@ -1,5 +1,5 @@
 name: CI CodeGraph Build Check
-on:
+true:
 - push
 - pull_request
 jobs:

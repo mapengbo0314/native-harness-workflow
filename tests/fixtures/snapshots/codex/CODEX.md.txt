@@ -16,8 +16,8 @@ To activate a skill, you MUST use your file reading tool to read its instruction
 - **harness-requesting-code-review**: `.codex/skills/harness-requesting-code-review/SKILL.md`
 - **harness-subagent-driven-development**: `.codex/skills/harness-subagent-driven-development/SKILL.md`
 - **harness-systematic-debugging**: `.codex/skills/harness-systematic-debugging/SKILL.md`
-- **harness-test-driven-development**: .codex/skills/harness-test-driven-development/SKILL.md
-- **improve-codebase-architecture**: .codex/skills/improve-codebase-architecture/SKILL.md
+- **harness-test-driven-development**: `.codex/skills/harness-test-driven-development/SKILL.md`
+- **improve-codebase-architecture**: `.codex/skills/improve-codebase-architecture/SKILL.md`
 - **meta-learning**: `.codex/skills/meta-learning/SKILL.md`
 - **using-harness-superpowers**: `.codex/skills/using-harness-superpowers/SKILL.md`
 - **verification-before-completion**: `.codex/skills/verification-before-completion/SKILL.md`
