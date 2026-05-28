@@ -185,6 +185,18 @@
     },
     "57281": {
       "active_persona": "planner"
+    },
+    "26870": {
+      "active_persona": "generalist"
+    },
+    "27245": {
+      "active_persona": "implementer"
+    },
+    "27353": {
+      "active_persona": "diagnose"
+    },
+    "27670": {
+      "active_persona": "planner"
     }
   },
   "active_persona": "planner"

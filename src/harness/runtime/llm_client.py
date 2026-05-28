@@ -51,15 +51,27 @@ def query_llm(prompt: str, cli_name: str, model: str = None) -> str:
             )
             data = json.loads(result.stdout)
 
-            # Extract model from response (e.g., "claude-haiku-4-5-20251001")
-            actual_model = next(iter(data.get("modelUsage", {}).keys()), "claude-unknown")
+            # modelUsage may contain multiple models (e.g. subagent calls); identify the
+            # primary model by matching its outputTokens against the top-level usage field.
+            model_usage_dict = data.get("modelUsage", {})
+            top_output_tokens = data.get("usage", {}).get("output_tokens")
+            actual_model = next(
+                (
+                    m for m, v in model_usage_dict.items()
+                    if v.get("outputTokens") == top_output_tokens
+                ),
+                next(iter(model_usage_dict.keys()), "claude-unknown"),
+            )
+            model_tokens = model_usage_dict.get(actual_model, {})
 
-            # Track tokens in Langfuse
-            usage = data.get("usage", {})
             langfuse_context.update_current_observation(
                 model=actual_model,
-                input_tokens=usage.get("input_tokens"),
-                output_tokens=usage.get("output_tokens")
+                usage_details={
+                    "input": model_tokens.get("inputTokens", 0),
+                    "output": model_tokens.get("outputTokens", 0),
+                    "cache_read_input": model_tokens.get("cacheReadInputTokens", 0),
+                    "cache_creation_input": model_tokens.get("cacheCreationInputTokens", 0),
+                }
             )
 
             return data.get("result", "")
@@ -84,8 +96,10 @@ def query_llm(prompt: str, cli_name: str, model: str = None) -> str:
             # Track tokens in Langfuse
             langfuse_context.update_current_observation(
                 model=actual_model,
-                input_tokens=tokens_data.get("prompt"),
-                output_tokens=tokens_data.get("candidates")
+                usage={
+                    "input": tokens_data.get("prompt"),
+                    "output": tokens_data.get("candidates")
+                }
             )
 
             return data.get("response", "")

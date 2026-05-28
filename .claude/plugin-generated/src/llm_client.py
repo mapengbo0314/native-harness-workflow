@@ -10,8 +10,28 @@ from langfuse import get_client as _get_client
 class _LangfuseContextCompat:
     def __init__(self):
         self._client = _get_client()
-    def update_current_observation(self, model=None, **kwargs):
-        self._client.update_current_generation(model=model, **kwargs)
+    def update_current_observation(self, model=None, input=None, output=None, metadata=None,
+                                   input_tokens=None, output_tokens=None, usage=None,
+                                   usage_details=None, **kwargs):
+        if usage_details is None:
+            if input_tokens is not None or output_tokens is not None:
+                usage_details = {}
+                if input_tokens is not None:
+                    usage_details["input"] = input_tokens
+                if output_tokens is not None:
+                    usage_details["output"] = output_tokens
+            elif usage is not None:
+                usage_details = {}
+                if usage.get("input_tokens") is not None:
+                    usage_details["input"] = usage["input_tokens"]
+                elif usage.get("input") is not None:
+                    usage_details["input"] = usage["input"]
+                if usage.get("output_tokens") is not None:
+                    usage_details["output"] = usage["output_tokens"]
+                elif usage.get("output") is not None:
+                    usage_details["output"] = usage["output"]
+        self._client.update_current_generation(model=model, input=input, output=output,
+                                               metadata=metadata, usage_details=usage_details, **kwargs)
     def update_current_trace(self, session_id=None, tags=None, metadata=None, **kwargs):
         merged_metadata = metadata or {}
         if session_id is not None:
@@ -63,13 +83,48 @@ def query_llm(prompt: str, cli_name: str, model: str = None) -> str:
     
     try:
         if cli_name == "claude":
-            # claude -p reads from stdin if prompt is not fully provided, but -p - forces stdin reading
-            result = subprocess.run(["claude", "-p", "-"], input=prompt, capture_output=True, text=True, check=True, timeout=30, env=env)
-            return result.stdout
+            result = subprocess.run(
+                ["claude", "--output-format=json", "-p", "-"],
+                input=prompt, capture_output=True, text=True, check=True, timeout=30, env=env
+            )
+            data = json.loads(result.stdout)
+            model_usage_dict = data.get("modelUsage", {})
+            top_output_tokens = data.get("usage", {}).get("output_tokens")
+            actual_model = next(
+                (
+                    m for m, v in model_usage_dict.items()
+                    if v.get("outputTokens") == top_output_tokens
+                ),
+                next(iter(model_usage_dict.keys()), "claude-unknown"),
+            )
+            model_tokens = model_usage_dict.get(actual_model, {})
+            langfuse_context.update_current_observation(
+                model=actual_model,
+                usage_details={
+                    "input": model_tokens.get("inputTokens", 0),
+                    "output": model_tokens.get("outputTokens", 0),
+                    "cache_read_input": model_tokens.get("cacheReadInputTokens", 0),
+                    "cache_creation_input": model_tokens.get("cacheCreationInputTokens", 0),
+                }
+            )
+            return data.get("result", "")
         elif cli_name == "gemini":
-            # gemini CLI also accepts piping
-            result = subprocess.run(["gemini"], input=prompt, capture_output=True, text=True, check=True, timeout=30, env=env)
-            return result.stdout
+            result = subprocess.run(
+                ["gemini", "--output-format=json"],
+                input=prompt, capture_output=True, text=True, check=True, timeout=30, env=env
+            )
+            data = json.loads(result.stdout)
+            stats = data.get("stats", {}).get("models", {})
+            actual_model = next(iter(stats.keys()), "gemini-unknown")
+            tokens_data = stats.get(actual_model, {}).get("tokens", {})
+            langfuse_context.update_current_observation(
+                model=actual_model,
+                usage_details={
+                    "input": tokens_data.get("prompt", 0),
+                    "output": tokens_data.get("candidates", 0),
+                }
+            )
+            return data.get("response", "")
         else:
             raise ValueError(f"Unsupported native CLI: {cli_name}")
     except subprocess.TimeoutExpired as e:

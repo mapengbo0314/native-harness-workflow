@@ -40,24 +40,52 @@ class LangfuseContextCompat:
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        input_tokens: Optional[int] = None,
+        output_tokens: Optional[int] = None,
+        usage: Optional[Dict[str, Any]] = None,
+        usage_details: Optional[Dict[str, int]] = None,
         **kwargs: Any
     ) -> None:
         """Update the current observation (generation or span).
 
-        In v4, this maps to update_current_generation() which supports the model parameter.
+        Translates v3-style token params (input_tokens, output_tokens, usage)
+        to v4's usage_details parameter.
 
         Args:
             model: The model name being used (e.g., "gpt-4", "claude-3-sonnet")
             input: Input to the observation
             output: Output from the observation
             metadata: Additional metadata as a dictionary
+            input_tokens: Number of input/prompt tokens (mapped to usage_details["input"])
+            output_tokens: Number of output/completion tokens (mapped to usage_details["output"])
+            usage: Legacy usage dict with "input"/"output" or "input_tokens"/"output_tokens" keys
+            usage_details: v4-native usage dict passed through directly
             **kwargs: Additional arguments passed to update_current_generation
         """
+        if usage_details is None:
+            if input_tokens is not None or output_tokens is not None:
+                usage_details = {}
+                if input_tokens is not None:
+                    usage_details["input"] = input_tokens
+                if output_tokens is not None:
+                    usage_details["output"] = output_tokens
+            elif usage is not None:
+                usage_details = {}
+                if usage.get("input_tokens") is not None:
+                    usage_details["input"] = usage["input_tokens"]
+                elif usage.get("input") is not None:
+                    usage_details["input"] = usage["input"]
+                if usage.get("output_tokens") is not None:
+                    usage_details["output"] = usage["output_tokens"]
+                elif usage.get("output") is not None:
+                    usage_details["output"] = usage["output"]
+
         self._client.update_current_generation(
             model=model,
             input=input,
             output=output,
             metadata=metadata,
+            usage_details=usage_details,
             **kwargs
         )
 

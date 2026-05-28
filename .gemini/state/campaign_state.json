@@ -119,7 +119,10 @@
     },
     "5435c755-67ba-484d-9712-67eae6cd7b5f": {
       "active_persona": "implementer"
+    },
+    "1f6d9a64-4adf-431f-b304-f83b947e2fc8": {
+      "active_persona": "diagnose"
     }
   },
-  "active_persona": "implementer"
+  "active_persona": "diagnose"
 }
