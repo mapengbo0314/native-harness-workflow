@@ -47,6 +47,11 @@ class _LangfuseContextCompat:
         self._client.flush()
 langfuse_context = _LangfuseContextCompat()
 
+# Written by query_llm after each call so callers (classify_intent, dispatch_agent)
+# can propagate the actual model name to their own Langfuse spans.
+last_actual_model: str = ""
+
+
 @observe(as_type="generation")
 @retry(
     stop=stop_after_attempt(3),
@@ -57,6 +62,7 @@ langfuse_context = _LangfuseContextCompat()
 )
 def query_llm(prompt: str, cli_name: str, model: str = None) -> str:
     """Dispatches to the real LLM providers via their native CLIs."""
+    global last_actual_model
     trace_id = os.environ.get("LANGFUSE_TRACE_ID")
     if not trace_id:
         trace_id = str(uuid.uuid4())
@@ -74,8 +80,6 @@ def query_llm(prompt: str, cli_name: str, model: str = None) -> str:
 
     langfuse_context.update_current_trace(session_id=session_id, tags=tags)
 
-    langfuse_context.update_current_observation(model=f"native-cli-{cli_name}")
-    
     # Prepare environment to strip ANSI colors
     env = os.environ.copy()
     env["NO_COLOR"] = "1"
@@ -98,6 +102,8 @@ def query_llm(prompt: str, cli_name: str, model: str = None) -> str:
                 next(iter(model_usage_dict.keys()), "claude-unknown"),
             )
             model_tokens = model_usage_dict.get(actual_model, {})
+
+            last_actual_model = actual_model
             langfuse_context.update_current_observation(
                 model=actual_model,
                 usage_details={
@@ -117,6 +123,8 @@ def query_llm(prompt: str, cli_name: str, model: str = None) -> str:
             stats = data.get("stats", {}).get("models", {})
             actual_model = next(iter(stats.keys()), "gemini-unknown")
             tokens_data = stats.get(actual_model, {}).get("tokens", {})
+
+            last_actual_model = actual_model
             langfuse_context.update_current_observation(
                 model=actual_model,
                 usage_details={
@@ -131,5 +139,7 @@ def query_llm(prompt: str, cli_name: str, model: str = None) -> str:
         raise RuntimeError(f"Native CLI {cli_name} timed out: {e}")
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Native CLI {cli_name} failed: {e.stderr or e.output or str(e)}")
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"Native CLI {cli_name} returned invalid JSON: {e}")
     except Exception as e:
         raise RuntimeError(f"Native CLI {cli_name} execution error: {e}")

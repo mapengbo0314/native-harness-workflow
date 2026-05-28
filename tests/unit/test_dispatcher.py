@@ -261,6 +261,10 @@ def test_classify_intent_captures_correct_model_from_platform(tmp_path, monkeypa
     """Test that classify_intent captures the correct model for detected platform."""
     from unittest.mock import patch
     from harness.runtime.dispatcher import OrchestratorDispatcher
+    import harness.runtime.llm_client as llm_mod
+
+    # Reset last_actual_model so platform detection is used as fallback
+    monkeypatch.setattr(llm_mod, "last_actual_model", "")
 
     # Create .claude directory
     (tmp_path / ".claude").mkdir()
@@ -297,6 +301,10 @@ def test_dispatch_agent_captures_correct_model_from_platform(tmp_path, monkeypat
     """Test that dispatch_agent captures the correct model for detected platform."""
     from unittest.mock import patch
     from harness.runtime.dispatcher import OrchestratorDispatcher
+    import harness.runtime.llm_client as llm_mod
+
+    # Reset last_actual_model so platform detection is used as fallback
+    monkeypatch.setattr(llm_mod, "last_actual_model", "")
 
     # Create .gemini directory
     (tmp_path / ".gemini").mkdir()

@@ -71,11 +71,14 @@ def get_active_platform_and_model(starting_dir: str = ".") -> Tuple[str, str]:
     return (platform or "unknown", model)
 
 try:
+    import harness.runtime.llm_client as _llm_client_module
     from harness.runtime.llm_client import query_llm
 except (ImportError, ValueError):
     try:
+        from . import llm_client as _llm_client_module
         from .llm_client import query_llm
     except (ImportError, ValueError):
+        _llm_client_module = None
         query_llm = None
 
 
@@ -162,10 +165,12 @@ Return the result as JSON:
 }}
 """
             try:
-                # For CLI, still detect and capture model
-                _, model = get_active_platform_and_model()
-                langfuse_context.update_current_observation(model=model)
                 response = query_llm(classification_prompt, cli_name)
+                # Prefer actual model from CLI response, fall back to platform detection
+                actual_model = getattr(_llm_client_module, "last_actual_model", None)
+                if not actual_model:
+                    _, actual_model = get_active_platform_and_model()
+                langfuse_context.update_current_observation(model=actual_model)
                 
                 # Extract JSON
                 cleaned = response.replace("```json", "").replace("```", "").strip()
@@ -312,9 +317,7 @@ Return the result as JSON:
         Returns:
             Dispatch result with routed agent info
         """
-        # Detect platform and use actual model
-        _, model = get_active_platform_and_model()
-        langfuse_context.update_current_observation(model=model)
+        # Will be updated with the actual model after classify_intent calls query_llm
 
         trace_id = os.environ.get("LANGFUSE_TRACE_ID")
         if not trace_id:
@@ -344,10 +347,10 @@ Return the result as JSON:
         if "prompt" in context:
             intent_info = self.classify_intent(context["prompt"])
             intent_branch = intent_info.get("branch")
-            
+
             if "project_root" in context and intent_branch:
                 routing_decision = self.evaluate_artifacts(intent_branch, context["project_root"])
-            
+
             # Surface reasoning to the top-level trace
             langfuse_context.update_current_trace(
                 metadata={
@@ -356,6 +359,12 @@ Return the result as JSON:
                     "phase": routing_decision.get("phase")
                 }
             )
+
+        # Always capture the model (actual from last LLM call, or platform-detected fallback)
+        actual_model = getattr(_llm_client_module, "last_actual_model", None)
+        if not actual_model:
+            _, actual_model = get_active_platform_and_model()
+        langfuse_context.update_current_observation(model=actual_model)
 
         branch_pointers = self.assemble_branch_context(agent_name, str(intent_branch) if intent_branch else "None")
         context["branch_context_pointers"] = branch_pointers

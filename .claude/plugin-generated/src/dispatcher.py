@@ -93,11 +93,14 @@ def get_active_platform_and_model(starting_dir: str = ".") -> Tuple[str, str]:
 
 try:
     from harness.runtime.llm_client import query_llm
+    import harness.runtime.llm_client as _llm_client_module
 except (ImportError, ValueError):
     try:
         from .llm_client import query_llm
+        from . import llm_client as _llm_client_module
     except (ImportError, ValueError):
         query_llm = None
+        _llm_client_module = None
 
 
 class OrchestratorDispatcher:
@@ -183,10 +186,12 @@ Return the result as JSON:
 }}
 """
             try:
-                # For CLI, still detect and capture model
-                _, model = get_active_platform_and_model()
-                langfuse_context.update_current_observation(model=model)
                 response = query_llm(classification_prompt, cli_name)
+
+                # Use the actual model extracted from the CLI response
+                actual_model = getattr(_llm_client_module, "last_actual_model", None)
+                if actual_model:
+                    langfuse_context.update_current_observation(model=actual_model)
                 
                 # Extract JSON
                 cleaned = response.replace("```json", "").replace("```", "").strip()
@@ -333,9 +338,7 @@ Return the result as JSON:
         Returns:
             Dispatch result with routed agent info
         """
-        # Detect platform and use actual model
-        _, model = get_active_platform_and_model()
-        langfuse_context.update_current_observation(model=model)
+        # Will be updated with the actual model after classify_intent calls query_llm
 
         trace_id = os.environ.get("LANGFUSE_TRACE_ID")
         if not trace_id:
@@ -369,6 +372,11 @@ Return the result as JSON:
             if "project_root" in context and intent_branch:
                 routing_decision = self.evaluate_artifacts(intent_branch, context["project_root"])
             
+            # Propagate actual model from the query_llm call inside classify_intent
+            actual_model = getattr(_llm_client_module, "last_actual_model", None)
+            if actual_model:
+                langfuse_context.update_current_observation(model=actual_model)
+
             # Surface reasoning to the top-level trace
             langfuse_context.update_current_trace(
                 metadata={
