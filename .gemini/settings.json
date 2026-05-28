@@ -63,6 +63,19 @@
         ]
       }
     ],
+    "AfterTool": [
+      {
+        "matcher": "*",
+        "sequential": true,
+        "hooks": [
+          {
+            "name": "post-tool-use-linting",
+            "type": "command",
+            "command": "python3 .gemini/hooks/post_tool_use.py"
+          }
+        ]
+      }
+    ],
     "PreCompress": [
       {
         "matcher": "*",

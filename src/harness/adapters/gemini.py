@@ -55,6 +55,7 @@ class GeminiAdapter(PlatformAdapter):
                     
                     if file == "hooks.json":
                         new_content = new_content.replace('"PreCompact":', '"PreCompress":')
+                        new_content = new_content.replace('"PostToolUse":', '"AfterTool":')
                     
                     if new_content != content:
                         with open(filepath, "w", encoding="utf-8") as f:
