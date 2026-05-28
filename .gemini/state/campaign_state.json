@@ -32,6 +32,60 @@
     },
     "1db24c4e-e70a-4b31-9246-af38bf349ac6": {
       "active_persona": "planner"
+    },
+    "a3d5fa72-8653-452d-94d6-8dec775b7d94": {
+      "active_persona": "generalist"
+    },
+    "abfd4a60-3bf9-4ab1-9d44-236ee47b94ce": {
+      "active_persona": "planner"
+    },
+    "1b58317a-afe1-42c9-8725-25c90e3d6cf9": {
+      "active_persona": "diagnose"
+    },
+    "75fef0ae-1bd5-4f6f-91e3-18f1b8df612a": {
+      "active_persona": "implementer"
+    },
+    "26657bd8-8c11-497c-8a2b-6d6f096ae903": {
+      "active_persona": "diagnose"
+    },
+    "8645c5ff-fcf4-4357-a615-073b50cb2774": {
+      "active_persona": "implementer"
+    },
+    "6d7601e1-15a8-48a6-a327-c4d8f1782f9f": {
+      "active_persona": "planner"
+    },
+    "be8816ce-df29-4c8f-b1bc-3bd85bc6fb0c": {
+      "active_persona": "generalist"
+    },
+    "3fe70219-c4f3-4e9f-9ec1-3246d320bf87": {
+      "active_persona": "planner"
+    },
+    "ce614c05-f1c7-48c3-b00b-558cb668beb8": {
+      "active_persona": "diagnose"
+    },
+    "1cae5aec-a4c5-4c96-88d8-c5c415031108": {
+      "active_persona": "diagnose"
+    },
+    "636d114c-4a1c-4221-9ba2-2f372047926c": {
+      "active_persona": "diagnose"
+    },
+    "c3107bff-94c6-44f7-a789-5710b899bfd4": {
+      "active_persona": "diagnose"
+    },
+    "00ae6d5f-2eef-4f03-9600-1bd48aa0739c": {
+      "active_persona": "generalist"
+    },
+    "e8b45e88-d1d5-46bf-8a5a-42df35d7cbf8": {
+      "active_persona": "planner"
+    },
+    "8df1bd59-5762-42e0-bd49-f198c41aab91": {
+      "active_persona": "planner"
+    },
+    "4392ed01-e7f9-4fb5-bc03-f19fe9b8eee1": {
+      "active_persona": "diagnose"
+    },
+    "3d180783-34f0-4d40-8c7c-9907072db409": {
+      "active_persona": "planner"
     }
   },
   "active_persona": "planner"

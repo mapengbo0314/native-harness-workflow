@@ -10,50 +10,55 @@
 
 ### Task 1: Write the instrumentation module
 - **File:** `.claude/plugin-generated/src/langfuse_instrumentation.py`
-- **Status:** [ ] Pending
+- **Status:** [x] Complete — Updated 2026-05-27 (v4 API fix)
 - **Subtasks:**
-  - [ ] Write failing test for `init_langfuse_trace()` with mock Langfuse context
-  - [ ] Implement `init_langfuse_trace()` to extract session ID and update Langfuse context
-  - [ ] Write failing test for `init_langfuse_prompt_span()`
-  - [ ] Implement `init_langfuse_prompt_span()` to create a named child span
-  - [ ] Write failing test for `ensure_flush()`
-  - [ ] Implement `ensure_flush()` to call `langfuse_context.flush()`
-  - [ ] Verify all tests pass
+  - [x] Write failing test for `init_langfuse_trace()` with mock Langfuse context
+  - [x] Implement `init_langfuse_trace()` to extract session ID and update Langfuse context
+  - [x] Write failing test for `init_langfuse_prompt_span()`
+  - [x] Implement `init_langfuse_prompt_span()` to create a named child span
+  - [x] Write failing test for `ensure_flush()`
+  - [x] Implement `ensure_flush()` to call `langfuse_context.flush()`
+  - [x] Verify all tests pass — 14/14 passing
+- **Note (Task 2 finding):** Original module used `from langfuse.decorators import langfuse_context` which
+  does not exist in Langfuse v4.7.0 (installed). Module was updated to use `from langfuse import get_client`
+  (v4 API). Tests updated to patch `langfuse_instrumentation.get_client`. 14/14 still passing.
+- **Test file:** `.claude/plugin-generated/tests/test_langfuse_instrumentation.py`
 
 ### Task 2: Update prompt_classifier.py hook
 - **File:** `.claude/plugin-generated/hooks/prompt_classifier.py`
-- **Status:** [ ] Pending
+- **Status:** [x] Complete — 2026-05-27
 - **Subtasks:**
-  - [ ] Add imports for the new instrumentation module
-  - [ ] Add call to `init_langfuse_trace()` after project_root is resolved
-  - [ ] Add call to `init_langfuse_prompt_span(prompt)` after prompt is extracted
-  - [ ] Add call to `ensure_flush()` before `sys.exit(0)`
-  - [ ] Remove manual trace ID initialization (lines 45-47)
-  - [ ] Remove manual flush call (line 66)
-  - [ ] Run hook manually and verify it executes without errors
+  - [x] Add `from langfuse import observe` import (v4 API; `langfuse.decorators` removed in v4)
+  - [x] Add `import langfuse_instrumentation` after `sys.path` insert
+  - [x] Add `@observe(name="user_prompt")` decorator on `main()`
+  - [x] Call `init_langfuse_trace(str(project_root))` after path setup
+  - [x] Call `init_langfuse_prompt_span(prompt)` after trace init
+  - [x] Call `ensure_flush()` before `sys.exit(0)`
+  - [x] Remove manual LANGFUSE_TRACE_ID assignment (was lines 45-47)
+  - [x] Remove manual `langfuse_context.flush()` call (was line 66)
+  - [x] Remove `import uuid` (no longer used)
+  - [x] Hook verified: exits 0, prints valid JSON
 
 ### Task 3: Update llm_client.py decorator
 - **File:** `.claude/plugin-generated/src/llm_client.py`
-- **Status:** [ ] Pending
+- **Status:** [x] Complete — 2026-05-27
 - **Subtasks:**
-  - [ ] Add explicit `name="query_llm"` to the `@observe()` decorator
-  - [ ] Verify decorator syntax is correct
+  - [x] `@observe(name="query_llm", as_type="generation")` added to `query_llm`
 
 ### Task 4: Update dispatcher.py decorator
 - **File:** `.claude/plugin-generated/src/dispatcher.py`
-- **Status:** [ ] Pending
+- **Status:** [x] Complete — 2026-05-27
 - **Subtasks:**
-  - [ ] Find `dispatch_agent()` method and its `@observe` decorator
-  - [ ] Add explicit `name="dispatch_agent"` to the decorator
-  - [ ] Verify decorator syntax is correct
+  - [x] `@observe(name="dispatch_agent")` on `dispatch_agent`
+  - [x] `@observe(name="classify_intent", as_type="span")` on `classify_intent`
 
 ### Task 5: Integration test
-- **Status:** [ ] Pending
+- **Status:** [ ] Pending — Manual verification required
 - **Subtasks:**
-  - [ ] Submit a test prompt through Claude Code and verify it reaches Langfuse
-  - [ ] Check Langfuse UI: confirm one session trace with child spans for each prompt
-  - [ ] Verify span names are readable: "dispatch_agent", "query_llm"
-  - [ ] Verify session ID matches the Claude Code session
+  - [ ] Submit a real prompt through Claude Code and verify it reaches Langfuse
+  - [ ] Check Langfuse UI: confirm one session trace with child spans per prompt
+  - [ ] Verify span names are readable: "user_prompt", "dispatch_agent", "classify_intent", "query_llm"
+  - [ ] Verify session ID matches the Claude Code session (`CLAUDE_SESSION_ID`)
 
 ---
 

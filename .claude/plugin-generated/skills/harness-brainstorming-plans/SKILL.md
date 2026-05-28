@@ -57,7 +57,8 @@ When detailing the implementation in Part 4, strictly adhere to these standards:
 Once all 4 parts are completed and approved by the user, compile the final deterministic design document.
 
 **Documentation:**
-- Save the final document to `.claude/docs/proposed/YYYY-MM-DD-<topic>-design.md` (or the user's preferred spec location).
+- Save the final document to `.claude/docs/designs/YYYY-MM-DD-<topic>-design.md` (or the user's preferred spec location).
+- Initialize a corresponding `.claude/docs/designs/YYYY-MM-DD-<topic>-progress.md` file with the extracted tasks.
 - Commit the design document to git.
 
 **Self-Review:**

@@ -20,17 +20,17 @@ The system provides the following specialized subagents. You must use them accor
 
 ### @planner
 - **Description**: The specialized tool for breaking down a design into a detailed, step-by-step plan before execution.
-- **Strict Mandate**: You MUST create the design in .gemini/docs/proposed/ and add it to .gemini/docs/manifest.json with state=proposed, then halt. Do not write production code.
+- **Strict Mandate**: You MUST create the design in .gemini/docs/designs/ and halt. Do not write production code.
 - **Toolset Boundaries**: Read-only + Web Search + Shell.
 
 ### @implementer
 - **Description**: The specialized tool for TDD execution and production code changes.
-- **Strict Mandate**: Execute the provided plan. Update .gemini/docs/manifest.json: change state from proposed to inprogress and maintain `.gemini/docs/inprogress/{design_name}-progress.md`. If execution fails fundamentally, append findings, stack traces, and required fixes to the 'Current Blockers' section of `.gemini/docs/inprogress/{design_name}-progress.md` and halt. Do not request review; simply execute and verify locally.
+- **Strict Mandate**: Execute the provided plan. Maintain `.gemini/docs/designs/{design_name}-progress.md`. If execution fails fundamentally, append findings, stack traces, and required fixes to the 'Current Blockers' section of `.gemini/docs/designs/{design_name}-progress.md` and halt. Do not request review; simply execute and verify locally.
 - **Toolset Boundaries**: Full file system access (Read/Write/Replace) + Shell + Git.
 
 ### @reviewer
 - **Description**: Senior Software Engineer for identifying issues and ensuring high standards.
-- **Strict Mandate**: Review the implementation against the plan and coding standards. Validate the progress doc and change state to completed in `.gemini/docs/manifest.json` on PASS. On FAIL, append failure findings and required fixes to the 'Current Blockers' section of `.gemini/docs/inprogress/{design_name}-progress.md`. Do not automatically fix the code yourself.
+- **Strict Mandate**: Review the implementation against the plan and coding standards. Update the `Status` in both `.gemini/docs/designs/{design_name}.md` and `.gemini/docs/designs/{design_name}-progress.md` to `Completed` on PASS. On FAIL, append failure findings and required fixes to the 'Current Blockers' section of `.gemini/docs/designs/{design_name}-progress.md`. Do not automatically fix the code yourself.
 - **Toolset Boundaries**: Read-only + Shell.
 
 ### @adversary

@@ -17,8 +17,15 @@ Execute plan by dispatching fresh subagent per task, with two-stage review after
 
 **Continuous execution:** Do not pause to check in with your human partner between tasks. Execute all tasks from the plan without stopping. The only reasons to stop are: BLOCKED status you cannot resolve, ambiguity that genuinely prevents progress, or all tasks complete. "Should I continue?" prompts and progress summaries waste their time — they asked you to execute the plan, so execute it.
 
+## 1. Document Management
+Before dispatching any subagents, you MUST manage the progress state:
+1. Locate the design document (`.claude/docs/designs/YYYY-MM-DD-<topic>-design.md`).
+2. Locate or create the corresponding task-progress document (`.claude/docs/designs/YYYY-MM-DD-<topic>-progress.md`).
+3. If the progress doc exists, read it to determine the next incomplete task and resume from there.
+4. If it doesn't exist, create it and initialize it with the tasks extracted from the design doc.
+
 ## 2. Dispatch the Local Harness Agents
-You MUST map tasks to the specialized local harness subagents defined in your `AGENTS.md` file:
+DO NOT map to generic `@generalist` agents. You MUST map tasks to the specialized local harness subagents defined in your `AGENTS.md` file:
 - For planning and specs: `@planner`
 - For writing code: `@implementer`
 - For QA/Review: `@reviewer` or `@verifier`
@@ -67,15 +74,15 @@ digraph process {
         "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" [shape=box];
         "Code quality reviewer subagent approves?" [shape=diamond];
         "Implementer subagent fixes quality issues" [shape=box];
-        "Mark task complete in TodoWrite" [shape=box];
+        "Mark task complete in task-progress doc" [shape=box];
     }
 
-    "Read plan, extract all tasks with full text, note context, create TodoWrite" [shape=box];
+    "Read design doc, extract all tasks with full text, note context, update task-progress doc" [shape=box];
     "More tasks remain?" [shape=diamond];
     "Dispatch final code reviewer subagent for entire implementation" [shape=box];
     "Use superpowers:finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
 
-    "Read plan, extract all tasks with full text, note context, create TodoWrite" -> "Dispatch implementer subagent (./implementer-prompt.md)";
+    "Read design doc, extract all tasks with full text, note context, update task-progress doc" -> "Dispatch implementer subagent (./implementer-prompt.md)";
     "Dispatch implementer subagent (./implementer-prompt.md)" -> "Implementer subagent asks questions?";
     "Implementer subagent asks questions?" -> "Answer questions, provide context" [label="yes"];
     "Answer questions, provide context" -> "Dispatch implementer subagent (./implementer-prompt.md)";
@@ -88,8 +95,8 @@ digraph process {
     "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" -> "Code quality reviewer subagent approves?";
     "Code quality reviewer subagent approves?" -> "Implementer subagent fixes quality issues" [label="no"];
     "Implementer subagent fixes quality issues" -> "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" [label="re-review"];
-    "Code quality reviewer subagent approves?" -> "Mark task complete in TodoWrite" [label="yes"];
-    "Mark task complete in TodoWrite" -> "More tasks remain?";
+    "Code quality reviewer subagent approves?" -> "Mark task complete in task-progress doc" [label="yes"];
+    "Mark task complete in task-progress doc" -> "More tasks remain?";
     "More tasks remain?" -> "Dispatch implementer subagent (./implementer-prompt.md)" [label="yes"];
     "More tasks remain?" -> "Dispatch final code reviewer subagent for entire implementation" [label="no"];
     "Dispatch final code reviewer subagent for entire implementation" -> "Use superpowers:finishing-a-development-branch";
@@ -140,9 +147,9 @@ Implementer subagents report one of four statuses. Handle each appropriately:
 ```
 You: I'm using Subagent-Driven Development to execute this plan.
 
-[Read plan file once: docs/superpowers/plans/feature-plan.md]
+[Read design doc once: .claude/docs/designs/YYYY-MM-DD-<topic>-design.md]
 [Extract all 5 tasks with full text and context]
-[Create TodoWrite with all tasks]
+[Create or update task-progress doc: .claude/docs/designs/YYYY-MM-DD-<topic>-progress.md]
 
 Task 1: Hook installation script
 

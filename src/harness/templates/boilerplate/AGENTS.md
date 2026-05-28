@@ -47,13 +47,13 @@ All specialized agents MUST adhere to this strict state machine for document man
    - Creates `<!--$HARNESS_DIR$-->/docs/designs/{design_name}.md`
    - Sets frontmatter: `Status: Proposed`
 2. **Implementer Phase**:
-   - Creates `<!--$HARNESS_DIR$-->/docs/progress/{design_name}-progress.md`
+   - Creates `<!--$HARNESS_DIR$-->/docs/designs/{design_name}-progress.md`
    - Sets frontmatter in the progress doc: `Status: In Progress`
-   - *On Blocked*: Appends to `Blockers` in progress doc.
+   - *On Blocked*: Appends to 'Current Blockers' in progress doc.
 3. **Reviewer / Verifier Phase**:
    - Validates implementation against progress doc and design.
    - *On PASS*: Updates frontmatter in progress doc to `Status: Completed`.
-   - *On FAIL*: Appends to `Blockers` in progress doc. Status remains `In Progress`.
+   - *On FAIL*: Appends to 'Current Blockers' in progress doc. Status remains `In Progress`.
 
 ## CodeGraph Integration
 

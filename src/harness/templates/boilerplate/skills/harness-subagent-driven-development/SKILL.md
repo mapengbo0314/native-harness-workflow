@@ -20,7 +20,7 @@ Execute plan by dispatching fresh subagent per task, with two-stage review after
 ## 1. Document Management
 Before dispatching any subagents, you MUST manage the progress state:
 1. Locate the design document (`<!--$HARNESS_DIR$-->/docs/designs/YYYY-MM-DD-<topic>-design.md`).
-2. Locate or create the corresponding task-progress document (`<!--$HARNESS_DIR$-->/docs/progress/YYYY-MM-DD-<topic>-progress.md`).
+2. Locate or create the corresponding task-progress document (`<!--$HARNESS_DIR$-->/docs/designs/YYYY-MM-DD-<topic>-progress.md`).
 3. If the progress doc exists, read it to determine the next incomplete task and resume from there.
 4. If it doesn't exist, create it and initialize it with the tasks extracted from the design doc.
 
@@ -149,7 +149,7 @@ You: I'm using Subagent-Driven Development to execute this plan.
 
 [Read design doc once: <!--$HARNESS_DIR$-->/docs/designs/YYYY-MM-DD-<topic>-design.md]
 [Extract all 5 tasks with full text and context]
-[Create or update task-progress doc: <!--$HARNESS_DIR$-->/docs/progress/YYYY-MM-DD-<topic>-progress.md]
+[Create or update task-progress doc: <!--$HARNESS_DIR$-->/docs/designs/YYYY-MM-DD-<topic>-progress.md]
 
 Task 1: Hook installation script
 

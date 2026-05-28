@@ -57,7 +57,7 @@ When detailing the implementation in Part 4, strictly adhere to these standards:
 Once all 4 parts are completed and approved by the user, compile the final deterministic design document.
 
 **Documentation:**
-- Save the final document to `.gemini/docs/proposed/YYYY-MM-DD-<topic>-design.md` (or the user's preferred spec location).
+- Save the final document to `.gemini/docs/designs/YYYY-MM-DD-<topic>-design.md` (or the user's preferred spec location).
 - Commit the design document to git.
 
 **Self-Review:**
@@ -66,7 +66,12 @@ Before finalizing, review the document:
 2. **Placeholder scan:** Any "TBD" or vague requirements? Fix them inline.
 3. **Internal consistency:** Do sections contradict each other?
 
+**Adversarial Review (Optional):**
+After Self-Review and saving the document, use the `ask_user` tool to ask if the user wants to invoke the `adversary` subagent to review the design. 
+- **Important:** You MUST include a notification in your prompt to the user that invoking the adversary agent may cost some extra tokens.
+- **Action:** If the user agrees, use the `invoke_agent` tool (or your platform's subagent syntax) to send the `adversary` agent the path to the saved design document. Instruct the `adversary` agent to rigorously review the design for flaws, edge cases, and missing requirements, and to **append its notes to the bottom of the design doc** (it must NOT edit the core design).
+
 **Execution Handoff:**
-After saving the plan, offer execution choice:
+After saving the plan and completing the optional adversarial review, offer execution choice:
 - **Subagent-Driven (recommended):** Dispatch a fresh subagent per task using `superpowers:harness-subagent-driven-development`.
 - **Inline Execution:** Execute tasks using `superpowers:harness-executing-plans`.

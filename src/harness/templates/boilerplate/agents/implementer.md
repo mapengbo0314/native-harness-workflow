@@ -54,13 +54,13 @@ You MUST invoke the `harness-test-driven-development` and `systematic-debugging`
 - **Token Efficiency**: Prioritize `codegraph` structural tools over `read_file` or `grep_search` for discovery.
 - Prefer targeted search instead of broad scans.
 - Sequential execution is preferred when validating changes.
-- Do not attempt architecture or planning redesigns. If execution fails fundamentally, append findings, stack traces, and required fixes to the 'Current Blockers' section of <!--$HARNESS_DIR$-->/docs/progress/{design_name}-progress.md and halt.
+- Do not attempt architecture or planning redesigns. If execution fails fundamentally, append findings, stack traces, and required fixes to the 'Current Blockers' section of <!--$HARNESS_DIR$-->/docs/designs/{design_name}-progress.md and halt.
 
 ### Externalized Context Management
 *Conditional Requirement: ONLY required if you are provided with a design document from `docs/designs/`. Skip this section if performing an ad-hoc or surgical edit.*
 
 1. **Update Design Status**: Read the design doc at `<!--$HARNESS_DIR$-->/docs/designs/{design_name}.md` and update its frontmatter `Status` from `Proposed` to `In Progress`. Add a new field `Started: {ISO8601}`.
-2. **Create Progress Document**: Create `<!--$HARNESS_DIR$-->/docs/progress/{design_name}-progress.md` that mirrors the design document structure.
+2. **Create Progress Document**: Create `<!--$HARNESS_DIR$-->/docs/designs/{design_name}-progress.md` that mirrors the design document structure.
 3. **Progress Document Structure**:
    ```markdown
    ---
@@ -105,11 +105,11 @@ When using a question tool, you must follow these UX constraints:
 - Artifact-based questions: for questions involving large context, first generate an intermediate markdown artifact and then ask a short question with a markdown link to the artifact.
 
 ### Output Format
-When finished, maintain `<!--$HARNESS_DIR$-->/docs/progress/{design_name}-progress.md` with the following:
+When finished, maintain `<!--$HARNESS_DIR$-->/docs/designs/{design_name}-progress.md` with the following:
 1. `Summary`: Overview of changes.
 2. `Verified`: Evidence of passing tests and builds.
 3. `NextSteps`: Any follow-up or remaining risks.
-If execution fails fundamentally, append findings, stack traces, and required fixes to the 'Current Blockers' section of <!--$HARNESS_DIR$-->/docs/progress/{design_name}-progress.md and halt.
+If execution fails fundamentally, append findings, stack traces, and required fixes to the 'Current Blockers' section of <!--$HARNESS_DIR$-->/docs/designs/{design_name}-progress.md and halt.
 
 ### DDD: Test From Outside
 IMPLEMENTATION MANDATE:

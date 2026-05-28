@@ -1,6 +1,7 @@
 """Orchestrator dispatcher for routing agent requests."""
 import json
 import os
+import shutil
 import time
 import re
 import subprocess
@@ -12,6 +13,61 @@ from langfuse.decorators import observe, langfuse_context
 import uuid
 
 load_dotenv()
+
+
+def get_active_platform_and_model(starting_dir: str = ".") -> Tuple[str, str]:
+    """Detect active platform and determine the model being used.
+
+    Traverses up the directory tree to find platform directories (.claude, .gemini, .codex, .cursor).
+    Checks HARNESS_MODEL environment variable for custom model overrides.
+
+    Args:
+        starting_dir: Directory to start traversal from. Defaults to current directory.
+
+    Returns:
+        Tuple of (platform_name, model_name). Examples:
+          (".claude", "claude-haiku-4.5")
+          (".gemini", "gemini-2.5-flash-lite")
+          (".codex", "gpt-4")
+          (".cursor", "claude")
+          ("unknown", "unknown-model")
+    """
+    current = Path(starting_dir).resolve()
+
+    # Platform detection: traverse up looking for platform directory
+    platform = None
+    while current != current.parent:
+        if (current / ".claude").exists():
+            platform = ".claude"
+            break
+        elif (current / ".gemini").exists():
+            platform = ".gemini"
+            break
+        elif (current / ".codex").exists():
+            platform = ".codex"
+            break
+        elif (current / ".cursor").exists():
+            platform = ".cursor"
+            break
+        current = current.parent
+
+    # Model determination: check env var first, then platform default
+    model = os.environ.get("HARNESS_MODEL")
+    if not model:
+        if platform == ".claude":
+            model = "claude-haiku-4.5"
+        elif platform == ".gemini":
+            model = "gemini-2.5-flash-lite"
+        elif platform == ".codex":
+            model = "gpt-4"
+        elif platform == ".cursor":
+            model = "claude"
+        else:
+            # Fallback: check CLI platform
+            cli_platform = os.environ.get("HARNESS_PLATFORM_CLI", "").lower()
+            model = f"{cli_platform}-unknown" if cli_platform else "unknown-model"
+
+    return (platform or "unknown", model)
 
 try:
     from harness.runtime.llm_client import query_llm
@@ -72,24 +128,21 @@ class OrchestratorDispatcher:
                 return json.load(f)
         return {"rules": {}}
 
-    @observe(as_type="span")
+    @observe(name="classify_intent", as_type="span")
     def classify_intent(self, prompt: str) -> Dict[str, str]:
         """Classify user intent into Matrix Routing Branches A/B/C/D.
 
         Returns:
             Dict with 'branch' and 'justification'
         """
-        api_key = os.environ.get("GEMINI_API_KEY")
-        cli_name = None
-        if not api_key:
-            cli_name = os.environ.get("HARNESS_PLATFORM_CLI")
-            if not cli_name:
-                if shutil.which("claude"):
-                    cli_name = "claude"
-                elif shutil.which("gemini"):
-                    cli_name = "gemini"
+        cli_name = os.environ.get("HARNESS_PLATFORM_CLI")
+        if not cli_name:
+            if shutil.which("claude"):
+                cli_name = "claude"
+            elif shutil.which("gemini"):
+                cli_name = "gemini"
 
-        if query_llm and (api_key or cli_name):
+        if query_llm and cli_name:
             classification_prompt = f"""
 Analyze the following user prompt and classify it into one of the following Matrix Routing Branches:
 
@@ -108,12 +161,10 @@ Return the result as JSON:
 }}
 """
             try:
-                if api_key:
-                    # Use gemini-2.5-flash-lite as requested in mandate
-                    model = os.environ.get("HARNESS_MODEL", "gemini-2.5-flash-lite")
-                    response = query_llm(classification_prompt, "gemini", api_key, model=model)
-                else:
-                    response = query_llm(classification_prompt, "native_cli", api_key=cli_name)
+                # For CLI, still detect and capture model
+                _, model = get_active_platform_and_model()
+                langfuse_context.update_current_observation(model=model)
+                response = query_llm(classification_prompt, cli_name)
                 
                 # Extract JSON
                 cleaned = response.replace("```json", "").replace("```", "").strip()
@@ -245,7 +296,7 @@ Return the result as JSON:
             }
         }
 
-    @observe()
+    @observe(name="dispatch_agent")
     def dispatch_agent(
         self,
         agent_name: str,
@@ -260,6 +311,10 @@ Return the result as JSON:
         Returns:
             Dispatch result with routed agent info
         """
+        # Detect platform and use actual model
+        _, model = get_active_platform_and_model()
+        langfuse_context.update_current_observation(model=model)
+
         trace_id = os.environ.get("LANGFUSE_TRACE_ID")
         if not trace_id:
             trace_id = str(uuid.uuid4())
@@ -284,12 +339,10 @@ Return the result as JSON:
 
         # Basic intent classification if prompt is provided
         intent_branch = None
-        intent_justification = None
         routing_decision = {}
         if "prompt" in context:
             intent_info = self.classify_intent(context["prompt"])
             intent_branch = intent_info.get("branch")
-            intent_justification = intent_info.get("justification")
             
             if "project_root" in context and intent_branch:
                 routing_decision = self.evaluate_artifacts(intent_branch, context["project_root"])
@@ -298,7 +351,6 @@ Return the result as JSON:
             langfuse_context.update_current_trace(
                 metadata={
                     "matrix_branch": intent_branch,
-                    "intent_justification": intent_justification,
                     "target_agent": routing_decision.get("target_agent"),
                     "phase": routing_decision.get("phase")
                 }
@@ -313,7 +365,6 @@ Return the result as JSON:
             "context": context,
             "orchestrator_applied": True,
             "intent_branch": intent_branch,
-            "intent_justification": intent_justification,
             "routing_decision": routing_decision,
             "trace_id": langfuse_context.get_current_trace_id()
         }

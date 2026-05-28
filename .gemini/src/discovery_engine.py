@@ -3,8 +3,24 @@ import subprocess
 import time
 import urllib.request
 import os
-from harness.renderer import TemplateRenderer
 from harness.runtime.llm_client import query_llm
+from jinja2 import Environment, BaseLoader
+
+class TemplateRenderer:
+    def __init__(self):
+        self.env = Environment(
+            loader=BaseLoader(),
+            block_start_string='<!--%',
+            block_end_string='%-->',
+            variable_start_string='<!--$',
+            variable_end_string='$-->',
+            comment_start_string='<!--#',
+            comment_end_string='#-->',
+        )
+
+    def render_string(self, source: str, context: dict) -> str:
+        template = self.env.from_string(source)
+        return template.render(**context)
 
 def acquire_mcp_context(project_path: str) -> str:
     """Acquires project context using CodeGraph and domain documentation."""
@@ -138,51 +154,6 @@ def discover_agents(context_str: str, feature_fetcher_yaml_path: str, llm_provid
 
 
 
-def discover_custom_agent(name: str, specs: str, context_str: str, ddd_context: dict, llm_provider: str, api_key: str, model: str = None) -> dict:
-    """Generates a system prompt for a custom user-defined agent."""
-    
-    ddd_prompt_section = ""
-    if ddd_context:
-        ddd_prompt_section = (
-            "=== DOMAIN-DRIVEN DESIGN (DDD) CONTEXT ===\n"
-            f"Ubiquitous Language: {ddd_context.get('ubiquitous_language', 'None provided')}\n"
-            f"Translation Map: {json.dumps(ddd_context.get('translation_map', {}))}\n"
-            f"Additional Knowledge: {ddd_context.get('additional_domain_knowledge', 'None provided')}\n\n"
-        )
-
-    prompt = (
-        "You are an Agent Architect. Your task is to generate a high-quality system prompt for a new specialized agent.\n\n"
-        "=== PROJECT CONTEXT ===\n"
-        f"{context_str}\n\n"
-        f"{ddd_prompt_section}"
-        "=== USER REQUEST ===\n"
-        f"Agent Name: {name}\n"
-        f"Agent Role/Specs: {specs}\n\n"
-        "=== TASK ===\n"
-        "Generate a comprehensive, 300-500 word Markdown system prompt for this agent. The prompt MUST:\n"
-        "1. Define their specific expertise relative to the project files.\n"
-        "2. Enforce the use of 'codegraph' MCP tools and local skills.\n"
-        "3. Enforce a 'Graph-First' strategy using `mcp_codegraph_codegraph_search` and `mcp_codegraph_codegraph_node`.\n"
-        "4. Define their role in the Goldfish Protocol (Phase 3) and Implementation (Phase 4).\n"
-        "4. Incorporate the DDD context and ubiquitous language intrinsically.\n\n"
-        "Return as JSON: {'name': '...', 'role': '...', 'zone': '...', 'system_prompt': '...'}"
-    )
-    
-    print(f"Generating specialized prompt for custom agent: {name}...")
-    response_text = query_llm(prompt, llm_provider, api_key, model)
-    
-    try:
-        cleaned = response_text.replace("```json", "").replace("```", "").strip()
-        start_idx = cleaned.find("{")
-        end_idx = cleaned.rfind("}") + 1
-        if start_idx != -1 and end_idx != 0:
-            cleaned = cleaned[start_idx:end_idx]
-            
-        data = json.loads(cleaned)
-        return data
-    except Exception as e:
-        print(f"Error generating custom agent: {e}")
-        return {"name": name, "role": specs, "zone": "Core", "system_prompt": f"# {name}\n\n{specs}"}
 
 def get_symbol_census(project_path: str) -> list:
     """Extracts a list of symbols, imports, and decorators to identify patterns."""
@@ -249,12 +220,12 @@ def get_file_tree_summary(project_path: str, max_depth=3) -> str:
             tree.append(f"{indent}  {f}")
     return "\n".join(tree)
 
-def deep_audit_discovery(project_path: str, query_llm_fn=None, llm_provider=None, api_key=None, **kwargs) -> dict:
+def deep_audit_discovery(project_path: str, query_llm_fn=None, cli_name=None, **kwargs) -> dict:
     """Uses LLM to identify testing infrastructure and capabilities."""
     census = get_symbol_census(project_path)
     file_tree = get_file_tree_summary(project_path)
     
-    if not query_llm_fn or not llm_provider or not api_key:
+    if not query_llm_fn or not cli_name:
         return {}
 
     prompt = f"""
@@ -277,7 +248,7 @@ def deep_audit_discovery(project_path: str, query_llm_fn=None, llm_provider=None
     """
     
     try:
-        response = query_llm_fn(prompt, llm_provider, api_key)
+        response = query_llm_fn(prompt, cli_name)
         cleaned = response.replace("```json", "").replace("```", "").strip()
         start_idx = cleaned.find("{")
         end_idx = cleaned.rfind("}") + 1
@@ -288,7 +259,7 @@ def deep_audit_discovery(project_path: str, query_llm_fn=None, llm_provider=None
         print(f"Deep audit failed: {e}")
         return {}
 
-def detect_tech_stack(project_path: str, query_llm_fn=None, llm_provider=None, api_key=None) -> dict:
+def detect_tech_stack(project_path: str, query_llm_fn=None, cli_name=None) -> dict:
     """Heuristic detection of tech stack from project files, merged with LLM-driven census."""
     stacks = set()
     
@@ -328,7 +299,7 @@ def detect_tech_stack(project_path: str, query_llm_fn=None, llm_provider=None, a
         stacks.add("Frontend")
         
     # Call Deep Audit
-    audit = deep_audit_discovery(project_path, query_llm_fn, llm_provider, api_key)
+    audit = deep_audit_discovery(project_path, query_llm_fn, cli_name)
     
     return {
         "stacks": sorted(list(stacks)),
@@ -339,12 +310,12 @@ def detect_tech_stack(project_path: str, query_llm_fn=None, llm_provider=None, a
         "capabilities": audit.get("capabilities", [])
     }
 
-def generate_onboarding_domain_doc(project_path: str, domain_summary: str, query_llm_fn=None, llm_provider=None, api_key=None, context_str="", boilerplate_dir: str = None):
+def generate_onboarding_domain_doc(project_path: str, domain_summary: str, query_llm_fn=None, cli_name=None, context_str="", boilerplate_dir: str = None):
     """Generates the ONBOARDING_DOMAIN.md template using LLM profiling and verified tools."""
     doc_path = os.path.join(project_path, "ONBOARDING_DOMAIN.md")
     
     # 1. Detect Tech Stack
-    tech_stack_data = detect_tech_stack(project_path, query_llm_fn, llm_provider, api_key)
+    tech_stack_data = detect_tech_stack(project_path, query_llm_fn, cli_name)
     tech_stack = ", ".join(tech_stack_data["stacks"]) if tech_stack_data["stacks"] else "Unknown Stack"
     
     # 2. Load and Flatten Tools Registry
@@ -375,7 +346,7 @@ def generate_onboarding_domain_doc(project_path: str, domain_summary: str, query
     recommended_mcps = []
     recommended_skills = []
 
-    if query_llm_fn and llm_provider and api_key:
+    if query_llm_fn and cli_name:
         prompt = f"""
         You are a Senior Architect. Analyze the project context and recommend a 'Domain SME' agent.
         
@@ -411,7 +382,7 @@ def generate_onboarding_domain_doc(project_path: str, domain_summary: str, query
         }}
         """
         try:
-            res = query_llm_fn(prompt, llm_provider, api_key)
+            res = query_llm_fn(prompt, cli_name)
             cleaned = res.replace("```json", "").replace("```", "").strip()
             start_idx = cleaned.find("{")
             end_idx = cleaned.rfind("}") + 1
@@ -548,7 +519,7 @@ The following commands were discovered and will be used by the @verifier:
     return tech_stack_data
 
 
-def generate_grilling_questions(project_path: str, query_llm_fn, llm_provider: str, api_key: str, model: str = None) -> list[dict]:
+def generate_grilling_questions(project_path: str, query_llm_fn, cli_name: str, model: str = None) -> list[dict]:
     """Generates 3-5 project-specific questions to clarify the domain."""
     census = get_symbol_census(project_path)
     file_tree = get_file_tree_summary(project_path)
@@ -575,7 +546,7 @@ def generate_grilling_questions(project_path: str, query_llm_fn, llm_provider: s
     """
     
     try:
-        response = query_llm_fn(prompt, llm_provider, api_key, model)
+        response = query_llm_fn(prompt, cli_name, model=model)
         cleaned = response.replace("```json", "").replace("```", "").strip()
         start_idx = cleaned.find("[")
         end_idx = cleaned.rfind("]") + 1
@@ -604,7 +575,7 @@ def generate_grilling_questions(project_path: str, query_llm_fn, llm_provider: s
         }
     ]
 
-def synthesize_grilled_context(project_path: str, qa_pairs: list[tuple], query_llm_fn, llm_provider: str, api_key: str, model: str = None) -> str:
+def synthesize_grilled_context(project_path: str, qa_pairs: list[tuple], query_llm_fn, cli_name: str, model: str = None) -> str:
     """Synthesizes the Q&A pairs into a high-quality CONTEXT.md content."""
     
     qa_str = "\n".join([f"Q: {q}\nA: {a}" for q, a in qa_pairs])
@@ -632,7 +603,7 @@ def synthesize_grilled_context(project_path: str, qa_pairs: list[tuple], query_l
     """
     
     try:
-        return query_llm_fn(prompt, llm_provider, api_key, model)
+        return query_llm_fn(prompt, cli_name, model=model)
     except Exception as e:
         print(f"Warning: Context synthesis failed ({e}). Using raw Q&A summary.")
         # Fallback to simple markdown formatting of the Q&A

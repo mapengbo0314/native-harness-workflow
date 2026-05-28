@@ -1,6 +1,7 @@
 """Orchestrator dispatcher for routing agent requests."""
 import json
 import os
+import shutil
 import time
 import re
 import subprocess
@@ -12,6 +13,61 @@ from langfuse.decorators import observe, langfuse_context
 import uuid
 
 load_dotenv()
+
+
+def get_active_platform_and_model(starting_dir: str = ".") -> Tuple[str, str]:
+    """Detect active platform and determine the model being used.
+
+    Traverses up the directory tree to find platform directories (.claude, .gemini, .codex, .cursor).
+    Checks HARNESS_MODEL environment variable for custom model overrides.
+
+    Args:
+        starting_dir: Directory to start traversal from. Defaults to current directory.
+
+    Returns:
+        Tuple of (platform_name, model_name). Examples:
+          (".claude", "claude-haiku-4.5")
+          (".gemini", "gemini-2.5-flash-lite")
+          (".codex", "gpt-4")
+          (".cursor", "claude")
+          ("unknown", "unknown-model")
+    """
+    current = Path(starting_dir).resolve()
+
+    # Platform detection: traverse up looking for platform directory
+    platform = None
+    while current != current.parent:
+        if (current / ".claude").exists():
+            platform = ".claude"
+            break
+        elif (current / ".gemini").exists():
+            platform = ".gemini"
+            break
+        elif (current / ".codex").exists():
+            platform = ".codex"
+            break
+        elif (current / ".cursor").exists():
+            platform = ".cursor"
+            break
+        current = current.parent
+
+    # Model determination: check env var first, then platform default
+    model = os.environ.get("HARNESS_MODEL")
+    if not model:
+        if platform == ".claude":
+            model = "claude-haiku-4.5"
+        elif platform == ".gemini":
+            model = "gemini-2.5-flash-lite"
+        elif platform == ".codex":
+            model = "gpt-4"
+        elif platform == ".cursor":
+            model = "claude"
+        else:
+            # Fallback: check CLI platform
+            cli_platform = os.environ.get("HARNESS_PLATFORM_CLI", "").lower()
+            model = f"{cli_platform}-unknown" if cli_platform else "unknown-model"
+
+    return (platform or "unknown", model)
 
 try:
     from harness.runtime.llm_client import query_llm
@@ -79,17 +135,14 @@ class OrchestratorDispatcher:
         Returns:
             Dict with 'branch' and 'justification'
         """
-        api_key = os.environ.get("GEMINI_API_KEY")
-        cli_name = None
-        if not api_key:
-            cli_name = os.environ.get("HARNESS_PLATFORM_CLI")
-            if not cli_name:
-                if shutil.which("claude"):
-                    cli_name = "claude"
-                elif shutil.which("gemini"):
-                    cli_name = "gemini"
+        cli_name = os.environ.get("HARNESS_PLATFORM_CLI")
+        if not cli_name:
+            if shutil.which("claude"):
+                cli_name = "claude"
+            elif shutil.which("gemini"):
+                cli_name = "gemini"
 
-        if query_llm and (api_key or cli_name):
+        if query_llm and cli_name:
             classification_prompt = f"""
 Analyze the following user prompt and classify it into one of the following Matrix Routing Branches:
 
@@ -108,12 +161,10 @@ Return the result as JSON:
 }}
 """
             try:
-                if api_key:
-                    # Use gemini-2.5-flash-lite as requested in mandate
-                    model = os.environ.get("HARNESS_MODEL", "gemini-2.5-flash-lite")
-                    response = query_llm(classification_prompt, "gemini", api_key, model=model)
-                else:
-                    response = query_llm(classification_prompt, "native_cli", api_key=cli_name)
+                # For CLI, still detect and capture model
+                _, model = get_active_platform_and_model()
+                langfuse_context.update_current_observation(model=model)
+                response = query_llm(classification_prompt, cli_name)
                 
                 # Extract JSON
                 cleaned = response.replace("```json", "").replace("```", "").strip()
@@ -177,7 +228,7 @@ Return the result as JSON:
         elif intent_branch == "C":
             pointers.append("Branch C (Question): Do not modify files. Use codegraph to explore.")
         elif intent_branch == "D":
-            pointers.append("Branch D (Surgical Edit): Bypass heavy planning. Use implementer directly.")
+            pointers.append("Branch D (Surgical Edit): Bypass heavy planning. Use generalist directly.")
             
         return "\n".join(pointers)
 
@@ -203,50 +254,46 @@ Return the result as JSON:
         target_agent = "@generalist"
         auth_msg = ""
 
-        manifest_path = harness_home / "docs" / "manifest.json"
-        has_proposed = False
-        has_inprogress = False
+        designs_dir = harness_home / "docs" / "designs"
+        progress_dir = harness_home / "docs" / "progress"
+        
+        active_designs = []
+        active_progress = []
 
-        if manifest_path.exists():
-            try:
-                with open(manifest_path, 'r') as f:
-                    manifest = json.load(f)
-                    for doc in manifest.get("docs", []):
-                        if doc.get("state") == "inprogress":
-                            has_inprogress = True
-                        elif doc.get("state") == "proposed":
-                            has_proposed = True
-            except Exception:
-                pass
+        if designs_dir.exists():
+            for doc in designs_dir.glob("*.md"):
+                active_designs.append(doc.name)
+                
+        if progress_dir.exists():
+            for doc in progress_dir.glob("*.md"):
+                active_progress.append(doc.name)
 
         if branch == "C":
             current_phase = "Read-Only"
-            target_agent = "@general-purpose" # Defaulting for tests
+            target_agent = "@generalist"
             auth_msg = "You are STRICTLY UNAUTHORIZED to mutate any files. You must only read and answer questions."
         elif branch == "D":
             current_phase = "4 (Surgical Edit authorized)"
             target_agent = "@implementer"
             auth_msg = "You are authorized for surgical edits. Bypass planner."
-        else:
-            if has_inprogress:
-                current_phase = "Execution/TDD"
-                target_agent = "@implementer"
-                auth_msg = "You are authorized to execute. In-progress document exists."
-            elif has_proposed:
-                current_phase = "Planning"
-                target_agent = "@planner"
-                auth_msg = "You are UNAUTHORIZED to write code or dispatch @implementer. You MUST dispatch @planner next."
-            else:
-                current_phase = "Discovery"
-                target_agent = "@diagnose" if branch == "A" else "@planner"
-                auth_msg = "You are UNAUTHORIZED to modify any files. You MUST use read-only tools to diagnose the issue and output the diagnosis report." if branch == "A" else "You are UNAUTHORIZED to write code. You MUST dispatch @planner next."
-                missing_documents.append("docs/manifest.json")
+        elif branch == "A":
+            current_phase = "Discovery"
+            target_agent = "@diagnose"
+            auth_msg = "You are UNAUTHORIZED to modify any files. You MUST use read-only tools to diagnose the issue and output the diagnosis report."
+        else: # Branch B
+            current_phase = "Planning/Execution"
+            target_agent = "@planner"
+            auth_msg = "You are authorized to plan or execute based on document state."
 
         return {
             "phase": current_phase,
             "target_agent": target_agent,
             "missing_documents": missing_documents,
-            "auth_msg": auth_msg
+            "auth_msg": auth_msg,
+            "manifest_state": {
+                "designs_found": active_designs,
+                "progress_found": active_progress
+            }
         }
 
     @observe(name="dispatch_agent")
@@ -264,6 +311,10 @@ Return the result as JSON:
         Returns:
             Dispatch result with routed agent info
         """
+        # Detect platform and use actual model
+        _, model = get_active_platform_and_model()
+        langfuse_context.update_current_observation(model=model)
+
         trace_id = os.environ.get("LANGFUSE_TRACE_ID")
         if not trace_id:
             trace_id = str(uuid.uuid4())
@@ -288,12 +339,10 @@ Return the result as JSON:
 
         # Basic intent classification if prompt is provided
         intent_branch = None
-        intent_justification = None
         routing_decision = {}
         if "prompt" in context:
             intent_info = self.classify_intent(context["prompt"])
             intent_branch = intent_info.get("branch")
-            intent_justification = intent_info.get("justification")
             
             if "project_root" in context and intent_branch:
                 routing_decision = self.evaluate_artifacts(intent_branch, context["project_root"])
@@ -302,7 +351,6 @@ Return the result as JSON:
             langfuse_context.update_current_trace(
                 metadata={
                     "matrix_branch": intent_branch,
-                    "intent_justification": intent_justification,
                     "target_agent": routing_decision.get("target_agent"),
                     "phase": routing_decision.get("phase")
                 }
@@ -317,7 +365,6 @@ Return the result as JSON:
             "context": context,
             "orchestrator_applied": True,
             "intent_branch": intent_branch,
-            "intent_justification": intent_justification,
             "routing_decision": routing_decision,
             "trace_id": langfuse_context.get_current_trace_id()
         }

@@ -10,17 +10,28 @@
         ]
       }
     ],
-    "PostToolUse": [
+    "PreCompact": [
       {
-        "filters": [],
+        "matcher": "*",
         "hooks": [
           {
+            "name": "compression-notifier",
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/doc-manifest-validator.sh"
-          },
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/notify_compression.py\"",
+            "description": "Alerts the user that context is being compressed so they can run /clear"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "sequential": true,
+        "hooks": [
           {
+            "name": "pre-tool-use-security",
             "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/sync_manifest_state.py"
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/pre_tool_use.py\""
           }
         ]
       }

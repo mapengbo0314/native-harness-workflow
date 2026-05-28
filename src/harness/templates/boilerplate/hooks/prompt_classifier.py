@@ -1,10 +1,21 @@
 import sys
 import json
 import os
-import uuid
 import logging
 from pathlib import Path
 from hook_common import resolve_project_root
+try:
+    from langfuse import observe
+except ImportError:
+    try:
+        from langfuse.decorators import observe
+    except ImportError:
+        def observe(*args, **kwargs):
+            def decorator(func):
+                return func
+            if len(args) == 1 and callable(args[0]):
+                return args[0]
+            return decorator
 
 def fallback_classify(prompt):
     prompt = prompt.lower()
@@ -17,6 +28,7 @@ def fallback_classify(prompt):
     else:
         return "D"
 
+@observe(name="user_prompt")
 def main():
     try:
         try:
@@ -40,14 +52,13 @@ def main():
         
         if str(src_dir) not in sys.path:
             sys.path.insert(0, str(src_dir))
-            
+
+        import langfuse_instrumentation
+        langfuse_instrumentation.init_langfuse_trace(str(project_root))
+        langfuse_instrumentation.init_langfuse_prompt_span(prompt)
+
         try:
-            # 2. Ensure LANGFUSE_TRACE_ID is set
-            if not os.environ.get("LANGFUSE_TRACE_ID"):
-                os.environ["LANGFUSE_TRACE_ID"] = str(uuid.uuid4())
-                
             from harness.runtime.dispatcher import OrchestratorDispatcher
-            from langfuse.decorators import langfuse_context
             
             # 3. Instantiate dispatcher
             dispatcher = OrchestratorDispatcher(str(config_dir))
@@ -62,8 +73,6 @@ def main():
             reason = result.get("intent_justification")
             routing_decision = result.get("routing_decision", {})
             
-            # CRITICAL: Call langfuse_context.flush() to ensure telemetry upload
-            langfuse_context.flush()
         except Exception as e:
             print(f"DEBUG: Dispatcher failed: {e}", file=sys.stderr)
             pass
@@ -156,7 +165,6 @@ def main():
             print(f"DEBUG: Adapter formatting failed: {e}", file=sys.stderr)
             output = {
                 "classification": branch, 
-                "reason": reason,
                 "modifiedPrompt": prompt + system_state,
                 "system_prompt_extension": system_state,
                 "target_agent": target_agent,
@@ -169,6 +177,7 @@ def main():
             }
             
         print(json.dumps(output))
+        langfuse_instrumentation.ensure_flush()
         sys.exit(0)
     except SystemExit:
         raise

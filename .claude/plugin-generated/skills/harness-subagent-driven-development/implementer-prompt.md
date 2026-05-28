@@ -16,6 +16,11 @@ Task tool (general-purpose):
 
     [Scene-setting: where this fits, dependencies, architectural context]
 
+    ## Reference Documents
+
+    **Design Document:** [Path to design doc, e.g., .claude/docs/designs/YYYY-MM-DD-<topic>-design.md]
+    **Task Progress:** [Path to progress doc, e.g., .claude/docs/designs/YYYY-MM-DD-<topic>-progress.md]
+
     ## Before You Begin
 
     If you have questions about:

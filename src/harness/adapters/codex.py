@@ -60,7 +60,6 @@ class CodexAdapter(PlatformAdapter):
 
     def format_hook_response(self, original_prompt: str, routing_decision: dict, context_extension: str, hook_event_name: str) -> dict:
         branch = routing_decision.get("classification")
-        reason = routing_decision.get("reason")
         target_agent = routing_decision.get("target_agent") or "@generalist"
 
         agent_name = target_agent.lstrip("@")
@@ -69,7 +68,6 @@ class CodexAdapter(PlatformAdapter):
 
         return {
             "classification": branch,
-            "reason": reason,
             "modifiedPrompt": modified_prompt,
             "system_prompt_extension": context_extension,
             "target_agent": target_agent,

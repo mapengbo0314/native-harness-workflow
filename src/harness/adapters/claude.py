@@ -118,7 +118,6 @@ class ClaudeAdapter(PlatformAdapter):
 
     def format_hook_response(self, original_prompt: str, routing_decision: dict, context_extension: str, hook_event_name: str) -> dict:
         branch = routing_decision.get("classification")
-        reason = routing_decision.get("reason")
         target_agent = routing_decision.get("target_agent") or "@general-purpose"
         
         if target_agent == "@generalist":
@@ -130,7 +129,6 @@ class ClaudeAdapter(PlatformAdapter):
 
         return {
             "classification": branch,
-            "reason": reason,
             "modifiedPrompt": modified_prompt,
             "system_prompt_extension": context_extension,
             "target_agent": target_agent,

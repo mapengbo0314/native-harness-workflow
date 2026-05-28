@@ -12,7 +12,7 @@ def test_sandbox_uses_root_hook_guard_for_protected_paths():
         os.environ["HARNESS_HEADLESS"] = "1"
         mint_harness(str(workspace), "RecoveryTestApp")
 
-        host = MockHost(workspace, api_key="mock", dry_run=True)
+        host = MockHost(workspace, cli_name="claude", dry_run=True)
         result = host.run_hook(
             "prompt_classifier",
             {"prompt": "Hello world"}

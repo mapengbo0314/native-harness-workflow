@@ -70,7 +70,7 @@ You MUST invoke the `harness-brainstorming-plans` superpower skill and attempt t
 - **Read-Only Protocol**: You are restricted to read-only and analysis tools. You must not modify source code or configurations.
 - **Build First**: When working in a new area, consult the relevant build and configuration files first to understand the system boundary.
 - **Architecture Awareness**: Use the mcp_codegraph_codegraph_node tool or `codegraph` tools to understand architecture before drafting the plan.
-- **Execution Boundaries**: A plan does not authorize implementation. You MUST create the design in .claude/docs/proposed/ and add it to .claude/docs/manifest.json with state=proposed, then halt.
+- **Execution Boundaries**: A plan does not authorize implementation. You MUST create the design in `.claude/docs/designs/` with YAML frontmatter `Status: Proposed` then halt.
 - **Goldfish Protocol**: Ensure your plans are stand-alone and verifiable by an agent with zero previous context.
 
 ### Planner Instructions
@@ -89,30 +89,17 @@ You MUST invoke the `harness-brainstorming-plans` superpower skill and attempt t
 - Every step must be actionable and scoped.
 - Use investigation tools when standard inspection is insufficient.
 
-### Document State Tracking Integration (Planner)
-When creating a new design plan:
-1. **Check for Duplicates**: Before proposing a new design, read `.claude/docs/manifest.json` to see if a similar design already exists
-2. **Register New Designs**: After your design spec is complete, you MUST add an entry to `.claude/docs/manifest.json` with:
-   - `name`: design document name
-   - `state`: "proposed" (always for new designs)
-   - `created_date`: ISO8601 timestamp (e.g., "2026-05-26T14:30:00Z")
-   - `inprogress_since`: null (set only when implementation starts)
-   - `progress_doc_path`: null (set only when implementation starts)
-   - `description`: one-line description of the design
-3. **Manifest Entry Example**:
-   ```json
-   {
-     "name": "feature-x-design",
-     "state": "proposed",
-     "created_date": "2026-05-26T14:30:00Z",
-     "inprogress_since": null,
-     "progress_doc_path": null,
-     "description": "Add user authentication with OAuth2 support"
-   }
-   ```
-4. **Place Design Spec**: Save the design document to `.claude/docs/proposed/{design_name}.md`
+### Externalized Context Management
+- **Target**: Create `.claude/docs/designs/{design_name}.md`
+- **Format**: You MUST include a YAML frontmatter or bold header at the top of the file containing the status.
 
-This ensures all design work is tracked and visible to the orchestrator and implementer.
+```markdown
+---
+Status: Proposed
+Created: {ISO8601}
+---
+# {Design Name}
+```
 
 ### Scratchpad Template
 # Scratchpad

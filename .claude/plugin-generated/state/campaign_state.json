@@ -1,0 +1,113 @@
+{
+  "sessions": {
+    "73967": {
+      "active_persona": "generalist"
+    },
+    "74219": {
+      "active_persona": "generalist"
+    },
+    "74820": {
+      "active_persona": "generalist"
+    },
+    "75146": {
+      "active_persona": "generalist"
+    },
+    "75367": {
+      "active_persona": "generalist"
+    },
+    "75475": {
+      "active_persona": "generalist"
+    },
+    "75519": {
+      "active_persona": "generalist"
+    },
+    "76826": {
+      "active_persona": "generalist"
+    },
+    "77445": {
+      "active_persona": "generalist"
+    },
+    "77605": {
+      "active_persona": "planner"
+    },
+    "78026": {
+      "active_persona": "generalist"
+    },
+    "79145": {
+      "active_persona": "diagnose"
+    },
+    "79672": {
+      "active_persona": "diagnose"
+    },
+    "79903": {
+      "active_persona": "planner"
+    },
+    "80020": {
+      "active_persona": "diagnose"
+    },
+    "84137": {
+      "active_persona": "generalist"
+    },
+    "88412": {
+      "active_persona": "generalist"
+    },
+    "88769": {
+      "active_persona": "generalist"
+    },
+    "90112": {
+      "active_persona": "generalist"
+    },
+    "90362": {
+      "active_persona": "generalist"
+    },
+    "92730": {
+      "active_persona": "generalist"
+    },
+    "94609": {
+      "active_persona": "generalist"
+    },
+    "94789": {
+      "active_persona": "generalist"
+    },
+    "2005": {
+      "active_persona": "planner"
+    },
+    "2032": {
+      "active_persona": "generalist"
+    },
+    "2218": {
+      "active_persona": "generalist"
+    },
+    "4980": {
+      "active_persona": "diagnose"
+    },
+    "6136": {
+      "active_persona": "diagnose"
+    },
+    "6874": {
+      "active_persona": "generalist"
+    },
+    "7441": {
+      "active_persona": "diagnose"
+    },
+    "7572": {
+      "active_persona": "diagnose"
+    },
+    "10985": {
+      "active_persona": "diagnose"
+    },
+    "11135": {
+      "active_persona": "planner"
+    },
+    "13537": {
+      "active_persona": "generalist"
+    },
+    "14206": {
+      "active_persona": "generalist"
+    },
+    "17722": {
+      "active_persona": "diagnose"
+    }
+  },
+  "active_persona": "diagnose"
+}

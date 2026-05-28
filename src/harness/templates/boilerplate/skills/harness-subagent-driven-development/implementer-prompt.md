@@ -19,7 +19,7 @@ Task tool (general-purpose):
     ## Reference Documents
 
     **Design Document:** [Path to design doc, e.g., <!--$HARNESS_DIR$-->/docs/designs/YYYY-MM-DD-<topic>-design.md]
-    **Task Progress:** [Path to progress doc, e.g., <!--$HARNESS_DIR$-->/docs/progress/YYYY-MM-DD-<topic>-progress.md]
+    **Task Progress:** [Path to progress doc, e.g., <!--$HARNESS_DIR$-->/docs/designs/YYYY-MM-DD-<topic>-progress.md]
 
     ## Before You Begin
 

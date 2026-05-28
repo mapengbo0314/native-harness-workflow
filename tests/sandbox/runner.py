@@ -213,10 +213,9 @@ class HarnessEventLogger:
 class MockHost:
     """Manages the agent interaction loop in the sandbox."""
     
-    def __init__(self, workspace_root: Path, api_key: str, llm_provider: str = "anthropic", dry_run: bool = False, model: str = None):
+    def __init__(self, workspace_root: Path, cli_name: str, dry_run: bool = False, model: str = None):
         self.workspace_root = workspace_root
-        self.api_key = api_key
-        self.llm_provider = llm_provider
+        self.cli_name = cli_name
         self.dry_run = dry_run
         self.model = model
         self.plugin_dir = workspace_root / ".claude" / "plugin-generated"
@@ -291,7 +290,7 @@ class MockHost:
                     # Construct a prompt that includes history and tool instructions
                     full_prompt = self._build_llm_prompt()
                     # Ensure api_key is passed correctly. If it's missing, query_llm will handle it (usually by checking env)
-                    response_text = query_llm(full_prompt, self.llm_provider, self.api_key, model=self.model) or ""
+                    response_text = query_llm(full_prompt, self.cli_name, model=self.model) or ""
                 
                 self.logger.log_event("LLM_RESPONSE", {"text": response_text})
                 
@@ -475,32 +474,14 @@ def main():
 
     prompt = scenario_data.get("prompt", "No prompt provided in scenario.")
 
-    # Determine provider
+    # Determine provider (cli_name)
     provider = args.provider
     if not provider:
-        if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
-            provider = "gemini"
-        elif os.environ.get("ANTHROPIC_API_KEY"):
-            provider = "anthropic"
-        elif os.environ.get("OPENAI_API_KEY"):
-            provider = "openai"
-        else:
-            provider = "gemini" # Default
-
-    # Use provided key or look in environment
-    api_key = args.api_key
-    if not api_key:
-        if provider == "openai":
-            api_key = os.environ.get("OPENAI_API_KEY", "")
-        elif provider == "anthropic":
-            api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-        elif provider == "gemini":
-            api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or ""
-
-    if not args.dry_run and not api_key:
-        print(f"Error: API key for {provider} is required when not in --dry-run mode.")
-        print(f"Please provide --api-key or set the appropriate environment variable.")
-        sys.exit(1)
+        provider = "gemini" # Default
+        
+    if provider not in ["gemini", "claude"]:
+        print(f"Warning: provider '{provider}' may not be supported by native_cli. Falling back to gemini")
+        provider = "gemini"
 
     # Robust model selection
     model = args.model
@@ -519,7 +500,7 @@ def main():
         mint_harness(str(workspace), "SampleApp", model=model)
         
         # 3. Initialize MockHost
-        host = MockHost(workspace, api_key, provider, dry_run=args.dry_run, model=model)
+        host = MockHost(workspace, provider, dry_run=args.dry_run, model=model)
         
         # 4. Run task
         host.run_task(prompt)

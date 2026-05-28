@@ -23,7 +23,7 @@ Load plan, review critically, execute all tasks, report when complete.
 1. Read plan file (`<!--$HARNESS_DIR$-->/docs/designs/YYYY-MM-DD-<topic>-design.md`)
 2. Review critically - identify any questions or concerns about the plan
 3. If concerns: Raise them with your human partner before starting
-4. If no concerns: Locate or create the corresponding task-progress document (`<!--$HARNESS_DIR$-->/docs/progress/YYYY-MM-DD-<topic>-progress.md`) and proceed
+4. If no concerns: Locate or create the corresponding task-progress document (`<!--$HARNESS_DIR$-->/docs/designs/YYYY-MM-DD-<topic>-progress.md`) and proceed
 
 ### Step 2: Execute Tasks
 

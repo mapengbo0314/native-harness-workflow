@@ -53,6 +53,9 @@ class GeminiAdapter(PlatformAdapter):
                     new_content = content.replace("${HARNESS_PLUGIN_ROOT}", f"${{{self.get_plugin_env_var_name()}}}")
                     new_content = re.sub(r'(^|[\s/"\'])\.claude([\s/"\']|$)', r'\1' + self.get_config_dir_name() + r'\2', new_content)
                     
+                    if file == "hooks.json":
+                        new_content = new_content.replace('"PreCompact":', '"PreCompress":')
+                    
                     if new_content != content:
                         with open(filepath, "w", encoding="utf-8") as f:
                             f.write(new_content)
@@ -84,7 +87,6 @@ class GeminiAdapter(PlatformAdapter):
 
     def format_hook_response(self, original_prompt: str, routing_decision: dict, context_extension: str, hook_event_name: str) -> dict:
         branch = routing_decision.get("classification")
-        reason = routing_decision.get("reason")
         target_agent = routing_decision.get("target_agent") or "@generalist"
 
         # For Gemini, prepend the target_agent syntax
@@ -93,7 +95,6 @@ class GeminiAdapter(PlatformAdapter):
 
         return {
             "classification": branch,
-            "reason": reason,
             "modifiedPrompt": modified_prompt,
             "system_prompt_extension": context_extension,
             "target_agent": target_agent,

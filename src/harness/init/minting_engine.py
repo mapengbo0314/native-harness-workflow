@@ -582,7 +582,8 @@ def copy_runtime_modules(target_dir: Path) -> None:
     core_files = {
         "dispatcher.py": runtime_src / "dispatcher.py",
         "llm_client.py": runtime_src / "llm_client.py",
-        "discovery_engine.py": init_src / "discovery_engine.py"
+        "discovery_engine.py": init_src / "discovery_engine.py",
+        "langfuse_instrumentation.py": runtime_src / "langfuse_instrumentation.py"
     }
     
     for core_file, src_path in core_files.items():

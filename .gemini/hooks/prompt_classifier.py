@@ -134,7 +134,6 @@ def main():
         hook_event_name = input_data.get("hookEventName") or input_data.get("hook_event_name", "UserPromptSubmit")
         
         routing_decision["classification"] = branch
-        routing_decision["reason"] = reason
 
         try:
             from harness.adapters import get_adapter

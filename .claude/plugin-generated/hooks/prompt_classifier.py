@@ -4,7 +4,18 @@ import os
 import logging
 from pathlib import Path
 from hook_common import resolve_project_root
-from langfuse import observe
+try:
+    from langfuse import observe
+except ImportError:
+    try:
+        from langfuse.decorators import observe
+    except ImportError:
+        def observe(*args, **kwargs):
+            def decorator(func):
+                return func
+            if len(args) == 1 and callable(args[0]):
+                return args[0]
+            return decorator
 
 def fallback_classify(prompt):
     prompt = prompt.lower()
