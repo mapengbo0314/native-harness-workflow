@@ -97,7 +97,7 @@
       "active_persona": "generalist"
     },
     "e1629c20-8e52-4005-91c3-ac63fccba1bb": {
-      "active_persona": "generalist"
+      "active_persona": "planner"
     },
     "32531338-2447-448a-8259-b238347a11a9": {
       "active_persona": "planner"
@@ -106,5 +106,5 @@
       "active_persona": "diagnose"
     }
   },
-  "active_persona": "generalist"
+  "active_persona": "planner"
 }
