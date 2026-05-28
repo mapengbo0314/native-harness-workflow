@@ -212,6 +212,30 @@
     },
     "29541": {
       "active_persona": "planner"
+    },
+    "30153": {
+      "active_persona": "generalist"
+    },
+    "30382": {
+      "active_persona": "generalist"
+    },
+    "30476": {
+      "active_persona": "generalist"
+    },
+    "30586": {
+      "active_persona": "generalist"
+    },
+    "32592": {
+      "active_persona": "implementer"
+    },
+    "32823": {
+      "active_persona": "diagnose"
+    },
+    "38522": {
+      "active_persona": "generalist"
+    },
+    "38994": {
+      "active_persona": "planner"
     }
   },
   "active_persona": "planner"
