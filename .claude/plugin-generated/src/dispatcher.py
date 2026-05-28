@@ -72,7 +72,7 @@ class OrchestratorDispatcher:
                 return json.load(f)
         return {"rules": {}}
 
-    @observe(as_type="span")
+    @observe(name="classify_intent", as_type="span")
     def classify_intent(self, prompt: str) -> Dict[str, str]:
         """Classify user intent into Matrix Routing Branches A/B/C/D.
 
@@ -249,7 +249,7 @@ Return the result as JSON:
             "auth_msg": auth_msg
         }
 
-    @observe()
+    @observe(name="dispatch_agent")
     def dispatch_agent(
         self,
         agent_name: str,

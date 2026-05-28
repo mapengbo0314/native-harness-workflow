@@ -5,7 +5,7 @@ import subprocess
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from langfuse.decorators import observe, langfuse_context
 
-@observe(as_type="generation")
+@observe(name="query_llm", as_type="generation")
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=2, min=5, max=20),
