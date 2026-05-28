@@ -3,7 +3,8 @@ import uuid
 import json
 import subprocess
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
-from langfuse.decorators import observe, langfuse_context
+from langfuse import observe
+from harness.runtime.langfuse_compat import langfuse_context
 
 @observe(as_type="generation")
 @retry(

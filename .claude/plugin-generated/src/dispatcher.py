@@ -9,8 +9,30 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 from dotenv import load_dotenv
-from langfuse.decorators import observe, langfuse_context
+from langfuse import observe
 import uuid
+
+# Langfuse v4 compatibility - inline compat for plugin-generated version
+from langfuse import get_client as _get_client
+class _LangfuseContextCompat:
+    def __init__(self):
+        self._client = _get_client()
+    def update_current_observation(self, model=None, **kwargs):
+        self._client.update_current_generation(model=model, **kwargs)
+    def update_current_trace(self, session_id=None, tags=None, metadata=None, **kwargs):
+        merged_metadata = metadata or {}
+        if session_id is not None:
+            merged_metadata['session_id'] = session_id
+        if tags is not None:
+            merged_metadata['tags'] = tags
+        self._client.update_current_span(metadata=merged_metadata, **kwargs)
+    def get_current_trace_id(self):
+        return self._client.get_current_trace_id()
+    def get_current_observation_id(self):
+        return self._client.get_current_observation_id()
+    def flush(self):
+        self._client.flush()
+langfuse_context = _LangfuseContextCompat()
 
 load_dotenv()
 

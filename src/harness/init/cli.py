@@ -14,7 +14,8 @@ from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
 
-from langfuse.decorators import observe, langfuse_context
+from langfuse import observe
+from harness.runtime.langfuse_compat import langfuse_context
 
 load_dotenv()
 
