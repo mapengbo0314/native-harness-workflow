@@ -104,7 +104,22 @@
     },
     "1771607d-2f3e-45b7-bb1b-fe9b4af72340": {
       "active_persona": "diagnose"
+    },
+    "aa1e9caa-2eed-4191-b2bd-8f4f695de9fb": {
+      "active_persona": "implementer"
+    },
+    "6fb24e7d-61db-428b-b8fb-7e9284e7ce57": {
+      "active_persona": "implementer"
+    },
+    "a3940041-b6d5-44a6-94ae-c95414d1b596": {
+      "active_persona": "generalist"
+    },
+    "6826a503-62bd-4840-8ce5-10ac645778c0": {
+      "active_persona": "implementer"
+    },
+    "5435c755-67ba-484d-9712-67eae6cd7b5f": {
+      "active_persona": "implementer"
     }
   },
-  "active_persona": "planner"
+  "active_persona": "implementer"
 }

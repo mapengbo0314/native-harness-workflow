@@ -61,7 +61,7 @@ def main():
     print("Langfuse credentials found. Fetching dataset and evaluating...")
     try:
         from langfuse import Langfuse
-        from langfuse.decorators import langfuse_context
+        from harness.runtime.langfuse_compat import langfuse_context
         from harness.runtime.dispatcher import OrchestratorDispatcher
         
         langfuse = Langfuse()
