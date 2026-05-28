@@ -133,7 +133,7 @@ class TestInitLangfusePromptSpan:
             langfuse_instrumentation.init_langfuse_prompt_span(prompt_text)
 
             mock_client.update_current_span.assert_called_once_with(
-                name="prompt",
+                name="user_prompt",
                 input=prompt_text,
             )
 
@@ -144,7 +144,7 @@ class TestInitLangfusePromptSpan:
             langfuse_instrumentation.init_langfuse_prompt_span("")
 
             mock_client.update_current_span.assert_called_once_with(
-                name="prompt",
+                name="user_prompt",
                 input="",
             )
 

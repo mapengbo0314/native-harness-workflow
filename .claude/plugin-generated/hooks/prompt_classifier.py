@@ -1,10 +1,10 @@
 import sys
 import json
 import os
-import uuid
 import logging
 from pathlib import Path
 from hook_common import resolve_project_root
+from langfuse import observe
 
 def fallback_classify(prompt):
     prompt = prompt.lower()
@@ -17,6 +17,7 @@ def fallback_classify(prompt):
     else:
         return "D"
 
+@observe(name="user_prompt")
 def main():
     try:
         try:
@@ -40,14 +41,13 @@ def main():
         
         if str(src_dir) not in sys.path:
             sys.path.insert(0, str(src_dir))
-            
+
+        import langfuse_instrumentation
+        langfuse_instrumentation.init_langfuse_trace(str(project_root))
+        langfuse_instrumentation.init_langfuse_prompt_span(prompt)
+
         try:
-            # 2. Ensure LANGFUSE_TRACE_ID is set
-            if not os.environ.get("LANGFUSE_TRACE_ID"):
-                os.environ["LANGFUSE_TRACE_ID"] = str(uuid.uuid4())
-                
             from harness.runtime.dispatcher import OrchestratorDispatcher
-            from langfuse.decorators import langfuse_context
             
             # 3. Instantiate dispatcher
             dispatcher = OrchestratorDispatcher(str(config_dir))
@@ -62,8 +62,6 @@ def main():
             reason = result.get("intent_justification")
             routing_decision = result.get("routing_decision", {})
             
-            # CRITICAL: Call langfuse_context.flush() to ensure telemetry upload
-            langfuse_context.flush()
         except Exception as e:
             print(f"DEBUG: Dispatcher failed: {e}", file=sys.stderr)
             pass
@@ -83,7 +81,39 @@ def main():
         current_phase = routing_decision.get("phase", "Unknown")
         artifacts_missing = routing_decision.get("artifacts_missing", [])
         auth_msg = routing_decision.get("auth_msg", "")
-        target_agent = routing_decision.get("target_agent", "@implementer")
+        target_agent = routing_decision.get("target_agent", "@generalist")
+        manifest_state = routing_decision.get("manifest_state", None)
+
+        try:
+            from hook_common import resolve_plugin_root, get_session_id
+            state_dir = resolve_plugin_root() / "state"
+            state_dir.mkdir(exist_ok=True)
+            state_file = state_dir / "campaign_state.json"
+            
+            state_data = {}
+            if state_file.exists():
+                try:
+                    with open(state_file, "r") as f:
+                        state_data = json.load(f)
+                except json.JSONDecodeError:
+                    pass
+                    
+            session_id = get_session_id()
+            
+            if "sessions" not in state_data:
+                state_data["sessions"] = {}
+                
+            if session_id not in state_data["sessions"]:
+                state_data["sessions"][session_id] = {}
+                
+            active_persona = target_agent.lstrip("@")
+            state_data["sessions"][session_id]["active_persona"] = active_persona
+            state_data["active_persona"] = active_persona
+            
+            with open(state_file, "w") as f:
+                json.dump(state_data, f, indent=2)
+        except Exception as e:
+            print(f"DEBUG: Failed to save campaign state: {e}", file=sys.stderr)
 
         try:
             from harness.runtime.context_builder import build_context
@@ -92,13 +122,18 @@ def main():
                 target_agent=target_agent,
                 auth_msg=auth_msg,
                 branch=branch,
-                artifacts_missing=artifacts_missing
+                missing_documents=artifacts_missing,
+                manifest_state=manifest_state
             )
         except Exception as e:
             print(f"DEBUG: context_builder failed: {e}", file=sys.stderr)
             system_state = ""
             if current_phase != "Unknown":
-                system_state = f"\n\n=== SYSTEM STATE ===\nActive Branch: {branch}\nCurrent Phase: {current_phase}\nTarget Agent: {target_agent}\nArtifacts Missing: {', '.join(artifacts_missing) if artifacts_missing else 'None'}\nAuthorization: {auth_msg}\n====================\n"
+                system_state = f"\n\n=== SYSTEM STATE ===\nActive Branch: {branch}\nCurrent Phase: {current_phase}\nTarget Agent: {target_agent}\nArtifacts Missing: {', '.join(artifacts_missing) if artifacts_missing else 'None'}\nAuthorization: {auth_msg}\n"
+                if manifest_state and branch == "B":
+                    system_state += f"Proposed Designs: {', '.join(manifest_state.get('designs_found', [])) or 'None'}\n"
+                    system_state += f"In-Progress Designs: {', '.join(manifest_state.get('progress_found', [])) or 'None'}\n"
+                system_state += "====================\n"
             
         hook_event_name = input_data.get("hookEventName") or input_data.get("hook_event_name", "UserPromptSubmit")
         
@@ -119,7 +154,6 @@ def main():
             print(f"DEBUG: Adapter formatting failed: {e}", file=sys.stderr)
             output = {
                 "classification": branch, 
-                "reason": reason,
                 "modifiedPrompt": prompt + system_state,
                 "system_prompt_extension": system_state,
                 "target_agent": target_agent,
@@ -132,6 +166,7 @@ def main():
             }
             
         print(json.dumps(output))
+        langfuse_instrumentation.ensure_flush()
         sys.exit(0)
     except SystemExit:
         raise
