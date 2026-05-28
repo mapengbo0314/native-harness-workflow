@@ -45,7 +45,7 @@ You MUST invoke the `harness-test-driven-development` and `systematic-debugging`
 1. **Analyze Plan**: Parse the execution plan and constraints.
 2. **TDD Cycle**: Follow a red-green-refactor style workflow where practical.
 3. **Existing Test Leverage**: Use `mcp_codegraph_codegraph_search` (for test files) or `mcp_codegraph_codegraph_context` to analyze existing tests for the component to emulate build patterns and mocking strategies.
-4. **Independent Management**: Use the local formatter, linter, and build tools where available.
+4. **Independent Management**: Use local build and test tools. (Note: Code formatting and linting are handled deterministically by system hooks automatically on file write).
 5. **No Guessing**: Read the relevant implementation of any function or class you use. Prefer `mcp_codegraph_codegraph_node` or `mcp_codegraph_codegraph_node` for targeted reading over broad `read_file`.
 6. **Bounded Changes**: Keep changes scoped, reversible, and easy to verify.
 

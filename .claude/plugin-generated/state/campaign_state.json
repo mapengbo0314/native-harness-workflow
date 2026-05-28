@@ -107,6 +107,45 @@
     },
     "17722": {
       "active_persona": "diagnose"
+    },
+    "26485": {
+      "active_persona": "diagnose"
+    },
+    "27924": {
+      "active_persona": "generalist"
+    },
+    "32937": {
+      "active_persona": "diagnose"
+    },
+    "33550": {
+      "active_persona": "generalist"
+    },
+    "33925": {
+      "active_persona": "planner"
+    },
+    "34741": {
+      "active_persona": "planner"
+    },
+    "34969": {
+      "active_persona": "planner"
+    },
+    "36050": {
+      "active_persona": "planner"
+    },
+    "36188": {
+      "active_persona": "planner"
+    },
+    "37120": {
+      "active_persona": "diagnose"
+    },
+    "37678": {
+      "active_persona": "diagnose"
+    },
+    "38872": {
+      "active_persona": "diagnose"
+    },
+    "39842": {
+      "active_persona": "diagnose"
     }
   },
   "active_persona": "diagnose"

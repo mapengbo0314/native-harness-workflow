@@ -26,3 +26,26 @@ Currently, our subagents (`implementer` and `reviewer`) are explicitly instructe
    - **Rationale**: Explicitly inform the reviewer that deterministic file-formatting and linting are handled automatically on write via hooks, allowing focus on logic and architecture.
 5. **Update `.claude` and `.gemini` Live Folders**
    - **Rationale**: Manually mirror all the above changes into the `.claude/` and `.gemini/` directories (the hooks, `hooks.json`, `implementer.md`, `reviewer.md`) so the harness updates are immediately active in the current workspace.
+
+---
+
+## Adversary Review
+
+### Premise Analysis
+The user proposes a deterministic `post_tool_use.py` hook to automatically run linters and formatters (like Ruff, ESLint, Prettier) on files immediately after an agent modifies them via tool calls (`write_file`, `replace`, `Edit`, `Write`). This aims to save prompt tokens, remove the need for LLMs to remember to run linting, and enforce code quality implicitly.
+
+### Architectural Reality
+1. **State Mutation Blindness**: The hook runs synchronously and deterministically on the file system, modifying files behind the agent's back. The agent maintains an internal representation of the file it just wrote based on its own tool output. 
+2. **Context Desynchronization**: If `ruff format` or `eslint --fix` structurally changes the file (altering line numbers, spacing, or applying AST-based fixes), the agent's mental model of the file's line numbers will become immediately outdated.
+3. **Feedback Severance**: `post_tool_use` hooks execute after the tool has returned its primary result to the agent. The design does not specify a mechanism to return standard output or errors from `ruff check` back to the LLM's context window. The agent remains blind to unfixable lint errors or broken builds introduced by the hook.
+
+### Variables and Friction
+1. **Subsequent Edit Corruption**: Because linters alter file content and line numbers invisibly, the next tool call utilizing exact line targeting (e.g., Gemini's `replace` or Claude's `Edit`) will likely hit targeting mismatches or corrupt the file by injecting code at the wrong offsets.
+2. **Hook Feedback Loop**: If formatting fails or `ruff check` throws a syntax error that it cannot fix, the error is swallowed or only logged to the console, not to the agent. 
+3. **Ecosystem Tool Availability**: The hook assumes `ruff`, `eslint`, and `prettier` are globally or locally available in every runtime environment. If missing, the hook will crash.
+4. **Payload Parsing Inconsistencies**: The design states "extract the file path from the tool_input". However, different tools use different parameter schemas (e.g., `file_path`, `path`). The hook must accurately map the schema for four distinct tools across different platforms (Claude vs Gemini).
+
+### Conclusion
+The proposed design is logically flawed and architecturally brittle. Automatically mutating file state outside the agent's observation window guarantees line-number desynchronization, which will lead to inevitable file corruption on subsequent targeted edits. Furthermore, hiding linter execution results severs the agent's error feedback loop, leaving it blind to syntax or architectural violations. The concept fails to satisfy basic state-synchronization requirements between the LLM context and the physical filesystem.
+**User Decision on Adversary Review (2026-05-27):**
+The user reviewed the adversary's critique regarding state mutation blindness and context desynchronization. The user clarified that the architecture uses short-lived agent fan-outs (where new subagents are spawned with fresh contexts containing only the modified list of files), rendering the desynchronization issue a "non-issue". We are proceeding with the `post_tool_use` hook implementation.

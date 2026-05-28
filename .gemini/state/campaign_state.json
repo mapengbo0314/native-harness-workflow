@@ -86,6 +86,24 @@
     },
     "3d180783-34f0-4d40-8c7c-9907072db409": {
       "active_persona": "generalist"
+    },
+    "6cdb437d-af34-48bb-8875-c164dd182986": {
+      "active_persona": "planner"
+    },
+    "67f05796-51ea-4f4e-aa65-268470e20ba3": {
+      "active_persona": "generalist"
+    },
+    "942cdca6-2b92-4b96-8845-e93e9cfc7fd1": {
+      "active_persona": "generalist"
+    },
+    "e1629c20-8e52-4005-91c3-ac63fccba1bb": {
+      "active_persona": "generalist"
+    },
+    "32531338-2447-448a-8259-b238347a11a9": {
+      "active_persona": "planner"
+    },
+    "1771607d-2f3e-45b7-bb1b-fe9b4af72340": {
+      "active_persona": "diagnose"
     }
   },
   "active_persona": "generalist"
