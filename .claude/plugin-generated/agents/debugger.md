@@ -8,6 +8,8 @@ tools:
   - mcp_codegraph_codegraph_callers
   - mcp_codegraph_codegraph_impact
   - run_shell_command
+  - Bash
+  - Write
 ---
 
 # Debugger

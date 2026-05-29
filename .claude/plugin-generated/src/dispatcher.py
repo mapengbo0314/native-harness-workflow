@@ -10,29 +10,8 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 from dotenv import load_dotenv
 from langfuse import observe
+from harness.runtime.langfuse_compat import langfuse_context
 import uuid
-
-# Langfuse v4 compatibility - inline compat for plugin-generated version
-from langfuse import get_client as _get_client
-class _LangfuseContextCompat:
-    def __init__(self):
-        self._client = _get_client()
-    def update_current_observation(self, model=None, **kwargs):
-        self._client.update_current_generation(model=model, **kwargs)
-    def update_current_trace(self, session_id=None, tags=None, metadata=None, **kwargs):
-        merged_metadata = metadata or {}
-        if session_id is not None:
-            merged_metadata['session_id'] = session_id
-        if tags is not None:
-            merged_metadata['tags'] = tags
-        self._client.update_current_span(metadata=merged_metadata, **kwargs)
-    def get_current_trace_id(self):
-        return self._client.get_current_trace_id()
-    def get_current_observation_id(self):
-        return self._client.get_current_observation_id()
-    def flush(self):
-        self._client.flush()
-langfuse_context = _LangfuseContextCompat()
 
 load_dotenv()
 
@@ -89,15 +68,15 @@ def get_active_platform_and_model(starting_dir: str = ".") -> Tuple[str, str]:
     return (platform or "unknown", model)
 
 try:
-    from harness.runtime.llm_client import query_llm
     import harness.runtime.llm_client as _llm_client_module
+    from harness.runtime.llm_client import query_llm
 except (ImportError, ValueError):
     try:
-        from .llm_client import query_llm
         from . import llm_client as _llm_client_module
+        from .llm_client import query_llm
     except (ImportError, ValueError):
-        query_llm = None
         _llm_client_module = None
+        query_llm = None
 
 
 class OrchestratorDispatcher:
@@ -109,8 +88,16 @@ class OrchestratorDispatcher:
         "A": "Bug Fix / Diagnosis (stack trace, error, broken, bug, why is X failing)",
         "B": "Feature Request & Architectural Planning (build, create, implement, add feature, new)",
         "C": "Codebase Questioning & Knowledge Retrieval (how does, where is, what is, explain, why does)",
-        "D": "Surgical Edit / Fast Path (typo, change color, minor update, fix the, rename)",
+        "D": "Code Edit / TDD Required (any code change: rename, refactor, new function, fix, update)",
         "E": "No Technical Intent (conversational, greetings, vague messages with zero actionable intent)",
+    }
+
+    BRANCH_ROUTING = {
+        "A": {"skill": "harness-systematic-debugging",    "agent": "debugger",     "agent_invokes_skill": True},
+        "B": {"skill": "harness-brainstorming-plans",     "agent": "planner",      "agent_invokes_skill": False},
+        "C": {"skill": None,                              "agent": "generalist",   "agent_invokes_skill": False},
+        "D": {"skill": "harness-test-driven-development", "agent": "implementer",  "agent_invokes_skill": True},
+        "E": {"skill": None,                              "agent": None,           "agent_invokes_skill": False},
     }
 
     def __init__(self, config_dir: str):
@@ -193,11 +180,11 @@ selected_branch MUST be exactly one of: {valid_keys}
 """
             try:
                 response = query_llm(classification_prompt, cli_name)
-
-                # Use the actual model extracted from the CLI response
+                # Prefer actual model from CLI response, fall back to platform detection
                 actual_model = getattr(_llm_client_module, "last_actual_model", None)
-                if actual_model:
-                    langfuse_context.update_current_observation(model=actual_model)
+                if not actual_model:
+                    _, actual_model = get_active_platform_and_model()
+                langfuse_context.update_current_observation(model=actual_model)
 
                 # Extract JSON
                 cleaned = response.replace("```json", "").replace("```", "").strip()
@@ -306,34 +293,25 @@ selected_branch MUST be exactly one of: {valid_keys}
             for doc in progress_dir.glob("*.md"):
                 active_progress.append(doc.name)
 
-        if branch == "A":
-            current_phase = "Discovery"
-            target_agent = "@diagnose"
-            auth_msg = "You are UNAUTHORIZED to modify any files. You MUST use read-only tools to diagnose the issue and output the diagnosis report."
-        elif branch == "B":
-            current_phase = "Planning/Execution"
-            target_agent = "@planner"
-            auth_msg = "You are authorized to plan or execute based on document state."
-        elif branch == "C":
-            current_phase = "Read-Only"
-            target_agent = "@generalist"
-            auth_msg = "You are STRICTLY UNAUTHORIZED to mutate any files. You must only read and answer questions."
-        elif branch == "D":
-            current_phase = "4 (Surgical Edit authorized)"
-            target_agent = "@implementer"
-            auth_msg = "You are authorized for surgical edits. Bypass planner."
-        elif branch == "E":
-            current_phase = "Conversational"
-            target_agent = None
-            auth_msg = ""
-        else:
-            current_phase = "Unknown"
-            target_agent = "@generalist"
-            auth_msg = ""
+        routing = self.BRANCH_ROUTING.get(branch, {"skill": None, "agent": "generalist", "agent_invokes_skill": False})
+        target_skill = routing["skill"]
+        target_agent = f"@{routing['agent']}" if routing["agent"] else None
+        agent_invokes_skill = routing["agent_invokes_skill"]
+
+        phase_map = {
+            "A": ("Discovery", "You are UNAUTHORIZED to modify any files. You MUST use read-only tools to diagnose the issue and output the diagnosis report."),
+            "B": ("Planning/Execution", "You are authorized to plan or execute based on document state."),
+            "C": ("Read-Only", "You are STRICTLY UNAUTHORIZED to mutate any files. You must only read and answer questions."),
+            "D": ("TDD Execution", "You are authorized to write code. You MUST follow TDD: write the failing test first."),
+            "E": ("Conversational", ""),
+        }
+        current_phase, auth_msg = phase_map.get(branch, ("Unknown", ""))
 
         return {
             "phase": current_phase,
             "target_agent": target_agent,
+            "target_skill": target_skill,
+            "agent_invokes_skill": agent_invokes_skill,
             "missing_documents": missing_documents,
             "auth_msg": auth_msg,
             "manifest_state": {
@@ -387,14 +365,12 @@ selected_branch MUST be exactly one of: {valid_keys}
         if "prompt" in context:
             intent_info = self.classify_intent(context["prompt"])
             intent_branch = intent_info.get("branch")
-            
-            if "project_root" in context and intent_branch:
-                routing_decision = self.evaluate_artifacts(intent_branch, context["project_root"])
-            
-            # Propagate actual model from the query_llm call inside classify_intent
-            actual_model = getattr(_llm_client_module, "last_actual_model", None)
-            if actual_model:
-                langfuse_context.update_current_observation(model=actual_model)
+
+            if intent_branch:
+                project_root = context.get("project_root", ".")
+                if "project_root" not in context:
+                    print("DEBUG: project_root missing from context — routing table used, artifact scan skipped", flush=True)
+                routing_decision = self.evaluate_artifacts(intent_branch, project_root)
 
             # Surface reasoning to the top-level trace
             langfuse_context.update_current_trace(
@@ -404,6 +380,12 @@ selected_branch MUST be exactly one of: {valid_keys}
                     "phase": routing_decision.get("phase")
                 }
             )
+
+        # Always capture the model (actual from last LLM call, or platform-detected fallback)
+        actual_model = getattr(_llm_client_module, "last_actual_model", None)
+        if not actual_model:
+            _, actual_model = get_active_platform_and_model()
+        langfuse_context.update_current_observation(model=actual_model)
 
         branch_pointers = self.assemble_branch_context(agent_name, str(intent_branch) if intent_branch else "None")
         context["branch_context_pointers"] = branch_pointers

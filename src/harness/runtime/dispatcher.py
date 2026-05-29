@@ -88,8 +88,16 @@ class OrchestratorDispatcher:
         "A": "Bug Fix / Diagnosis (stack trace, error, broken, bug, why is X failing)",
         "B": "Feature Request & Architectural Planning (build, create, implement, add feature, new)",
         "C": "Codebase Questioning & Knowledge Retrieval (how does, where is, what is, explain, why does)",
-        "D": "Surgical Edit / Fast Path (typo, change color, minor update, fix the, rename)",
+        "D": "Code Edit / TDD Required (any code change: rename, refactor, new function, fix, update)",
         "E": "No Technical Intent (conversational, greetings, vague messages with zero actionable intent)",
+    }
+
+    BRANCH_ROUTING = {
+        "A": {"skill": "harness-systematic-debugging",    "agent": "debugger",     "agent_invokes_skill": True},
+        "B": {"skill": "harness-brainstorming-plans",     "agent": "planner",      "agent_invokes_skill": False},
+        "C": {"skill": None,                              "agent": "generalist",   "agent_invokes_skill": False},
+        "D": {"skill": "harness-test-driven-development", "agent": "implementer",  "agent_invokes_skill": True},
+        "E": {"skill": None,                              "agent": None,           "agent_invokes_skill": False},
     }
 
     def __init__(self, config_dir: str):
@@ -285,34 +293,25 @@ selected_branch MUST be exactly one of: {valid_keys}
             for doc in progress_dir.glob("*.md"):
                 active_progress.append(doc.name)
 
-        if branch == "A":
-            current_phase = "Discovery"
-            target_agent = "@diagnose"
-            auth_msg = "You are UNAUTHORIZED to modify any files. You MUST use read-only tools to diagnose the issue and output the diagnosis report."
-        elif branch == "B":
-            current_phase = "Planning/Execution"
-            target_agent = "@planner"
-            auth_msg = "You are authorized to plan or execute based on document state."
-        elif branch == "C":
-            current_phase = "Read-Only"
-            target_agent = "@generalist"
-            auth_msg = "You are STRICTLY UNAUTHORIZED to mutate any files. You must only read and answer questions."
-        elif branch == "D":
-            current_phase = "4 (Surgical Edit authorized)"
-            target_agent = "@implementer"
-            auth_msg = "You are authorized for surgical edits. Bypass planner."
-        elif branch == "E":
-            current_phase = "Conversational"
-            target_agent = None
-            auth_msg = ""
-        else:
-            current_phase = "Unknown"
-            target_agent = "@generalist"
-            auth_msg = ""
+        routing = self.BRANCH_ROUTING.get(branch, {"skill": None, "agent": "generalist", "agent_invokes_skill": False})
+        target_skill = routing["skill"]
+        target_agent = f"@{routing['agent']}" if routing["agent"] else None
+        agent_invokes_skill = routing["agent_invokes_skill"]
+
+        phase_map = {
+            "A": ("Discovery", "You are UNAUTHORIZED to modify any files. You MUST use read-only tools to diagnose the issue and output the diagnosis report."),
+            "B": ("Planning/Execution", "You are authorized to plan or execute based on document state."),
+            "C": ("Read-Only", "You are STRICTLY UNAUTHORIZED to mutate any files. You must only read and answer questions."),
+            "D": ("TDD Execution", "You are authorized to write code. You MUST follow TDD: write the failing test first."),
+            "E": ("Conversational", ""),
+        }
+        current_phase, auth_msg = phase_map.get(branch, ("Unknown", ""))
 
         return {
             "phase": current_phase,
             "target_agent": target_agent,
+            "target_skill": target_skill,
+            "agent_invokes_skill": agent_invokes_skill,
             "missing_documents": missing_documents,
             "auth_msg": auth_msg,
             "manifest_state": {
@@ -367,8 +366,11 @@ selected_branch MUST be exactly one of: {valid_keys}
             intent_info = self.classify_intent(context["prompt"])
             intent_branch = intent_info.get("branch")
 
-            if "project_root" in context and intent_branch:
-                routing_decision = self.evaluate_artifacts(intent_branch, context["project_root"])
+            if intent_branch:
+                project_root = context.get("project_root", ".")
+                if "project_root" not in context:
+                    print("DEBUG: project_root missing from context — routing table used, artifact scan skipped", flush=True)
+                routing_decision = self.evaluate_artifacts(intent_branch, project_root)
 
             # Surface reasoning to the top-level trace
             langfuse_context.update_current_trace(

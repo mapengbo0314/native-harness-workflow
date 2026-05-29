@@ -251,7 +251,19 @@
     },
     "43528c83-36e3-4258-99d7-c4d49ca29f08": {
       "active_persona": "implementer"
+    },
+    "467f5425-2823-426f-9a89-34f86d892da3": {
+      "active_persona": "generalist"
+    },
+    "eeef4a4b-c96f-42c9-b088-23745b5cbbdf": {
+      "active_persona": "generalist"
+    },
+    "2b6160ec-4084-4f9e-b0f3-f955811f16bc": {
+      "active_persona": "generalist"
+    },
+    "762609c6-61ac-4065-9a66-310814e360d5": {
+      "active_persona": "planner"
     }
   },
-  "active_persona": "implementer"
+  "active_persona": "planner"
 }

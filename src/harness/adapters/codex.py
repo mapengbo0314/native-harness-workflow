@@ -17,11 +17,19 @@ class CodexAdapter(PlatformAdapter):
     def get_tool_mappings(self) -> Dict[str, str]:
         return {}
 
-    def get_subagent_syntax(self) -> str:
-        return "Hand off to "
-
     def format_subagent_prompt(self, task_desc: str) -> str:
         return task_desc
+
+    def format_skill_invocation(self, skill_name: str) -> str:
+        return f'Activate skill {skill_name}'
+
+    def format_subagent_invocation(self, agent_name: str, description: str) -> str:
+        return f'Hand off to {agent_name}: {description}'
+
+    def get_subagent_text_call(self, agent_name: str, skill_name: str = None) -> str:
+        if skill_name:
+            return f'Hand off to {agent_name} — invoke skill {skill_name} first'
+        return f'Hand off to {agent_name}'
 
     def get_rules_pointer_files(self) -> List[str]:
         return ["CODEX.md"]

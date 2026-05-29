@@ -118,7 +118,7 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
         
         renderer_context = {
             "HARNESS_DIR": target_dir_name,
-            "SUBAGENT_SYNTAX": adapter.get_subagent_syntax(),
+            "subagent": adapter.get_subagent_text_call,
             "INGESTION_KEY": ingestion_key,
             "PROJECT_SLUG": project_slug
         }

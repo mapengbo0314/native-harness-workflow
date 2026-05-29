@@ -7,10 +7,20 @@ tools:
   - mcp_codegraph_codegraph_context
   - mcp_codegraph_codegraph_callers
   - mcp_codegraph_codegraph_impact
+  - read_file
   - run_shell_command
+  - write_file
 ---
 
 # Debugger
+
+## Metadata
+
+- Skills:
+  - harness-systematic-debugging
+- Related Agents:
+  - planner
+  - implementer
 
 ## System Prompt
 

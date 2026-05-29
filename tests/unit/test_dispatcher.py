@@ -17,9 +17,9 @@ def test_evaluate_artifacts_branch_d(tmp_path):
     config_dir.mkdir(parents=True)
     dispatcher = OrchestratorDispatcher(str(config_dir))
     result = dispatcher.evaluate_artifacts("D", tmp_path)
-    assert result["phase"] == "4 (Surgical Edit authorized)"
+    assert result["phase"] == "TDD Execution"
     assert result["target_agent"] == "@implementer"
-    assert "authorized for surgical edits" in result["auth_msg"]
+    assert "TDD" in result["auth_msg"]
 
 def test_evaluate_artifacts_branch_a_no_diagnosis(tmp_path):
     config_dir = tmp_path / "plugin-generated" / "config"
@@ -27,7 +27,7 @@ def test_evaluate_artifacts_branch_a_no_diagnosis(tmp_path):
     dispatcher = OrchestratorDispatcher(str(config_dir))
     result = dispatcher.evaluate_artifacts("A", tmp_path)
     assert result["phase"] == "Discovery"
-    assert result["target_agent"] == "@diagnose" # or @planner
+    assert result["target_agent"] == "@debugger"
     assert "UNAUTHORIZED to modify" in result["auth_msg"]
 
 def test_evaluate_artifacts_branch_a_with_diagnosis_no_plan(tmp_path):
@@ -40,7 +40,7 @@ def test_evaluate_artifacts_branch_a_with_diagnosis_no_plan(tmp_path):
     (docs_dir / "designs" / "test-design.md").touch()
     result = dispatcher.evaluate_artifacts("A", tmp_path)
     assert result["phase"] == "Discovery"
-    assert result["target_agent"] == "@diagnose"
+    assert result["target_agent"] == "@debugger"
     assert "UNAUTHORIZED to modify" in result["auth_msg"]
 
 def test_evaluate_artifacts_branch_b_no_plan(tmp_path):

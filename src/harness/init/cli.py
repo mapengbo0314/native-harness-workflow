@@ -277,9 +277,7 @@ def main():
             logical_harness_name=harness_folder
         )
 
-        # Determine subagent syntax for rule patching
         adapter = get_adapter(_platform_name(platform_choice))
-        target_syntax = adapter.get_subagent_syntax()
 
         # Copy runtime modules for ALL platforms (so hooks can load them locally)
         from harness.init.minting_engine import copy_runtime_modules

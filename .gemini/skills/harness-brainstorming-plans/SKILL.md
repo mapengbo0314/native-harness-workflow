@@ -2,6 +2,7 @@
 name: harness-brainstorming-plans
 description: You MUST use this before any creative work or when you have a spec/requirements for a multi-step task, before touching code. Explores user intent, produces a 4-part deterministic design document with HITL reviews.
 ---
+
 <SUBAGENT-STOP>
 If you were dispatched as a subagent to execute a specific task, skip this skill.
 </SUBAGENT-STOP>
@@ -21,21 +22,25 @@ Do NOT invoke any implementation skill, write any code, scaffold any project, or
 You MUST write the design document interactively with the user, one section at a time. After writing each section, you MUST invoke the `ask_user` tool to present the section and wait for the user to review and correct it before moving to the next.
 
 ### Part 1: Problem Understanding
+
 - **Prompt:** "Gemini, I want you to write a design doc for me in Markdown. Let's do it one section at a time. Start with Section Zero: A plain English description of your understanding of the business problem we are trying to solve for our user."
 - **Content:** Write a plain English description of your understanding of the business problem.
 - **Action for Results:** Invoke `ask_user` to present Part 1. Review and correct based on user feedback.
 
 ### Part 2: Technical Plan
+
 - **Prompt:** "Next, write a plain English description of the technical implementation plan. What are the big components? How will they fit together? How does the feature fit in the ecosystem? Use as little jargon as you can."
 - **Content:** High-level component architecture and ecosystem fit.
 - **Action for Results:** Invoke `ask_user` to present Part 2. Review and correct based on user feedback.
 
 ### Part 3: Alternatives
+
 - **Prompt:** "Next section: Describe any alternatives we considered but ruled out during our conversation - also in plain English"
 - **Content:** Describe any alternatives considered but ruled out.
 - **Action for Results:** Invoke `ask_user` to present Part 3. Review and correct based on user feedback.
 
 ### Part 4: Detailed Implementation
+
 - **Prompt:** "Final section: Write an extremely detailed implementation plan. You MUST enumerate every file we are going to change or create in our codebase and the rationale for why the change is necessary. You do not need to write code yet, but list every file touched."
 - **Content:** Enumerate every file to be changed/created and the rationale. Ensuring TDD test files are also considered.
 - **Action for Results:** Invoke `ask_user` to present Part 4. Review and correct based on user feedback.
@@ -57,21 +62,27 @@ When detailing the implementation in Part 4, strictly adhere to these standards:
 Once all 4 parts are completed and approved by the user, compile the final deterministic design document.
 
 **Documentation:**
+
 - Save the final document to `.gemini/docs/designs/YYYY-MM-DD-<topic>-design.md` (or the user's preferred spec location).
 - Commit the design document to git.
 
 **Adversarial Review (Optional):**
-After Self-Review and saving the document, use the `ask_user` tool to ask if the user wants to invoke the `adversary` subagent to review the design. 
+After Self-Review and saving the document, use the `ask_user` tool to ask if the user wants to invoke the `adversary` subagent to review the design.
+
 - **Important:** You MUST include a notification in your prompt to the user that invoking the adversary agent may cost some extra tokens.
 - **Action:** If the user agrees, use the `invoke_agent` tool (or your platform's subagent syntax) to send the `adversary` agent the path to the saved design document. Instruct the `adversary` agent to rigorously review the design for flaws, edge cases, and missing requirements, and to **append its notes to the bottom of the design doc** (it must NOT edit the core design).
 
 **Self-Review:**
 Before finalizing, review the document:
+
 1. **Spec coverage:** Does the plan cover the business problem?
 2. **Placeholder scan:** Any "TBD" or vague requirements? Fix them inline.
 3. **Internal consistency:** Do sections contradict each other?
 
-**Execution Handoff:**
-After saving the plan and completing the optional adversarial review, offer execution choice:
-- **Subagent-Driven (recommended):** Dispatch a fresh subagent per task using `superpowers:harness-subagent-driven-development`.
-- **Inline Execution:** Execute tasks using `superpowers:harness-executing-plans`.
+**Execution Handoff (MANDATORY):**
+After saving the plan and completing the optional adversarial review, you MUST use the `ask_user` tool to explicitly ask the user how they want to proceed with execution. You must present these two options clearly:
+
+1. **Subagent-Driven Development (Recommended):** Use the `harness-subagent-driven-development` skill to dispatch a fresh subagent for each task.
+2. **Inline Execution:** Use the `harness-executing-plans` skill to execute tasks sequentially in this session.
+
+Wait for the user's choice. Once they decide, you MUST immediately invoke the chosen skill (`activate_skill`) to begin execution. Do NOT proceed without invoking the appropriate execution skill.

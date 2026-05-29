@@ -25,9 +25,6 @@ class GeminiAdapter(PlatformAdapter):
             "- glob": "- glob",
         }
 
-    def get_subagent_syntax(self) -> str:
-        return "@"
-
     def format_subagent_prompt(self, task_desc: str) -> str:
         return task_desc
 
@@ -86,23 +83,54 @@ class GeminiAdapter(PlatformAdapter):
     def get_agent_manifest_format(self) -> str:
         return "markdown"
 
+    def format_skill_invocation(self, skill_name: str) -> str:
+        return f'activate_skill("{skill_name}")'
+
+    def format_subagent_invocation(self, agent_name: str, description: str) -> str:
+        return f'@{agent_name} {description}'
+
+    def get_subagent_text_call(self, agent_name: str, skill_name: str = None) -> str:
+        if skill_name:
+            return f'@{agent_name} — activate_skill("{skill_name}") as your first action'
+        return f'@{agent_name}'
+
     def format_hook_response(self, original_prompt: str, routing_decision: dict, context_extension: str, hook_event_name: str) -> dict:
         branch = routing_decision.get("classification")
-        target_agent = routing_decision.get("target_agent") or "@generalist"
+        target_skill = routing_decision.get("target_skill")
+        target_agent = routing_decision.get("target_agent")
 
-        # For Gemini, prepend the target_agent syntax
-        modified_prompt = f"{target_agent} {original_prompt}" if target_agent else original_prompt
-        modified_prompt += context_extension
+        agent_invokes_skill = routing_decision.get("agent_invokes_skill", False)
+
+        if target_skill and target_agent:
+            agent_name = target_agent.lstrip("@")
+            skill_ref = self.format_skill_invocation(target_skill)
+            agent_ref = self.get_subagent_text_call(agent_name, target_skill if agent_invokes_skill else None)
+            dispatch_directive = (
+                f"\n\nHARNESS DISPATCH:\n"
+                f"  {skill_ref} → {agent_ref}\n\n"
+                f"Invoke the skill as your first action. The skill will direct you to dispatch the agent. Do not answer directly."
+            )
+            modified_prompt = original_prompt + dispatch_directive
+        elif target_agent:
+            agent_name = target_agent.lstrip("@")
+            description = f"Branch {branch}: Answer this question. Read-only — do not modify files."
+            dispatch_directive = (
+                f"\n\nHARNESS DISPATCH:\n"
+                f"  {self.format_subagent_invocation(agent_name, description)}\n\n"
+                f"Make this agent call now. Do not answer directly."
+            )
+            modified_prompt = original_prompt + dispatch_directive
+        else:
+            modified_prompt = original_prompt
 
         return {
             "classification": branch,
             "modifiedPrompt": modified_prompt,
-            "system_prompt_extension": context_extension,
             "target_agent": target_agent,
+            "target_skill": target_skill,
             "hookSpecificOutput": {
                 "hookEventName": hook_event_name,
                 "systemPromptExtension": context_extension,
                 "modifiedPrompt": modified_prompt,
-                "target_agent": target_agent
             }
         }

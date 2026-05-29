@@ -27,11 +27,6 @@ class PlatformAdapter(ABC):
         pass
 
     @abstractmethod
-    def get_subagent_syntax(self) -> str:
-        """Returns subagent invocation syntax (e.g., '@', 'Task tool: ')."""
-        pass
-
-    @abstractmethod
     def format_subagent_prompt(self, task_desc: str) -> str:
         """Formats the payload/prompt for the subagent."""
         pass
@@ -64,6 +59,24 @@ class PlatformAdapter(ABC):
     @abstractmethod
     def get_agent_manifest_format(self) -> str:
         """Determines if agents are rendered as standalone markdown files or combined Codex YAML."""
+        pass
+
+    @abstractmethod
+    def format_skill_invocation(self, skill_name: str) -> str:
+        """Returns platform-specific directive to invoke a skill (used in modifiedPrompt)."""
+        pass
+
+    @abstractmethod
+    def format_subagent_invocation(self, agent_name: str, description: str) -> str:
+        """Returns platform-specific directive to dispatch a subagent (used in modifiedPrompt)."""
+        pass
+
+    @abstractmethod
+    def get_subagent_text_call(self, agent_name: str, skill_name: str = None) -> str:
+        """Returns platform-specific subagent dispatch syntax for use inside skill file text.
+        Used as a Jinja2 callable during minting: <!--$ subagent('implementer') $-->
+        When skill_name is provided, embeds skill invocation in the dispatch instruction.
+        """
         pass
 
     @abstractmethod
