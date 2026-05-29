@@ -7,7 +7,7 @@
       "path": "grill-me/SKILL.md"
     },
     "grill-with-docs": {
-      "path": "skills/grill-with-docs/SKILL.md"
+      "path": "grill-with-docs/SKILL.md"
     },
     "improve-codebase-architecture": {
       "path": "improve-codebase-architecture/SKILL.md"
@@ -21,11 +21,8 @@
     "using-harness-superpowers": {
       "path": "using-harness-superpowers/SKILL.md"
     },
-    "harness-brainstorming": {
-      "path": "harness-brainstorming/SKILL.md"
-    },
-    "harness-writing-plans": {
-      "path": "harness-writing-plans/SKILL.md"
+    "harness-brainstorming-plans": {
+      "path": "harness-brainstorming-plans/SKILL.md"
     },
     "harness-test-driven-development": {
       "path": "harness-test-driven-development/SKILL.md"
@@ -47,6 +44,9 @@
     },
     "harness-requesting-code-review": {
       "path": "harness-requesting-code-review/SKILL.md"
+    },
+    "verification-before-completion": {
+      "path": "verification-before-completion/SKILL.md"
     }
   }
 }

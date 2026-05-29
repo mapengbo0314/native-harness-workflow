@@ -17,11 +17,19 @@ class CursorAdapter(PlatformAdapter):
     def get_tool_mappings(self) -> Dict[str, str]:
         return {}
 
-    def get_subagent_syntax(self) -> str:
-        return "@"
-
     def format_subagent_prompt(self, task_desc: str) -> str:
         return task_desc
+
+    def format_skill_invocation(self, skill_name: str) -> str:
+        return f'Use {skill_name}'
+
+    def format_subagent_invocation(self, agent_name: str, description: str) -> str:
+        return f'@{agent_name} {description}'
+
+    def get_subagent_text_call(self, agent_name: str, skill_name: str = None) -> str:
+        if skill_name:
+            return f'@{agent_name} — invoke skill {skill_name} first'
+        return f'@{agent_name}'
 
     def get_rules_pointer_files(self) -> List[str]:
         return [".cursorrules", ".github/copilot-instructions.md"]
@@ -52,8 +60,28 @@ class CursorAdapter(PlatformAdapter):
     def generate_core_infrastructure(self, project_path: Path) -> None:
         pass
 
-    def configure_cli(self, project_path: Path, mcps_to_install: List[dict]) -> None:
+    def configure_cli(self, project_path: Path) -> None:
         pass
 
     def get_agent_manifest_format(self) -> str:
         return "markdown"
+
+    def format_hook_response(self, original_prompt: str, routing_decision: dict, context_extension: str, hook_event_name: str) -> dict:
+        branch = routing_decision.get("classification")
+        target_agent = routing_decision.get("target_agent") or "@generalist"
+
+        modified_prompt = f"{target_agent} {original_prompt}" if target_agent else original_prompt
+        modified_prompt += context_extension
+
+        return {
+            "classification": branch,
+            "modifiedPrompt": modified_prompt,
+            "system_prompt_extension": context_extension,
+            "target_agent": target_agent,
+            "hookSpecificOutput": {
+                "hookEventName": hook_event_name,
+                "systemPromptExtension": context_extension,
+                "modifiedPrompt": modified_prompt,
+                "target_agent": target_agent
+            }
+        }

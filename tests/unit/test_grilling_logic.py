@@ -6,8 +6,7 @@ from src.harness.init.discovery_engine import generate_grilling_questions, synth
 class TestGrillingLogic(unittest.TestCase):
     def setUp(self):
         self.project_path = "/tmp/test_project"
-        self.llm_provider = "gemini"
-        self.api_key = "fake_key"
+        self.cli_name = "gemini"
 
     @patch("src.harness.init.discovery_engine.get_file_tree_summary")
     @patch("src.harness.init.discovery_engine.get_symbol_census")
@@ -22,7 +21,7 @@ class TestGrillingLogic(unittest.TestCase):
         ])
         
         questions = generate_grilling_questions(
-            self.project_path, mock_query_llm, self.llm_provider, self.api_key
+            self.project_path, mock_query_llm, self.cli_name
         )
         
         self.assertEqual(len(questions), 2)
@@ -39,7 +38,7 @@ class TestGrillingLogic(unittest.TestCase):
         mock_query_llm.return_value = "Invalid JSON"
         
         questions = generate_grilling_questions(
-            self.project_path, mock_query_llm, self.llm_provider, self.api_key
+            self.project_path, mock_query_llm, self.cli_name
         )
         
         # Should fallback to 3 static questions
@@ -56,7 +55,7 @@ class TestGrillingLogic(unittest.TestCase):
         mock_query_llm.return_value = "# Project Context\n\n## Purpose\nA Fintech Flask app."
         
         content = synthesize_grilled_context(
-            self.project_path, qa_pairs, mock_query_llm, self.llm_provider, self.api_key
+            self.project_path, qa_pairs, mock_query_llm, self.cli_name
         )
         
         self.assertIn("# Project Context", content)

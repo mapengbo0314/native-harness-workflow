@@ -21,12 +21,12 @@ dependencies = [
     "tenacity",
     "pyyaml",
     "Jinja2>=3.1.0",
-    "langfuse>=2.50.0,<3.0.0",
+    "langfuse>=4.0.0,<5.0.0",
     "python-dotenv>=1.0.0"
 ]
 
 [project.scripts]
-harness-wf = "harness.cli:main"
+harness-wf = "harness.init.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -14,7 +14,8 @@ from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
 
-from langfuse.decorators import observe, langfuse_context
+from langfuse import observe
+from harness.runtime.langfuse_compat import langfuse_context
 
 load_dotenv()
 
@@ -64,7 +65,6 @@ def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
         plugin_dir / "hooks" / "hooks.json",
         plugin_dir / "hooks" / "prompt_classifier.py",
         plugin_dir / "src" / "dispatcher.py",
-        plugin_dir / "ddd-context.json",
         plugin_dir / "agents",
         plugin_dir / "skills",
     ]
@@ -86,7 +86,6 @@ def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
     dispatcher_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(dispatcher_module)
 
-    json.loads((plugin_dir / "ddd-context.json").read_text(encoding="utf-8"))
     hooks_config = json.loads((plugin_dir / "hooks" / "hooks.json").read_text(encoding="utf-8"))
     for groups in hooks_config.get("hooks", {}).values():
         for group in groups:
@@ -127,7 +126,6 @@ def run_embedded_setup(
     project_path: Path,
     harness_dir: Path,
     platform_choice: str,
-    mcps_to_install: list[dict],
     plugin_dir: Optional[Path],
 ) -> None:
     print("\n[HARNESS] Running embedded setup...")
@@ -135,7 +133,7 @@ def run_embedded_setup(
         raise HarnessSetupError("Python 3.8+ is required.")
 
     adapter = get_adapter(_platform_name(platform_choice))
-    adapter.configure_cli(project_path, mcps_to_install)
+    adapter.configure_cli(project_path)
     
     if plugin_dir and plugin_dir.exists():
         _validate_claude_plugin(project_path, plugin_dir)
@@ -146,8 +144,6 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Initialize a new Harness agent workspace.")
     parser.add_argument("command", choices=["init"], help="Command to run")
     parser.add_argument("--project-path", required=True, help="Path to the repository")
-    parser.add_argument("--llm", required=True, choices=["gemini", "openai", "anthropic"], help="LLM provider")
-    parser.add_argument("--model", help="Optional specific model to use (e.g., gemini-2.0-flash, claude-3-5-sonnet-20241022)")
     parser.add_argument("--bundle", help="Path to an existing CodeGraph bundle (.codegraph directory)")
     return parser.parse_args()
 
@@ -177,17 +173,6 @@ def main():
         print("\nError: 'npx' command not found. Node.js is required to use CodeGraph.")
         langfuse_context.flush()
         sys.exit(1)
-    
-    api_key_env_var = f"{args.llm.upper()}_API_KEY"
-    api_key = os.environ.get(api_key_env_var)
-    
-    # Fallback for Gemini
-    if not api_key and args.llm == "gemini":
-        api_key = os.environ.get("GOOGLE_API_KEY")
-        
-    if not api_key:
-        print(f"\nEnvironment variable {api_key_env_var} not found.")
-        api_key = getpass.getpass(prompt=f"Enter your {args.llm} API Key: ")
         
     print("Pre-flight checks passed.")
     
@@ -231,64 +216,6 @@ def main():
         langfuse_context.flush()
         sys.exit(1)
         
-    print("Stage 2: Dynamic Context Acquisition")
-    from harness.init.discovery_engine import acquire_mcp_context, generate_onboarding_domain_doc, generate_grilling_questions, synthesize_grilled_context, query_llm
-    
-    # Acquire context once
-    context_str = acquire_mcp_context(args.project_path)
-    if context_str is None:
-         context_str = "No codebase context found. Architecture unknown."
-         print("Proceeding with empty context.")
-    
-
-    # CLI Context Wizard (Dynamic Grilling)
-    print("\n--- Project Context Setup ---")
-    context_dir = os.path.join(args.project_path, "docs", "domain")
-    os.makedirs(context_dir, exist_ok=True)
-    context_file = os.path.join(context_dir, "CONTEXT.md")
-
-    if os.environ.get("HARNESS_HEADLESS") == "1":
-        print("Headless mode: Using default project context placeholders.")
-        with open(context_file, "w") as f:
-            f.write("# Project Context\n\n## Purpose\nAutomated purpose\n\n## Ubiquitous Language\nAutomated vocab\n\n## Strict Invariants\nAutomated invariants\n")
-    else:
-        print("Analyzing project to generate specific questions...")
-        questions = generate_grilling_questions(args.project_path, query_llm, args.llm, api_key, args.model)
-        
-        qa_pairs = []
-        for i, q_data in enumerate(questions):
-            print(f"\n{i+1}. {q_data['question']}")
-            options = q_data.get("multiple_choice_options", [])
-            if options:
-                for j, opt in enumerate(options):
-                    print(f"   {chr(65+j)}) {opt}")
-                
-                other_idx = len(options)
-                other_letter = chr(65 + other_idx)
-                print(f"   {other_letter}) Other [Please specify]")
-                
-                ans = input("> ").strip()
-                # Check if answer is a letter matching an option
-                if len(ans) == 1 and 'A' <= ans.upper() <= chr(64 + len(options)):
-                    ans = options[ord(ans.upper()) - 65]
-                elif len(ans) == 1 and ans.upper() == other_letter:
-                    ans = input("Please specify: ").strip()
-            else:
-                ans = input("> ").strip()
-            
-            if not ans:
-                ans = "[No answer provided]"
-            qa_pairs.append((q_data['question'], ans))
-        
-        print("\nSynthesizing project context...")
-        context_md = synthesize_grilled_context(args.project_path, qa_pairs, query_llm, args.llm, api_key, args.model)
-        with open(context_file, "w") as f:
-            f.write(context_md)
-
-    # Refresh context_str with the newly created CONTEXT.md
-    context_str = acquire_mcp_context(args.project_path)
-
-
     selected_agents = []
 
     print("\n=== Platform Selection ===")
@@ -336,29 +263,8 @@ def main():
     temp_harness_dir.mkdir(parents=True)
 
     from harness.init.minting_engine import (
-        mint_workspace,
-        wait_for_user_review_and_read_domain,
-        synthesize_domain_sme_agent,
-        patch_orchestrator_rules,
-        parse_tool_checklists,
-        install_workspace_tools
+        mint_workspace
     )
-
-    print("\nStage 2.7: Phased Onboarding & Domain SME Discovery")
-    from harness.init.discovery_engine import query_llm
-    tech_stack_data = generate_onboarding_domain_doc(
-        args.project_path, 
-        "Analyzed Codebase Context", 
-        query_llm, 
-        args.llm, 
-        api_key, 
-        context_str,
-        boilerplate_dir
-    )
-    domain_content = wait_for_user_review_and_read_domain(args.project_path)
-
-    # Parse tools
-    skills_to_install, mcps_to_install = parse_tool_checklists(domain_content)
 
     try:
         # We pass the bundled boilerplate_dir and target the temp directory
@@ -367,32 +273,18 @@ def main():
             selected_agents, 
             args.project_path, 
             platform_choice, 
-            args.model, 
-            boilerplate_dir, 
-            query_llm_fn=query_llm, 
-            llm_provider=args.llm, 
-            api_key=api_key, 
-            tech_stack_data=tech_stack_data,
+            boilerplate_dir=str(boilerplate_dir), 
             logical_harness_name=harness_folder
         )
 
-        # Install tools (targeting temp)
-        install_workspace_tools(args.project_path, ".harness_tmp", skills_to_install, mcps_to_install)
-
-        # Determine subagent syntax for rule patching
         adapter = get_adapter(_platform_name(platform_choice))
-        target_syntax = adapter.get_subagent_syntax()
 
-        # SME synthesis (targeting temp)
-        sme_agent_name = synthesize_domain_sme_agent(args.project_path, domain_content, ".harness_tmp", platform_choice=platform_choice, model_choice=args.model, logical_harness_name=harness_folder)
-        patch_orchestrator_rules(args.project_path, sme_agent_name, ".harness_tmp", target_syntax=target_syntax)
+        # Copy runtime modules for ALL platforms (so hooks can load them locally)
+        from harness.init.minting_engine import copy_runtime_modules
+        copy_runtime_modules(temp_harness_dir)
 
         # Provision core infrastructure for all platforms
         adapter.generate_core_infrastructure(Path(args.project_path))
-        
-        # Copy runtime modules for ALL platforms (so hooks can load them locally)
-        from harness.init.plugin_generator import copy_runtime_modules
-        copy_runtime_modules(temp_harness_dir)
 
         # --- Plugin Generation (targeting temp) ---
         from harness.init.plugin_generator import generate_orchestrator_plugin
@@ -409,24 +301,6 @@ def main():
                     harness_folder=".harness_tmp",
                     logical_harness_name=harness_folder,
                 )
-                
-                # Post-generation cleanup: remove boilerplate agents and skills
-                # as they are now inside the plugin
-                harness_path = temp_harness_dir
-                
-                sme_filename = f"{sme_agent_name}.md" if sme_agent_name else None
-                
-                # Clean agents folder
-                agents_dir = harness_path / "agents"
-                if agents_dir.exists():
-                    shutil.rmtree(agents_dir)
-                                
-                # Clean skills folder
-                skills_dir = harness_path / "skills"
-                if skills_dir.exists():
-                    shutil.rmtree(skills_dir)
-                    
-                print("[HARNESS] Cleaned up redundant top-level boilerplate folders for plugin.")
                 
             except Exception as e:
                 print(f"\n[HARNESS] ❌ ERROR: Failed to generate orchestrator plugin: {e}")
@@ -505,7 +379,6 @@ def main():
                 Path(args.project_path),
                 target_harness_dir,
                 platform_choice,
-                mcps_to_install,
                 final_plugin_dir,
             )
         except HarnessSetupError as e:
@@ -530,32 +403,9 @@ def main():
         print(f"\n{counter}. Orchestrator Plugin Generated: {plugin_dir}")
         counter += 1
     
-    if sme_agent_name:
-        print(f"\n{counter}. Domain SME Created: @{sme_agent_name}")
-        counter += 1
-    
-    if skills_to_install:
-        print(f"\n{counter}. Local Skills Installed: {', '.join([s['name'] for s in skills_to_install])}")
-        counter += 1
-    
-    if mcps_to_install:
-        print(f"\n{counter}. MCP Tools Configured: {', '.join([m['name'] for m in mcps_to_install])}")
-        print("\n[ACTION REQUIRED] MCP Authorization:")
-        if platform_choice == "1":
-            print("   - In Gemini CLI, you will be prompted to 'Allow' each tool on first use.")
-        elif platform_choice == "2":
-            print("   - In Claude Code, ensure you restart your session to load the new MCP configuration.")
-        counter += 1
-
     print(f"\n\n{counter}. [ACTION REQUIRED] Context Automation:")
     print("   - The CodeGraph CI GitHub Action (.github/workflows/codegraph-ci.yml) has been generated.")
-    print("   - To enable automated context updates on PRs, configure the following GitHub Secrets:")
-    print("     - GEMINI_API_KEY, ANTHROPIC_API_KEY, or OPENAI_API_KEY")
     counter += 1
-
-    if sme_agent_name:
-        print(f"\n\n{counter}. Context: The @{sme_agent_name} is now the gateway for all planning.")
-        print(f"\n   Routing rules in {harness_folder}/orchestrator.md have been updated.")
         
     print(f"\n{'='*60}\n")
     langfuse_context.flush()

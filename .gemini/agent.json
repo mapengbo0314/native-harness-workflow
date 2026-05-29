@@ -3,7 +3,6 @@
   "description": "Senior Project Manager & Router that manages the Hub-and-Spoke model.",
   "type": "router",
   "version": "1.0",
-  "entrypoint": "orchestrator.md",
   "skills": [
     "diagnose",
     "grill-me",
@@ -19,9 +18,6 @@
     "verifier",
     "feature-fetcher",
     "linter-agent",
-    "refactorer",
-    "performance-profiler",
-    "security-auditor",
     "workflow-architect"
   ]
 }

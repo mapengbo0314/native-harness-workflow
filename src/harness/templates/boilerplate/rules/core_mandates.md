@@ -9,16 +9,17 @@ You are a specialized subagent operating within this repository's agent ecosyste
 5. **No Chitchat:** No filler. Focus on intent and technical rationale. Do not narrate tools.
 
 ### Graph-First Strategy (CodeGraph Integration)
-You have access to the `codegraph` MCP. You MUST use **Graph-First Strategy**: Call the MCP tool (codegraph_*) to gather precise context instead of reading full files, unless absolutely necessary (e.g., using grep_search for UI strings).
+
+You have access to the `codegraph` MCP. You MUST use **Graph-First Strategy**: Call the MCP tool (codegraph\_\*) to gather precise context instead of reading full files, unless absolutely necessary (e.g., using grep_search for UI strings).
+
 - **Core Tools**: `codegraph_search`, `codegraph_explore`, `codegraph_context`, `codegraph_callers`, `codegraph_impact`.
 - **Context Budgeting (MANDATORY)**: Use CodeGraph tools to avoid token exhaustion.
   - **Level 1 (Discovery)**: Use `codegraph_explore` to map folders and `codegraph_search` to find symbols.
   - **Level 2 (Understanding)**: Use `codegraph_context` to read symbol definitions and `codegraph_callers` to see usage.
   - **Level 3 (Impact Analysis)**: Use `codegraph_impact` before proposing structural changes.
-  - **Level 4 (Raw Read)**: Use `read_file` ONLY when you are modifying the file or need to see logic that is not exposed via structural tools.
+  - **Level 4 (Raw Read)**: Use `read_file` ONLY when you are actively modifying the file or if `codegraph_node` with `includeCode: true` fails to provide the necessary module-level context. You MUST attempt to read specific logic using `codegraph_node(includeCode=true)` before falling back to reading the entire file.
 - **NEVER** iterate through files manually or use `read_file` on many files at once if a structural summary can suffice.
 
 ### Workspace Guidelines
-- **Python-First**: Current service is Python. Composable functions, dataclasses, explicit imports, docstrings.
-- **JVM Migration**: Progressive translation to Kotlin (default) or Java. Migrate bounded subsystems. Generate design notes. Align test fixtures.
+
 - **Documentation**: State inputs, outputs, and failure modes. Reference source evidence.

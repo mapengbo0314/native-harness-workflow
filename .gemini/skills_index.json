@@ -55,13 +55,9 @@
     "path": ".gemini/skills/grill-me/SKILL.md",
     "description": "Interview the user relentlessly about a plan or design until reaching shared understanding, resolving each branch of the decision tree. Use when user wants to stress-test a plan, get grilled on their design, or mentions \"grill me\"."
   },
-  "harness-writing-plans": {
-    "path": ".gemini/skills/harness-writing-plans/SKILL.md",
-    "description": "Use when you have a spec or requirements for a multi-step task, before touching code"
-  },
-  "harness-brainstorming": {
-    "path": ".gemini/skills/harness-brainstorming/SKILL.md",
-    "description": "You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation."
+  "harness-brainstorming-plans": {
+    "path": ".gemini/skills/harness-brainstorming-plans/SKILL.md",
+    "description": "You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation. Use when you have a spec or requirements for a multi-step task, before touching code."
   },
   "harness-dispatching-parallel-agents": {
     "path": ".gemini/skills/harness-dispatching-parallel-agents/SKILL.md",

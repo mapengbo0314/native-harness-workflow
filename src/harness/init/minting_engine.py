@@ -28,78 +28,6 @@ class TemplateRenderer:
         return template.render(**context)
 
 
-def parse_tool_checklists(domain_content: str) -> tuple[list[dict], list[dict]]:
-    """Parses selected skills and MCPs from the ONBOARDING_DOMAIN.md content."""
-    skills = []
-    mcps = []
-    
-    if not domain_content:
-        return skills, mcps
-        
-    # Find Skills block
-    skills_match = re.search(r'## Proposed Skills\n.*?(?=##|$)', domain_content, re.DOTALL)
-    if skills_match:
-        for line in skills_match.group(0).split('\n'):
-            if line.strip().lower().startswith('- [x]'):
-                # match: - [x] name (url) [optional type comment]
-                m = re.match(r'- \[[xX]\]\s+([^\(]+?)\s*\((.*?)\)(?:\s*<!--\s*type:(.*?)\s*-->)?', line.strip())
-                if m:
-                    skill_type = m.group(3).strip() if m.group(3) else "skill"
-                    skills.append({"name": m.group(1).strip(), "url": m.group(2).strip(), "type": skill_type})
-                    
-    # Find MCPs block
-    mcps_match = re.search(r'## Proposed MCP Tools\n.*?(?=##|$)', domain_content, re.DOTALL)
-    if mcps_match:
-        for line in mcps_match.group(0).split('\n'):
-            if line.strip().lower().startswith('- [x]'):
-                 m = re.match(r'- \[[xX]\]\s+([^\(]+?)\s*\((.*?)\)', line.strip())
-                 if m:
-                     mcps.append({"name": m.group(1).strip(), "command": m.group(2).strip()})
-                     
-    return skills, mcps
-
-
-def wait_for_user_review_and_read_domain(project_path: str) -> str:
-    """Pauses execution waiting for the user, then reads the domain doc with validation."""
-    doc_path = os.path.join(project_path, "ONBOARDING_DOMAIN.md")
-    
-    if not os.path.exists(doc_path):
-        print(f"Warning: {doc_path} not found. Skipping pause.")
-        return ""
-
-    # Headless mode bypass
-    if os.environ.get("HARNESS_HEADLESS") == "1":
-        print("Headless mode: Skipping user review pause.")
-        try:
-            with open(doc_path, 'r') as f:
-                return f.read()
-        except Exception as e:
-            print(f"Error reading {doc_path}: {e}")
-            return ""
-
-    print(f"\n{'='*60}")
-    print(f"ACTION REQUIRED: Please open {doc_path}")
-    print("Fill in the domain invariants and ubiquitous language.")
-    print(f"{'='*60}\n")
-    
-    while True:
-        input("Press ENTER when you have saved your changes to ONBOARDING_DOMAIN.md...")
-        
-        try:
-            with open(doc_path, 'r') as f:
-                content = f.read()
-                if "[USER INPUT REQUIRED]" in content:
-                    print("\033[91mWARNING: You still have '[USER INPUT REQUIRED]' placeholders in your document.\033[0m")
-                    choice = input("Are you sure you want to proceed? (y/N): ").strip().lower()
-                    if choice in ['y', 'yes']:
-                        return content
-                    else:
-                        continue
-                return content
-        except Exception as e:
-            print(f"Error reading {doc_path}: {e}")
-            return ""
-
 def process_includes(content: str, current_file_path: str, target_root: Path, tool_replacements: dict, target_dir_name: str, visited: set = None) -> str:
     """Recursively resolves @path includes at the start of lines, applying placeholders."""
     if visited is None:
@@ -149,7 +77,7 @@ def process_includes(content: str, current_file_path: str, target_root: Path, to
             
     return "\n".join(new_lines)
 
-def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: str, platform_choice: str, model_choice: str = None, boilerplate_dir: str = None, ddd_context: dict = None, query_llm_fn=None, llm_provider=None, api_key=None, tech_stack_data: dict = None, logical_harness_name: str = None):
+def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: str, platform_choice: str, model_choice: str = None, boilerplate_dir: str = None, logical_harness_name: str = None):
     """Copies boilerplate, injects styled configs, and writes setup prerequisites."""
     target_path = Path(target_dir)
     target_dir_name = logical_harness_name if logical_harness_name else target_path.name
@@ -157,14 +85,6 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
     if target_path.exists():
         print(f"Warning: Target directory {target_dir} already exists. Minting may overwrite files.")
         
-    # Get selected tools from the domain doc to check if plugin is selected
-    domain_content_str = ddd_context.get("source", "") if ddd_context else ""
-    if not domain_content_str:
-        domain_doc_path = os.path.join(project_path, "ONBOARDING_DOMAIN.md")
-        if os.path.exists(domain_doc_path):
-            with open(domain_doc_path, "r") as f:
-                domain_content_str = f.read()
-    
     def ignore_patterns(dir_path, contents):
         ignored = ['.git', '__pycache__', '.DS_Store', 'contracts', 'state']
         return [i for i in contents if i in ignored or i.endswith('.log')]
@@ -177,6 +97,20 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
         current_platform = platform_map_normalized.get(platform_choice, platform_choice).lower()
         adapter = get_adapter(current_platform)
         
+        # Cleanup files that are only used as source templates or specific to certain platforms
+        readme_template_path = target_path / "README.md.template"
+        if readme_template_path.exists():
+            readme_template_path.unlink()
+            
+        onboarding_dir = target_path / "onboarding"
+        if onboarding_dir.exists():
+            shutil.rmtree(onboarding_dir)
+            
+        if current_platform != "claude":
+            pyproject_path = target_path / "pyproject.toml"
+            if pyproject_path.exists():
+                pyproject_path.unlink()
+        
         tool_replacements = adapter.get_tool_mappings()
         
         ingestion_key = os.environ.get("HARNESS_GLOBAL_INGESTION_BASE64", "YOUR_EMBEDDED_BASE64_STRING")
@@ -184,7 +118,7 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
         
         renderer_context = {
             "HARNESS_DIR": target_dir_name,
-            "SUBAGENT_SYNTAX": adapter.get_subagent_syntax(),
+            "subagent": adapter.get_subagent_text_call,
             "INGESTION_KEY": ingestion_key,
             "PROJECT_SLUG": project_slug
         }
@@ -290,15 +224,6 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
     }
     active_platform = platform_map.get(platform_choice, platform_choice).lower()
 
-    # Get selected tools from the domain doc
-    domain_content_str = ddd_context.get("source", "") if ddd_context else ""
-    if not domain_content_str:
-        domain_doc_path = os.path.join(project_path, "ONBOARDING_DOMAIN.md")
-        if os.path.exists(domain_doc_path):
-            with open(domain_doc_path, "r") as f:
-                domain_content_str = f.read()
-    selected_skills, selected_mcps = parse_tool_checklists(domain_content_str)
-    
     # Generate Platform Rules Pointers IN THE ROOT DIRECTORY
     harness_prefix = f".{active_platform}" if active_platform in ["gemini", "claude", "cursor", "codex"] else target_dir_name
     adapter = get_adapter(active_platform)
@@ -336,13 +261,11 @@ The Orchestrator agent and core rules are located in `{harness_prefix}/orchestra
         pointer_content += "\n## Available Agent Skills\n"
         pointer_content += "To activate a skill, you MUST use your file reading tool to read its instructions into your context before beginning work.\n\n"
         
-        has_sp = any(s.get('name') == 'using-superpowers' for s in selected_skills)
-        if not has_sp:
-            pointer_content += f"- **using-superpowers**: `{harness_prefix}/skills/using-superpowers/SKILL.md`\n"
-            
-        for s in selected_skills:
-            if s.get('type') != 'extension':
-                pointer_content += f"- **{s['name']}**: `{harness_prefix}/skills/{s['name']}/SKILL.md`\n"
+        skills_dir = target_path / "skills"
+        if skills_dir.exists():
+            for skill_path in sorted(skills_dir.iterdir()):
+                if skill_path.is_dir() and (skill_path / "SKILL.md").exists():
+                    pointer_content += f"- **{skill_path.name}**: `{harness_prefix}/skills/{skill_path.name}/SKILL.md`\n"
 
     files_to_generate = adapter.get_rules_pointer_files()
     
@@ -465,270 +388,6 @@ tools:
     print(f"Successfully minted workspace at {target_dir}")
     print("\nNext Steps:")
     print("1. Activate your environment and Launch AI")
-
-def synthesize_domain_sme_agent(target_dir: str, domain_content: str, harness_folder_name: str, platform_choice: str = "1", model_choice: str = None, logical_harness_name: str = None):
-    """Generates the domain SME agent deterministically based on the filled doc."""
-    from harness.adapters import get_adapter
-    
-    # Normalize platform choice
-    platform_map = {"1": "gemini", "2": "claude", "3": "cursor", "4": "agents", "5": "codex"}
-    active_platform = platform_map.get(str(platform_choice), str(platform_choice)).lower()
-    adapter = get_adapter(active_platform)
-    
-    if not domain_content:
-        return None
-
-    def extract_heading_section(content: str, heading_names: list[str]):
-        lines = content.splitlines()
-        start = None
-        lowered_headings = [heading.lower() for heading in heading_names]
-
-        for idx, line in enumerate(lines):
-            stripped = line.strip()
-            if stripped.startswith("#") and any(heading in stripped.lower() for heading in lowered_headings):
-                start = idx + 1
-                break
-
-        if start is None:
-            return None
-
-        section_lines = []
-        for line in lines[start:]:
-            if line.strip().startswith("#"):
-                break
-            stripped = line.strip()
-            if not stripped:
-                continue
-            if "[USER INPUT REQUIRED" in stripped:
-                continue
-            if stripped.startswith("*") and stripped.endswith("*") and "**" not in stripped:
-                continue
-            section_lines.append(line)
-
-        extracted = "\n".join(section_lines).strip()
-        return extracted or None
-
-    logical_name = logical_harness_name if logical_harness_name else harness_folder_name
-
-    # Extract proposed name, fallback to domain-sme
-    agent_name = "domain-sme"
-    # Robust regex for: **Proposed Agent Name:** `@name` or Proposed Agent Name: @name
-    name_match = re.search(r'Proposed Agent Name:.*?\s*`?@([a-zA-Z0-9_-]+)`?', domain_content, re.IGNORECASE)
-    if name_match:
-        agent_name = name_match.group(1).lower()
-        
-    # Extract sections using regex
-    invariants = "None provided."
-    glossary = "None provided."
-    
-    try:
-        raw_inv = extract_heading_section(
-            domain_content,
-            ["Aggregates & Invariants", "Strict Invariants", "Domain Invariants"],
-        )
-        if raw_inv:
-            invariants = re.sub(r'\(.*?\)', '', raw_inv).replace("**:**", "").strip()
-
-        raw_glo = extract_heading_section(domain_content, ["Ubiquitous Language"])
-        if raw_glo:
-            glossary = re.sub(r'\(.*?\)', '', raw_glo).replace("**:**", "").strip()
-
-    except Exception as e:
-        print(f"Warning: Failed to parse domain doc sections: {e}")
-
-    agent_markdown = f"""# Role: Domain Subject Matter Expert
-You are the definitive authority on the business logic, ubiquitous language, and architectural constraints.
-
-# Core Mandates
-1. **Security & System Integrity:** Never log, print, or commit secrets.
-2. **Context Efficiency:** Your context window is isolated.
-3. **No Chitchat:** Focus exclusively on intent and technical rationale.
-
-# Domain-Specific Invariants (The MOAT)
-<invariants>
-{invariants}
-</invariants>
-
-# Ubiquitous Language (Glossary)
-<glossary>
-{glossary}
-</glossary>
-
-# Operational Instructions
-1. **Audit:** Review proposed plans against your <invariants>. 
-2. **Correct:** Identify any misuse of terms.
-3. **Reject:** Reject plans that violate domain rules. Provide architectural corrections, NOT implementation code.
-"""
-
-    if adapter.get_agent_manifest_format() == "yaml":
-        try:
-            agents_file_path = os.path.join(target_dir, harness_folder_name, "AGENTS.md")
-            if os.path.exists(agents_file_path):
-                with open(agents_file_path, "r") as f:
-                    existing_content = f.read()
-            else:
-                existing_content = "# Codex Agents Manifest\n\n"
-            
-            model_val = model_choice if model_choice else "claude-3-5-sonnet-20241022"
-            
-            yaml_block = f"""```yaml
-description: "Subject Matter Expert and Guardian. Consult this agent before modifying core logic."
-model: "{model_val}"
-sandbox_mode: "read-only"
-mcp_servers: ["codegraph"]
-```"""
-            
-            sme_section = f"""
-## {agent_name}
-{yaml_block}
-
-{agent_markdown}
-"""
-            new_content = existing_content.rstrip() + "\n\n" + sme_section.strip() + "\n"
-            # Apply placeholders as Codex AGENTS.md might need them (consistent with mint_workspace)
-            new_content = new_content.replace(".claude", logical_name)
-            
-            with open(agents_file_path, "w") as f:
-                f.write(new_content)
-            
-            print(f"[HARNESS] Appended {agent_name} to {agents_file_path}")
-            return agent_name
-        except Exception as e:
-            print(f"Error appending to AGENTS.md for Codex: {e}")
-            return None
-    else:
-        full_agent_markdown = f"""---
-name: {agent_name}
-description: Subject Matter Expert and Guardian. Consult this agent before modifying core logic.
----
-{agent_markdown}
-"""
-        try:
-            agents_dir = os.path.join(target_dir, harness_folder_name, "agents")
-            os.makedirs(agents_dir, exist_ok=True)
-            
-            file_path = os.path.join(agents_dir, f"{agent_name}.md")
-            with open(file_path, "w") as f:
-                f.write(full_agent_markdown.strip() + "\n")
-                
-            print(f"[HARNESS] Synthesized {agent_name} at {file_path}")
-            return agent_name
-            
-        except Exception as e:
-            print(f"Error synthesizing domain agent: {e}")
-            return None
-
-def patch_orchestrator_rules(target_dir: str, agent_name: str, harness_folder_name: str, target_syntax: str = "@"):
-    """Injects the new Domain SME into the active orchestrator rules and agent.json config."""
-    if not agent_name:
-        return
-
-    # 1. Patch orchestrator.md
-    rules_path = os.path.join(target_dir, harness_folder_name, "orchestrator.md")
-    if os.path.exists(rules_path):
-        with open(rules_path, "r") as f:
-            content = f.read()
-            
-        planner_ref = f"{target_syntax}planner"
-        sme_ref = f"{target_syntax}{agent_name}"
-        
-        sme_rule = f"""
-- **Domain SME Gateway**: If a task touches core logic or invariants, you MUST first dispatch the `{sme_ref}` to generate a "Domain Constraints Brief" before allowing the `{planner_ref}` to create the implementation plan.
-"""
-        if "</orchestration_hierarchy>" in content:
-            parts = content.split("</orchestration_hierarchy>")
-            new_content = parts[0] + "\n" + sme_rule + "\n</orchestration_hierarchy>" + parts[1]
-        elif "### DOMAIN DRIVEN DESIGN (DDD):" in content:
-            parts = content.split("### DOMAIN DRIVEN DESIGN (DDD):")
-            new_content = parts[0] + "### Domain SME Gateway\n" + sme_rule + "\n\n### DOMAIN DRIVEN DESIGN (DDD):" + parts[1]
-        else:
-            new_content = content + "\n\n### Domain SME Gateway\n" + sme_rule
-            
-        with open(rules_path, "w") as f:
-            f.write(new_content)
-        print(f"[HARNESS] Patched Orchestrator rules with {sme_ref}")
-    else:
-        print("Warning: Could not find orchestrator.md to patch Domain SME.")
-
-    # 2. Patch agent.json
-    agent_json_path = os.path.join(target_dir, harness_folder_name, "agent.json")
-    if os.path.exists(agent_json_path):
-        try:
-            with open(agent_json_path, "r") as f:
-                agent_config = json.load(f)
-            
-            if "related_agents" in agent_config and agent_name not in agent_config["related_agents"]:
-                agent_config["related_agents"].append(agent_name)
-                
-            with open(agent_json_path, "w") as f:
-                json.dump(agent_config, f, indent=2)
-            print(f"[HARNESS] Added {agent_name} to agent.json related_agents")
-        except Exception as e:
-            print(f"Warning: Failed to patch agent.json with SME: {e}")
-
-def install_workspace_tools(target_dir: str, harness_folder_name: str, skills: list[dict], mcps: list[dict]):
-    """Downloads remote skills and configures MCPs locally for the workspace."""
-    harness_dir = os.path.join(target_dir, harness_folder_name)
-    
-    # Defensive copy and normalize
-    skills_to_install = list(skills) if skills else []
-    
-    # Ensure the localized using-harness-superpowers is registered if needed
-    has_superpowers = any(s.get('name') == 'using-harness-superpowers' for s in skills_to_install)
-    if not has_superpowers:
-        # We don't download it from github anymore, it's baked into the boilerplate!
-        # Just ensure it's recorded in the skills metadata if necessary
-        pass
-    
-    # Install Skills (using the new list)
-    if skills_to_install:
-        skills_json_path = os.path.join(harness_dir, "skills.json")
-        skills_data = {"skills": {}}
-        if os.path.exists(skills_json_path):
-            try:
-                with open(skills_json_path, "r") as f:
-                    skills_data = json.load(f)
-            except json.JSONDecodeError:
-                pass
-
-        for skill in skills_to_install:
-            if skill.get('type') == 'extension':
-                print(f"[HARNESS] Skipping download for extension: {skill['name']}")
-                continue
-                
-            try:
-                print(f"[HARNESS] Downloading skill: {skill['name']}...")
-                req = urllib.request.Request(skill['url'], headers={'User-Agent': 'Mozilla/5.0'})
-                with urllib.request.urlopen(req, timeout=10) as response:
-                    content = response.read().decode('utf-8')
-                    
-                skill_dir = os.path.join(harness_dir, "skills", skill['name'])
-                os.makedirs(skill_dir, exist_ok=True)
-                skill_file = os.path.join(skill_dir, "SKILL.md")
-                with open(skill_file, "w") as f:
-                    f.write(content)
-                    
-                # Update skills.json with LOCAL path relative to workspace
-                skills_data["skills"][skill['name']] = {"path": f"skills/{skill['name']}/SKILL.md"}
-            except Exception as e:
-                # Local fallback check
-                print(f"Network fetch failed for {skill['name']}: {e}. Checking local boilerplate fallback...")
-                import shutil
-                # We need to reach the boilerplate directory. We can guess it's roughly 2 dirs up from harness_dir
-                local_skill_path = Path(__file__).parent.parent / "templates" / "boilerplate" / "skills" / skill['name'] / "SKILL.md"
-                if local_skill_path.exists():
-                    skill_dir = os.path.join(harness_dir, "skills", skill['name'])
-                    os.makedirs(skill_dir, exist_ok=True)
-                    skill_file = os.path.join(skill_dir, "SKILL.md")
-                    shutil.copyfile(local_skill_path, skill_file)
-                    print(f"[HARNESS] Successfully copied local fallback for skill: {skill['name']}")
-                    skills_data["skills"][skill['name']] = {"path": f"skills/{skill['name']}/SKILL.md"}
-                else:
-                    print(f"Failed to install skill {skill['name']} (no local fallback found at {local_skill_path})")
-                
-        with open(skills_json_path, "w") as f:
-             json.dump(skills_data, f, indent=2)
-
 def perform_smart_merge(existing_path: Path, staged_path: Path):
     """
     Walks through staged_path and merges with existing_path if files exist there.
@@ -908,3 +567,29 @@ def _deep_merge_logic(base, update):
         return res
     else:
         return update
+
+
+def copy_runtime_modules(target_dir: Path) -> None:
+    """Copies runtime dispatcher and discovery_engine to the harness environment."""
+    runtime_src = Path(__file__).parent.parent / "runtime"
+    init_src = Path(__file__).parent
+    
+    # Ensure src directory exists inside the harness plugin payload
+    src_dir = target_dir / "src"
+    src_dir.mkdir(parents=True, exist_ok=True)
+    (src_dir / "__init__.py").write_text("")
+    
+    core_files = {
+        "dispatcher.py": runtime_src / "dispatcher.py",
+        "llm_client.py": runtime_src / "llm_client.py",
+        "discovery_engine.py": init_src / "discovery_engine.py",
+        "langfuse_instrumentation.py": runtime_src / "langfuse_instrumentation.py"
+    }
+    
+    for core_file, src_path in core_files.items():
+        if src_path.exists():
+            print(f"[HARNESS] Copying {core_file}...")
+            shutil.copy2(src_path, src_dir / core_file)
+        else:
+            print(f"[HARNESS] Warning: {core_file} not found at {src_path}")
+

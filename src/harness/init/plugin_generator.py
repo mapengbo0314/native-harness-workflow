@@ -1,11 +1,7 @@
 """Plugin generator for orchestrator-based Claude Code integration."""
 import json
-import shutil
 from pathlib import Path
 from typing import Optional
-
-
-COPY_IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc", ".pytest_cache")
 
 
 def generate_plugin_manifest(
@@ -40,6 +36,10 @@ def generate_plugin_manifest(
             "name": "E2G Harness"
         }
     }
+
+    hooks_json_path = hooks_dir / "hooks.json"
+    if not hooks_json_path.exists():
+        print(f"[HARNESS] Warning: Could not find {hooks_json_path}")
 
     claude_plugin_dir = plugin_dir / ".claude-plugin"
     claude_plugin_dir.mkdir(parents=True, exist_ok=True)
@@ -158,35 +158,6 @@ def export_agents_config(agents_dir: Path, config_dir: Path, logical_agents_dir:
     return str(export_path)
 
 
-def export_ddd_context(context_path: Path, config_dir: Path) -> str:
-    """Export DDD context from CONTEXT.md to ddd-context.json.
-
-    Args:
-        context_path: Path to docs/domain/CONTEXT.md
-        config_dir: Directory to export config to
-
-    Returns:
-        Path to exported ddd-context.json
-    """
-    config_dir = Path(config_dir)
-    config_dir.mkdir(parents=True, exist_ok=True)
-
-    ddd_context = {
-        "purpose": "",
-        "ubiquitous_language": {},
-        "strict_invariants": []
-    }
-
-    if context_path.exists():
-        with open(context_path, 'r') as f:
-            content = f.read()
-        ddd_context["source"] = content
-
-    export_path = config_dir / "ddd-context.json"
-    with open(export_path, 'w') as f:
-        json.dump(ddd_context, f, indent=2)
-
-    return str(export_path)
 
 
 def export_rules_config(rules_dir: Path, config_dir: Path) -> str:
@@ -219,89 +190,6 @@ def export_rules_config(rules_dir: Path, config_dir: Path) -> str:
         json.dump(rules_json, f, indent=2)
 
     return str(export_path)
-
-
-def copy_static_plugin_assets(plugin_dir: Path, bp_dir: Path, fallback_bp_dir: Path) -> None:
-    """Copy canonical static plugin payload directories and files."""
-    for name in ["skills", "scripts", "hooks"]:
-        source = bp_dir / name
-        if not source.exists():
-            source = fallback_bp_dir / name
-
-        if source.exists():
-            print(f"[HARNESS] Copying {name} from {source}...")
-            shutil.copytree(source, plugin_dir / name, dirs_exist_ok=True, ignore=COPY_IGNORE)
-            
-            # Template HARNESS_PLUGIN_ROOT for Claude
-            import os
-            for root, _, files in os.walk(plugin_dir / name):
-                for file in files:
-                    if file.endswith((".py", ".json", ".md")):
-                        filepath = Path(root) / file
-                        with open(filepath, "r", encoding="utf-8") as f:
-                            content = f.read()
-                        
-                        new_content = content.replace("${HARNESS_PLUGIN_ROOT}", "${CLAUDE_PLUGIN_ROOT}")
-                        
-                        if new_content != content:
-                            with open(filepath, "w", encoding="utf-8") as f:
-                                f.write(new_content)
-        else:
-            print(f"[HARNESS] Warning: {name.capitalize()} source {source} not found.")
-
-    pyproject_src = bp_dir / "pyproject.toml"
-    if not pyproject_src.exists():
-        pyproject_src = fallback_bp_dir / "pyproject.toml"
-
-    if pyproject_src.exists():
-        print(f"[HARNESS] Copying pyproject.toml from {pyproject_src}...")
-        shutil.copy(pyproject_src, plugin_dir / "pyproject.toml")
-    else:
-        print(f"[HARNESS] Warning: pyproject.toml source {pyproject_src} not found.")
-
-
-def copy_runtime_modules(plugin_dir: Path) -> None:
-    """Copy the runtime Python modules still used by setup smoke tests."""
-    src_dir = plugin_dir / "src"
-    src_dir.mkdir(parents=True, exist_ok=True)
-    (src_dir / "__init__.py").write_text("")
-
-    harness_module_dir = Path(__file__).parent
-    harness_runtime_dir = harness_module_dir.parent / "runtime"
-    
-    file_locations = {
-        "dispatcher.py": harness_runtime_dir,
-        "llm_client.py": harness_runtime_dir,
-        "discovery_engine.py": harness_module_dir
-    }
-
-    for core_file, source_dir in file_locations.items():
-        src_path = source_dir / core_file
-        if src_path.exists():
-            print(f"[HARNESS] Copying {core_file}...")
-            shutil.copy(src_path, src_dir / core_file)
-        else:
-            print(f"[HARNESS] Warning: {core_file} not found at {src_path}")
-
-
-def remove_obsolete_generated_files(plugin_dir: Path) -> None:
-    """Remove legacy generated plugin payloads that are no longer registered."""
-    obsolete_files = [
-        plugin_dir / "src" / "orchestrator_plugin.py",
-        plugin_dir / "src" / "interceptor.py",
-        plugin_dir / "src" / "tools.py",
-        plugin_dir / "src" / "hook_validator.py",
-    ]
-    for path in obsolete_files:
-        if path.exists():
-            path.unlink()
-
-    obsolete_dirs = [
-        plugin_dir / "src" / "hooks",
-    ]
-    for path in obsolete_dirs:
-        if path.exists():
-            shutil.rmtree(path)
 
 
 def render_plugin_readme(plugin_dir: Path, bp_dir: Path, fallback_bp_dir: Path, project_name: str) -> str:
@@ -373,10 +261,6 @@ def generate_orchestrator_plugin(
         print(f"[HARNESS] Generating plugin at {plugin_dir}")
         print(f"[HARNESS] Using boilerplate from {bp_dir}")
 
-        # Copy canonical static plugin payload.
-        copy_static_plugin_assets(plugin_dir, bp_dir, fallback_bp_dir)
-        remove_obsolete_generated_files(plugin_dir)
-
         # Generate manifest
         print(f"[HARNESS] Generating manifest...")
         generate_plugin_manifest(str(plugin_dir), project_name, plugin_version, logical_plugin_dir=str(logical_plugin_dir))
@@ -391,18 +275,6 @@ def generate_orchestrator_plugin(
             if (harness_dir / "rules").exists():
                 export_rules_config(harness_dir / "rules", config_dir)
 
-        # Copy boilerplate agents first
-        agents_src = bp_dir / "agents"
-        if agents_src.exists():
-            print(f"[HARNESS] Copying boilerplate agents from {agents_src}...")
-            shutil.copytree(agents_src, plugin_dir / "agents", dirs_exist_ok=True, ignore=COPY_IGNORE)
-            
-        # Copy dynamically generated agents from harness temp dir
-        harness_agents = harness_dir / "agents"
-        if harness_agents.exists():
-            print(f"[HARNESS] Copying dynamically generated agents from {harness_agents}...")
-            shutil.copytree(harness_agents, plugin_dir / "agents", dirs_exist_ok=True, ignore=COPY_IGNORE)
-
         # Generate config if we copied any agents
         if (plugin_dir / "agents").exists():
             # Use logical path for agents.json references
@@ -410,14 +282,6 @@ def generate_orchestrator_plugin(
             export_agents_config(plugin_dir / "agents", config_dir, logical_agents_dir=logical_agents_dir)
         else:
             print(f"[HARNESS] Warning: No agents found to copy.")
-
-        # Export DDD context
-        context_path = project_path / "docs" / "domain" / "CONTEXT.md"
-        print(f"[HARNESS] Exporting DDD context from {context_path}...")
-        export_ddd_context(context_path, config_dir)
-
-        print(f"[HARNESS] Copying runtime modules...")
-        copy_runtime_modules(plugin_dir)
 
         render_plugin_readme(plugin_dir, bp_dir, fallback_bp_dir, project_name)
 

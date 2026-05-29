@@ -90,6 +90,10 @@ def test_registered_hook_commands_execute(temp_project):
     state_dir.mkdir(exist_ok=True)
     (temp_project / "artifacts").mkdir(parents=True, exist_ok=True)
     (temp_project / "artifacts" / "tdd_failing_test.log").write_text("AssertionError: mock failure")
+    
+    docs_dir = temp_project / "docs"
+    (docs_dir / "designs").mkdir(parents=True, exist_ok=True)
+    (docs_dir / "progress").mkdir(parents=True, exist_ok=True)
     hooks_json = json.loads((plugin_dir / "hooks" / "hooks.json").read_text())
     payloads = {
         "UserPromptSubmit": {"hook_event_name": "UserPromptSubmit", "prompt": "build a login flow"},
@@ -112,13 +116,14 @@ def test_registered_hook_commands_execute(temp_project):
         "Stop": {"hook_event_name": "Stop"},
         "ConfigChange": {"hook_event_name": "ConfigChange", "changes": []},
     }
-
     env = {
         **os.environ,
         "CLAUDE_PLUGIN_ROOT": str(plugin_dir),
         "CLAUDE_PROJECT_DIR": str(temp_project),
     }
     for event_name, matcher_groups in hooks_json["hooks"].items():
+        if event_name not in payloads:
+            continue
         for group in matcher_groups:
             for hook in group["hooks"]:
                 command = hook["command"].replace("${CLAUDE_PLUGIN_ROOT}", str(plugin_dir))
@@ -144,10 +149,10 @@ def test_hook_state_persistence(temp_project):
     
     # Load hook definitions
     hooks_json = json.loads((plugin_dir / "hooks" / "hooks.json").read_text())
-    pre_tool_cmd = hooks_json["hooks"]["PreToolUse"][0]["hooks"][0]["command"].replace("${CLAUDE_PLUGIN_ROOT}", str(plugin_dir))
+    pre_tool_cmd = hooks_json["hooks"]["UserPromptSubmit"][0]["hooks"][0]["command"].replace("${HARNESS_PLUGIN_ROOT}", str(plugin_dir)).replace("${CLAUDE_PLUGIN_ROOT}", str(plugin_dir))
     
-    payload = {"hook_event_name": "PreToolUse", "tool_name": "Bash", "tool_input": {"command": "ls"}}
-    env = {**os.environ, "CLAUDE_PLUGIN_ROOT": str(plugin_dir), "CLAUDE_PROJECT_DIR": str(temp_project)}
+    payload = {"hook_event_name": "UserPromptSubmit", "prompt": "Hello"}
+    env = {**os.environ, "HARNESS_PLUGIN_ROOT": str(plugin_dir), "CLAUDE_PLUGIN_ROOT": str(plugin_dir), "CLAUDE_PROJECT_DIR": str(temp_project)}
     
     # Run hook
     res1 = subprocess.run(shlex.split(pre_tool_cmd), input=json.dumps(payload), cwd=temp_project, capture_output=True, text=True, env=env)

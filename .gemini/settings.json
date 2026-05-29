@@ -1,10 +1,23 @@
 {
+  "hooksConfig": {
+    "enabled": true
+  },
   "telemetry": {
     "enabled": true,
     "traces": false,
     "logPrompts": true,
     "otlpProtocol": "http",
     "otlpEndpoint": "https://us.cloud.langfuse.com/api/public/otel"
+  },
+  "model": {
+    "compressionThreshold": 0.8
+  },
+  "contextManagement": {
+    "historyWindow.maxTokens": 1500000,
+    "historyWindow.retainedTokens": 300000
+  },
+  "experimental": {
+    "contextManagement": true
   },
   "mcpServers": {
     "codegraph": {
@@ -33,6 +46,45 @@
             "name": "prompt-classifier",
             "type": "command",
             "command": "python3 .gemini/hooks/prompt_classifier.py"
+          }
+        ]
+      }
+    ],
+    "BeforeTool": [
+      {
+        "matcher": "*",
+        "sequential": true,
+        "hooks": [
+          {
+            "name": "pre-tool-use-security",
+            "type": "command",
+            "command": "python3 .gemini/hooks/pre_tool_use.py"
+          }
+        ]
+      }
+    ],
+    "AfterTool": [
+      {
+        "matcher": "*",
+        "sequential": true,
+        "hooks": [
+          {
+            "name": "post-tool-use-linting",
+            "type": "command",
+            "command": "python3 .gemini/hooks/post_tool_use.py"
+          }
+        ]
+      }
+    ],
+    "PreCompress": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "compression-notifier",
+            "type": "command",
+            "command": "python3 .gemini/hooks/notify_compression.py",
+            "description": "Alerts the user that context is being compressed so they can run /clear"
           }
         ]
       }

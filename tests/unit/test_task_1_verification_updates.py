@@ -9,9 +9,8 @@ def test_verifier_template_has_metadata_requirement():
     assert verifier_path.exists()
     content = verifier_path.read_text()
     
-    assert "### Reporting Format:" in content
-    assert "<QA_METADATA>" in content
-    assert '"status": "FAIL"' in content
+    assert "SUPERPOWER MANDATE:" in content
+    assert "verification-before-completion" in content
 
 def test_verification_skill_has_metadata_parsing_step():
     repo_root = Path(__file__).parent.parent.parent
