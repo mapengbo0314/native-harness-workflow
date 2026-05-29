@@ -50,4 +50,11 @@ local_outputs/
 *.egg-info/
 .pytest_cache/
 .env
+.venv*
 temp_pdf_copy.pdf
+
+# Agent state and logs
+.gemini/logs/
+.gemini/state/
+.claude/logs/
+.claude/state/
