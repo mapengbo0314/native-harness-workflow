@@ -219,7 +219,11 @@ Return the result as JSON:
         pointers.append(f"Routing Branch: {intent_branch}")
         
         # Add dynamic pointers rather than full text
-        pointers.append("Available Skills Index: .gemini/skills_index.json")
+        platform, _ = get_active_platform_and_model()
+        skills_platform = platform if platform != "unknown" else ".gemini"
+        _SKILLS_FILENAMES = {".claude": "skills.json"}
+        skills_filename = _SKILLS_FILENAMES.get(skills_platform, "skills_index.json")
+        pointers.append(f"Available Skills Index: {skills_platform}/{skills_filename}")
         pointers.append("To load a skill, run: python3 scripts/activate_skill.py <skill_name>")
         
         if intent_branch == "A":

@@ -19,7 +19,8 @@ load_dotenv()
 def get_active_platform_and_model(starting_dir: str = ".") -> Tuple[str, str]:
     """Detect active platform and determine the model being used.
 
-    Traverses up the directory tree to find platform directories (.claude, .gemini, .codex, .cursor).
+    Checks HARNESS_PLATFORM_CLI env var first (set by hooks from their own path),
+    then falls back to traversing up the directory tree for platform directories.
     Checks HARNESS_MODEL environment variable for custom model overrides.
 
     Args:
@@ -33,40 +34,36 @@ def get_active_platform_and_model(starting_dir: str = ".") -> Tuple[str, str]:
           (".cursor", "claude")
           ("unknown", "unknown-model")
     """
-    current = Path(starting_dir).resolve()
+    _PLATFORM_DEFAULTS = {
+        ".claude": "claude-haiku-4.5",
+        ".gemini": "gemini-2.5-flash-lite",
+        ".codex": "gpt-4",
+        ".cursor": "claude",
+    }
 
-    # Platform detection: traverse up looking for platform directory
+    # Prefer env var set by the hook — avoids ambiguity when multiple platform
+    # dirs coexist in the same repo (e.g. both .claude/ and .gemini/).
+    cli_platform = os.environ.get("HARNESS_PLATFORM_CLI", "").lower()
+    if cli_platform in ("claude", "gemini", "codex", "cursor"):
+        platform = f".{cli_platform}"
+        model = os.environ.get("HARNESS_MODEL") or _PLATFORM_DEFAULTS.get(platform, "unknown-model")
+        return (platform, model)
+
+    # Fallback: traverse up looking for platform directory
+    current = Path(starting_dir).resolve()
     platform = None
     while current != current.parent:
-        if (current / ".claude").exists():
-            platform = ".claude"
-            break
-        elif (current / ".gemini").exists():
-            platform = ".gemini"
-            break
-        elif (current / ".codex").exists():
-            platform = ".codex"
-            break
-        elif (current / ".cursor").exists():
-            platform = ".cursor"
+        for name in (".claude", ".gemini", ".codex", ".cursor"):
+            if (current / name).exists():
+                platform = name
+                break
+        if platform:
             break
         current = current.parent
 
-    # Model determination: check env var first, then platform default
-    model = os.environ.get("HARNESS_MODEL")
+    model = os.environ.get("HARNESS_MODEL") or _PLATFORM_DEFAULTS.get(platform or "", "")
     if not model:
-        if platform == ".claude":
-            model = "claude-haiku-4.5"
-        elif platform == ".gemini":
-            model = "gemini-2.5-flash-lite"
-        elif platform == ".codex":
-            model = "gpt-4"
-        elif platform == ".cursor":
-            model = "claude"
-        else:
-            # Fallback: check CLI platform
-            cli_platform = os.environ.get("HARNESS_PLATFORM_CLI", "").lower()
-            model = f"{cli_platform}-unknown" if cli_platform else "unknown-model"
+        model = f"{cli_platform}-unknown" if cli_platform else "unknown-model"
 
     return (platform or "unknown", model)
 
@@ -86,6 +83,14 @@ class OrchestratorDispatcher:
     """Routes agent requests through the project's orchestrator."""
 
     VALID_VERBS = {"/plan", "/work", "/review", "/release", "/setup"}
+
+    BRANCHES = {
+        "A": "Bug Fix / Diagnosis (stack trace, error, broken, bug, why is X failing)",
+        "B": "Feature Request & Architectural Planning (build, create, implement, add feature, new)",
+        "C": "Codebase Questioning & Knowledge Retrieval (how does, where is, what is, explain, why does)",
+        "D": "Surgical Edit / Fast Path (typo, change color, minor update, fix the, rename)",
+        "E": "No Technical Intent (conversational, greetings, vague messages with zero actionable intent)",
+    }
 
     def __init__(self, config_dir: str):
         """Initialize dispatcher with plugin config.
@@ -147,22 +152,23 @@ class OrchestratorDispatcher:
                 cli_name = "gemini"
 
         if query_llm and cli_name:
+            branch_menu = "\n".join(f"  {k} - {v}" for k, v in self.BRANCHES.items())
+            valid_keys = list(self.BRANCHES.keys())
             classification_prompt = f"""
-Analyze the following user prompt and classify it into one of the following Matrix Routing Branches:
+Classify the following user prompt into exactly one routing branch.
 
-- Branch A: Bug Fix / Diagnosis (e.g., stack trace, error, broken, bug)
-- Branch B: Feature Request & Architectural Planning (e.g., build, create, implement, add feature, new)
-- Branch C: Codebase Questioning & Knowledge Retrieval (e.g., how does, where is, what is, explain)
-- Branch D: Surgical Edit / Fast Path (e.g., typo, change color, minor update, fix the)
+Choose a single letter from this list:
+{branch_menu}
 
 User Prompt: "{prompt}"
 
-Before choosing the branch, provide a brief justification (Chain of Thought).
-Return the result as JSON:
+Return ONLY valid JSON — no markdown, no extra text:
 {{
-  "intent_analysis": "Your justification here",
-  "selected_branch": "Branch A, B, C, D, or E"
+  "intent_analysis": "one-sentence justification",
+  "selected_branch": "X"
 }}
+
+selected_branch MUST be exactly one of: {valid_keys}
 """
             try:
                 response = query_llm(classification_prompt, cli_name)
@@ -171,18 +177,18 @@ Return the result as JSON:
                 if not actual_model:
                     _, actual_model = get_active_platform_and_model()
                 langfuse_context.update_current_observation(model=actual_model)
-                
+
                 # Extract JSON
                 cleaned = response.replace("```json", "").replace("```", "").strip()
                 start_idx = cleaned.find("{")
                 end_idx = cleaned.rfind("}") + 1
                 if start_idx != -1 and end_idx != 0:
                     cleaned = cleaned[start_idx:end_idx]
-                
+
                 data = json.loads(cleaned)
-                branch_str = data.get("selected_branch", "Branch B")
-                # Normalize branch string (e.g., "Branch A" -> "A")
-                branch = branch_str.replace("Branch ", "").split(":")[0].strip()
+                branch = data.get("selected_branch", "E").strip().upper()
+                if branch not in self.BRANCHES:
+                    branch = "E"
                 return {
                     "branch": branch,
                     "justification": data.get("intent_analysis", "No justification provided.")
@@ -224,18 +230,23 @@ Return the result as JSON:
         pointers.append(f"Routing Branch: {intent_branch}")
         
         # Add dynamic pointers rather than full text
-        pointers.append("Available Skills Index: .gemini/skills_index.json")
+        platform, _ = get_active_platform_and_model()
+        skills_platform = platform if platform != "unknown" else ".claude"
+        _SKILLS_FILENAMES = {".claude": "skills.json"}
+        skills_filename = _SKILLS_FILENAMES.get(skills_platform, "skills_index.json")
+        pointers.append(f"Available Skills Index: {skills_platform}/{skills_filename}")
         pointers.append("To load a skill, run: python3 scripts/activate_skill.py <skill_name>")
         
-        if intent_branch == "A":
-            pointers.append("Branch A (Bug Fix): Focus on stack traces and isolate the error. Use mcp_codegraph_codegraph_callers.")
-        elif intent_branch == "B":
-            pointers.append("Branch B (Feature/Arch): Focus on step-by-step planning. Use harness-brainstorming-plans.")
-        elif intent_branch == "C":
-            pointers.append("Branch C (Question): Do not modify files. Use codegraph to explore.")
-        elif intent_branch == "D":
-            pointers.append("Branch D (Surgical Edit): Bypass heavy planning. Use generalist directly.")
-            
+        branch_hints = {
+            "A": "Branch A (Bug Fix): Focus on stack traces and isolate the error. Use mcp_codegraph_codegraph_callers.",
+            "B": "Branch B (Feature/Arch): Focus on step-by-step planning. Use harness-brainstorming-plans.",
+            "C": "Branch C (Question): Do not modify files. Use codegraph to explore.",
+            "D": "Branch D (Surgical Edit): Bypass heavy planning. Use generalist directly.",
+            "E": "Branch E (No Intent): Respond conversationally. Do not modify files or invoke analysis tools.",
+        }
+        if intent_branch in branch_hints:
+            pointers.append(branch_hints[intent_branch])
+
         return "\n".join(pointers)
 
     def evaluate_artifacts(self, branch: str, project_root: Union[str, Path]) -> Dict[str, Any]:
@@ -274,7 +285,15 @@ Return the result as JSON:
             for doc in progress_dir.glob("*.md"):
                 active_progress.append(doc.name)
 
-        if branch == "C":
+        if branch == "A":
+            current_phase = "Discovery"
+            target_agent = "@diagnose"
+            auth_msg = "You are UNAUTHORIZED to modify any files. You MUST use read-only tools to diagnose the issue and output the diagnosis report."
+        elif branch == "B":
+            current_phase = "Planning/Execution"
+            target_agent = "@planner"
+            auth_msg = "You are authorized to plan or execute based on document state."
+        elif branch == "C":
             current_phase = "Read-Only"
             target_agent = "@generalist"
             auth_msg = "You are STRICTLY UNAUTHORIZED to mutate any files. You must only read and answer questions."
@@ -282,14 +301,14 @@ Return the result as JSON:
             current_phase = "4 (Surgical Edit authorized)"
             target_agent = "@implementer"
             auth_msg = "You are authorized for surgical edits. Bypass planner."
-        elif branch == "A":
-            current_phase = "Discovery"
-            target_agent = "@diagnose"
-            auth_msg = "You are UNAUTHORIZED to modify any files. You MUST use read-only tools to diagnose the issue and output the diagnosis report."
-        else: # Branch B
-            current_phase = "Planning/Execution"
-            target_agent = "@planner"
-            auth_msg = "You are authorized to plan or execute based on document state."
+        elif branch == "E":
+            current_phase = "Conversational"
+            target_agent = None
+            auth_msg = ""
+        else:
+            current_phase = "Unknown"
+            target_agent = "@generalist"
+            auth_msg = ""
 
         return {
             "phase": current_phase,

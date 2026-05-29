@@ -41,6 +41,9 @@
     },
     "harness-requesting-code-review": {
       "path": "harness-requesting-code-review/SKILL.md"
+    },
+    "verification-before-completion": {
+      "path": "verification-before-completion/SKILL.md"
     }
   }
 }

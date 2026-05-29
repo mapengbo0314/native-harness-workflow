@@ -37,6 +37,7 @@ def query_llm(prompt: str, cli_name: str, model: str = None) -> str:
     env = os.environ.copy()
     env["NO_COLOR"] = "1"
     env["CLAUDE_MD"] = "0"
+    env["HARNESS_INTERNAL_LLM_CALL"] = "1"
 
     try:
         if cli_name == "claude":
@@ -49,7 +50,12 @@ def query_llm(prompt: str, cli_name: str, model: str = None) -> str:
                 timeout=30,
                 env=env
             )
-            data = json.loads(result.stdout)
+            stdout_str = result.stdout.strip()
+            start_idx = stdout_str.find("{")
+            end_idx = stdout_str.rfind("}") + 1
+            if start_idx != -1 and end_idx != 0:
+                stdout_str = stdout_str[start_idx:end_idx]
+            data = json.loads(stdout_str)
 
             # modelUsage is keyed by model name and contains per-model token counts (camelCase)
             model_usage_dict = data.get("modelUsage", {})
@@ -70,7 +76,7 @@ def query_llm(prompt: str, cli_name: str, model: str = None) -> str:
 
         elif cli_name == "gemini":
             result = subprocess.run(
-                ["gemini", "--output-format=json"],
+                ["gemini", "--output-format=json", "-p", ""],
                 input=prompt,
                 capture_output=True,
                 text=True,
@@ -78,7 +84,12 @@ def query_llm(prompt: str, cli_name: str, model: str = None) -> str:
                 timeout=30,
                 env=env
             )
-            data = json.loads(result.stdout)
+            stdout_str = result.stdout.strip()
+            start_idx = stdout_str.find("{")
+            end_idx = stdout_str.rfind("}") + 1
+            if start_idx != -1 and end_idx != 0:
+                stdout_str = stdout_str[start_idx:end_idx]
+            data = json.loads(stdout_str)
 
             # Extract model and tokens from response
             stats = data.get("stats", {}).get("models", {})

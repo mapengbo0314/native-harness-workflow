@@ -25,8 +25,10 @@ def fallback_classify(prompt):
         return "B"
     elif any(k in prompt for k in ["how", "where", "explain"]):
         return "C"
-    else:
+    elif any(k in prompt for k in ["typo", "change color", "minor update", "fix the", "rename"]):
         return "D"
+    else:
+        return "E"
 
 @observe(name="user_prompt")
 def main():
@@ -49,7 +51,11 @@ def main():
         plugin_root = current_dir.parent
         src_dir = plugin_root / "src"
         config_dir = plugin_root / "config"
-        
+
+        # Pin platform so get_active_platform_and_model() doesn't rely on CWD
+        # traversal, which is ambiguous when both .claude/ and .gemini/ exist.
+        os.environ.setdefault("HARNESS_PLATFORM_CLI", "claude")
+
         if str(src_dir) not in sys.path:
             sys.path.insert(0, str(src_dir))
 
@@ -117,9 +123,10 @@ def main():
             if session_id not in state_data["sessions"]:
                 state_data["sessions"][session_id] = {}
                 
-            active_persona = target_agent.lstrip("@")
-            state_data["sessions"][session_id]["active_persona"] = active_persona
-            state_data["active_persona"] = active_persona
+            if target_agent:
+                active_persona = target_agent.lstrip("@")
+                state_data["sessions"][session_id]["active_persona"] = active_persona
+                state_data["active_persona"] = active_persona
             
             with open(state_file, "w") as f:
                 json.dump(state_data, f, indent=2)

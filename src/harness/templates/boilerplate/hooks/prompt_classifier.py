@@ -25,8 +25,10 @@ def fallback_classify(prompt):
         return "B"
     elif any(k in prompt for k in ["how", "where", "explain"]):
         return "C"
-    else:
+    elif any(k in prompt for k in ["typo", "change color", "minor update", "fix the", "rename"]):
         return "D"
+    else:
+        return "E"
 
 @observe(name="user_prompt")
 def main():
@@ -117,9 +119,10 @@ def main():
             if session_id not in state_data["sessions"]:
                 state_data["sessions"][session_id] = {}
                 
-            active_persona = target_agent.lstrip("@")
-            state_data["sessions"][session_id]["active_persona"] = active_persona
-            state_data["active_persona"] = active_persona
+            if target_agent:
+                active_persona = target_agent.lstrip("@")
+                state_data["sessions"][session_id]["active_persona"] = active_persona
+                state_data["active_persona"] = active_persona
             
             with open(state_file, "w") as f:
                 json.dump(state_data, f, indent=2)
