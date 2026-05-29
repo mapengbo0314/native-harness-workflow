@@ -353,7 +353,16 @@
     },
     "56697": {
       "active_persona": "generalist"
+    },
+    "72189": {
+      "active_persona": "planner"
+    },
+    "72525": {
+      "active_persona": "generalist"
+    },
+    "74888": {
+      "active_persona": "planner"
     }
   },
-  "active_persona": "generalist"
+  "active_persona": "planner"
 }

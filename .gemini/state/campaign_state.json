@@ -248,7 +248,10 @@
     },
     "fa552304-4c7e-4c9f-b11f-1243586b912e": {
       "active_persona": "planner"
+    },
+    "43528c83-36e3-4258-99d7-c4d49ca29f08": {
+      "active_persona": "implementer"
     }
   },
-  "active_persona": "diagnose"
+  "active_persona": "implementer"
 }
