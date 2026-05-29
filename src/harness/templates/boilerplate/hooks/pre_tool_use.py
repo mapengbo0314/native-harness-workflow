@@ -99,7 +99,7 @@ def main():
                     sys.exit(2)
         
         # Ensure log directory exists
-        log_dir = Path.cwd() / 'logs'
+        log_dir = resolve_plugin_root() / 'logs'
         log_dir.mkdir(parents=True, exist_ok=True)
         log_path = log_dir / 'pre_tool_use.json'
         
@@ -127,6 +127,10 @@ def main():
         if 'input_str' in locals() and 'hook_event_name' in input_str:
             print(json.dumps({}))
         sys.exit(0)
+
+if __name__ == '__main__':
+    main()
+it(0)
 
 if __name__ == '__main__':
     main()

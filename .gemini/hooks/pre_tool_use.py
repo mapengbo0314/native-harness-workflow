@@ -3,6 +3,7 @@ import json
 import sys
 import re
 from pathlib import Path
+from hook_common import resolve_plugin_root
 
 def is_dangerous_rm_command(command):
     """
@@ -99,7 +100,7 @@ def main():
                     sys.exit(2)
         
         # Ensure log directory exists
-        log_dir = Path.cwd() / 'logs'
+        log_dir = resolve_plugin_root() / 'logs'
         log_dir.mkdir(parents=True, exist_ok=True)
         log_path = log_dir / 'pre_tool_use.json'
         

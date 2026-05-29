@@ -242,6 +242,12 @@
     },
     "52002": {
       "active_persona": "implementer"
+    },
+    "16e4124b-e86b-4b4b-9bcf-018a734a1246": {
+      "active_persona": "diagnose"
+    },
+    "fa552304-4c7e-4c9f-b11f-1243586b912e": {
+      "active_persona": "planner"
     }
   },
   "active_persona": "diagnose"
