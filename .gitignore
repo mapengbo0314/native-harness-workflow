@@ -34,7 +34,6 @@ MODULE.bazel.lock
 requirements_lock.txt
 
 # Design documentation
-designs/
 depreicated_indexing/
 depreciated_indexing/
 archive/

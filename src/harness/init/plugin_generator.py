@@ -251,9 +251,11 @@ def generate_orchestrator_plugin(
         config_dir = plugin_dir
         plugin_dir.mkdir(parents=True, exist_ok=True)
 
+        (plugin_dir / ".gitignore").write_text("state/\nlogs/\n")
+
         harness_dir = project_path / harness_folder
         logical_harness_dir = project_path / final_harness
-        
+
         # Resolve boilerplate dir
         bp_dir = Path(boilerplate_dir).resolve() if boilerplate_dir else Path(__file__).parent.parent / "templates" / "boilerplate"
         fallback_bp_dir = Path(__file__).parent.parent / "templates" / "boilerplate"
