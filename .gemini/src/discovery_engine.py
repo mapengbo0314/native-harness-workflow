@@ -3,7 +3,7 @@ import subprocess
 import time
 import urllib.request
 import os
-from harness.runtime.llm_client import query_llm
+from llm_client import query_llm
 from jinja2 import Environment, BaseLoader
 
 class TemplateRenderer:
@@ -80,7 +80,7 @@ def fetch_skill(skill_name: str, remote_url: str) -> str:
 
     return None
 
-def discover_agents(context_str: str, feature_fetcher_yaml_path: str, llm_provider: str, api_key: str, model: str = None, ddd_context: dict = None) -> list[dict]:
+def discover_agents(context_str: str, feature_fetcher_yaml_path: str, cli_name: str, model: str = None, ddd_context: dict = None) -> list[dict]:
     """Loads the system prompt and queries the LLM."""
     system_prompt = "You are the Feature Fetcher."
     try:
@@ -136,7 +136,7 @@ def discover_agents(context_str: str, feature_fetcher_yaml_path: str, llm_provid
     )
     
     print(f"Querying {llm_provider} for specialized agents...")
-    response_text = query_llm(full_prompt, llm_provider, api_key, model)
+    response_text = query_llm(full_prompt, cli_name, model=model)
     
     try:
         cleaned = response_text.replace("```json", "").replace("```", "").strip()

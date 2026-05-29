@@ -3,7 +3,30 @@ import json
 import os
 import logging
 from pathlib import Path
-from hook_common import resolve_project_root
+from hook_common import resolve_project_root, resolve_plugin_root
+
+# Load project .env files before Langfuse initializes its client.
+# The platform CLI sets CLAUDE_PLUGIN_ROOT / GEMINI_PLUGIN_ROOT before
+# the hook subprocess starts, so resolve_plugin_root() works here at
+# module load time — before any langfuse import.
+def _bootstrap_env():
+    try:
+        from dotenv import load_dotenv
+        candidate = resolve_plugin_root()
+        # Walk upward until we find a directory that has .env or .env.telemetry-harness.
+        # Claude plugin root is two levels deep (.claude/plugin-generated/); Gemini is one
+        # level deep (.gemini/) — hardcoding parent depth breaks one of them.
+        for _ in range(4):
+            if (candidate / ".env").exists() or (candidate / ".env.telemetry-harness").exists():
+                load_dotenv(candidate / ".env", override=False)
+                load_dotenv(candidate / ".env.telemetry-harness", override=False)
+                return
+            candidate = candidate.parent
+    except Exception:
+        pass
+
+_bootstrap_env()
+
 try:
     from langfuse import observe
 except ImportError:
@@ -51,11 +74,7 @@ def main():
         plugin_root = current_dir.parent
         src_dir = plugin_root / "src"
         config_dir = plugin_root / "config"
-
-        # Pin platform so get_active_platform_and_model() doesn't rely on CWD
-        # traversal, which is ambiguous when both .claude/ and .gemini/ exist.
-        os.environ.setdefault("HARNESS_PLATFORM_CLI", "claude")
-
+        
         if str(src_dir) not in sys.path:
             sys.path.insert(0, str(src_dir))
 
@@ -64,8 +83,8 @@ def main():
         langfuse_instrumentation.init_langfuse_prompt_span(prompt)
 
         try:
-            from harness.runtime.dispatcher import OrchestratorDispatcher
-            
+            from dispatcher import OrchestratorDispatcher
+
             # 3. Instantiate dispatcher
             dispatcher = OrchestratorDispatcher(str(config_dir))
             
@@ -134,7 +153,7 @@ def main():
             print(f"DEBUG: Failed to save campaign state: {e}", file=sys.stderr)
 
         try:
-            from harness.runtime.context_builder import build_context
+            from context_builder import build_context
             system_state = build_context(
                 phase=current_phase,
                 target_agent=target_agent,
@@ -159,9 +178,8 @@ def main():
         routing_decision["reason"] = reason
 
         try:
-            from harness.adapters import get_adapter
-            platform_id = os.environ.get("HARNESS_PLATFORM_CLI", "generic")
-            adapter = get_adapter(platform_id)
+            from platform_adapter import get_adapter
+            adapter = get_adapter()
             output = adapter.format_hook_response(
                 original_prompt=prompt,
                 routing_decision=routing_decision,

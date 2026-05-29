@@ -84,7 +84,12 @@ def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
     if spec is None or spec.loader is None:
         raise HarnessSetupError(f"Could not load generated dispatcher at {dispatcher_path}")
     dispatcher_module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(dispatcher_module)
+    src_dir = str(plugin_dir / "src")
+    sys.path.insert(0, src_dir)
+    try:
+        spec.loader.exec_module(dispatcher_module)
+    finally:
+        sys.path.remove(src_dir)
 
     hooks_config = json.loads((plugin_dir / "hooks" / "hooks.json").read_text(encoding="utf-8"))
     for groups in hooks_config.get("hooks", {}).values():
@@ -279,9 +284,9 @@ def main():
 
         adapter = get_adapter(_platform_name(platform_choice))
 
-        # Copy runtime modules for ALL platforms (so hooks can load them locally)
+        # Copy runtime modules baked for the selected platform only
         from harness.init.minting_engine import copy_runtime_modules
-        copy_runtime_modules(temp_harness_dir)
+        copy_runtime_modules(temp_harness_dir, platform_id=_platform_name(platform_choice))
 
         # Provision core infrastructure for all platforms
         adapter.generate_core_infrastructure(Path(args.project_path))

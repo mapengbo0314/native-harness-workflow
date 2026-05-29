@@ -24,7 +24,7 @@ def test_claude_plugin_contract():
             logical_harness_name=harness_folder
         )
         
-        copy_runtime_modules(temp_harness_dir)
+        copy_runtime_modules(temp_harness_dir, platform_id="claude")
         adapter = ClaudeAdapter()
         adapter.generate_core_infrastructure(project_path)
         
@@ -147,7 +147,7 @@ def test_claude_plugin_regeneration_removes_legacy_payloads():
             boilerplate_dir=str(boilerplate_dir),
             logical_harness_name=harness_folder
         )
-        copy_runtime_modules(temp_harness_dir)
+        copy_runtime_modules(temp_harness_dir, platform_id="claude")
         adapter = ClaudeAdapter()
         adapter.generate_core_infrastructure(project_path)
         
@@ -181,7 +181,7 @@ def test_claude_plugin_regeneration_removes_legacy_payloads():
             boilerplate_dir=str(boilerplate_dir),
             logical_harness_name=harness_folder
         )
-        copy_runtime_modules(temp_harness_dir)
+        copy_runtime_modules(temp_harness_dir, platform_id="claude")
         adapter.generate_core_infrastructure(project_path)
         generate_orchestrator_plugin(
             project_path=str(project_path),

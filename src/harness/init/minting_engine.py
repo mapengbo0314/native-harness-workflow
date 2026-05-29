@@ -569,27 +569,56 @@ def _deep_merge_logic(base, update):
         return update
 
 
-def copy_runtime_modules(target_dir: Path) -> None:
-    """Copies runtime dispatcher and discovery_engine to the harness environment."""
+def copy_runtime_modules(target_dir: Path, platform_id: str = "generic") -> None:
+    """Copies runtime modules into the generated plugin's src/ directory.
+
+    The platform_adapter.py deployed is the per-platform standalone file for
+    platform_id — it contains only that platform's adapter with a no-arg
+    get_adapter(). No multi-platform dispatch table is installed.
+
+    All copied files are rewritten to use flat local imports instead of
+    harness.runtime.* / harness.init.* paths, so the generated plugin runs
+    without the harness package being installed in the user's environment.
+    """
     runtime_src = Path(__file__).parent.parent / "runtime"
     init_src = Path(__file__).parent
-    
-    # Ensure src directory exists inside the harness plugin payload
+
     src_dir = target_dir / "src"
     src_dir.mkdir(parents=True, exist_ok=True)
     (src_dir / "__init__.py").write_text("")
-    
+
+    # Resolve per-platform adapter source file; fall back to generic if unknown.
+    known_platforms = {"claude", "gemini", "codex", "cursor"}
+    adapter_platform = platform_id if platform_id in known_platforms else "generic"
+    adapter_src = runtime_src / f"platform_adapter_{adapter_platform}.py"
+    if not adapter_src.exists():
+        adapter_src = runtime_src / "platform_adapter_generic.py"
+
     core_files = {
         "dispatcher.py": runtime_src / "dispatcher.py",
         "llm_client.py": runtime_src / "llm_client.py",
+        "context_builder.py": runtime_src / "context_builder.py",
+        "langfuse_compat.py": runtime_src / "langfuse_compat.py",
+        "langfuse_instrumentation.py": runtime_src / "langfuse_instrumentation.py",
+        "platform_adapter.py": adapter_src,
         "discovery_engine.py": init_src / "discovery_engine.py",
-        "langfuse_instrumentation.py": runtime_src / "langfuse_instrumentation.py"
     }
-    
-    for core_file, src_path in core_files.items():
+
+    for dest_name, src_path in core_files.items():
         if src_path.exists():
-            print(f"[HARNESS] Copying {core_file}...")
-            shutil.copy2(src_path, src_dir / core_file)
+            print(f"[HARNESS] Copying {dest_name} ({src_path.name})...")
+            shutil.copy2(src_path, src_dir / dest_name)
         else:
-            print(f"[HARNESS] Warning: {core_file} not found at {src_path}")
+            print(f"[HARNESS] Warning: {dest_name} not found at {src_path}")
+
+    # Rewrite harness-internal import paths so copied modules resolve locally.
+    # Handles both forms:
+    #   "from harness.runtime.X import Y"  → "from X import Y"
+    #   "import harness.runtime.X as Y"    → "import X as Y"
+    for py_file in src_dir.glob("*.py"):
+        text = py_file.read_text(encoding="utf-8")
+        patched = re.sub(r"from harness\.(?:runtime|init)\.", "from ", text)
+        patched = re.sub(r"import harness\.(?:runtime|init)\.", "import ", patched)
+        if patched != text:
+            py_file.write_text(patched, encoding="utf-8")
 

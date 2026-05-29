@@ -130,7 +130,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-it(0)
-
-if __name__ == '__main__':
-    main()

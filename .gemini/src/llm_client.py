@@ -4,7 +4,12 @@ import json
 import subprocess
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from langfuse import observe
-from harness.runtime.langfuse_compat import langfuse_context
+from langfuse_compat import langfuse_context
+
+# Written by query_llm after each call so callers (classify_intent, dispatch_agent)
+# can propagate the actual model name to their own Langfuse spans.
+last_actual_model: str = ""
+
 
 @observe(as_type="generation")
 @retry(
@@ -16,6 +21,7 @@ from harness.runtime.langfuse_compat import langfuse_context
 )
 def query_llm(prompt: str, cli_name: str, model: str = None) -> str:
     """Dispatches to the real LLM providers via their native CLIs with token tracking."""
+    global last_actual_model
     trace_id = os.environ.get("LANGFUSE_TRACE_ID")
     if not trace_id:
         trace_id = str(uuid.uuid4())
@@ -57,11 +63,20 @@ def query_llm(prompt: str, cli_name: str, model: str = None) -> str:
                 stdout_str = stdout_str[start_idx:end_idx]
             data = json.loads(stdout_str)
 
-            # modelUsage is keyed by model name and contains per-model token counts (camelCase)
+            # modelUsage may contain multiple models (e.g. subagent calls); identify the
+            # primary model by matching its outputTokens against the top-level usage field.
             model_usage_dict = data.get("modelUsage", {})
-            actual_model = next(iter(model_usage_dict.keys()), "claude-unknown")
+            top_output_tokens = data.get("usage", {}).get("output_tokens")
+            actual_model = next(
+                (
+                    m for m, v in model_usage_dict.items()
+                    if v.get("outputTokens") == top_output_tokens
+                ),
+                next(iter(model_usage_dict.keys()), "claude-unknown"),
+            )
             model_tokens = model_usage_dict.get(actual_model, {})
 
+            last_actual_model = actual_model
             langfuse_context.update_current_observation(
                 model=actual_model,
                 usage_details={
@@ -97,6 +112,7 @@ def query_llm(prompt: str, cli_name: str, model: str = None) -> str:
             tokens_data = stats.get(actual_model, {}).get("tokens", {})
 
             # Track tokens in Langfuse
+            last_actual_model = actual_model
             langfuse_context.update_current_observation(
                 model=actual_model,
                 usage={

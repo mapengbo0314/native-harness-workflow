@@ -1,10 +1,44 @@
 import sys
 import json
 import os
-import uuid
 import logging
 from pathlib import Path
-from hook_common import resolve_project_root
+from hook_common import resolve_project_root, resolve_plugin_root
+
+# Load project .env files before Langfuse initializes its client.
+# The platform CLI sets CLAUDE_PLUGIN_ROOT / GEMINI_PLUGIN_ROOT before
+# the hook subprocess starts, so resolve_plugin_root() works here at
+# module load time — before any langfuse import.
+def _bootstrap_env():
+    try:
+        from dotenv import load_dotenv
+        candidate = resolve_plugin_root()
+        # Walk upward until we find a directory that has .env or .env.telemetry-harness.
+        # Claude plugin root is two levels deep (.claude/plugin-generated/); Gemini is one
+        # level deep (.gemini/) — hardcoding parent depth breaks one of them.
+        for _ in range(4):
+            if (candidate / ".env").exists() or (candidate / ".env.telemetry-harness").exists():
+                load_dotenv(candidate / ".env", override=False)
+                load_dotenv(candidate / ".env.telemetry-harness", override=False)
+                return
+            candidate = candidate.parent
+    except Exception:
+        pass
+
+_bootstrap_env()
+
+try:
+    from langfuse import observe
+except ImportError:
+    try:
+        from langfuse.decorators import observe
+    except ImportError:
+        def observe(*args, **kwargs):
+            def decorator(func):
+                return func
+            if len(args) == 1 and callable(args[0]):
+                return args[0]
+            return decorator
 
 def fallback_classify(prompt):
     prompt = prompt.lower()
@@ -19,6 +53,7 @@ def fallback_classify(prompt):
     else:
         return "E"
 
+@observe(name="user_prompt")
 def main():
     try:
         try:
@@ -28,12 +63,6 @@ def main():
             sys.exit(2)
             
         prompt = input_data.get("prompt", "")
-        
-        # Bypass hook if this is an internal LLM call (e.g., intent classification)
-        if os.environ.get("HARNESS_INTERNAL_LLM_CALL") == "1":
-            print(json.dumps({"modifiedPrompt": prompt}))
-            sys.exit(0)
-            
         project_root = resolve_project_root(input_data)
         branch = None
         reason = None
@@ -45,22 +74,17 @@ def main():
         plugin_root = current_dir.parent
         src_dir = plugin_root / "src"
         config_dir = plugin_root / "config"
-
-        # Pin platform so get_active_platform_and_model() doesn't rely on CWD
-        # traversal, which is ambiguous when both .claude/ and .gemini/ exist.
-        os.environ.setdefault("HARNESS_PLATFORM_CLI", "gemini")
-
+        
         if str(src_dir) not in sys.path:
             sys.path.insert(0, str(src_dir))
-            
+
+        import langfuse_instrumentation
+        langfuse_instrumentation.init_langfuse_trace(str(project_root))
+        langfuse_instrumentation.init_langfuse_prompt_span(prompt)
+
         try:
-            # 2. Ensure LANGFUSE_TRACE_ID is set
-            if not os.environ.get("LANGFUSE_TRACE_ID"):
-                os.environ["LANGFUSE_TRACE_ID"] = str(uuid.uuid4())
-                
-            from harness.runtime.dispatcher import OrchestratorDispatcher
-            from harness.runtime.langfuse_compat import langfuse_context
-            
+            from dispatcher import OrchestratorDispatcher
+
             # 3. Instantiate dispatcher
             dispatcher = OrchestratorDispatcher(str(config_dir))
             
@@ -74,8 +98,6 @@ def main():
             reason = result.get("intent_justification")
             routing_decision = result.get("routing_decision", {})
             
-            # CRITICAL: Call langfuse_context.flush() to ensure telemetry upload
-            langfuse_context.flush()
         except Exception as e:
             print(f"DEBUG: Dispatcher failed: {e}", file=sys.stderr)
             pass
@@ -93,9 +115,10 @@ def main():
                 pass
 
         current_phase = routing_decision.get("phase", "Unknown")
-        missing_documents = routing_decision.get("missing_documents", [])
+        artifacts_missing = routing_decision.get("artifacts_missing", [])
         auth_msg = routing_decision.get("auth_msg", "")
         target_agent = routing_decision.get("target_agent", "@generalist")
+        manifest_state = routing_decision.get("manifest_state", None)
 
         try:
             from hook_common import resolve_plugin_root, get_session_id
@@ -130,28 +153,33 @@ def main():
             print(f"DEBUG: Failed to save campaign state: {e}", file=sys.stderr)
 
         try:
-            from harness.runtime.context_builder import build_context
+            from context_builder import build_context
             system_state = build_context(
                 phase=current_phase,
                 target_agent=target_agent,
                 auth_msg=auth_msg,
                 branch=branch,
-                missing_documents=missing_documents
+                missing_documents=artifacts_missing,
+                manifest_state=manifest_state
             )
         except Exception as e:
             print(f"DEBUG: context_builder failed: {e}", file=sys.stderr)
             system_state = ""
             if current_phase != "Unknown":
-                system_state = f"\n\n=== SYSTEM STATE ===\nActive Branch: {branch}\nCurrent Phase: {current_phase}\nTarget Agent: {target_agent}\nMissing Documents: {', '.join(missing_documents) if missing_documents else 'None'}\nAuthorization: {auth_msg}\n====================\n"
+                system_state = f"\n\n=== SYSTEM STATE ===\nActive Branch: {branch}\nCurrent Phase: {current_phase}\nTarget Agent: {target_agent}\nArtifacts Missing: {', '.join(artifacts_missing) if artifacts_missing else 'None'}\nAuthorization: {auth_msg}\n"
+                if manifest_state and branch == "B":
+                    system_state += f"Proposed Designs: {', '.join(manifest_state.get('designs_found', [])) or 'None'}\n"
+                    system_state += f"In-Progress Designs: {', '.join(manifest_state.get('progress_found', [])) or 'None'}\n"
+                system_state += "====================\n"
             
         hook_event_name = input_data.get("hookEventName") or input_data.get("hook_event_name", "UserPromptSubmit")
         
         routing_decision["classification"] = branch
+        routing_decision["reason"] = reason
 
         try:
-            from harness.adapters import get_adapter
-            platform_id = os.environ.get("HARNESS_PLATFORM_CLI", "generic")
-            adapter = get_adapter(platform_id)
+            from platform_adapter import get_adapter
+            adapter = get_adapter()
             output = adapter.format_hook_response(
                 original_prompt=prompt,
                 routing_decision=routing_decision,
@@ -162,7 +190,6 @@ def main():
             print(f"DEBUG: Adapter formatting failed: {e}", file=sys.stderr)
             output = {
                 "classification": branch, 
-                "reason": reason,
                 "modifiedPrompt": prompt + system_state,
                 "system_prompt_extension": system_state,
                 "target_agent": target_agent,
@@ -175,6 +202,7 @@ def main():
             }
             
         print(json.dumps(output))
+        langfuse_instrumentation.ensure_flush()
         sys.exit(0)
     except SystemExit:
         raise

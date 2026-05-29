@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 from dotenv import load_dotenv
 from langfuse import observe
-from harness.runtime.langfuse_compat import langfuse_context
+from langfuse_compat import langfuse_context
 import uuid
 
 load_dotenv()
@@ -68,8 +68,8 @@ def get_active_platform_and_model(starting_dir: str = ".") -> Tuple[str, str]:
     return (platform or "unknown", model)
 
 try:
-    import harness.runtime.llm_client as _llm_client_module
-    from harness.runtime.llm_client import query_llm
+    import llm_client as _llm_client_module
+    from llm_client import query_llm
 except (ImportError, ValueError):
     try:
         from . import llm_client as _llm_client_module
