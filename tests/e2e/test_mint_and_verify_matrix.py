@@ -1,5 +1,5 @@
 """
-S1-T3 — L1 existence + L2 wiring/registration matrix test.
+S1-T3/T4 — L1 existence + L2 wiring/registration + L3 skills/MCP matrix test.
 
 Parametrized over ["claude", "gemini"].  Mints each platform once per test
 function via the shared helper and asserts:
@@ -11,6 +11,20 @@ function via the shared helper and asserts:
         - hook event names are the platform-correct set
         - agents.json entries (claude-only) resolve under the plugin root
         - plugin.json name+description are substituted (not empty, not '. for .')
+  L3 (S1-T4) — skills completeness + MCP registration wiring:
+        - every boilerplate skill in src/harness/templates/boilerplate/skills/
+          is present in the minted plugin's skills/ (full-set assertion)
+        - the MCP codegraph registration command is wired correctly:
+          configure_cli() is called with the correct subprocess command.
+          We use Approach 2 (command assertion) because no .mcp.json config
+          file is written to the plugin directory — mcp.json generation was
+          explicitly removed (see minting_engine.py comment "mcp.json
+          generation removed in task 2") and the MCP is registered via the
+          external CLI (claude/gemini mcp add codegraph …).  Since the mock
+          in mint_platform patches subprocess.run globally AND shutil.which
+          returns None on CI (no claude/gemini CLI installed), configure_cli
+          exits early before calling subprocess.run.  The correct test calls
+          configure_cli() directly with shutil.which patched to a fake path.
 
 Verified artifact structures (real mint runs, 2026-05-30):
 
@@ -53,6 +67,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -79,6 +94,37 @@ _MIN_SKILLS: list[str] = [
     "harness-test-driven-development",
     "harness-brainstorming-plans",
 ]
+
+# Canonical boilerplate skills: read once from the source tree.
+# Source: src/harness/templates/boilerplate/skills/
+# This is the authoritative set — every directory here must appear in
+# the minted plugin's skills/ directory.
+_BOILERPLATE_SKILLS_DIR: Path = (
+    Path(__file__).parent.parent.parent
+    / "src" / "harness" / "templates" / "boilerplate" / "skills"
+)
+_CANONICAL_SKILLS: frozenset[str] = frozenset(
+    d.name for d in _BOILERPLATE_SKILLS_DIR.iterdir() if d.is_dir()
+)
+
+# Expected MCP codegraph registration command fragments per platform.
+# The full commands (verified from real adapter source, 2026-05-30):
+#   claude: [<claude>, "mcp", "add", "codegraph", "--", "npx", "-y",
+#            "@colbymchenry/codegraph", "serve", "--mcp"]
+#   gemini: [<gemini>, "mcp", "add", "codegraph", "npx", "-y",
+#            "@colbymchenry/codegraph", "serve", "--mcp"]
+# We assert the presence of the key semantic tokens: "mcp", "add", "codegraph",
+# and "@colbymchenry/codegraph".
+_MCP_COMMAND_TOKENS: dict[str, list[str]] = {
+    "claude": ["mcp", "add", "codegraph", "@colbymchenry/codegraph"],
+    "gemini": ["mcp", "add", "codegraph", "@colbymchenry/codegraph"],
+}
+
+# Fake CLI binary paths used when patching shutil.which for MCP tests
+_FAKE_CLI_PATH: dict[str, str] = {
+    "claude": "/usr/local/bin/claude",
+    "gemini": "/usr/local/bin/gemini",
+}
 
 # Core hook script filenames expected in hooks/
 _HOOK_SCRIPTS: list[str] = [
@@ -441,4 +487,147 @@ class TestWiring:
         assert not missing, (
             "gemini: skills.json entries reference non-existent files:\n"
             + "\n".join(missing)
+        )
+
+
+# ---------------------------------------------------------------------------
+# L3 (S1-T4) — Full skills completeness + MCP registration wiring
+# ---------------------------------------------------------------------------
+
+
+class TestSkillsAndMcpInstalled:
+    """
+    S1-T4: every boilerplate skill is present in the minted plugin's skills/,
+    and the codegraph MCP registration command is wired correctly.
+
+    MCP assertion approach: Approach 2 — command assertion.
+
+    Rationale: No .mcp.json or equivalent config file is written to the minted
+    plugin directory (mcp.json generation was explicitly removed per the comment
+    in minting_engine.py: "mcp.json generation removed in task 2").  The MCP is
+    registered solely via the external CLI (``claude mcp add codegraph …`` /
+    ``gemini mcp add codegraph …``) inside ``configure_cli()``.  During
+    mint_platform(), subprocess.run is mocked globally AND shutil.which returns
+    None for the platform CLI (not installed on CI), so configure_cli() exits
+    early without calling subprocess.run.  We therefore call configure_cli()
+    directly in this test with shutil.which patched to return a fake binary
+    path and a fresh subprocess.run mock, then assert the mock was invoked with
+    the correct MCP command tokens.  This verifies the wiring intent at the
+    adapter level without coupling to an installed external tool.
+
+    Commands asserted (from real adapter source, 2026-05-30):
+      claude: ['/usr/local/bin/claude', 'mcp', 'add', 'codegraph', '--',
+               'npx', '-y', '@colbymchenry/codegraph', 'serve', '--mcp']
+      gemini: ['/usr/local/bin/gemini', 'mcp', 'add', 'codegraph',
+               'npx', '-y', '@colbymchenry/codegraph', 'serve', '--mcp']
+    """
+
+    def test_all_boilerplate_skills_present(self, plugin_root):
+        """
+        Every directory in src/harness/templates/boilerplate/skills/ must
+        appear as a subdirectory containing SKILL.md in the minted plugin's
+        skills/ directory.
+
+        Catches any skill silently dropped during minting.
+        """
+        platform, root = plugin_root
+        skills_dir = root / "skills"
+
+        assert skills_dir.is_dir(), (
+            f"{platform}: skills/ directory missing at {skills_dir}"
+        )
+
+        minted_skills: frozenset[str] = frozenset(
+            d.name for d in skills_dir.iterdir() if d.is_dir()
+        )
+
+        # Every canonical skill must exist with its SKILL.md
+        missing_dirs: list[str] = []
+        missing_skill_md: list[str] = []
+
+        for skill_name in sorted(_CANONICAL_SKILLS):
+            if skill_name not in minted_skills:
+                missing_dirs.append(skill_name)
+            elif not (skills_dir / skill_name / "SKILL.md").exists():
+                missing_skill_md.append(skill_name)
+
+        errors: list[str] = []
+        if missing_dirs:
+            errors.append(
+                f"Skills missing from minted skills/ ({len(missing_dirs)}):\n"
+                + "\n".join(f"  - {s}" for s in missing_dirs)
+            )
+        if missing_skill_md:
+            errors.append(
+                f"Skills present but missing SKILL.md ({len(missing_skill_md)}):\n"
+                + "\n".join(f"  - {s}" for s in missing_skill_md)
+            )
+
+        assert not errors, (
+            f"{platform}: boilerplate skills not fully minted.\n"
+            f"  canonical source: {_BOILERPLATE_SKILLS_DIR}\n"
+            f"  canonical count : {len(_CANONICAL_SKILLS)}\n"
+            f"  minted count    : {len(minted_skills)}\n"
+            + "\n".join(errors)
+        )
+
+    def test_mcp_codegraph_registration_command(self, plugin_root, tmp_path):
+        """
+        configure_cli() must invoke subprocess.run with a command that registers
+        the codegraph MCP server.
+
+        Approach 2 (command assertion): patch shutil.which to return a fake CLI
+        binary and capture the subprocess.run call.  Assert that the call
+        contains the required tokens: 'mcp', 'add', 'codegraph', and
+        '@colbymchenry/codegraph'.
+
+        This verifies the adapter wiring at the code level, independent of
+        whether the external CLI is installed on the test machine.
+        """
+        platform, _ = plugin_root
+
+        from harness.adapters import get_adapter
+
+        adapter = get_adapter(platform)
+        fake_cli = _FAKE_CLI_PATH[platform]
+        expected_tokens = _MCP_COMMAND_TOKENS[platform]
+
+        captured_calls: list[list[str]] = []
+
+        def _mock_run(cmd, **kwargs):
+            captured_calls.append(list(cmd))
+            return MagicMock(returncode=0)
+
+        with (
+            patch("shutil.which", return_value=fake_cli),
+            patch("subprocess.run", side_effect=_mock_run),
+        ):
+            adapter.configure_cli(tmp_path)
+
+        assert captured_calls, (
+            f"{platform}: configure_cli() did not call subprocess.run — "
+            f"no MCP registration command was issued.  "
+            f"Expected a command containing: {expected_tokens}"
+        )
+
+        # Find the codegraph mcp add call among all subprocess.run calls
+        mcp_codegraph_calls = [
+            cmd for cmd in captured_calls
+            if "mcp" in cmd and "codegraph" in cmd
+        ]
+
+        assert mcp_codegraph_calls, (
+            f"{platform}: no subprocess.run call contained both 'mcp' and "
+            f"'codegraph'.  All captured calls:\n"
+            + "\n".join(f"  {c}" for c in captured_calls)
+        )
+
+        # Assert all required tokens appear in the command
+        cmd = mcp_codegraph_calls[0]
+        missing_tokens = [t for t in expected_tokens if t not in cmd]
+        assert not missing_tokens, (
+            f"{platform}: MCP codegraph registration command is missing "
+            f"required tokens: {missing_tokens}\n"
+            f"  expected tokens : {expected_tokens}\n"
+            f"  actual command  : {cmd}"
         )
