@@ -4,6 +4,7 @@ import subprocess
 import shutil
 import sys
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import xml.sax.saxutils
@@ -19,6 +20,56 @@ from harness.init.discovery_engine import query_llm
 from harness.init.minting_engine import mint_workspace
 from harness.init.plugin_generator import generate_orchestrator_plugin
 from tests.sandbox.scorer import ScenarioScorer
+
+
+@dataclass
+class RoutingResult:
+    """The routing decision produced for a scenario.
+
+    Attributes:
+        branch: Single-letter routing branch (A/B/C/D/E).
+        skill:  Skill invoked by the routed agent, or None if no skill applies.
+        agent:  Short agent name (e.g. "implementer"), or None for branch E.
+    """
+
+    branch: str
+    skill: Optional[str]
+    agent: Optional[str]
+
+
+def run_scenario(plugin_root: Path, scenario: Dict[str, Any]) -> RoutingResult:
+    """Run a single routing scenario against the plugin installed at *plugin_root*.
+
+    This is the programmatic entry point for matrix tests.  It exercises only
+    the classification + routing-table layer — it does **not** spawn a MockHost,
+    call an LLM, or write any files.  The CLI path (``main()``) is unchanged.
+
+    Args:
+        plugin_root: Path to the minted plugin directory.  For claude this is
+            ``<project>/.claude/plugin-generated/``; for gemini ``<project>/.gemini/``.
+        scenario: Scenario dict (same shape as the YAML files under
+            ``tests/sandbox/scenarios/``).  Only the ``"prompt"`` key is required.
+
+    Returns:
+        A :class:`RoutingResult` with the branch, skill, and agent the plugin
+        would route to.
+    """
+    config_dir = plugin_root / "config"
+    dispatcher = OrchestratorDispatcher(str(config_dir))
+
+    prompt = scenario.get("prompt", "")
+    intent_info = dispatcher.classify_intent(prompt)
+    branch = intent_info.get("branch", "E")
+
+    routing = dispatcher.BRANCH_ROUTING.get(
+        branch,
+        {"skill": None, "agent": None, "agent_invokes_skill": False},
+    )
+    skill = routing["skill"]
+    agent = routing["agent"]
+
+    return RoutingResult(branch=branch, skill=skill, agent=agent)
+
 
 def mint_harness(project_path: str, project_name: str, model: str = None):
     """Simplified minting for sandbox runner."""
