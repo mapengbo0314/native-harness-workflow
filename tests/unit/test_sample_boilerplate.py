@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 import pytest
 
 BOILERPLATE_PATH = "tests/fixtures/boilerplates/sample-py-app"
@@ -18,7 +19,7 @@ def test_boilerplate_files_exist():
 def test_boilerplate_is_runnable():
     # Try to run pytest on the boilerplate from within its directory
     result = subprocess.run(
-        ["pytest"],
+        [sys.executable, "-m", "pytest"],
         cwd=BOILERPLATE_PATH,
         capture_output=True,
         text=True
