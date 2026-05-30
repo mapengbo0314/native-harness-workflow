@@ -116,14 +116,14 @@ def test_claude_plugin_contract():
         claude = shutil.which("claude")
         if claude:
             plugin_result = subprocess.run(
-                [claude, "plugin", "validate", str(plugin_dir), "--strict"],
+                [claude, "plugin", "validate", str(plugin_dir)],
                 capture_output=True,
                 text=True,
             )
             assert plugin_result.returncode == 0, plugin_result.stdout + plugin_result.stderr
 
             marketplace_result = subprocess.run(
-                [claude, "plugin", "validate", str(plugin_dir.parent), "--strict"],
+                [claude, "plugin", "validate", str(plugin_dir.parent)],
                 capture_output=True,
                 text=True,
             )

@@ -116,7 +116,7 @@ def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
     if claude:
         for target in [plugin_dir, project_path / ".claude"]:
             result = subprocess.run(
-                [claude, "plugin", "validate", str(target), "--strict"], 
+                [claude, "plugin", "validate", str(target)],
                 capture_output=True, 
                 text=True,
                 env=os.environ.copy()

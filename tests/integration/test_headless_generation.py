@@ -1,5 +1,6 @@
 import os
 import shutil
+import sys
 import tempfile
 import subprocess
 from pathlib import Path
@@ -29,7 +30,7 @@ def test_headless_harness_generation(choice, target_dir_name):
             (Path(tmpdir) / ".codegraph" / "codegraph.db").touch()
 
             result = subprocess.run(
-                ["python3", str(cli_script), "init", "--project-path", tmpdir],
+                [sys.executable, str(cli_script), "init", "--project-path", tmpdir],
                 env=env,
                 capture_output=True,
                 text=True
