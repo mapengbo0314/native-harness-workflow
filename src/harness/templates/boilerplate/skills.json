@@ -44,6 +44,9 @@
     },
     "verification-before-completion": {
       "path": "verification-before-completion/SKILL.md"
+    },
+    "harness-capture-scenario": {
+      "path": "harness-capture-scenario/SKILL.md"
     }
   }
 }
