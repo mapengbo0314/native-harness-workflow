@@ -1,5 +1,5 @@
 """
-S1-T3/T4 — L1 existence + L2 wiring/registration + L3 skills/MCP matrix test.
+S1-T3/T4/T5 — L1 existence + L2 wiring/registration + L3 skills/MCP + L5 routing matrix test.
 
 Parametrized over ["claude", "gemini"].  Mints each platform once per test
 function via the shared helper and asserts:
@@ -25,6 +25,16 @@ function via the shared helper and asserts:
           returns None on CI (no claude/gemini CLI installed), configure_cli
           exits early before calling subprocess.run.  The correct test calls
           configure_cli() directly with shutil.which patched to a fake path.
+  L5 (S1-T5) — routing behavior against canned scenarios:
+        - loads every *.yaml under tests/sandbox/scenarios/ (including captured/)
+        - only scenarios that declare expected_behavior (branch + optional agent)
+          are asserted
+        - run_scenario() is called with query_llm patched to None to force the
+          deterministic keyword classifier (no LLM call)
+        - asserts RoutingResult.branch matches expected_behavior.branch
+        - asserts RoutingResult.agent matches expected_behavior.agent when declared
+        - scenarios where current routing diverges from declared expectation are
+          marked xfail(strict) with an explanatory reason
 
 Verified artifact structures (real mint runs, 2026-05-30):
 
@@ -52,14 +62,23 @@ Verified artifact structures (real mint runs, 2026-05-30):
     src/
     (NO agents.json, NO .claude-plugin/plugin.json)
 
-Real mint bugs caught by this suite
-------------------------------------
+Real mint bugs / routing mismatches caught by this suite
+----------------------------------------------------------
   BUG-1  agents.json uses absolute OS paths (baked to the minted project dir).
          Consequence: paths are NOT portable across machines or after tmp cleanup.
          Handled: xfail — the paths are absolute but DO exist during the test, so
          the "exists" check passes.  A separate assertion verifies they are
          relative (or resolve under plugin_root), marked xfail to document the
          bug without hiding it.  Tracked for fix in the minting code.
+
+  BUG-2  (L5, S1-T5) Routing miss: "Rename LoginComponent to AuthComponent
+         everywhere in the codebase" should route to branch D (code edit / TDD)
+         but the deterministic keyword classifier produces branch B (feature /
+         planning) because the prompt contains no D-branch keywords ("typo",
+         "fix the", "change color", "minor update").  The scenario
+         captured/example_routing_miss.yaml documents this as expected_behavior
+         branch D.  Marked xfail(strict) — the net caught a real routing gap.
+         Fix: extend D-branch keyword list to cover rename/refactor patterns.
 """
 
 from __future__ import annotations
@@ -67,11 +86,14 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, call, patch
 
 import pytest
+import yaml
 
 from tests.e2e._mint_helpers import mint_platform
+from tests.sandbox.runner import run_scenario, RoutingResult
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -631,3 +653,132 @@ class TestSkillsAndMcpInstalled:
             f"  expected tokens : {expected_tokens}\n"
             f"  actual command  : {cmd}"
         )
+
+
+# ---------------------------------------------------------------------------
+# L5 (S1-T5) — Routing behavior / scenario matrix
+# ---------------------------------------------------------------------------
+
+# Discover all scenario YAML files that declare expected_behavior.
+# Collected once at module-import time so pytest can parametrize properly.
+
+_SCENARIOS_DIR: Path = (
+    Path(__file__).parent.parent / "sandbox" / "scenarios"
+)
+
+
+def _load_all_scenarios() -> list[dict[str, Any]]:
+    """Return every scenario dict from tests/sandbox/scenarios/**/*.yaml."""
+    scenarios: list[dict[str, Any]] = []
+    for yaml_path in sorted(_SCENARIOS_DIR.rglob("*.yaml")):
+        try:
+            with yaml_path.open() as fh:
+                data = yaml.safe_load(fh)
+            if isinstance(data, dict):
+                # Attach the source path for diagnostics
+                data["_yaml_path"] = str(yaml_path)
+                scenarios.append(data)
+        except Exception:
+            pass  # malformed YAML — skip silently
+    return scenarios
+
+
+def _scenario_has_expectations(scenario: dict[str, Any]) -> bool:
+    """True when the scenario declares at least a branch expectation."""
+    eb = scenario.get("expected_behavior")
+    return isinstance(eb, dict) and bool(eb.get("branch"))
+
+
+_ALL_SCENARIOS: list[dict[str, Any]] = _load_all_scenarios()
+_ASSERTABLE_SCENARIOS: list[dict[str, Any]] = [
+    s for s in _ALL_SCENARIOS if _scenario_has_expectations(s)
+]
+
+# Scenario IDs for parametrize display (e.g. "example_routing_miss")
+_SCENARIO_IDS: list[str] = [s.get("name", "unknown") for s in _ASSERTABLE_SCENARIOS]
+
+# Known routing mismatches between declared expectations and current keyword
+# classifier behavior.  Each entry: (scenario_name, reason).
+# These are marked xfail(strict) so the test suite documents the gap without
+# silently suppressing it.  Fix the routing classifier — not these entries.
+_KNOWN_ROUTING_MISMATCHES: dict[str, str] = {
+    "example_routing_miss": (
+        "BUG-2: keyword classifier routes 'Rename X to Y everywhere' to branch B "
+        "(default / feature) but expected_behavior declares branch D (code edit / TDD). "
+        "The D-branch keyword list lacks rename/refactor patterns. "
+        "Fix: extend classifier keywords before removing this xfail."
+    ),
+}
+
+
+def _make_routing_scenario_params() -> list[Any]:
+    """Build pytest.param objects for the cross-product platform × scenario."""
+    params: list[Any] = []
+    for platform in ("claude", "gemini"):
+        for scenario in _ASSERTABLE_SCENARIOS:
+            name = scenario.get("name", "unknown")
+            test_id = f"{platform}-{name}"
+            mismatch_reason = _KNOWN_ROUTING_MISMATCHES.get(name)
+            marks = []
+            if mismatch_reason:
+                marks.append(
+                    pytest.mark.xfail(strict=True, reason=mismatch_reason)
+                )
+            params.append(pytest.param(platform, scenario, id=test_id, marks=marks))
+    return params
+
+
+class TestRoutingScenarios:
+    """L5 (S1-T5): each canned scenario routes to the expected skill+agent.
+
+    Parametrized over ["claude", "gemini"] × assertable scenarios.  Only
+    scenarios that declare expected_behavior are included.
+
+    Determinism: query_llm is patched to None so the deterministic keyword
+    classifier is always used — no LLM call, no network, reproducible results.
+    """
+
+    @pytest.mark.parametrize("platform,scenario", _make_routing_scenario_params())
+    def test_routing_scenarios(
+        self,
+        platform: str,
+        scenario: dict[str, Any],
+        claude_root: Path,
+        gemini_root: Path,
+    ) -> None:
+        """Assert that run_scenario() returns the expected branch (and agent).
+
+        Steps:
+          1. Resolve plugin_root from the session-scoped fixture.
+          2. Patch query_llm → None to force deterministic keyword routing.
+          3. Call run_scenario(plugin_root, scenario) → RoutingResult.
+          4. Assert branch matches expected_behavior.branch.
+          5. Assert agent matches expected_behavior.agent (if declared).
+        """
+        plugin_root = claude_root if platform == "claude" else gemini_root
+
+        expected_behavior: dict[str, Any] = scenario["expected_behavior"]
+        expected_branch: str = expected_behavior["branch"]
+        expected_agent: str | None = expected_behavior.get("agent")
+
+        import harness.runtime.dispatcher as _dispatcher_module
+
+        with patch.object(_dispatcher_module, "query_llm", None):
+            result = run_scenario(plugin_root, scenario)
+
+        assert result.branch == expected_branch, (
+            f"[{platform}] scenario={scenario.get('name')!r}: "
+            f"expected branch={expected_branch!r}, got branch={result.branch!r}.\n"
+            f"  prompt   : {scenario.get('prompt')!r}\n"
+            f"  result   : {result}\n"
+            f"  scenario : {scenario.get('_yaml_path')}"
+        )
+
+        if expected_agent is not None:
+            assert result.agent == expected_agent, (
+                f"[{platform}] scenario={scenario.get('name')!r}: "
+                f"expected agent={expected_agent!r}, got agent={result.agent!r}.\n"
+                f"  branch   : {result.branch}\n"
+                f"  result   : {result}\n"
+                f"  scenario : {scenario.get('_yaml_path')}"
+            )
