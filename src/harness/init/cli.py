@@ -135,6 +135,13 @@ def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
             if result.returncode != 0:
                 raise HarnessSetupError(result.stdout + result.stderr)
 
+    # Remove any __pycache__ / *.pyc artifacts that were created during
+    # validation (e.g. exec_module() compiles dispatcher.py; hook scripts are
+    # imported transitively).  Shipped bytecode is stale the moment the Python
+    # version changes, and it bloats the plugin directory unnecessarily.
+    for pycache_dir in plugin_dir.rglob("__pycache__"):
+        shutil.rmtree(pycache_dir, ignore_errors=True)
+
     print("[HARNESS] Claude plugin payload validated.")
 
 
