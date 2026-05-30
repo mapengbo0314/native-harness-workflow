@@ -115,12 +115,23 @@ def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
     claude = shutil.which("claude")
     if claude:
         for target in [plugin_dir, project_path / ".claude"]:
+            cmd = [claude, "plugin", "validate", str(target)]
             result = subprocess.run(
                 [claude, "plugin", "validate", str(target)],
                 capture_output=True, 
                 text=True,
                 env=os.environ.copy()
             )
+            if result.returncode != 0 and any(
+                phrase in (result.stderr.lower() + result.stdout.lower())
+                for phrase in ["unknown option", "not a valid flag", "strict"]
+            ):
+                result = subprocess.run(
+                    cmd, 
+                    capture_output=True, 
+                    text=True,
+                    env=os.environ.copy()
+                )
             if result.returncode != 0:
                 raise HarnessSetupError(result.stdout + result.stderr)
 

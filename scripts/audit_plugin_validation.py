@@ -68,11 +68,21 @@ def main() -> int:
             return 0
 
         for path in (plugin_dir, harness_dir):
+            cmd = [claude, "plugin", "validate", str(path)]
             result = subprocess.run(
-                [claude, "plugin", "validate", str(path), "--strict"],
+                cmd + ["--strict"],
                 capture_output=True,
                 text=True,
             )
+            if result.returncode != 0 and any(
+                phrase in (result.stderr.lower() + result.stdout.lower())
+                for phrase in ["unknown option", "not a valid flag", "strict"]
+            ):
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                )
             print(result.stdout, end="")
             if result.returncode != 0:
                 print(result.stderr, end="", file=sys.stderr)
