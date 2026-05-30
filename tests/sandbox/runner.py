@@ -18,6 +18,7 @@ from harness.runtime.dispatcher import OrchestratorDispatcher
 from harness.init.discovery_engine import query_llm
 from harness.init.minting_engine import mint_workspace
 from harness.init.plugin_generator import generate_orchestrator_plugin
+from tests.sandbox.scorer import ScenarioScorer
 
 def mint_harness(project_path: str, project_name: str, model: str = None):
     """Simplified minting for sandbox runner."""
@@ -65,11 +66,15 @@ def setup_scenario_from_data(scenario_data: Dict[str, Any], workspace: Path):
         full_path.write_text(content)
 
 def list_scenarios() -> List[str]:
-    """Lists available scenarios."""
+    """Lists available scenarios (synthetic + captured)."""
     scenarios_dir = Path(project_root) / "tests" / "sandbox" / "scenarios"
     if not scenarios_dir.exists():
         return []
-    return [p.stem for p in scenarios_dir.glob("*.yaml")]
+    results = [p.stem for p in scenarios_dir.glob("*.yaml")]
+    captured_dir = scenarios_dir / "captured"
+    if captured_dir.exists():
+        results += [f"captured/{p.stem}" for p in captured_dir.glob("*.yaml")]
+    return results
 
 class ToolExecutionEngine:
     """Simulates Claude Code tools in a sandbox environment."""
@@ -434,6 +439,26 @@ class MockHost:
         except Exception as e:
             return f"Error executing tool {name}: {str(e)}"
 
+def _print_score_report(scenario_name: str, result: dict, config_id: Optional[str] = None):
+    """Print a human-readable score summary after a run."""
+    print("\n" + "=" * 50)
+    print(f"SCORE REPORT — {scenario_name}")
+    if config_id:
+        print(f"Config ID: {config_id}")
+    print("-" * 50)
+    for check, score in result["scores"].items():
+        status = "PASS" if score >= 0.7 else "FAIL"
+        print(f"  {check:<20} {score:.2f}  [{status}]")
+    if result["skipped"]:
+        print(f"  Skipped (no expected): {', '.join(result['skipped'])}")
+    print("-" * 50)
+    agg = result["aggregate"]
+    verdict = "PASS" if result["passed"] else "FAIL"
+    agg_str = f"{agg:.2f}" if agg is not None else "N/A"
+    print(f"  Aggregate: {agg_str}  [{verdict}]")
+    print("=" * 50 + "\n")
+
+
 def main():
     import argparse
     parser = argparse.ArgumentParser()
@@ -444,6 +469,11 @@ def main():
     parser.add_argument("--model", help="Specific model to use (e.g. gemini-flash-latest, gpt-4o)")
     parser.add_argument("--api-key", help="API key for the provider")
     parser.add_argument("--dry-run", action="store_true", help="Run without calling real LLM")
+    parser.add_argument("--score", action="store_true",
+                        help="Score the run against expected_behavior (if defined in scenario)")
+    parser.add_argument("--config-id", default=None,
+                        help="Harness config fingerprint for Langfuse run_name tagging "
+                             "(use scripts/harness_config_id.py to generate)")
     args = parser.parse_args()
 
     if args.list:
@@ -458,6 +488,7 @@ def main():
     if args.scenario_file:
         scenario_data = load_scenario(Path(args.scenario_file))
     elif args.scenario:
+        # Support captured/ prefix: --scenario captured/my_scenario
         scenario_path = Path(project_root) / "tests" / "sandbox" / "scenarios" / f"{args.scenario}.yaml"
         if not scenario_path.exists():
             print(f"Error: Scenario '{args.scenario}' not found at {scenario_path}")
@@ -503,8 +534,11 @@ def main():
         host = MockHost(workspace, provider, dry_run=args.dry_run, model=model)
         
         # 4. Run task
+        if args.config_id:
+            os.environ["HARNESS_CONFIG_ID"] = args.config_id
+
         host.run_task(prompt)
-        
+
         # 5. Check events
         events_file = workspace / "sandbox_events.json"
         if events_file.exists():
@@ -512,6 +546,13 @@ def main():
             with open(events_file, 'r') as f:
                 event_count = len(f.readlines())
                 print(f"Total events: {event_count}")
+
+        # 6. Score (only if --score and scenario defines expected_behavior)
+        if args.score:
+            expected_behavior = scenario_data.get("expected_behavior")
+            scorer = ScenarioScorer(workspace, events_file, expected_behavior)
+            result = scorer.score_all()
+            _print_score_report(scenario_data.get("name", "unknown"), result, args.config_id)
 
 if __name__ == "__main__":
     main()

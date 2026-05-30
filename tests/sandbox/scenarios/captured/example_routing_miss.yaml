@@ -1,0 +1,40 @@
+# Example captured scenario — illustrates the schema.
+# Replace this with a real capture using scripts/capture_scenario.py.
+#
+# To replay:
+#   python tests/sandbox/runner.py --scenario captured/example_routing_miss --score --dry-run
+#
+# To score against a specific harness config:
+#   CONFIG=$(python scripts/harness_config_id.py)
+#   python tests/sandbox/runner.py --scenario captured/example_routing_miss --score --config-id $CONFIG
+
+name: example_routing_miss
+source: real_work
+severity: medium
+failure_type: routing
+tech_stack:
+- typescript
+- playwright
+captured_from: bz
+captured_at: '2026-05-30'
+description: >
+  Agent routed a rename-across-codebase task to branch C (question/knowledge) instead
+  of branch D (surgical edit / TDD required). No files were modified.
+
+prompt: Rename LoginComponent to AuthComponent everywhere in the codebase
+
+files:
+  src/components/LoginComponent.ts: |
+    export const LoginComponent = () => {
+      return '<div>Login</div>';
+    };
+  tests/LoginComponent.spec.ts: |
+    import { LoginComponent } from '../src/components/LoginComponent';
+
+    test('renders login', () => {
+      expect(LoginComponent()).toContain('Login');
+    });
+
+expected_behavior:
+  branch: D
+  agent: implementer
