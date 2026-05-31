@@ -1,5 +1,6 @@
 {
   "claude": {
+    "platform_name": "claude",
     "config_dir": ".claude",
     "plugin_env_var": "CLAUDE_PLUGIN_ROOT",
     "tool_mappings": {
@@ -26,9 +27,12 @@
     "manifest_format": "markdown",
     "rules_pointer_files": ["CLAUDE.md"],
     "supports_plugin": true,
-    "plugin_dir_name": "harness-wr-plugin"
+    "plugin_dir_name": "harness-wr-plugin",
+    "generalist_remap": true,
+    "hook_agent_only_cta": "Make this Task call now."
   },
   "gemini": {
+    "platform_name": "gemini",
     "config_dir": ".gemini",
     "plugin_env_var": "GEMINI_PLUGIN_ROOT",
     "tool_mappings": {
@@ -52,9 +56,12 @@
     "manifest_format": "markdown",
     "rules_pointer_files": ["GEMINI.md"],
     "supports_plugin": false,
-    "plugin_dir_name": null
+    "plugin_dir_name": null,
+    "generalist_remap": false,
+    "hook_agent_only_cta": "Make this agent call now."
   },
   "codex": {
+    "platform_name": "codex",
     "config_dir": ".codex",
     "plugin_env_var": "CODEX_PLUGIN_ROOT",
     "tool_mappings": {},
@@ -68,9 +75,12 @@
     "manifest_format": "yaml",
     "rules_pointer_files": ["CODEX.md"],
     "supports_plugin": false,
-    "plugin_dir_name": null
+    "plugin_dir_name": null,
+    "generalist_remap": false,
+    "hook_agent_only_cta": "Make this agent call now."
   },
   "cursor": {
+    "platform_name": "cursor",
     "config_dir": ".cursor",
     "plugin_env_var": "CURSOR_PLUGIN_ROOT",
     "tool_mappings": {},
@@ -84,9 +94,12 @@
     "manifest_format": "markdown",
     "rules_pointer_files": [".cursorrules", ".github/copilot-instructions.md"],
     "supports_plugin": false,
-    "plugin_dir_name": null
+    "plugin_dir_name": null,
+    "generalist_remap": false,
+    "hook_agent_only_cta": "Make this agent call now."
   },
   "generic": {
+    "platform_name": "agents",
     "config_dir": ".agents",
     "plugin_env_var": "AGENTS_PLUGIN_ROOT",
     "tool_mappings": {},
@@ -100,6 +113,8 @@
     "manifest_format": "markdown",
     "rules_pointer_files": [],
     "supports_plugin": false,
-    "plugin_dir_name": null
+    "plugin_dir_name": null,
+    "generalist_remap": false,
+    "hook_agent_only_cta": "Make this agent call now."
   }
 }

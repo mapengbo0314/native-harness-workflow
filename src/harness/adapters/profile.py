@@ -36,6 +36,7 @@ class ProfileError(ValueError):
 # ---------------------------------------------------------------------------
 
 REQUIRED_KEYS: tuple[str, ...] = (
+    "platform_name",
     "config_dir",
     "plugin_env_var",
     "tool_mappings",
@@ -47,6 +48,8 @@ REQUIRED_KEYS: tuple[str, ...] = (
     "rules_pointer_files",
     "supports_plugin",
     "plugin_dir_name",
+    "generalist_remap",
+    "hook_agent_only_cta",
 )
 
 REQUIRED_SUBAGENT_TEXT_CALL_KEYS: tuple[str, ...] = ("without_skill", "with_skill")
@@ -56,6 +59,7 @@ REQUIRED_SUBAGENT_TEXT_CALL_KEYS: tuple[str, ...] = ("without_skill", "with_skil
 class PlatformProfile:
     """Frozen, typed representation of one platform entry in platform_profiles.json."""
 
+    platform_name: str
     config_dir: str
     plugin_env_var: str
     tool_mappings: Dict[str, str]
@@ -69,6 +73,9 @@ class PlatformProfile:
     rules_pointer_files: List[str]
     supports_plugin: bool
     plugin_dir_name: Optional[str]
+    # Hook formatting behaviour flags
+    generalist_remap: bool
+    hook_agent_only_cta: str
 
     # ------------------------------------------------------------------
     # Convenience accessors (template formatters)
@@ -161,6 +168,7 @@ def load_profile(
         )
 
     return PlatformProfile(
+        platform_name=raw["platform_name"],
         config_dir=raw["config_dir"],
         plugin_env_var=raw["plugin_env_var"],
         tool_mappings=dict(raw["tool_mappings"]),
@@ -173,4 +181,6 @@ def load_profile(
         rules_pointer_files=list(raw["rules_pointer_files"]),
         supports_plugin=bool(raw["supports_plugin"]),
         plugin_dir_name=raw["plugin_dir_name"],
+        generalist_remap=bool(raw["generalist_remap"]),
+        hook_agent_only_cta=raw["hook_agent_only_cta"],
     )

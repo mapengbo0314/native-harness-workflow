@@ -66,8 +66,21 @@ def _load_standalone(path: Path, module_name: str):
 
 
 def _get_deployed_adapter(src_dir: Path):
-    """Load the platform_adapter.py that was deployed into src_dir."""
-    return _load_standalone(src_dir / "platform_adapter.py", "deployed_platform_adapter")
+    """Load the platform_adapter.py that was deployed into src_dir.
+
+    The minted platform_adapter.py is a shim that imports from runtime_adapter,
+    which lives in the same src_dir.  We temporarily add src_dir to sys.path so
+    the relative import resolves, then restore sys.path.
+    """
+    src_dir_str = str(src_dir)
+    old_path = sys.path[:]
+    sys.path.insert(0, src_dir_str)
+    try:
+        return _load_standalone(src_dir / "platform_adapter.py", "deployed_platform_adapter")
+    finally:
+        sys.modules.pop("runtime_adapter", None)
+        sys.modules.pop("profile", None)
+        sys.path[:] = old_path
 
 
 # ---------------------------------------------------------------------------
@@ -289,7 +302,7 @@ class TestCopyRuntimeModules:
                 stripped = line.lstrip()
                 if not (stripped.startswith("import ") or stripped.startswith("from ")):
                     continue
-                if "harness.runtime" in stripped or "harness.init" in stripped:
+                if "harness.runtime" in stripped or "harness.init" in stripped or "harness.adapters" in stripped:
                     violations.append(f"{py_file.name}: {line.strip()}")
         assert not violations, "harness.* imports found in deployed src/:\n" + "\n".join(violations)
 
@@ -301,6 +314,7 @@ class TestCopyRuntimeModules:
             "dispatcher.py", "llm_client.py", "context_builder.py",
             "langfuse_compat.py", "langfuse_instrumentation.py",
             "platform_adapter.py", "discovery_engine.py",
+            "runtime_adapter.py", "profile.py", "platform_profiles.json"
         ]
         for name in required:
             assert (src_dir / name).exists(), f"{name} missing from generated src/"

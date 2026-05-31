@@ -33,7 +33,7 @@ where = ["src"]
 include = ["harness*"]
 
 [tool.setuptools.package-data]
-"harness" = ["templates/boilerplate/**/*", "templates/boilerplate/**/.*"]
+"harness" = ["templates/boilerplate/**/*", "templates/boilerplate/**/.*", "adapters/*.json"]
 
 [tool.pytest.ini_options]
 norecursedirs = ["tests/fixtures"]
