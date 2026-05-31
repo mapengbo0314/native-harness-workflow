@@ -3,7 +3,11 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from harness.adapters.profile import load_profile
+# NOTE: `load_profile` is imported lazily inside the functions that use it.
+# A top-level import here creates a circular import: plugin_generator ->
+# harness.adapters.profile -> harness/adapters/__init__ -> claude.py ->
+# harness.init.plugin_generator (partially initialized). Deferring to call
+# time avoids the cycle (adapters package is fully initialized by then).
 
 
 def generate_plugin_manifest(
@@ -60,6 +64,7 @@ def generate_local_marketplace(
 ) -> str:
     """Generate a project-local marketplace manifest for Claude plugin install readiness."""
     if plugin_dir_name is None:
+        from harness.adapters.profile import load_profile  # lazy: avoid circular import
         plugin_dir_name = load_profile("claude").plugin_dir_name
     marketplace_dir = Path(harness_dir) / ".claude-plugin"
     marketplace_dir.mkdir(parents=True, exist_ok=True)
@@ -246,6 +251,7 @@ def generate_orchestrator_plugin(
         Path to the generated plugin directory
     """
     try:
+        from harness.adapters.profile import load_profile  # lazy: avoid circular import
         project_path = Path(project_path).resolve()
         _plugin_dir_name = load_profile("claude").plugin_dir_name
         plugin_dir = project_path / harness_folder / _plugin_dir_name
