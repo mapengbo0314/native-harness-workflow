@@ -167,5 +167,87 @@ def test_hook_state_persistence(temp_project):
     st = json.loads(base_state_path.read_text())
     assert st["global"] == "base_val"
 
+
+# ---------------------------------------------------------------------------
+# PostToolUse formatter hook tests
+# ---------------------------------------------------------------------------
+
+HOOK_SCRIPT = Path(__file__).parent.parent.parent / ".claude" / "plugin-generated" / "hooks" / "post_tool_use.py"
+SENTINEL = ".claude/.harness-format-enabled"
+
+
+def _run_formatter_hook(project_dir: Path, tool_name: str, file_path: str) -> subprocess.CompletedProcess:
+    payload = json.dumps({
+        "hook_event_name": "PostToolUse",
+        "tool_name": tool_name,
+        "tool_input": {"file_path": file_path},
+        "session_id": "test",
+        "cwd": str(project_dir),
+    })
+    return subprocess.run(
+        [sys.executable, str(HOOK_SCRIPT)],
+        input=payload,
+        cwd=str(project_dir),
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_formatter_skips_without_sentinel(tmp_path):
+    """No sentinel → hook exits 0 and touches nothing."""
+    js_file = tmp_path / "app.js"
+    js_file.write_text("const x=1\n")
+    mtime_before = js_file.stat().st_mtime
+
+    result = _run_formatter_hook(tmp_path, "Edit", str(js_file))
+
+    assert result.returncode == 0
+    assert js_file.stat().st_mtime == mtime_before, "hook must not modify file when sentinel absent"
+
+
+def test_formatter_skips_when_no_prettier_config(tmp_path):
+    """Sentinel present but no .prettierrc → hook skips (no prettier config found)."""
+    sentinel = tmp_path / ".claude" / ".harness-format-enabled"
+    sentinel.parent.mkdir(parents=True)
+    sentinel.touch()
+
+    js_file = tmp_path / "app.js"
+    js_file.write_text("const x=1\n")
+    mtime_before = js_file.stat().st_mtime
+
+    result = _run_formatter_hook(tmp_path, "Write", str(js_file))
+
+    assert result.returncode == 0
+    assert js_file.stat().st_mtime == mtime_before, "hook must not run prettier without a prettier config"
+
+
+def test_formatter_skips_non_target_tool(tmp_path):
+    """Bash tool events are ignored regardless of sentinel."""
+    sentinel = tmp_path / ".claude" / ".harness-format-enabled"
+    sentinel.parent.mkdir(parents=True)
+    sentinel.touch()
+    (tmp_path / ".prettierrc").write_text("{}")
+
+    js_file = tmp_path / "app.js"
+    js_file.write_text("const x=1\n")
+    mtime_before = js_file.stat().st_mtime
+
+    result = _run_formatter_hook(tmp_path, "Bash", str(js_file))
+
+    assert result.returncode == 0
+    assert js_file.stat().st_mtime == mtime_before, "hook must skip non-modifying tools"
+
+
+def test_formatter_noop_on_nonexistent_file(tmp_path):
+    """Hook exits 0 cleanly when the edited file no longer exists."""
+    sentinel = tmp_path / ".claude" / ".harness-format-enabled"
+    sentinel.parent.mkdir(parents=True)
+    sentinel.touch()
+
+    result = _run_formatter_hook(tmp_path, "Write", str(tmp_path / "ghost.js"))
+
+    assert result.returncode == 0
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
