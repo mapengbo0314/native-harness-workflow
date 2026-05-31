@@ -3,6 +3,7 @@ import shutil
 from pathlib import Path
 from typing import Dict, List
 from harness.adapters.base import PlatformAdapter
+from harness.adapters.profile import load_profile
 
 
 class GeminiAdapter(PlatformAdapter):
@@ -10,26 +11,19 @@ class GeminiAdapter(PlatformAdapter):
         return "gemini"
 
     def get_config_dir_name(self) -> str:
-        return ".gemini"
+        return load_profile("gemini").config_dir
 
     def get_plugin_env_var_name(self) -> str:
-        return "GEMINI_PLUGIN_ROOT"
+        return load_profile("gemini").plugin_env_var
 
     def get_tool_mappings(self) -> Dict[str, str]:
-        return {
-            "- read_file": "- read_file",
-            "- grep_search": "- grep_search",
-            "- replace": "- replace",
-            "- write_file": "- write_file",
-            "- run_shell_command": "- run_shell_command",
-            "- glob": "- glob",
-        }
+        return load_profile("gemini").tool_mappings
 
     def format_subagent_prompt(self, task_desc: str) -> str:
         return task_desc
 
     def get_rules_pointer_files(self) -> List[str]:
-        return ["GEMINI.md"]
+        return load_profile("gemini").rules_pointer_files
 
     def get_hook_directory(self) -> str:
         return f"{self.get_config_dir_name()}/hooks"
@@ -58,10 +52,20 @@ class GeminiAdapter(PlatformAdapter):
                         with open(filepath, "w", encoding="utf-8") as f:
                             f.write(new_content)
 
-    def generate_core_infrastructure(self, project_path: Path) -> None:
-        # Standard boilerplate copy already provides hooks, contracts, state, skills.
-        # This method can be used for platform-specific rearrangements if necessary.
+    def assemble_layout(self, project_path: Path) -> None:
+        """Embedded (no-op) layout for Gemini (supports_plugin=False).
+
+        Gemini does not use a plugin-stack subdirectory — all artefacts land
+        directly in ``.gemini/``.  Nothing needs to be moved or created here;
+        the standard boilerplate copy (performed before this call) is
+        sufficient.
+        """
+        # supports_plugin is False — no plugin-generated/ directory is created.
         pass
+
+    def generate_core_infrastructure(self, project_path: Path) -> None:
+        """Backward-compatible entry point: delegates to assemble_layout."""
+        self.assemble_layout(project_path)
 
     def configure_cli(self, project_path: Path) -> None:
         import subprocess
@@ -81,18 +85,16 @@ class GeminiAdapter(PlatformAdapter):
                 raise Exception(f"CLI MCP registration failed: {' '.join(command)}\nError: {result.stderr}")
 
     def get_agent_manifest_format(self) -> str:
-        return "markdown"
+        return load_profile("gemini").manifest_format
 
     def format_skill_invocation(self, skill_name: str) -> str:
-        return f'activate_skill("{skill_name}")'
+        return load_profile("gemini").skill_invocation(skill_name)
 
     def format_subagent_invocation(self, agent_name: str, description: str) -> str:
-        return f'@{agent_name} {description}'
+        return load_profile("gemini").subagent_invocation(agent_name, description)
 
     def get_subagent_text_call(self, agent_name: str, skill_name: str = None) -> str:
-        if skill_name:
-            return f'@{agent_name} — activate_skill("{skill_name}") as your first action'
-        return f'@{agent_name}'
+        return load_profile("gemini").subagent_text_call(agent_name, skill=skill_name)
 
     def format_hook_response(self, original_prompt: str, routing_decision: dict, context_extension: str, hook_event_name: str) -> dict:
         branch = routing_decision.get("classification")

@@ -3,6 +3,7 @@ import shutil
 from pathlib import Path
 from typing import Dict, List, Optional
 from harness.adapters.base import PlatformAdapter
+from harness.adapters.profile import load_profile
 from harness.init.plugin_generator import generate_orchestrator_plugin
 
 
@@ -11,32 +12,19 @@ class ClaudeAdapter(PlatformAdapter):
         return "claude"
 
     def get_config_dir_name(self) -> str:
-        return ".claude"
+        return load_profile("claude").config_dir
 
     def get_plugin_env_var_name(self) -> str:
-        return "CLAUDE_PLUGIN_ROOT"
+        return load_profile("claude").plugin_env_var
 
     def get_tool_mappings(self) -> Dict[str, str]:
-        return {
-            "- read_file": "- Read",
-            "- grep_search": "- Grep",
-            "- replace": "- Edit",
-            "- write_file": "- Write",
-            "- run_shell_command": "- Bash",
-            "- glob": "- Glob",
-            "read_file": "Read",
-            "grep_search": "Grep",
-            "replace": "Edit",
-            "write_file": "Write",
-            "run_shell_command": "Bash",
-            "glob": "Glob"
-        }
+        return load_profile("claude").tool_mappings
 
     def format_subagent_prompt(self, task_desc: str) -> str:
         return task_desc
 
     def get_rules_pointer_files(self) -> List[str]:
-        return ["CLAUDE.md"]
+        return load_profile("claude").rules_pointer_files
 
     def get_hook_directory(self) -> str:
         return f"{self.get_config_dir_name()}/hooks"
@@ -45,20 +33,32 @@ class ClaudeAdapter(PlatformAdapter):
         # For Claude, the hooks are part of the plugin generation
         pass
 
-    def generate_core_infrastructure(self, project_path: Path) -> None:
-        import shutil
+    def assemble_layout(self, project_path: Path) -> None:
+        """Plugin-stack assembly for Claude (supports_plugin=True).
+
+        Moves the boilerplate payload directories from .harness_tmp (or the
+        config dir) into the ``plugin-generated`` subdirectory and rewrites
+        any template placeholders.  The directory is deliberately kept as
+        ``plugin-generated`` — the rename to ``harness-wr-plugin`` is a
+        separate task (S2-T4b).
+        """
         import re
+        profile = load_profile("claude")
+        if not profile.supports_plugin:
+            # Guard: this branch should never be reached for claude, but be safe.
+            return
+
         harness_dir = project_path / ".harness_tmp"
         if not harness_dir.exists():
             harness_dir = project_path / self.get_config_dir_name()
-            
+
         plugin_dir = harness_dir / "plugin-generated"
         plugin_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Move payload directories into plugin-generated
         payload_dirs = ["skills", "agents", "hooks", "scripts", "src"]
         payload_files = ["pyproject.toml"]
-        
+
         for p_dir in payload_dirs:
             src_path = harness_dir / p_dir
             if src_path.exists():
@@ -66,13 +66,13 @@ class ClaudeAdapter(PlatformAdapter):
                 if dest_path.exists():
                     shutil.rmtree(dest_path)
                 shutil.move(str(src_path), str(dest_path))
-                
+
         for p_file in payload_files:
             src_path = harness_dir / p_file
             if src_path.exists():
                 shutil.move(str(src_path), str(plugin_dir / p_file))
 
-        # Restore template logic for plugin assets
+        # Rewrite template placeholders in plugin assets
         for p_dir in ["skills", "scripts", "hooks"]:
             dir_path = plugin_dir / p_dir
             if dir_path.exists():
@@ -82,13 +82,24 @@ class ClaudeAdapter(PlatformAdapter):
                             filepath = Path(root) / file
                             with open(filepath, "r", encoding="utf-8") as f:
                                 content = f.read()
-                                
-                            new_content = content.replace("${HARNESS_PLUGIN_ROOT}", f"${{{self.get_plugin_env_var_name()}}}")
-                            new_content = re.sub(r'(^|[\s/"\'])\.claude([\s/"\']|$)', r'\1' + self.get_config_dir_name() + r'\2', new_content)
-                            
+
+                            new_content = content.replace(
+                                "${HARNESS_PLUGIN_ROOT}",
+                                f"${{{self.get_plugin_env_var_name()}}}",
+                            )
+                            new_content = re.sub(
+                                r'(^|[\s/"\'])\.claude([\s/"\']|$)',
+                                r'\1' + self.get_config_dir_name() + r'\2',
+                                new_content,
+                            )
+
                             if new_content != content:
                                 with open(filepath, "w", encoding="utf-8") as f:
                                     f.write(new_content)
+
+    def generate_core_infrastructure(self, project_path: Path) -> None:
+        """Backward-compatible entry point: delegates to assemble_layout."""
+        self.assemble_layout(project_path)
 
     def configure_cli(self, project_path: Path) -> None:
         import subprocess
@@ -111,18 +122,16 @@ class ClaudeAdapter(PlatformAdapter):
                 raise Exception(f"CLI MCP registration failed: {' '.join(command)}\nError: {result.stderr}")
 
     def get_agent_manifest_format(self) -> str:
-        return "markdown"
+        return load_profile("claude").manifest_format
 
     def format_skill_invocation(self, skill_name: str) -> str:
-        return f'Skill("{skill_name}")'
+        return load_profile("claude").skill_invocation(skill_name)
 
     def format_subagent_invocation(self, agent_name: str, description: str) -> str:
-        return f'Task(subagent_type="{agent_name}", description="{description}")'
+        return load_profile("claude").subagent_invocation(agent_name, description)
 
     def get_subagent_text_call(self, agent_name: str, skill_name: str = None) -> str:
-        if skill_name:
-            return f'Task(subagent_type="{agent_name}", description="Invoke Skill(\'{skill_name}\') as your first action.")'
-        return f'Task(subagent_type="{agent_name}")'
+        return load_profile("claude").subagent_text_call(agent_name, skill=skill_name)
 
     def format_hook_response(self, original_prompt: str, routing_decision: dict, context_extension: str, hook_event_name: str) -> dict:
         branch = routing_decision.get("classification")

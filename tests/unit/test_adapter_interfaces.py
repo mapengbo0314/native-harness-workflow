@@ -1,4 +1,4 @@
-"""S2-T3: Interface segregation tests for RuntimeAdapter and PlatformBuilder.
+"""S2-T3/S2-T4: Interface segregation tests for RuntimeAdapter and PlatformBuilder.
 
 Asserts that:
 1. ``RuntimeAdapter`` and ``PlatformBuilder`` are concrete ABCs exposing exactly
@@ -9,8 +9,9 @@ Asserts that:
 4. A successful ``get_adapter()`` call implicitly proves all abstract methods
    are implemented (Python raises TypeError on instantiation if any abstract
    method is unfulfilled).
-5. The ``assemble_layout`` method exists on PlatformBuilder and PlatformAdapter,
-   and delegates to ``generate_core_infrastructure`` by default (backward compat).
+5. (S2-T4) ``assemble_layout`` is the canonical implementation; the legacy
+   ``generate_core_infrastructure`` shim delegates to it (relationship was
+   inverted from the S2-T3 direction).
 """
 
 from __future__ import annotations
@@ -192,11 +193,18 @@ class TestConcreteAdaptersSatisfyInterfaces:
 
 
 # ---------------------------------------------------------------------------
-# 5. assemble_layout backward-compat delegation
+# 5. assemble_layout / generate_core_infrastructure delegation
 # ---------------------------------------------------------------------------
 
 class TestAssembleLayoutBackwardCompat:
-    """assemble_layout on PlatformAdapter must delegate to generate_core_infrastructure."""
+    """S2-T4: assemble_layout has the real implementation; generate_core_infrastructure
+    is a backward-compatible shim that delegates to assemble_layout.
+
+    Previously (S2-T3) assemble_layout delegated to generate_core_infrastructure.
+    That relationship was inverted in S2-T4 so that assemble_layout is now the
+    canonical entry point and generate_core_infrastructure remains callable for
+    legacy callers.
+    """
 
     @pytest.mark.parametrize("platform", ALL_PLATFORMS)
     def test_assemble_layout_exists(self, platform):
@@ -204,23 +212,23 @@ class TestAssembleLayoutBackwardCompat:
         assert hasattr(adapter, "assemble_layout")
         assert callable(adapter.assemble_layout)
 
-    def test_assemble_layout_delegates_to_generate_core_infrastructure(self, tmp_path):
-        """Calling assemble_layout(path) on the claude adapter must invoke
-        generate_core_infrastructure(path) and produce the same side-effects."""
+    def test_generate_core_infrastructure_delegates_to_assemble_layout(self, tmp_path):
+        """Calling generate_core_infrastructure(path) on the claude adapter must invoke
+        assemble_layout(path) — the S2-T4 inversion of the S2-T3 delegation."""
         adapter = get_adapter("claude")
 
         calls = []
 
-        original = adapter.generate_core_infrastructure
+        original = adapter.assemble_layout
 
         def spy(project_path: Path):
             calls.append(project_path)
             return original(project_path)
 
-        adapter.generate_core_infrastructure = spy  # type: ignore[method-assign]
-        adapter.assemble_layout(tmp_path)
+        adapter.assemble_layout = spy  # type: ignore[method-assign]
+        adapter.generate_core_infrastructure(tmp_path)
 
         assert len(calls) == 1, (
-            "assemble_layout must call generate_core_infrastructure exactly once"
+            "generate_core_infrastructure must call assemble_layout exactly once"
         )
         assert calls[0] == tmp_path
