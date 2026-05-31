@@ -85,6 +85,9 @@ def test_classify_intent_captures_model_in_langfuse(tmp_path, monkeypatch):
     config_dir.mkdir(parents=True)
     dispatcher = OrchestratorDispatcher(str(config_dir))
 
+    # Force CLI environment so classify_intent doesn't skip LLM step
+    monkeypatch.setenv("HARNESS_PLATFORM_CLI", "claude")
+
     # Mock langfuse_context to capture model updates
     from unittest.mock import MagicMock, patch
 
