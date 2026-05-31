@@ -1,1 +1,0 @@
-/Users/pengbolicious/pengbo-apps/e-2-g/.gemini/hooks/pre_tool_use.py

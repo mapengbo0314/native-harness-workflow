@@ -2,17 +2,17 @@ import re
 import os
 
 hooks = [
-    (".claude/harness-wr-plugin/src/hooks/prompt_interceptor.py", "prompt_interceptor", """if __name__ == "__main__":
+    (".claude/harness-wf-plugin/src/hooks/prompt_interceptor.py", "prompt_interceptor", """if __name__ == "__main__":
     import sys
     if len(sys.argv) > 1:
         print(intercept(sys.argv[1]))"""),
         
-    (".claude/harness-wr-plugin/src/hooks/pre_tool_guard.py", "pre_tool_guard", """if __name__ == "__main__":
+    (".claude/harness-wf-plugin/src/hooks/pre_tool_guard.py", "pre_tool_guard", """if __name__ == "__main__":
     import sys
     if len(sys.argv) > 2:
         check_tool_use(sys.argv[1], sys.argv[2])"""),
         
-    (".claude/harness-wr-plugin/src/hooks/stop_monitor.py", "stop_monitor", """if __name__ == "__main__":
+    (".claude/harness-wf-plugin/src/hooks/stop_monitor.py", "stop_monitor", """if __name__ == "__main__":
     import sys
     reason = sys.argv[1] if len(sys.argv) > 1 else "unknown"
     on_stop(reason)""")

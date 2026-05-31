@@ -1,8 +1,8 @@
 import re
 
 files = [
-    ".claude/harness-wr-plugin/src/hooks/stop_monitor.py",
-    ".claude/harness-wr-plugin/src/hooks/pre_tool_guard.py",
+    ".claude/harness-wf-plugin/src/hooks/stop_monitor.py",
+    ".claude/harness-wf-plugin/src/hooks/pre_tool_guard.py",
     "harness/plugin_generator.py"
 ]
 

@@ -37,7 +37,7 @@ class ClaudeAdapter(PlatformAdapter):
         """Plugin-stack assembly for Claude (supports_plugin=True).
 
         Moves the boilerplate payload directories from .harness_tmp (or the
-        config dir) into the ``harness-wr-plugin`` subdirectory and rewrites
+        config dir) into the ``harness-wf-plugin`` subdirectory and rewrites
         any template placeholders.  The directory name is sourced from
         ``load_profile("claude").plugin_dir_name`` so future renames are
         a 1-line change in platform_profiles.json.
@@ -55,7 +55,7 @@ class ClaudeAdapter(PlatformAdapter):
         plugin_dir = harness_dir / profile.plugin_dir_name
         plugin_dir.mkdir(parents=True, exist_ok=True)
 
-        # Move payload directories into harness-wr-plugin
+        # Move payload directories into harness-wf-plugin
         payload_dirs = ["skills", "agents", "hooks", "scripts", "src"]
         payload_files = ["pyproject.toml"]
 

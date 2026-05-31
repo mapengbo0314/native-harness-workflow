@@ -46,7 +46,7 @@ def run_scenario(plugin_root: Path, scenario: Dict[str, Any]) -> RoutingResult:
 
     Args:
         plugin_root: Path to the minted plugin directory.  For claude this is
-            ``<project>/.claude/harness-wr-plugin/``; for gemini ``<project>/.gemini/``.
+            ``<project>/.claude/harness-wf-plugin/``; for gemini ``<project>/.gemini/``.
         scenario: Scenario dict (same shape as the YAML files under
             ``tests/sandbox/scenarios/``).  Only the ``"prompt"`` key is required.
 
@@ -274,7 +274,7 @@ class MockHost:
         self.cli_name = cli_name
         self.dry_run = dry_run
         self.model = model
-        self.plugin_dir = workspace_root / ".claude" / "harness-wr-plugin"
+        self.plugin_dir = workspace_root / ".claude" / "harness-wf-plugin"
         self.config_dir = self.plugin_dir / "config"
         self.dispatcher = OrchestratorDispatcher(str(self.config_dir))
         self.tool_engine = ToolExecutionEngine(workspace_root)

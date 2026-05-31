@@ -34,7 +34,7 @@ def _make_harness_tmp(base: Path, platform_dir: str) -> Path:
 
     The minting engine copies boilerplate into .harness_tmp (or the config
     dir), then generate_core_infrastructure/assemble_layout moves the payload
-    into harness-wr-plugin/.  We need at least one payload directory to exist
+    into harness-wf-plugin/.  We need at least one payload directory to exist
     so the move logic has something to work with.
     """
     harness_tmp = base / ".harness_tmp"
@@ -123,7 +123,7 @@ def test_get_agent_manifest_format_matches_profile(platform: str) -> None:
 # ---------------------------------------------------------------------------
 
 def test_assemble_layout_claude_creates_plugin_generated(tmp_path: Path) -> None:
-    """Claude (supports_plugin=True) must assemble the plugin directory (harness-wr-plugin/)."""
+    """Claude (supports_plugin=True) must assemble the plugin directory (harness-wf-plugin/)."""
     adapter = get_adapter("claude")
     project = tmp_path / "myproject"
     project.mkdir()
@@ -131,31 +131,31 @@ def test_assemble_layout_claude_creates_plugin_generated(tmp_path: Path) -> None
 
     adapter.assemble_layout(project)
 
-    plugin_dir = project / ".harness_tmp" / "harness-wr-plugin"
-    assert plugin_dir.exists(), "harness-wr-plugin/ must be created for claude"
+    plugin_dir = project / ".harness_tmp" / "harness-wf-plugin"
+    assert plugin_dir.exists(), "harness-wf-plugin/ must be created for claude"
     # At least one payload dir should have been moved inside
-    assert any(plugin_dir.iterdir()), "harness-wr-plugin/ must not be empty"
+    assert any(plugin_dir.iterdir()), "harness-wf-plugin/ must not be empty"
 
 
 def test_assemble_layout_gemini_no_plugin_generated(tmp_path: Path) -> None:
-    """Gemini (supports_plugin=False) must NOT create a harness-wr-plugin/ directory."""
+    """Gemini (supports_plugin=False) must NOT create a harness-wf-plugin/ directory."""
     adapter = get_adapter("gemini")
     project = tmp_path / "myproject"
     project.mkdir()
     # Gemini has no .harness_tmp pre-step; but even if we create it there should
-    # be no harness-wr-plugin after assemble_layout.
+    # be no harness-wf-plugin after assemble_layout.
     harness_dir = project / ".gemini"
     harness_dir.mkdir(parents=True, exist_ok=True)
 
     adapter.assemble_layout(project)
 
-    assert not (harness_dir / "harness-wr-plugin").exists(), (
-        "gemini assemble_layout must not create harness-wr-plugin/"
+    assert not (harness_dir / "harness-wf-plugin").exists(), (
+        "gemini assemble_layout must not create harness-wf-plugin/"
     )
 
 
 def test_assemble_layout_folder_name_is_harness_wr_plugin(tmp_path: Path) -> None:
-    """The plugin directory is now named 'harness-wr-plugin' (renamed by S2-T4b)."""
+    """The plugin directory is now named 'harness-wf-plugin' (renamed by S2-T4b)."""
     adapter = get_adapter("claude")
     project = tmp_path / "myproject"
     project.mkdir()
@@ -163,10 +163,10 @@ def test_assemble_layout_folder_name_is_harness_wr_plugin(tmp_path: Path) -> Non
 
     adapter.assemble_layout(project)
 
-    plugin_dir = project / ".harness_tmp" / "harness-wr-plugin"
-    assert plugin_dir.exists(), "folder must be 'harness-wr-plugin' (renamed by S2-T4b)"
-    assert not (project / ".harness_tmp" / "harness-wr-plugin").exists(), (
-        "old harness-wr-plugin name must NOT be used after S2-T4b"
+    plugin_dir = project / ".harness_tmp" / "harness-wf-plugin"
+    assert plugin_dir.exists(), "folder must be 'harness-wf-plugin' (renamed by S2-T4b)"
+    assert not (project / ".harness_tmp" / "harness-wf-plugin").exists(), (
+        "old harness-wf-plugin name must NOT be used after S2-T4b"
     )
 
 
@@ -191,7 +191,7 @@ def test_gemini_supports_plugin_is_false() -> None:
 def test_generate_core_infrastructure_claude_identical_to_assemble_layout(
     tmp_path: Path,
 ) -> None:
-    """Both entry points for claude produce the same artifact structure (harness-wr-plugin/)."""
+    """Both entry points for claude produce the same artifact structure (harness-wf-plugin/)."""
     adapter = get_adapter("claude")
 
     # Run via assemble_layout
@@ -206,9 +206,9 @@ def test_generate_core_infrastructure_claude_identical_to_assemble_layout(
     _make_harness_tmp(proj_b, ".claude")
     adapter.generate_core_infrastructure(proj_b)
 
-    # Both should end up with harness-wr-plugin/
-    assert (proj_a / ".harness_tmp" / "harness-wr-plugin").exists()
-    assert (proj_b / ".harness_tmp" / "harness-wr-plugin").exists()
+    # Both should end up with harness-wf-plugin/
+    assert (proj_a / ".harness_tmp" / "harness-wf-plugin").exists()
+    assert (proj_b / ".harness_tmp" / "harness-wf-plugin").exists()
 
 
 def test_generate_core_infrastructure_gemini_no_plugin_generated(
@@ -223,5 +223,5 @@ def test_generate_core_infrastructure_gemini_no_plugin_generated(
 
     adapter.generate_core_infrastructure(project)
 
-    assert not (harness_dir / "harness-wr-plugin").exists()
-    assert not (harness_dir / "harness-wr-plugin").exists()
+    assert not (harness_dir / "harness-wf-plugin").exists()
+    assert not (harness_dir / "harness-wf-plugin").exists()
