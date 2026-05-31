@@ -172,7 +172,7 @@ def test_hook_state_persistence(temp_project):
 # PostToolUse formatter hook tests
 # ---------------------------------------------------------------------------
 
-HOOK_SCRIPT = Path(__file__).parent.parent.parent / ".claude" / "plugin-generated" / "hooks" / "post_tool_use.py"
+HOOK_SCRIPT = Path(__file__).parent.parent.parent / ".claude" / "harness-wr-plugin" / "hooks" / "post_tool_use.py"
 SENTINEL = ".claude/.harness-format-enabled"
 
 
