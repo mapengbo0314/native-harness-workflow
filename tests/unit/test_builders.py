@@ -34,7 +34,7 @@ def _make_harness_tmp(base: Path, platform_dir: str) -> Path:
 
     The minting engine copies boilerplate into .harness_tmp (or the config
     dir), then generate_core_infrastructure/assemble_layout moves the payload
-    into plugin-generated/.  We need at least one payload directory to exist
+    into harness-wr-plugin/.  We need at least one payload directory to exist
     so the move logic has something to work with.
     """
     harness_tmp = base / ".harness_tmp"
@@ -138,19 +138,19 @@ def test_assemble_layout_claude_creates_plugin_generated(tmp_path: Path) -> None
 
 
 def test_assemble_layout_gemini_no_plugin_generated(tmp_path: Path) -> None:
-    """Gemini (supports_plugin=False) must NOT create a plugin-generated/ directory."""
+    """Gemini (supports_plugin=False) must NOT create a harness-wr-plugin/ directory."""
     adapter = get_adapter("gemini")
     project = tmp_path / "myproject"
     project.mkdir()
     # Gemini has no .harness_tmp pre-step; but even if we create it there should
-    # be no plugin-generated after assemble_layout.
+    # be no harness-wr-plugin after assemble_layout.
     harness_dir = project / ".gemini"
     harness_dir.mkdir(parents=True, exist_ok=True)
 
     adapter.assemble_layout(project)
 
-    assert not (harness_dir / "plugin-generated").exists(), (
-        "gemini assemble_layout must not create plugin-generated/"
+    assert not (harness_dir / "harness-wr-plugin").exists(), (
+        "gemini assemble_layout must not create harness-wr-plugin/"
     )
 
 
@@ -165,8 +165,8 @@ def test_assemble_layout_folder_name_is_harness_wr_plugin(tmp_path: Path) -> Non
 
     plugin_dir = project / ".harness_tmp" / "harness-wr-plugin"
     assert plugin_dir.exists(), "folder must be 'harness-wr-plugin' (renamed by S2-T4b)"
-    assert not (project / ".harness_tmp" / "plugin-generated").exists(), (
-        "old plugin-generated name must NOT be used after S2-T4b"
+    assert not (project / ".harness_tmp" / "harness-wr-plugin").exists(), (
+        "old harness-wr-plugin name must NOT be used after S2-T4b"
     )
 
 
@@ -223,5 +223,5 @@ def test_generate_core_infrastructure_gemini_no_plugin_generated(
 
     adapter.generate_core_infrastructure(project)
 
-    assert not (harness_dir / "plugin-generated").exists()
+    assert not (harness_dir / "harness-wr-plugin").exists()
     assert not (harness_dir / "harness-wr-plugin").exists()

@@ -1,7 +1,7 @@
 import os
 import re
 
-hooks_dir = ".claude/plugin-generated/src/hooks"
+hooks_dir = ".claude/harness-wr-plugin/src/hooks"
 all_hooks = ["prompt_interceptor.py", "pre_tool_guard.py", "post_tool_monitor.py", "precompact_monitor.py", "stop_monitor.py"]
 
 log_action_pattern = r'def log_action.*?except Exception:\s*pass'

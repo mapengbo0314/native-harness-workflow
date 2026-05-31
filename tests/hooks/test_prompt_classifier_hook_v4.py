@@ -1,7 +1,7 @@
 """
 Phase 4: Hook Verification for Langfuse v4.
 
-Tests verify that .claude/plugin-generated/hooks/prompt_classifier.py works correctly
+Tests verify that .claude/harness-wr-plugin/hooks/prompt_classifier.py works correctly
 with Langfuse v4 API, including import verification, decorator functionality, and
 langfuse_instrumentation integration.
 """
@@ -17,8 +17,8 @@ import pytest
 
 # Add src to sys.path to allow importing harness modules
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / ".claude/plugin-generated/hooks"))
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / ".claude/plugin-generated/src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / ".claude/harness-wr-plugin/hooks"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / ".claude/harness-wr-plugin/src"))
 
 
 class TestTask41ImportVerification:
@@ -29,7 +29,7 @@ class TestTask41ImportVerification:
         RED: Test that hook module can be imported without errors.
         Expected: Import succeeds, no ImportError raised.
         """
-        hook_path = Path(__file__).parent.parent.parent / ".claude/plugin-generated/hooks/prompt_classifier.py"
+        hook_path = Path(__file__).parent.parent.parent / ".claude/harness-wr-plugin/hooks/prompt_classifier.py"
         assert hook_path.exists(), f"Hook file not found: {hook_path}"
 
         # Import hook_common first (required by hook)
@@ -57,7 +57,7 @@ class TestTask41ImportVerification:
         except ImportError:
             # Fallback should exist in hook
             import importlib.util
-            hook_path = Path(__file__).parent.parent.parent / ".claude/plugin-generated/hooks/prompt_classifier.py"
+            hook_path = Path(__file__).parent.parent.parent / ".claude/harness-wr-plugin/hooks/prompt_classifier.py"
             spec = importlib.util.spec_from_file_location("prompt_classifier", hook_path)
             prompt_classifier = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(prompt_classifier)
@@ -239,7 +239,7 @@ class TestTask44MockInputProcessing:
         Expected: No import errors during input processing.
         """
         import importlib.util
-        hook_path = Path(__file__).parent.parent.parent / ".claude/plugin-generated/hooks/prompt_classifier.py"
+        hook_path = Path(__file__).parent.parent.parent / ".claude/harness-wr-plugin/hooks/prompt_classifier.py"
         spec = importlib.util.spec_from_file_location("prompt_classifier", hook_path)
         prompt_classifier = importlib.util.module_from_spec(spec)
 
@@ -253,7 +253,7 @@ class TestTask44MockInputProcessing:
         Expected: Function returns classification A, B, C, or D.
         """
         import importlib.util
-        hook_path = Path(__file__).parent.parent.parent / ".claude/plugin-generated/hooks/prompt_classifier.py"
+        hook_path = Path(__file__).parent.parent.parent / ".claude/harness-wr-plugin/hooks/prompt_classifier.py"
         spec = importlib.util.spec_from_file_location("prompt_classifier", hook_path)
         prompt_classifier = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(prompt_classifier)
@@ -293,7 +293,7 @@ class TestTask45FallbackDecoratorHandling:
         Expected: At least one import succeeds (or fallback is defined).
         """
         import importlib.util
-        hook_path = Path(__file__).parent.parent.parent / ".claude/plugin-generated/hooks/prompt_classifier.py"
+        hook_path = Path(__file__).parent.parent.parent / ".claude/harness-wr-plugin/hooks/prompt_classifier.py"
         spec = importlib.util.spec_from_file_location("prompt_classifier", hook_path)
         prompt_classifier = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(prompt_classifier)
@@ -404,7 +404,7 @@ class TestPhase4SuccessCriteria:
     def test_hook_imports_without_errors(self):
         """SUCCESS CRITERION: Hook imports without errors."""
         import importlib.util
-        hook_path = Path(__file__).parent.parent.parent / ".claude/plugin-generated/hooks/prompt_classifier.py"
+        hook_path = Path(__file__).parent.parent.parent / ".claude/harness-wr-plugin/hooks/prompt_classifier.py"
         spec = importlib.util.spec_from_file_location("prompt_classifier", hook_path)
         prompt_classifier = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(prompt_classifier)

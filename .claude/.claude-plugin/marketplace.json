@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "orchestrator-plugin",
-      "source": "./plugin-generated",
+      "source": "./harness-wr-plugin",
       "description": "Project-local orchestrator plugin for the generated harness",
       "version": "1.0.0",
       "author": {

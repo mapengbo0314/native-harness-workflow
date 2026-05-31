@@ -29,14 +29,14 @@ export LANGFUSE_SECRET_KEY="${HARNESS_GOLDEN_LANGFUSE_SECRET_KEY:-$LANGFUSE_SECR
 export LANGFUSE_HOST="${HARNESS_GOLDEN_LANGFUSE_HOST:-$LANGFUSE_HOST}"
 
 echo -e "\n2. Testing Branch D (Surgical Edit)"
-echo '{"prompt": "Fix the typo in README", "cwd": "'$(pwd)'"}' | python .claude/plugin-generated/hooks/prompt_classifier.py
+echo '{"prompt": "Fix the typo in README", "cwd": "'$(pwd)'"}' | python .claude/harness-wr-plugin/hooks/prompt_classifier.py
 
 echo -e "\n3. Testing Branch B (Feature Request)"
-echo '{"prompt": "Implement a new authentication system", "cwd": "'$(pwd)'"}' | python .claude/plugin-generated/hooks/prompt_classifier.py
+echo '{"prompt": "Implement a new authentication system", "cwd": "'$(pwd)'"}' | python .claude/harness-wr-plugin/hooks/prompt_classifier.py
 
 echo -e "\n4. Testing Fallback Logic"
 # Unset keys to force failure in the LLM dispatcher
-env -u GEMINI_API_KEY -u ANTHROPIC_API_KEY -u OPENAI_API_KEY echo '{"prompt": "There is a bug in the code", "cwd": "'$(pwd)'"}' | python .claude/plugin-generated/hooks/prompt_classifier.py
+env -u GEMINI_API_KEY -u ANTHROPIC_API_KEY -u OPENAI_API_KEY echo '{"prompt": "There is a bug in the code", "cwd": "'$(pwd)'"}' | python .claude/harness-wr-plugin/hooks/prompt_classifier.py
 
 echo -e "\n5. Cleaning up test artifacts..."
 rm -rf .claude

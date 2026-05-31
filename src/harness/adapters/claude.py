@@ -55,7 +55,7 @@ class ClaudeAdapter(PlatformAdapter):
         plugin_dir = harness_dir / profile.plugin_dir_name
         plugin_dir.mkdir(parents=True, exist_ok=True)
 
-        # Move payload directories into plugin-generated
+        # Move payload directories into harness-wr-plugin
         payload_dirs = ["skills", "agents", "hooks", "scripts", "src"]
         payload_files = ["pyproject.toml"]
 

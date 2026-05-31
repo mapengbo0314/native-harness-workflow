@@ -308,7 +308,7 @@ class TestArtifactsExist:
     def test_gemini_no_plugin_generated(self, gemini_root):
         """Gemini is embedded — it must NOT have a plugin stack subdirectory."""
         # Neither the old name nor the new name should appear under gemini root
-        for name in ("plugin-generated", "harness-wr-plugin"):
+        for name in ("harness-wr-plugin", "harness-wr-plugin"):
             assert not (gemini_root / name).exists(), (
                 f"gemini: unexpected {name}/ directory found — "
                 "gemini uses embedded layout"

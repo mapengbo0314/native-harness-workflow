@@ -60,7 +60,7 @@ class GeminiAdapter(PlatformAdapter):
         the standard boilerplate copy (performed before this call) is
         sufficient.
         """
-        # supports_plugin is False — no plugin-generated/ directory is created.
+        # supports_plugin is False — no harness-wr-plugin/ directory is created.
         pass
 
     def generate_core_infrastructure(self, project_path: Path) -> None:

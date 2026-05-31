@@ -19,7 +19,7 @@ def create_mock_project():
     """Create a temporary mock project for the dispatcher."""
     temp_dir = tempfile.mkdtemp()
     
-    config_dir = os.path.join(temp_dir, ".claude", "plugin-generated", "config")
+    config_dir = os.path.join(temp_dir, ".claude", "harness-wr-plugin", "config")
     os.makedirs(config_dir, exist_ok=True)
     
     with open(os.path.join(config_dir, "orchestrator.json"), "w") as f:

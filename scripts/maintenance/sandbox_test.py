@@ -4,7 +4,7 @@ import json
 import subprocess
 from pathlib import Path
 
-plugin_dir = Path(".claude/plugin-generated")
+plugin_dir = Path(".claude/harness-wr-plugin")
 if not plugin_dir.exists():
     print("Plugin dir not found")
     sys.exit(1)

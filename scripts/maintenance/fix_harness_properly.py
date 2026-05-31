@@ -4,7 +4,7 @@ with open("harness/plugin_generator.py", "r") as f:
     content = f.read()
 
 # 1. PYTHONPATH and python3
-content = content.replace('"command": "python -m src', '"command": "PYTHONPATH=.claude/plugin-generated python3 -m src')
+content = content.replace('"command": "python -m src', '"command": "PYTHONPATH=.claude/harness-wr-plugin python3 -m src')
 
 # 2. Tool names
 content = content.replace('tool_name == \\"Bash\\"', 'tool_name in {\\"Bash\\", \\"run_shell_command\\"}')
