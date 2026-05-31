@@ -7,7 +7,7 @@ mint_platform(tmp_path, platform) -> Path
   artifacts (hooks.json, agents/, skills/).
 
 Verified plugin-root conventions from real mint runs (2026-05-29):
-  - "claude"  →  <project>/.claude/plugin-generated/
+  - "claude"  →  <project>/.claude/harness-wr-plugin/
                  (hooks/hooks.json, agents.json, agents/, skills/ live here)
   - "gemini"  →  <project>/.gemini/
                  (hooks/hooks.json, agents/, skills/ live here)
@@ -35,7 +35,7 @@ _PLATFORM_CHOICES: dict[str, str] = {
 # Where the wiring artifacts land after a full headless mint for each platform
 _PLUGIN_ROOT_SUBPATH: dict[str, str] = {
     "gemini": ".gemini",
-    "claude": ".claude/plugin-generated",
+    "claude": ".claude/harness-wr-plugin",
 }
 
 
@@ -53,7 +53,7 @@ def mint_platform(tmp_path: Path, platform: str) -> Path:
         The Path to the plugin root — the directory that contains the canonical
         wiring artifacts for the platform:
 
-        - claude  →  ``<project>/.claude/plugin-generated/``
+        - claude  →  ``<project>/.claude/harness-wr-plugin/``
         - gemini  →  ``<project>/.gemini/``
 
     Raises:
@@ -77,7 +77,7 @@ def mint_platform(tmp_path: Path, platform: str) -> Path:
     (project_path / "app.py").write_text('print("hello")\n')
 
     # LLM response: include orchestrator-plugin skill for claude so the plugin
-    # stack is generated (which is what exposes plugin-generated/).
+    # stack is generated (which is what exposes harness-wr-plugin/).
     skills = []
     if platform == "claude":
         skills = [

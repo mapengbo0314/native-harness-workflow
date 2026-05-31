@@ -107,11 +107,11 @@ def test_claude_plugin_contract():
             assert "prompt_classifier" in hooks["UserPromptSubmit"][0]["hooks"][0]["command"]
 
         marketplace_path = plugin_dir.parent / ".claude-plugin" / "marketplace.json"
-        assert marketplace_path.exists(), "local marketplace manifest should exist next to plugin-generated"
+        assert marketplace_path.exists(), "local marketplace manifest should exist next to harness-wr-plugin"
         with open(marketplace_path) as f:
             marketplace = json.load(f)
         assert marketplace["name"] == "local-orchestrator-marketplace"
-        assert marketplace["plugins"][0]["source"] == "./plugin-generated"
+        assert marketplace["plugins"][0]["source"] == "./harness-wr-plugin"
 
         claude = shutil.which("claude")
         if claude:

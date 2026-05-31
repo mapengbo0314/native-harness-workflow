@@ -43,7 +43,7 @@ def test_headless_harness_generation(choice, target_dir_name):
 
             # Validate expected payload directories based on platform
             if choice == "2":  # Claude
-                payload_base = target_path / "plugin-generated"
+                payload_base = target_path / "harness-wr-plugin"
             else:
                 payload_base = target_path
 

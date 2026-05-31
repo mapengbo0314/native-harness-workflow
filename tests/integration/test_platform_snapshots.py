@@ -152,7 +152,7 @@ def test_claude_plugin_layout(temp_project):
     assert not (temp_project / ".claude" / "skills").exists()
     
     # Check plugin structure
-    plugin_path = temp_project / ".claude" / "plugin-generated"
+    plugin_path = temp_project / ".claude" / "harness-wr-plugin"
     assert plugin_path.exists()
     assert (plugin_path / ".claude-plugin" / "plugin.json").exists()
     assert (plugin_path / "hooks" / "hooks.json").exists()
@@ -164,8 +164,8 @@ def test_claude_plugin_layout(temp_project):
 
     check_snapshot(temp_project, "claude_plugin", [
         "CLAUDE.md",
-        ".claude/plugin-generated/.claude-plugin/plugin.json",
-        ".claude/plugin-generated/hooks/hooks.json"
+        ".claude/harness-wr-plugin/.claude-plugin/plugin.json",
+        ".claude/harness-wr-plugin/hooks/hooks.json"
     ])
 
 def test_codex_layout(temp_project):

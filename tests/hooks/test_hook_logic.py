@@ -82,7 +82,7 @@ def run_harness_init(project_path, platform_choice, llm="gemini", include_plugin
 def test_registered_hook_commands_execute(temp_project):
     run_harness_init(temp_project, "2", llm="anthropic", include_plugin=True, mock_should_gen_plugin=True)
     
-    plugin_dir = temp_project / ".claude" / "plugin-generated"
+    plugin_dir = temp_project / ".claude" / "harness-wr-plugin"
     assert not (plugin_dir / "src" / "hooks").exists()
     assert not (plugin_dir / "src" / "hook_validator.py").exists()
 
@@ -139,7 +139,7 @@ def test_registered_hook_commands_execute(temp_project):
 
 def test_hook_state_persistence(temp_project):
     run_harness_init(temp_project, "2", llm="anthropic", include_plugin=True, mock_should_gen_plugin=True)
-    plugin_dir = temp_project / ".claude" / "plugin-generated"
+    plugin_dir = temp_project / ".claude" / "harness-wr-plugin"
     state_dir = plugin_dir / "state"
     state_dir.mkdir(exist_ok=True)
     

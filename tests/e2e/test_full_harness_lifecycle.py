@@ -101,8 +101,8 @@ def test_full_harness_lifecycle():
         assert not (project_path / ".mcp.json").exists(), ".mcp.json should not be generated"
 
         # Validate the generated plugin uses only root-level registered hooks.
-        plugin_dir = project_path / ".claude" / "plugin-generated"
-        assert plugin_dir.exists(), "Plugin-generated directory missing"
+        plugin_dir = project_path / ".claude" / "harness-wr-plugin"
+        assert plugin_dir.exists(), "harness-wr-plugin directory missing"
         assert not (plugin_dir / "src" / "hooks").exists(), "legacy src/hooks should not be generated"
         assert not (plugin_dir / "src" / "hook_validator.py").exists(), "legacy hook_validator should not be generated"
         assert (plugin_dir / "hooks" / "hooks.json").exists(), "root hooks.json missing"
@@ -118,7 +118,7 @@ Successfully minted and verified a live project from `sample-py-app` boilerplate
 ### Manifest of Generated Artifacts:
 - `.claude/` (Harness Home)
   - `AGENTS.md` (Main Roster)
-  - `plugin-generated/` (The active plugin)
+  - `harness-wr-plugin/` (The active plugin)
 - `.mcp.json` (Repo-level MCP configuration)
 - `ONBOARDING_DOMAIN.md` (AI-generated domain context)
 

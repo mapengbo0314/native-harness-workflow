@@ -393,7 +393,9 @@ def main():
         # Format hooks dynamically now that they are in their final location
         adapter.install_hooks(Path(args.project_path))
 
-        final_plugin_dir = target_harness_dir / "plugin-generated" if plugin_dir else None
+        from harness.adapters.profile import load_profile as _load_profile
+        _claude_plugin_dir_name = _load_profile("claude").plugin_dir_name
+        final_plugin_dir = target_harness_dir / _claude_plugin_dir_name if plugin_dir else None
         if final_plugin_dir:
             plugin_dir = str(final_plugin_dir)
 

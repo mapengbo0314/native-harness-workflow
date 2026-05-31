@@ -3,6 +3,8 @@ import json
 from pathlib import Path
 from typing import Optional
 
+from harness.adapters.profile import load_profile
+
 
 def generate_plugin_manifest(
     target_dir: str,
@@ -14,7 +16,7 @@ def generate_plugin_manifest(
     """Generate plugin.json for the orchestrator plugin.
 
     Args:
-        target_dir: Directory to generate plugin in (e.g., .claude/plugin-generated)
+        target_dir: Directory to generate plugin in (e.g., .claude/harness-wr-plugin)
         project_name: Name of the project (for display)
         plugin_version: Version of the plugin
         skills_dir: Ignored legacy parameter kept for call compatibility
@@ -53,9 +55,12 @@ def generate_plugin_manifest(
 
 def generate_local_marketplace(
     harness_dir: Path,
-    plugin_version: str = "1.0.0"
+    plugin_version: str = "1.0.0",
+    plugin_dir_name: Optional[str] = None,
 ) -> str:
     """Generate a project-local marketplace manifest for Claude plugin install readiness."""
+    if plugin_dir_name is None:
+        plugin_dir_name = load_profile("claude").plugin_dir_name
     marketplace_dir = Path(harness_dir) / ".claude-plugin"
     marketplace_dir.mkdir(parents=True, exist_ok=True)
     marketplace = {
@@ -68,7 +73,7 @@ def generate_local_marketplace(
         "plugins": [
             {
                 "name": "orchestrator-plugin",
-                "source": "./plugin-generated",
+                "source": "./" + plugin_dir_name,
                 "description": "Project-local orchestrator plugin for the generated harness",
                 "version": plugin_version,
                 "author": {
@@ -210,7 +215,7 @@ This is the auto-generated Claude Code plugin for {project_name}.
 To manually test and validate this plugin, you can run Claude Code and point it directly to this directory:
 
 ```bash
-claude --plugin-dir ./.claude/plugin-generated
+claude --plugin-dir ./.claude/harness-wr-plugin
 ```
 """
 
@@ -242,11 +247,12 @@ def generate_orchestrator_plugin(
     """
     try:
         project_path = Path(project_path).resolve()
-        plugin_dir = project_path / harness_folder / "plugin-generated"
-        
+        _plugin_dir_name = load_profile("claude").plugin_dir_name
+        plugin_dir = project_path / harness_folder / _plugin_dir_name
+
         # Calculate logical plugin dir for manifest
         final_harness = logical_harness_name if logical_harness_name else harness_folder
-        logical_plugin_dir = project_path / final_harness / "plugin-generated"
+        logical_plugin_dir = project_path / final_harness / _plugin_dir_name
 
         config_dir = plugin_dir
         plugin_dir.mkdir(parents=True, exist_ok=True)
@@ -266,7 +272,7 @@ def generate_orchestrator_plugin(
         # Generate manifest
         print(f"[HARNESS] Generating manifest...")
         generate_plugin_manifest(str(plugin_dir), project_name, plugin_version, logical_plugin_dir=str(logical_plugin_dir))
-        generate_local_marketplace(project_path / harness_folder, plugin_version=plugin_version)
+        generate_local_marketplace(project_path / harness_folder, plugin_version=plugin_version, plugin_dir_name=_plugin_dir_name)
 
         # Export configs
         print(f"[HARNESS] Exporting configs...")

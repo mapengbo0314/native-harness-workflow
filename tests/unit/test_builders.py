@@ -123,7 +123,7 @@ def test_get_agent_manifest_format_matches_profile(platform: str) -> None:
 # ---------------------------------------------------------------------------
 
 def test_assemble_layout_claude_creates_plugin_generated(tmp_path: Path) -> None:
-    """Claude (supports_plugin=True) must assemble a plugin-generated/ directory."""
+    """Claude (supports_plugin=True) must assemble the plugin directory (harness-wr-plugin/)."""
     adapter = get_adapter("claude")
     project = tmp_path / "myproject"
     project.mkdir()
@@ -131,10 +131,10 @@ def test_assemble_layout_claude_creates_plugin_generated(tmp_path: Path) -> None
 
     adapter.assemble_layout(project)
 
-    plugin_dir = project / ".harness_tmp" / "plugin-generated"
-    assert plugin_dir.exists(), "plugin-generated/ must be created for claude"
+    plugin_dir = project / ".harness_tmp" / "harness-wr-plugin"
+    assert plugin_dir.exists(), "harness-wr-plugin/ must be created for claude"
     # At least one payload dir should have been moved inside
-    assert any(plugin_dir.iterdir()), "plugin-generated/ must not be empty"
+    assert any(plugin_dir.iterdir()), "harness-wr-plugin/ must not be empty"
 
 
 def test_assemble_layout_gemini_no_plugin_generated(tmp_path: Path) -> None:
@@ -154,8 +154,8 @@ def test_assemble_layout_gemini_no_plugin_generated(tmp_path: Path) -> None:
     )
 
 
-def test_assemble_layout_folder_name_unchanged(tmp_path: Path) -> None:
-    """The plugin directory is still named 'plugin-generated', not 'harness-wr-plugin'."""
+def test_assemble_layout_folder_name_is_harness_wr_plugin(tmp_path: Path) -> None:
+    """The plugin directory is now named 'harness-wr-plugin' (renamed by S2-T4b)."""
     adapter = get_adapter("claude")
     project = tmp_path / "myproject"
     project.mkdir()
@@ -163,10 +163,10 @@ def test_assemble_layout_folder_name_unchanged(tmp_path: Path) -> None:
 
     adapter.assemble_layout(project)
 
-    plugin_dir = project / ".harness_tmp" / "plugin-generated"
-    assert plugin_dir.exists(), "folder must be 'plugin-generated' (rename is S2-T4b)"
-    assert not (project / ".harness_tmp" / "harness-wr-plugin").exists(), (
-        "harness-wr-plugin must NOT be created in this task"
+    plugin_dir = project / ".harness_tmp" / "harness-wr-plugin"
+    assert plugin_dir.exists(), "folder must be 'harness-wr-plugin' (renamed by S2-T4b)"
+    assert not (project / ".harness_tmp" / "plugin-generated").exists(), (
+        "old plugin-generated name must NOT be used after S2-T4b"
     )
 
 
@@ -191,7 +191,7 @@ def test_gemini_supports_plugin_is_false() -> None:
 def test_generate_core_infrastructure_claude_identical_to_assemble_layout(
     tmp_path: Path,
 ) -> None:
-    """Both entry points for claude produce the same artifact structure."""
+    """Both entry points for claude produce the same artifact structure (harness-wr-plugin/)."""
     adapter = get_adapter("claude")
 
     # Run via assemble_layout
@@ -206,15 +206,15 @@ def test_generate_core_infrastructure_claude_identical_to_assemble_layout(
     _make_harness_tmp(proj_b, ".claude")
     adapter.generate_core_infrastructure(proj_b)
 
-    # Both should end up with plugin-generated/
-    assert (proj_a / ".harness_tmp" / "plugin-generated").exists()
-    assert (proj_b / ".harness_tmp" / "plugin-generated").exists()
+    # Both should end up with harness-wr-plugin/
+    assert (proj_a / ".harness_tmp" / "harness-wr-plugin").exists()
+    assert (proj_b / ".harness_tmp" / "harness-wr-plugin").exists()
 
 
 def test_generate_core_infrastructure_gemini_no_plugin_generated(
     tmp_path: Path,
 ) -> None:
-    """generate_core_infrastructure for gemini (no-op) must not create plugin-generated/."""
+    """generate_core_infrastructure for gemini (no-op) must not create a plugin stack directory."""
     adapter = get_adapter("gemini")
     project = tmp_path / "myproject"
     project.mkdir()
@@ -224,3 +224,4 @@ def test_generate_core_infrastructure_gemini_no_plugin_generated(
     adapter.generate_core_infrastructure(project)
 
     assert not (harness_dir / "plugin-generated").exists()
+    assert not (harness_dir / "harness-wr-plugin").exists()

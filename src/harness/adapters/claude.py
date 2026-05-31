@@ -37,10 +37,10 @@ class ClaudeAdapter(PlatformAdapter):
         """Plugin-stack assembly for Claude (supports_plugin=True).
 
         Moves the boilerplate payload directories from .harness_tmp (or the
-        config dir) into the ``plugin-generated`` subdirectory and rewrites
-        any template placeholders.  The directory is deliberately kept as
-        ``plugin-generated`` — the rename to ``harness-wr-plugin`` is a
-        separate task (S2-T4b).
+        config dir) into the ``harness-wr-plugin`` subdirectory and rewrites
+        any template placeholders.  The directory name is sourced from
+        ``load_profile("claude").plugin_dir_name`` so future renames are
+        a 1-line change in platform_profiles.json.
         """
         import re
         profile = load_profile("claude")
@@ -52,7 +52,7 @@ class ClaudeAdapter(PlatformAdapter):
         if not harness_dir.exists():
             harness_dir = project_path / self.get_config_dir_name()
 
-        plugin_dir = harness_dir / "plugin-generated"
+        plugin_dir = harness_dir / profile.plugin_dir_name
         plugin_dir.mkdir(parents=True, exist_ok=True)
 
         # Move payload directories into plugin-generated
