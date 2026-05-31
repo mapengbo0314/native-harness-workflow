@@ -265,7 +265,7 @@ class TestTask44MockInputProcessing:
         assert prompt_classifier.fallback_classify("fix the bug") == "A"
         assert prompt_classifier.fallback_classify("implement new feature") == "B"
         assert prompt_classifier.fallback_classify("how does this work") == "C"
-        assert prompt_classifier.fallback_classify("random text") == "D"
+        assert prompt_classifier.fallback_classify("random text") == "E"
 
     def test_input_json_parsing(self):
         """

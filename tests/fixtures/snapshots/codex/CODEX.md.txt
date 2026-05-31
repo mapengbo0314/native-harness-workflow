@@ -9,6 +9,7 @@ To activate a skill, you MUST use your file reading tool to read its instruction
 - **grill-me**: `.codex/skills/grill-me/SKILL.md`
 - **grill-with-docs**: `.codex/skills/grill-with-docs/SKILL.md`
 - **harness-brainstorming-plans**: `.codex/skills/harness-brainstorming-plans/SKILL.md`
+- **harness-capture-scenario**: `.codex/skills/harness-capture-scenario/SKILL.md`
 - **harness-dispatching-parallel-agents**: `.codex/skills/harness-dispatching-parallel-agents/SKILL.md`
 - **harness-executing-plans**: `.codex/skills/harness-executing-plans/SKILL.md`
 - **harness-finishing-a-development-branch**: `.codex/skills/harness-finishing-a-development-branch/SKILL.md`

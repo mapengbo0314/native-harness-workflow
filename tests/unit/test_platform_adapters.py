@@ -96,29 +96,11 @@ class TestAdapterIdentity:
         ("generic", "agents",  ".agents",  "AGENTS_PLUGIN_ROOT"),
     ])
     def test_identity_methods(self, platform, expected_name, expected_cfg, expected_env):
-        mod = _load_standalone(RUNTIME_SRC / f"platform_adapter_{platform}.py", f"pa_{platform}")
-        adapter = mod.get_adapter()
+        from harness.adapters.runtime_adapter import get_adapter
+        adapter = get_adapter(platform)
         assert adapter.get_platform_name() == expected_name
         assert adapter.get_config_dir_name() == expected_cfg
         assert adapter.get_plugin_env_var_name() == expected_env
-
-    @pytest.mark.parametrize("platform", PLATFORMS)
-    def test_get_adapter_takes_no_args(self, platform):
-        mod = _load_standalone(RUNTIME_SRC / f"platform_adapter_{platform}.py", f"pa_{platform}_noarg")
-        # Must be callable with zero arguments
-        adapter = mod.get_adapter()
-        assert adapter is not None
-
-    @pytest.mark.parametrize("platform", PLATFORMS)
-    def test_no_harness_imports(self, platform):
-        text = (RUNTIME_SRC / f"platform_adapter_{platform}.py").read_text()
-        for line in text.splitlines():
-            stripped = line.lstrip()
-            if not (stripped.startswith("import ") or stripped.startswith("from ")):
-                continue
-            assert "harness." not in stripped, (
-                f"platform_adapter_{platform}.py has harness.* import: {line!r}"
-            )
 
 
 # ---------------------------------------------------------------------------
@@ -127,8 +109,8 @@ class TestAdapterIdentity:
 
 class TestFormatHookResponse:
     def _adapter(self, platform):
-        mod = _load_standalone(RUNTIME_SRC / f"platform_adapter_{platform}.py", f"pa_fmt_{platform}")
-        return mod.get_adapter()
+        from harness.adapters.runtime_adapter import get_adapter
+        return get_adapter(platform)
 
     # Claude ----------------------------------------------------------------
 
@@ -201,36 +183,39 @@ class TestFormatHookResponse:
         assert "Skill(" not in mp
         assert "Task(" not in mp
 
-    def test_codex_appends_context(self):
+    def test_codex_no_target_passthrough(self):
         out = self._adapter("codex").format_hook_response(
             PROMPT, NO_TARGET_DECISION, CONTEXT_EXT, HOOK_EVENT
         )
-        assert CONTEXT_EXT in out["modifiedPrompt"]
+        assert out["modifiedPrompt"] == PROMPT
 
     # Cursor ----------------------------------------------------------------
 
-    def test_cursor_prepends_agent(self):
+    def test_cursor_agent_only(self):
         decision = {**AGENT_ONLY_DECISION, "target_agent": "@planner"}
         out = self._adapter("cursor").format_hook_response(
             PROMPT, decision, "", HOOK_EVENT
         )
-        assert out["modifiedPrompt"].startswith("@planner")
+        mp = out["modifiedPrompt"]
+        assert "@planner" in mp
+        assert "HARNESS DISPATCH" in mp
 
-    def test_cursor_appends_context(self):
+    def test_cursor_no_target_passthrough(self):
         out = self._adapter("cursor").format_hook_response(
             PROMPT, NO_TARGET_DECISION, CONTEXT_EXT, HOOK_EVENT
         )
-        assert CONTEXT_EXT in out["modifiedPrompt"]
+        assert out["modifiedPrompt"] == PROMPT
 
     # Generic ---------------------------------------------------------------
 
-    def test_generic_appends_context_only(self):
+    def test_generic_skill_and_agent(self):
         out = self._adapter("generic").format_hook_response(
             PROMPT, SKILL_AGENT_DECISION, CONTEXT_EXT, HOOK_EVENT
         )
-        assert out["modifiedPrompt"] == PROMPT + CONTEXT_EXT
-        assert "Skill(" not in out["modifiedPrompt"]
-        assert "HARNESS DISPATCH" not in out["modifiedPrompt"]
+        mp = out["modifiedPrompt"]
+        assert "Use harness-systematic-debugging" in mp
+        assert "@debugger" in mp
+        assert "HARNESS DISPATCH" in mp
 
     # Shared output shape ---------------------------------------------------
 

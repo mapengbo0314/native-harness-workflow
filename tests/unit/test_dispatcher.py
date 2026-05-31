@@ -84,15 +84,16 @@ def test_classify_intent_captures_model_in_langfuse(tmp_path, monkeypatch):
     config_dir = tmp_path / "plugin-generated" / "config"
     config_dir.mkdir(parents=True)
     dispatcher = OrchestratorDispatcher(str(config_dir))
-    
+
     # Mock langfuse_context to capture model updates
     from unittest.mock import MagicMock, patch
-    
+
     mock_context = MagicMock()
-    with patch('harness.runtime.dispatcher.langfuse_context', mock_context):
+    with patch('harness.runtime.dispatcher.langfuse_context', mock_context), \
+         patch('harness.runtime.dispatcher.query_llm', return_value={"classification": "A"}):
         # Test the method
         dispatcher.classify_intent("test prompt")
-        
+
         # Verify update_current_observation was called with model
         mock_context.update_current_observation.assert_called()
         call_args = mock_context.update_current_observation.call_args

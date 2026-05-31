@@ -178,6 +178,7 @@ def _run_hook(
     env["LANGFUSE_ENABLED"] = "false"
     env["ANTHROPIC_API_KEY"] = ""
     env["GEMINI_API_KEY"] = ""
+    env["HARNESS_MOCK_LLM"] = "1"
 
     event_json = json.dumps(event)
 

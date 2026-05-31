@@ -45,6 +45,14 @@ def query_llm(prompt: str, cli_name: str, model: str = None) -> str:
     env["CLAUDE_MD"] = "0"
     env["HARNESS_INTERNAL_LLM_CALL"] = "1"
 
+    if os.environ.get("HARNESS_MOCK_LLM") == "1":
+        last_actual_model = "mock-model"
+        langfuse_context.update_current_observation(
+            model=last_actual_model,
+            usage_details={"input": 10, "output": 10, "cache_read_input": 0, "cache_creation_input": 0}
+        )
+        return '{"classification": "A"}'
+
     try:
         if cli_name == "claude":
             result = subprocess.run(

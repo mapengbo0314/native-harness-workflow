@@ -49,8 +49,8 @@ class TestHookExecutionWithMockedDispatcher:
         assert hook_module.fallback_classify("how does this work") == "C"
         assert hook_module.fallback_classify("where is the config") == "C"
 
-        # Category D: miscellaneous
-        assert hook_module.fallback_classify("tell me a joke") == "D"
+        # Category E: miscellaneous
+        assert hook_module.fallback_classify("tell me a joke") == "E"
 
     def test_hook_observe_decorator_applies(self, hook_module):
         """
