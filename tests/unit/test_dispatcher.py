@@ -278,6 +278,9 @@ def test_classify_intent_captures_correct_model_from_platform(tmp_path, monkeypa
 
     dispatcher = OrchestratorDispatcher(str(config_dir))
 
+    # Force CLI environment so classify_intent doesn't skip LLM step
+    monkeypatch.setenv("HARNESS_PLATFORM_CLI", "claude")
+
     # Mock langfuse_context and query_llm
     with patch('harness.runtime.dispatcher.langfuse_context') as mock_context:
         with patch('harness.runtime.dispatcher.query_llm') as mock_query_llm:
