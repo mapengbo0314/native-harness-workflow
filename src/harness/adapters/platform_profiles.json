@@ -1,0 +1,105 @@
+{
+  "claude": {
+    "config_dir": ".claude",
+    "plugin_env_var": "CLAUDE_PLUGIN_ROOT",
+    "tool_mappings": {
+      "- read_file": "- Read",
+      "- grep_search": "- Grep",
+      "- replace": "- Edit",
+      "- write_file": "- Write",
+      "- run_shell_command": "- Bash",
+      "- glob": "- Glob",
+      "read_file": "Read",
+      "grep_search": "Grep",
+      "replace": "Edit",
+      "write_file": "Write",
+      "run_shell_command": "Bash",
+      "glob": "Glob"
+    },
+    "event_mappings": {},
+    "skill_invocation": "Skill(\"{skill}\")",
+    "subagent_invocation": "Task(subagent_type=\"{agent}\", description=\"{description}\")",
+    "subagent_text_call": {
+      "without_skill": "Task(subagent_type=\"{agent}\")",
+      "with_skill": "Task(subagent_type=\"{agent}\", description=\"Invoke Skill('{skill}') as your first action.\")"
+    },
+    "manifest_format": "markdown",
+    "rules_pointer_files": ["CLAUDE.md"],
+    "supports_plugin": true,
+    "plugin_dir_name": "harness-wr-plugin"
+  },
+  "gemini": {
+    "config_dir": ".gemini",
+    "plugin_env_var": "GEMINI_PLUGIN_ROOT",
+    "tool_mappings": {
+      "- read_file": "- read_file",
+      "- grep_search": "- grep_search",
+      "- replace": "- replace",
+      "- write_file": "- write_file",
+      "- run_shell_command": "- run_shell_command",
+      "- glob": "- glob"
+    },
+    "event_mappings": {
+      "PreCompact": "PreCompress",
+      "PostToolUse": "AfterTool"
+    },
+    "skill_invocation": "activate_skill(\"{skill}\")",
+    "subagent_invocation": "@{agent} {description}",
+    "subagent_text_call": {
+      "without_skill": "@{agent}",
+      "with_skill": "@{agent} — activate_skill(\"{skill}\") as your first action"
+    },
+    "manifest_format": "markdown",
+    "rules_pointer_files": ["GEMINI.md"],
+    "supports_plugin": false,
+    "plugin_dir_name": null
+  },
+  "codex": {
+    "config_dir": ".codex",
+    "plugin_env_var": "CODEX_PLUGIN_ROOT",
+    "tool_mappings": {},
+    "event_mappings": {},
+    "skill_invocation": "Activate skill {skill}",
+    "subagent_invocation": "Hand off to {agent}: {description}",
+    "subagent_text_call": {
+      "without_skill": "Hand off to {agent}",
+      "with_skill": "Hand off to {agent} — invoke skill {skill} first"
+    },
+    "manifest_format": "yaml",
+    "rules_pointer_files": ["CODEX.md"],
+    "supports_plugin": false,
+    "plugin_dir_name": null
+  },
+  "cursor": {
+    "config_dir": ".cursor",
+    "plugin_env_var": "CURSOR_PLUGIN_ROOT",
+    "tool_mappings": {},
+    "event_mappings": {},
+    "skill_invocation": "Use {skill}",
+    "subagent_invocation": "@{agent} {description}",
+    "subagent_text_call": {
+      "without_skill": "@{agent}",
+      "with_skill": "@{agent} — invoke skill {skill} first"
+    },
+    "manifest_format": "markdown",
+    "rules_pointer_files": [".cursorrules", ".github/copilot-instructions.md"],
+    "supports_plugin": false,
+    "plugin_dir_name": null
+  },
+  "generic": {
+    "config_dir": ".agents",
+    "plugin_env_var": "AGENTS_PLUGIN_ROOT",
+    "tool_mappings": {},
+    "event_mappings": {},
+    "skill_invocation": "Use {skill}",
+    "subagent_invocation": "@{agent} {description}",
+    "subagent_text_call": {
+      "without_skill": "@{agent}",
+      "with_skill": "@{agent} — invoke skill {skill} first"
+    },
+    "manifest_format": "markdown",
+    "rules_pointer_files": [],
+    "supports_plugin": false,
+    "plugin_dir_name": null
+  }
+}
