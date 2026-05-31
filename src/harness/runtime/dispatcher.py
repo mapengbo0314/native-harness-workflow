@@ -353,6 +353,9 @@ selected_branch MUST be exactly one of: {valid_keys}
             tags = env_tags.split(",") if env_tags else ["integration-test"]
             
         langfuse_context.update_current_trace(session_id=session_id, tags=tags)
+        langfuse_context.update_current_observation(
+            input={"prompt": context.get("prompt", ""), "agent": agent_name}
+        )
 
         # Validate agent exists in config
         agents = self.agents_config.get("agents", {})
@@ -389,6 +392,15 @@ selected_branch MUST be exactly one of: {valid_keys}
 
         branch_pointers = self.assemble_branch_context(agent_name, str(intent_branch) if intent_branch else "None")
         context["branch_context_pointers"] = branch_pointers
+
+        langfuse_context.update_current_observation(
+            output={
+                "intent_branch": intent_branch,
+                "target_agent": routing_decision.get("target_agent"),
+                "phase": routing_decision.get("phase"),
+                "routed": True,
+            }
+        )
 
         return {
             "agent": agent_name,
