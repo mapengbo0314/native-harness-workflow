@@ -14,10 +14,23 @@ from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
 
+# load_dotenv MUST run before any langfuse import so that LANGFUSE_ENABLED can
+# take effect before the SDK initialises its background flush thread.
+load_dotenv()
+
+# Disable the Langfuse SDK when no credentials are present so it never tries
+# to export spans and produce 401 noise.  Credentials can be supplied as either:
+#   - HARNESS_GLOBAL_INGESTION_BASE64 (OTEL Authorization header, base64 pk:sk)
+#   - LANGFUSE_PUBLIC_KEY + LANGFUSE_SECRET_KEY  (Python SDK direct)
+_has_langfuse_creds = (
+    os.environ.get("HARNESS_GLOBAL_INGESTION_BASE64")
+    or (os.environ.get("LANGFUSE_SECRET_KEY") and os.environ.get("LANGFUSE_PUBLIC_KEY"))
+)
+if not _has_langfuse_creds:
+    os.environ.setdefault("LANGFUSE_ENABLED", "false")
+
 from langfuse import observe
 from harness.runtime.langfuse_compat import langfuse_context
-
-load_dotenv()
 
 
 class HarnessSetupError(RuntimeError):

@@ -3,6 +3,7 @@
 This module provides compatibility between Langfuse v3 API (langfuse_context)
 and v4 API (client-based). It wraps the v4 client API to provide the v3 interface.
 """
+import os
 from langfuse import get_client
 from typing import Any, Dict, Optional, List
 
@@ -142,8 +143,14 @@ class LangfuseContextCompat:
 
         In v4, the client automatically batches and sends events asynchronously.
         This method ensures any pending events are sent before the application exits.
+        No-ops (without blocking) when Langfuse is disabled or credentials are absent.
         """
-        self._client.flush()
+        if os.environ.get("LANGFUSE_ENABLED", "").lower() == "false":
+            return
+        try:
+            self._client.flush()
+        except Exception:
+            pass
 
 
 # Global instance for compatibility
