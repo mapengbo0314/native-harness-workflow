@@ -210,6 +210,15 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
                     f.write("\n\n### STRICT INVARIANTS (Ghost Injection)\n" + invariants_text)
                     
         # --- End Ghost Injection ---
+
+        # Create the opt-in sentinel for the PostToolUse formatter hook.
+        # Bootstrap projects get it automatically so formatting runs from day one.
+        # Retrofit projects must add it manually after fixing pre-existing formatting.
+        sentinel_path = Path(project_path) / ".claude" / ".harness-format-enabled"
+        sentinel_path.parent.mkdir(parents=True, exist_ok=True)
+        sentinel_path.touch()
+        print(f"[HARNESS] Created formatter sentinel at {sentinel_path}")
+
     else:
         print("Error: Boilerplate directory not found.")
         return
