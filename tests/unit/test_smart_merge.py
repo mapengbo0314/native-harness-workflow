@@ -104,3 +104,40 @@ def test_perform_smart_merge(tmp_path, monkeypatch):
     
     # Verify app.py (auto-overwritten)
     assert (staged_dir / "app.py").read_text() == "print('new')"
+
+
+def test_merge_structured_named_list_deduplicates_by_name():
+    """Reinstalling with a renamed plugin dir must not produce duplicate marketplace entries."""
+    old_json = json.dumps({"plugins": [
+        {"name": "orchestrator-plugin", "source": "./harness-wr-plugin", "version": "0.1.0"}
+    ]})
+    new_json = json.dumps({"plugins": [
+        {"name": "orchestrator-plugin", "source": "./harness-wf-plugin", "version": "0.1.0"}
+    ]})
+    merged = json.loads(merge_structured(old_json, new_json, format="json"))
+    assert len(merged["plugins"]) == 1, "duplicate plugin names must be collapsed to one"
+    assert merged["plugins"][0]["source"] == "./harness-wf-plugin", "new entry must win"
+
+
+def test_merge_structured_named_list_update_wins():
+    """When names collide the incoming (new) entry replaces the existing one."""
+    old_json = json.dumps({"plugins": [
+        {"name": "orchestrator-plugin", "source": "./old-dir", "version": "0.1.0"},
+        {"name": "other-plugin", "source": "./other", "version": "1.0.0"},
+    ]})
+    new_json = json.dumps({"plugins": [
+        {"name": "orchestrator-plugin", "source": "./new-dir", "version": "0.2.0"},
+    ]})
+    merged = json.loads(merge_structured(old_json, new_json, format="json"))
+    assert len(merged["plugins"]) == 2, "unrelated plugin must be preserved"
+    orchestrator = next(p for p in merged["plugins"] if p["name"] == "orchestrator-plugin")
+    assert orchestrator["source"] == "./new-dir"
+    assert orchestrator["version"] == "0.2.0"
+
+
+def test_merge_structured_plain_list_still_unions():
+    """Plain lists (no 'name' key) must still union without duplicates."""
+    old_json = '{"tags": ["a", "b"]}'
+    new_json = '{"tags": ["b", "c"]}'
+    merged = json.loads(merge_structured(old_json, new_json, format="json"))
+    assert sorted(merged["tags"]) == ["a", "b", "c"]
