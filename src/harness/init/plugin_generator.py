@@ -48,12 +48,13 @@ def generate_plugin_manifest(
     hooks_dir.mkdir(parents=True, exist_ok=True)
 
     stamped_version = harness_version or _read_harness_version()
+    built_at = datetime.now(timezone.utc).isoformat()
+
+    # plugin.json — Claude validator is strict; only known keys allowed
     settings = {
         "name": "orchestrator-plugin",
         "description": f"Auto-generated orchestrator plugin for {project_name}",
         "version": stamped_version,
-        "harness_version": stamped_version,
-        "built_at": datetime.now(timezone.utc).isoformat(),
         "author": {
             "name": "E2G Harness"
         }
@@ -66,9 +67,13 @@ def generate_plugin_manifest(
     claude_plugin_dir = plugin_dir / ".claude-plugin"
     claude_plugin_dir.mkdir(parents=True, exist_ok=True)
     settings_path = claude_plugin_dir / "plugin.json"
-    
     with open(settings_path, 'w') as f:
         json.dump(settings, f, indent=2)
+
+    # .harness-meta.json — our own metadata, not validated by Claude
+    meta_path = plugin_dir / ".harness-meta.json"
+    with open(meta_path, 'w') as f:
+        json.dump({"harness_version": stamped_version, "built_at": built_at}, f, indent=2)
 
     return str(settings_path)
 
