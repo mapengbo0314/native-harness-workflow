@@ -15,7 +15,8 @@ def _make_active_client():
 class TestCompletePromptSpan:
     def test_calls_update_current_span_with_structured_output(self):
         client = _make_active_client()
-        with patch("harness.runtime.langfuse_instrumentation.get_client", return_value=client):
+        with patch("harness.runtime.langfuse_instrumentation.get_client", return_value=client), \
+             patch.dict("os.environ", {"HARNESS_SESSION_ID": "test-session-abc"}):
             from harness.runtime.langfuse_instrumentation import complete_prompt_span
             complete_prompt_span(
                 modified_prompt="hello + HARNESS DISPATCH",
@@ -29,6 +30,7 @@ class TestCompletePromptSpan:
                 "branch": "B",
                 "phase": "Planning",
                 "target_agent": "@planner",
+                "session_id": "test-session-abc",
             }
         )
 
@@ -52,7 +54,8 @@ class TestCompletePromptSpan:
 
     def test_missing_routing_keys_use_none(self):
         client = _make_active_client()
-        with patch("harness.runtime.langfuse_instrumentation.get_client", return_value=client):
+        with patch("harness.runtime.langfuse_instrumentation.get_client", return_value=client), \
+             patch.dict("os.environ", {"HARNESS_SESSION_ID": "test-session-xyz"}):
             from harness.runtime.langfuse_instrumentation import complete_prompt_span
             complete_prompt_span("p", "s", {})
         client.update_current_span.assert_called_once_with(
@@ -62,6 +65,7 @@ class TestCompletePromptSpan:
                 "branch": None,
                 "phase": None,
                 "target_agent": None,
+                "session_id": "test-session-xyz",
             }
         )
 

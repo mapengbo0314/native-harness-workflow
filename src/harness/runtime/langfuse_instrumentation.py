@@ -95,6 +95,7 @@ def complete_prompt_span(
                     "branch": routing_decision.get("classification"),
                     "phase": routing_decision.get("phase"),
                     "target_agent": routing_decision.get("target_agent"),
+                    "session_id": _get_session_id(),
                 }
             )
     except Exception:

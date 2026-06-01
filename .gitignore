@@ -50,6 +50,7 @@ local_outputs/
 *.egg-info/
 .pytest_cache/
 .env
+.env.telemetry-harness
 .venv*
 temp_pdf_copy.pdf
 
