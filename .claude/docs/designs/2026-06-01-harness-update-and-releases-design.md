@@ -181,4 +181,40 @@ This eliminates Blocker 1's false-positive storm without storing render context 
 EXCLUDE += .env.telemetry-harness
 ```
 
-**Status of the other two blockers:** Fixes 3 (transactional apply — needs a startup crash-recovery journal, and the `derived` JSON must commit in the same file-set as its `.md` sources) and 4 (headless fail-closed — needs a concrete contract-group source, absent/old-version handling, and whole-group `--force`) remain **SOUND-WITH-GAPS** and are tracked for a follow-up rework. Note R2's `derived` class already removes the worst contract-drift case (the `.md`↔`.json`↔dispatcher triad) that Blocker 4 was most exposed to.
+### Reworked Resolutions — Fixes 3 & 4 (close the SOUND-WITH-GAPS items)
+
+**R8 — Transactional apply via a write-ahead journal + startup recovery.** Per-file `os.replace` is atomic per file but not per file-*set*; a crash mid-commit half-applies. Make the multi-file commit effectively atomic with a strict five-phase flow:
+1. **Plan** — pure, no writes.
+2. **Resolve** — collect ALL conflict decisions up front, before any disk write. Catch `EOFError`/`KeyboardInterrupt` here (piped/CI stdin) and route to a clean abort — nothing is staged yet, so disk is pristine.
+3. **Stage** — write every final output into `.claude/.harness_update_tmp/`. Crucially, `derived` JSON is regenerated from the **staged** merged `.md` (not the live tree), so the staging set is internally consistent before anything is committed.
+4. **Journal + Commit** — write `.harness-update-journal.json` listing every planned `(target, staged, backup)` triple; then `os.replace` each staged file into place, moving each original into `.harness_update_tmp/backup/`; then stamp the new manifest; then delete the journal.
+5. **Cleanup** — remove the staging dir.
+
+   **Recovery:** at the *start* of every `update` (and `init`), if a journal exists, a prior run died mid-commit → restore every original from `backup/`, delete the journal, discard staging, and only then proceed. Either the journal is gone (commit fully succeeded) or recovery restores the exact pre-update state. The `.md` and its `derived` JSON are always in the same journaled batch, so the dispatcher's JSON view can never be left mismatched.
+
+**R9 — Replace the contract-group map with version-step semantics (it was going to rot anyway).** The review's worry was a hand-authored "contract group" list drifting out of date. The R1–R8 reworks dissolve most of the need for it:
+- The `.md`↔`.json`↔dispatcher contract is now **structural** — `derived` JSON is always regenerated from the merged `.md` (R2), so it can never desync; it is not a conflict group at all.
+- All `generated`/`runtime_copy` files come from **one** package version and commit atomically (R8), so they are mutually consistent by construction — no partial-apply risk among them.
+- The only residual cross-class contract risk is a new `generated` runtime file paired with a `customizable` file the user **kept** on conflict. The clean signal for "that pairing might now be incompatible" is the **SemVer-MAJOR** boundary (MAJOR = contract break, per the release discipline). So gate on the version step, not on an enumerated map:
+  - **Same MAJOR:** generated overwrite freely; customizable conflicts resolve individually; a kept-old customizable file is guaranteed contract-compatible. No grouping needed.
+  - **Across a MAJOR:** refuse a piecemeal update; require the release's **migration** step or a full re-mint. Headless aborts (exit non-zero); interactive explains the major upgrade needs migration and applies nothing.
+
+**R10 — Define `requires_human` precisely, incl. missing/old version.** Headless / `--check` fail-closed triggers when ANY of:
+- a `CONFLICT` verdict exists; or
+- a `customizable` **remove** verdict exists (upstream dropped a file the user may depend on — generated removes are safe to apply, customizable removes need a human); or
+- deployed→incoming crosses a **MAJOR**; or
+- `harness_version` is **absent or unparseable** (do NOT assume `0.0.0`); or
+- the **manifest is absent** entirely (a pre-manifest mint — not update-capable; instruct full re-mint, or offer an `--adopt` mode that best-effort synthesizes a manifest by hashing the current tree as base).
+
+On any trigger in headless: print the reasons + file list, apply nothing, exit non-zero. Apply automatically only when the plan is fully clean within the same MAJOR.
+
+**R11 — `--force` cannot reintroduce a partial-contract state.** `--force` redefines conflicts to "take theirs (overwrite)" but still (a) commits through the atomic journal (R8), so it is all-or-nothing, and (b) still refuses to cross a MAJOR without an explicit `--force-major` *and* a present migration. Because derived JSON is regenerated and generated files are single-version, a forced run cannot produce the silent generated-new/customizable-stale mismatch Blocker 4 described.
+
+**Manifest/CLI additions for R8–R11:**
+```
+.claude/harness-wf-plugin/.harness-update-journal.json   # transient; present only mid-commit
+.claude/.harness_update_tmp/backup/<relpath>             # originals, for rollback
+update flags: --check (dry-run) · --force · --force-major · --adopt · --non-interactive
+```
+
+All four blockers are now resolved at design level; remaining work is execution per the Section 3 TDD sequence (extended with journal-recovery and version-gate tests).
