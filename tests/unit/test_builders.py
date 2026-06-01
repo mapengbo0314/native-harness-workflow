@@ -154,7 +154,7 @@ def test_assemble_layout_gemini_no_plugin_generated(tmp_path: Path) -> None:
     )
 
 
-def test_assemble_layout_folder_name_is_harness_wr_plugin(tmp_path: Path) -> None:
+def test_assemble_layout_folder_name_is_harness_wf_plugin(tmp_path: Path) -> None:
     """The plugin directory is now named 'harness-wf-plugin' (renamed by S2-T4b)."""
     adapter = get_adapter("claude")
     project = tmp_path / "myproject"
@@ -165,8 +165,8 @@ def test_assemble_layout_folder_name_is_harness_wr_plugin(tmp_path: Path) -> Non
 
     plugin_dir = project / ".harness_tmp" / "harness-wf-plugin"
     assert plugin_dir.exists(), "folder must be 'harness-wf-plugin' (renamed by S2-T4b)"
-    assert not (project / ".harness_tmp" / "harness-wf-plugin").exists(), (
-        "old harness-wf-plugin name must NOT be used after S2-T4b"
+    assert not (project / ".harness_tmp" / "harness-wr-plugin").exists(), (
+        "old harness-wr-plugin name must NOT be used after S2-T4b"
     )
 
 
