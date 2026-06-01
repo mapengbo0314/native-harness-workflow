@@ -14,7 +14,7 @@ def _bootstrap_env():
         from dotenv import load_dotenv
         candidate = resolve_plugin_root()
         # Walk upward until we find a directory that has .env or .env.telemetry-harness.
-        # Claude plugin root is two levels deep (.claude/harness-wr-plugin/); Gemini is one
+        # Claude plugin root is two levels deep (.claude/harness-wf-plugin/); Gemini is one
         # level deep (.gemini/) — hardcoding parent depth breaks one of them.
         for _ in range(4):
             if (candidate / ".env").exists() or (candidate / ".env.telemetry-harness").exists():

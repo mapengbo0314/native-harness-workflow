@@ -211,7 +211,7 @@ class TestFullFlowIntegration:
         # Create temp config directory
         temp_dir = Path("/tmp/test_dispatcher_langfuse")
         temp_dir.mkdir(exist_ok=True)
-        config_dir = temp_dir / "harness-wr-plugin" / "config"
+        config_dir = temp_dir / "harness-wf-plugin" / "config"
         config_dir.mkdir(parents=True, exist_ok=True)
 
         try:

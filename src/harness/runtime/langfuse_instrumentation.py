@@ -4,6 +4,7 @@ Central module for Langfuse lifecycle management (Langfuse v4 API).
 Public API:
 - init_langfuse_trace(project_root)   — Set session ID + trace ID, update current span
 - init_langfuse_prompt_span(prompt)   — Name the current span with prompt input
+- complete_prompt_span(...)           — Log assembled dispatch payload as span output
 - ensure_flush()                      — Flush all pending traces synchronously
 
 All functions are defensively wrapped — Langfuse errors never interrupt the hook pipeline.
@@ -72,6 +73,31 @@ def init_langfuse_prompt_span(prompt_text: str) -> None:
         lf = get_client()
         if _is_client_active(lf):
             lf.update_current_span(name="user_prompt", input=prompt_text)
+    except Exception:
+        pass
+
+
+def complete_prompt_span(
+    modified_prompt: str,
+    system_state: str,
+    routing_decision: dict,
+) -> None:
+    """Update the user_prompt span output with the assembled dispatch payload."""
+    if get_client is None:
+        return
+    try:
+        lf = get_client()
+        if _is_client_active(lf):
+            lf.update_current_span(
+                output={
+                    "modified_prompt": modified_prompt,
+                    "system_prompt_extension": system_state,
+                    "branch": routing_decision.get("classification"),
+                    "phase": routing_decision.get("phase"),
+                    "target_agent": routing_decision.get("target_agent"),
+                    "session_id": _get_session_id(),
+                }
+            )
     except Exception:
         pass
 

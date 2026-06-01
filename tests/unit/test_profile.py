@@ -75,7 +75,7 @@ class TestClaudeFieldValues:
         assert self.p.supports_plugin is True
 
     def test_plugin_dir_name(self):
-        assert self.p.plugin_dir_name == "harness-wr-plugin"
+        assert self.p.plugin_dir_name == "harness-wf-plugin"
 
     def test_rules_pointer_files(self):
         assert self.p.rules_pointer_files == ["CLAUDE.md"]

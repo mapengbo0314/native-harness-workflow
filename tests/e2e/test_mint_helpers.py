@@ -2,7 +2,7 @@
 RED test for S1-T1: mint_platform fixture.
 
 Verified plugin-root conventions (from actual mint runs):
-  - claude:  <project>/.claude/harness-wr-plugin/  (hooks.json, agents.json, agents/, skills/ all live here)
+  - claude:  <project>/.claude/harness-wf-plugin/  (hooks.json, agents.json, agents/, skills/ all live here)
   - gemini:  <project>/.gemini/                   (hooks.json, agents/, skills/ live directly here)
 """
 import pytest

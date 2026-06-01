@@ -27,7 +27,7 @@
     "manifest_format": "markdown",
     "rules_pointer_files": ["CLAUDE.md"],
     "supports_plugin": true,
-    "plugin_dir_name": "harness-wr-plugin",
+    "plugin_dir_name": "harness-wf-plugin",
     "generalist_remap": true,
     "hook_agent_only_cta": "Make this Task call now."
   },

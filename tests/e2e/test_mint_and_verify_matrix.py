@@ -38,7 +38,7 @@ function via the shared helper and asserts:
 
 Verified artifact structures (real mint runs, 2026-05-30):
 
-  claude  (.claude/harness-wr-plugin/)
+  claude  (.claude/harness-wf-plugin/)
     hooks/hooks.json            — events: UserPromptSubmit, PreCompact,
                                            PreToolUse, PostToolUse
     hooks/{prompt_classifier,pre_tool_use,post_tool_use,notify_compression}.py
@@ -308,7 +308,7 @@ class TestArtifactsExist:
     def test_gemini_no_plugin_generated(self, gemini_root):
         """Gemini is embedded — it must NOT have a plugin stack subdirectory."""
         # Neither the old name nor the new name should appear under gemini root
-        for name in ("harness-wr-plugin", "harness-wr-plugin"):
+        for name in ("harness-wf-plugin", "harness-wf-plugin"):
             assert not (gemini_root / name).exists(), (
                 f"gemini: unexpected {name}/ directory found — "
                 "gemini uses embedded layout"

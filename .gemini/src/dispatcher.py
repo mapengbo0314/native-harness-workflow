@@ -104,7 +104,7 @@ class OrchestratorDispatcher:
         """Initialize dispatcher with plugin config.
 
         Args:
-            config_dir: Path to .claude/harness-wr-plugin/config
+            config_dir: Path to .claude/harness-wf-plugin/config
         """
         self.config_dir = Path(config_dir)
         self.orchestrator_config = self._load_orchestrator_config()

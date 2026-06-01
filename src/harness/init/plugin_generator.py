@@ -20,7 +20,7 @@ def generate_plugin_manifest(
     """Generate plugin.json for the orchestrator plugin.
 
     Args:
-        target_dir: Directory to generate plugin in (e.g., .claude/harness-wr-plugin)
+        target_dir: Directory to generate plugin in (e.g., .claude/harness-wf-plugin)
         project_name: Name of the project (for display)
         plugin_version: Version of the plugin
         skills_dir: Ignored legacy parameter kept for call compatibility
@@ -220,7 +220,7 @@ This is the auto-generated Claude Code plugin for {project_name}.
 To manually test and validate this plugin, you can run Claude Code and point it directly to this directory:
 
 ```bash
-claude --plugin-dir ./.claude/harness-wr-plugin
+claude --plugin-dir ./.claude/harness-wf-plugin
 ```
 """
 
