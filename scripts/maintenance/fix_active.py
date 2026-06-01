@@ -1,7 +1,7 @@
 import os
 import glob
 
-hook_files = glob.glob(".claude/harness-wr-plugin/src/hooks/*.py")
+hook_files = glob.glob(".claude/harness-wf-plugin/src/hooks/*.py")
 
 for hook_file in hook_files:
     if os.path.basename(hook_file) in ['__init__.py']:

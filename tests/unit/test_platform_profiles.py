@@ -174,7 +174,7 @@ class TestClaudeExactValues:
         assert profiles["claude"]["supports_plugin"] is True
 
     def test_plugin_dir_name(self, profiles):
-        assert profiles["claude"]["plugin_dir_name"] == "harness-wr-plugin"
+        assert profiles["claude"]["plugin_dir_name"] == "harness-wf-plugin"
 
 
 class TestGeminiExactValues:

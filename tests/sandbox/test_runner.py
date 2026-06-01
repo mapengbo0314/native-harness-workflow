@@ -45,7 +45,7 @@ class TestSandboxRunner(unittest.TestCase):
         ]
         
         # Mock plugin directory and root hooks
-        plugin_dir = self.workspace / ".claude" / "harness-wr-plugin"
+        plugin_dir = self.workspace / ".claude" / "harness-wf-plugin"
         hooks_dir = plugin_dir / "hooks"
         hooks_dir.mkdir(parents=True)
         
@@ -72,7 +72,7 @@ class TestRunScenario(unittest.TestCase):
 
     def _make_fake_plugin_root(self, tmp_path: Path) -> Path:
         """Build a minimal plugin_root directory with enough config for the dispatcher."""
-        plugin_root = tmp_path / "harness-wr-plugin"
+        plugin_root = tmp_path / "harness-wf-plugin"
         config_dir = plugin_root / "config"
         config_dir.mkdir(parents=True)
 

@@ -4,7 +4,7 @@ from pathlib import Path
 from harness.runtime.dispatcher import OrchestratorDispatcher
 
 def test_evaluate_artifacts_branch_c(tmp_path):
-    config_dir = tmp_path / "harness-wr-plugin" / "config"
+    config_dir = tmp_path / "harness-wf-plugin" / "config"
     config_dir.mkdir(parents=True)
     dispatcher = OrchestratorDispatcher(str(config_dir))
     result = dispatcher.evaluate_artifacts("C", tmp_path)
@@ -13,7 +13,7 @@ def test_evaluate_artifacts_branch_c(tmp_path):
     assert "UNAUTHORIZED to mutate" in result["auth_msg"]
 
 def test_evaluate_artifacts_branch_d(tmp_path):
-    config_dir = tmp_path / "harness-wr-plugin" / "config"
+    config_dir = tmp_path / "harness-wf-plugin" / "config"
     config_dir.mkdir(parents=True)
     dispatcher = OrchestratorDispatcher(str(config_dir))
     result = dispatcher.evaluate_artifacts("D", tmp_path)
@@ -22,7 +22,7 @@ def test_evaluate_artifacts_branch_d(tmp_path):
     assert "TDD" in result["auth_msg"]
 
 def test_evaluate_artifacts_branch_a_no_diagnosis(tmp_path):
-    config_dir = tmp_path / "harness-wr-plugin" / "config"
+    config_dir = tmp_path / "harness-wf-plugin" / "config"
     config_dir.mkdir(parents=True)
     dispatcher = OrchestratorDispatcher(str(config_dir))
     result = dispatcher.evaluate_artifacts("A", tmp_path)
@@ -31,7 +31,7 @@ def test_evaluate_artifacts_branch_a_no_diagnosis(tmp_path):
     assert "UNAUTHORIZED to modify" in result["auth_msg"]
 
 def test_evaluate_artifacts_branch_a_with_diagnosis_no_plan(tmp_path):
-    config_dir = tmp_path / "harness-wr-plugin" / "config"
+    config_dir = tmp_path / "harness-wf-plugin" / "config"
     config_dir.mkdir(parents=True)
     dispatcher = OrchestratorDispatcher(str(config_dir))
     docs_dir = tmp_path / "docs"
@@ -44,7 +44,7 @@ def test_evaluate_artifacts_branch_a_with_diagnosis_no_plan(tmp_path):
     assert "UNAUTHORIZED to modify" in result["auth_msg"]
 
 def test_evaluate_artifacts_branch_b_no_plan(tmp_path):
-    config_dir = tmp_path / "harness-wr-plugin" / "config"
+    config_dir = tmp_path / "harness-wf-plugin" / "config"
     config_dir.mkdir(parents=True)
     dispatcher = OrchestratorDispatcher(str(config_dir))
     result = dispatcher.evaluate_artifacts("B", tmp_path)
@@ -53,7 +53,7 @@ def test_evaluate_artifacts_branch_b_no_plan(tmp_path):
     assert "authorized to plan or execute" in result["auth_msg"]
 
 def test_evaluate_artifacts_with_plan_no_tdd(tmp_path):
-    config_dir = tmp_path / "harness-wr-plugin" / "config"
+    config_dir = tmp_path / "harness-wf-plugin" / "config"
     config_dir.mkdir(parents=True)
     dispatcher = OrchestratorDispatcher(str(config_dir))
     docs_dir = tmp_path / "docs"
@@ -66,7 +66,7 @@ def test_evaluate_artifacts_with_plan_no_tdd(tmp_path):
     assert "authorized to plan or execute" in result["auth_msg"]
 
 def test_evaluate_artifacts_with_tdd(tmp_path):
-    config_dir = tmp_path / "harness-wr-plugin" / "config"
+    config_dir = tmp_path / "harness-wf-plugin" / "config"
     config_dir.mkdir(parents=True)
     dispatcher = OrchestratorDispatcher(str(config_dir))
     docs_dir = tmp_path / "docs"
@@ -81,7 +81,7 @@ def test_evaluate_artifacts_with_tdd(tmp_path):
 def test_classify_intent_captures_model_in_langfuse(tmp_path, monkeypatch):
     """Test that classify_intent captures the model in Langfuse context."""
     import os
-    config_dir = tmp_path / "harness-wr-plugin" / "config"
+    config_dir = tmp_path / "harness-wf-plugin" / "config"
     config_dir.mkdir(parents=True)
     dispatcher = OrchestratorDispatcher(str(config_dir))
 
@@ -106,7 +106,7 @@ def test_classify_intent_captures_model_in_langfuse(tmp_path, monkeypatch):
 def test_dispatch_agent_captures_model_in_langfuse(tmp_path, monkeypatch):
     """Test that dispatch_agent captures the model in Langfuse context."""
     import os
-    config_dir = tmp_path / "harness-wr-plugin" / "config"
+    config_dir = tmp_path / "harness-wf-plugin" / "config"
     config_dir.mkdir(parents=True)
     
     # Create minimal agent config
@@ -273,7 +273,7 @@ def test_classify_intent_captures_correct_model_from_platform(tmp_path, monkeypa
     # Create .claude directory
     (tmp_path / ".claude").mkdir()
 
-    config_dir = tmp_path / "harness-wr-plugin" / "config"
+    config_dir = tmp_path / "harness-wf-plugin" / "config"
     config_dir.mkdir(parents=True)
 
     dispatcher = OrchestratorDispatcher(str(config_dir))
@@ -316,7 +316,7 @@ def test_dispatch_agent_captures_correct_model_from_platform(tmp_path, monkeypat
     # Create .gemini directory
     (tmp_path / ".gemini").mkdir()
 
-    config_dir = tmp_path / "harness-wr-plugin" / "config"
+    config_dir = tmp_path / "harness-wf-plugin" / "config"
     config_dir.mkdir(parents=True)
 
     # Create agent config

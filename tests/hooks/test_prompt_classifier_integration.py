@@ -15,8 +15,8 @@ import pytest
 
 # Add src to sys.path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / ".claude/harness-wr-plugin/hooks"))
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / ".claude/harness-wr-plugin/src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / ".claude/harness-wf-plugin/hooks"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / ".claude/harness-wf-plugin/src"))
 
 
 class TestHookExecutionWithMockedDispatcher:
@@ -26,7 +26,7 @@ class TestHookExecutionWithMockedDispatcher:
     def hook_module(self):
         """Load hook module for testing."""
         import importlib.util
-        hook_path = Path(__file__).parent.parent.parent / ".claude/harness-wr-plugin/hooks/prompt_classifier.py"
+        hook_path = Path(__file__).parent.parent.parent / ".claude/harness-wf-plugin/hooks/prompt_classifier.py"
         spec = importlib.util.spec_from_file_location("prompt_classifier", hook_path)
         hook = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(hook)
@@ -105,7 +105,7 @@ class TestHookRobustness:
 
         try:
             import importlib.util
-            hook_path = Path(__file__).parent.parent.parent / ".claude/harness-wr-plugin/hooks/prompt_classifier.py"
+            hook_path = Path(__file__).parent.parent.parent / ".claude/harness-wf-plugin/hooks/prompt_classifier.py"
             spec = importlib.util.spec_from_file_location("prompt_classifier", hook_path)
             hook = importlib.util.module_from_spec(spec)
             # Should not crash even without credentials
@@ -143,7 +143,7 @@ class TestHookRobustness:
         Expected: Hook defines fallback if imports fail.
         """
         import importlib.util
-        hook_path = Path(__file__).parent.parent.parent / ".claude/harness-wr-plugin/hooks/prompt_classifier.py"
+        hook_path = Path(__file__).parent.parent.parent / ".claude/harness-wf-plugin/hooks/prompt_classifier.py"
         spec = importlib.util.spec_from_file_location("prompt_classifier", hook_path)
         hook = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(hook)
@@ -271,7 +271,7 @@ class TestPhase4EndToEndScenarios:
         Expected: No import errors, main is callable.
         """
         import importlib.util
-        hook_path = Path(__file__).parent.parent.parent / ".claude/harness-wr-plugin/hooks/prompt_classifier.py"
+        hook_path = Path(__file__).parent.parent.parent / ".claude/harness-wf-plugin/hooks/prompt_classifier.py"
         spec = importlib.util.spec_from_file_location("prompt_classifier", hook_path)
         hook = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(hook)

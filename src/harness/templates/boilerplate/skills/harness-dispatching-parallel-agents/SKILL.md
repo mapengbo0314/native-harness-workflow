@@ -69,13 +69,13 @@ Each agent gets:
 
 ### 3. Dispatch Local Harness Agents in Parallel
 
-You MUST dispatch using the local harness agents (`@implementer`, `@planner`, etc.) defined in `AGENTS.md`.
+You MUST dispatch using the local harness agents (`<!--$ subagent('implementer') $-->`, `<!--$ subagent('planner') $-->`, etc.) defined in `AGENTS.md`.
 
-```typescript
+```
 // In your environment
-@implementer "Fix agent-tool-abort.test.ts failures. Do not modify tests for other domains. Focus only on this scope."
-@implementer "Fix batch-completion-behavior.test.ts failures. Do not modify tests for other domains. Focus only on this scope."
-@implementer "Fix tool-approval-race-conditions.test.ts failures. Do not modify tests for other domains. Focus only on this scope."
+<!--$ subagent('implementer') $--> "Fix agent-tool-abort.test.ts failures. Do not modify tests for other domains. Focus only on this scope."
+<!--$ subagent('implementer') $--> "Fix batch-completion-behavior.test.ts failures. Do not modify tests for other domains. Focus only on this scope."
+<!--$ subagent('implementer') $--> "Fix tool-approval-race-conditions.test.ts failures. Do not modify tests for other domains. Focus only on this scope."
 // All three run concurrently
 ```
 

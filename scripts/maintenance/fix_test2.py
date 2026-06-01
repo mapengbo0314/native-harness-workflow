@@ -3,7 +3,7 @@ import re
 with open("tests/integration/test_dynamic_manifest.py", "r") as f:
     content = f.read()
 
-content = content.replace('python3 -m src.hooks', 'PYTHONPATH=.claude/harness-wr-plugin python3 -m src.hooks')
+content = content.replace('python3 -m src.hooks', 'PYTHONPATH=.claude/harness-wf-plugin python3 -m src.hooks')
 
 with open("tests/integration/test_dynamic_manifest.py", "w") as f:
     f.write(content)

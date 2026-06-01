@@ -25,10 +25,10 @@ Before dispatching any subagents, you MUST manage the progress state:
 4. If it doesn't exist, create it and initialize it with the tasks extracted from the design doc.
 
 ## 2. Dispatch the Local Harness Agents
-DO NOT map to generic `@generalist` agents. You MUST map tasks to the specialized local harness subagents defined in your `AGENTS.md` file:
-- For planning and specs: `@planner`
-- For writing code: `@implementer`
-- For QA/Review: `@reviewer` or `@verifier`
+DO NOT map to generic `<!--$ subagent('generalist') $-->` agents. You MUST map tasks to the specialized local harness subagents defined in your `AGENTS.md` file:
+- For planning and specs: `<!--$ subagent('planner') $-->`
+- For writing code: `<!--$ subagent('implementer') $-->`
+- For QA/Review: `<!--$ subagent('reviewer') $-->` or `<!--$ subagent('verifier') $-->`
 
 For every subagent you dispatch, copy the ENTIRE contents of their specific task into the message, fill in the placeholders, and send that as the complete task payload.
 

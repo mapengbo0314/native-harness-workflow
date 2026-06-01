@@ -1,7 +1,7 @@
 import re
 
-pre_tool = ".claude/harness-wr-plugin/src/hooks/pre_tool_guard.py"
-stop_mon = ".claude/harness-wr-plugin/src/hooks/stop_monitor.py"
+pre_tool = ".claude/harness-wf-plugin/src/hooks/pre_tool_guard.py"
+stop_mon = ".claude/harness-wf-plugin/src/hooks/stop_monitor.py"
 
 try:
     with open(pre_tool, 'r') as f:

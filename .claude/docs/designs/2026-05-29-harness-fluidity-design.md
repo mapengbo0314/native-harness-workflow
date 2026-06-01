@@ -53,7 +53,7 @@ an automated cross-platform mint-and-verify matrix — without a big-bang rewrit
   `supports_plugin` and `plugin_dir_name`; and (b) a **polymorphic `PlatformBuilder`**
   (Strategy behind the existing `get_adapter` factory) that owns _structure & process_ —
   it branches on capabilities to assemble either a **plugin stack** (when
-  `supports_plugin`, emitted into a `harness-wr-plugin/` folder) or an **embedded** layout.
+  `supports_plugin`, emitted into a `harness-wf-plugin/` folder) or an **embedded** layout.
   (Supersedes the earlier "spec+codegen" idea — codegen can substitute syntax strings but
   cannot express structural branching like plugin-vs-embedded; see Part 3.)
 - **Runtime slice ships by copy, not codegen.** The small runtime behavior that must run
@@ -84,7 +84,7 @@ keyed by platform — plus capability flags (`supports_plugin`, `plugin_dir_name
 **Structure & process** (lay out a plugin stack vs embed flat, install hooks, configure
 CLI) becomes a **polymorphic `PlatformBuilder`** behind the existing `get_adapter`
 factory; concrete builders branch on the profile's capabilities — e.g. `supports_plugin`
-emits the plugin architecture into `harness-wr-plugin/`, otherwise the embedded layout.
+emits the plugin architecture into `harness-wf-plugin/`, otherwise the embedded layout.
 The small **runtime slice** (`format_hook_response` + format strings) is **copied** into
 the plugin by the same `copy_runtime_modules` path already used for `dispatcher.py`. The
 monolith and the five hand-written `platform_adapter_<platform>.py` standalones are
@@ -199,7 +199,7 @@ per-platform _syntax_ + capabilities; the single source of truth for the data la
   for gemini — currently hard-coded in `gemini.install_hooks`), `skill_invocation`,
   `subagent_invocation`, `subagent_text_call` (+skill variant), `manifest_format`,
   `rules_pointer_files`, and **capability flags** `supports_plugin` (bool) +
-  `plugin_dir_name` (e.g. `harness-wr-plugin`). `tests/unit/test_platform_profiles.py`
+  `plugin_dir_name` (e.g. `harness-wf-plugin`). `tests/unit/test_platform_profiles.py`
   validates the schema for claude+gemini.
 
 **`src/harness/adapters/profile.py`** (new) — Rationale: typed accessor so builders and the
@@ -224,7 +224,7 @@ profile.
 
 - S2-T4 (RED→GREEN): `ClaudeBuilder.assemble_layout` keeps today's plugin-stack assembly
   (`claude.py:48-91`) but reads `supports_plugin`/`plugin_dir_name` from the profile and
-  writes `harness-wr-plugin/` (renamed from `plugin-generated/`). `GeminiBuilder` = embedded
+  writes `harness-wf-plugin/` (renamed from `plugin-generated/`). `GeminiBuilder` = embedded
   (no-op move, `gemini.py:61-64`). A default `EmbeddedBuilder` covers
   `supports_plugin=false`. Runtime methods move into a small per-platform `RuntimeAdapter`
   reading the profile's syntax. `tests/unit/test_builders.py`.
@@ -293,7 +293,7 @@ Ordered by the verification ladder (L1→L5); a slice ships only when every row 
 | L4    | Hook execution        | each of the 4 hooks, run via its declared interpreter with a canned stdin event, exits `0`/`2` and emits schema-valid stdout (S1-T8)                                         | hooks actually RUN — the only executable surface        |
 | L4    | Standalone invariant  | minted runtime slice imports with **no** `harness` on `sys.path`; `get_adapter()` no-arg returns the right platform                                                          | the plugin won't die at import in a user env            |
 | L5    | Routing scenarios     | **100%** of `tests/sandbox/scenarios/*.yaml` route to the expected skill+agent inside the minted plugin (S1-T5)                                                              | the plugin behaves, not just exists                     |
-| —     | Layout-by-capability  | `supports_plugin=true` → `harness-wr-plugin/` with expected subdirs; `false` → embedded layout                                                                               | the builder honored the profile                         |
+| —     | Layout-by-capability  | `supports_plugin=true` → `harness-wf-plugin/` with expected subdirs; `false` → embedded layout                                                                               | the builder honored the profile                         |
 | —     | Syntax applied        | tool names translated per `tool_mappings`; `event_mappings` applied (gemini hooks.json has `PreCompress`/`AfterTool`); correct rules pointer (`CLAUDE.md`/`GEMINI.md`)       | the profile data actually took effect                   |
 | —     | Behavior preservation | copied runtime slice output == S1-T2 canonical (before delete); drift-guard green                                                                                            | Slice 2 changed nothing observable                      |
 | —     | Profile schema        | `platform_profiles.json` validates for every registered platform (S2-T1)                                                                                                     | bad data fails fast, at mint, not at runtime            |
@@ -310,7 +310,7 @@ Ordered by the verification ladder (L1→L5); a slice ships only when every row 
   `supports_plugin`; assert embedded shape otherwise. This is the test analog of the
   builder's own branch, so the two can't silently disagree.
 - **Idempotency.** Mint twice into the same dir → stable, non-corrupting result (no doubled
-  dirs, no re-wrapped `harness-wr-plugin/harness-wr-plugin/`).
+  dirs, no re-wrapped `harness-wf-plugin/harness-wf-plugin/`).
 - **Negative / contract test for the standalone invariant.** Import the copied runtime
   slice in a subprocess with `harness` removed from `sys.path`; it must import and
   `get_adapter()` (no-arg) must return the platform — this is the failure mode that kills
