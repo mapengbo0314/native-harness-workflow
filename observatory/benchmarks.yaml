@@ -1,0 +1,25 @@
+# Commit size thresholds (churn = additions + deletions)
+commit_size:
+  healthy_p50: 50
+  warn_p50: 150
+  healthy_p90: 300
+  warn_p90: 800
+
+# PR size thresholds (total lines changed)
+pr_size:
+  healthy_lines: 400
+  warn_lines: 800
+
+# Rework rate thresholds (fraction of commits touching a file within 14d of prior touch)
+rework_rate:
+  healthy: 0.15
+  warn: 0.30
+
+# AI co-author patterns (matched against full commit message, case-insensitive)
+ai_patterns:
+  - "co-authored-by:.*claude"
+  - "co-authored-by:.*github-copilot"
+  - "co-authored-by:.*copilot"
+  - "generated with.*claude"
+  - "co-authored-by:.*gemini"
+  - "co-authored-by:.*cursor"
