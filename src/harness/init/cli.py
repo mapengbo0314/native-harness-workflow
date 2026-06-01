@@ -177,11 +177,50 @@ def run_embedded_setup(
     print("[HARNESS] Embedded setup complete.")
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Initialize a new Harness agent workspace.")
-    parser.add_argument("command", choices=["init"], help="Command to run")
+    parser = argparse.ArgumentParser(description="Initialize or update a Harness agent workspace.")
+    parser.add_argument("command", choices=["init", "update"], help="Command to run")
     parser.add_argument("--project-path", required=True, help="Path to the repository")
     parser.add_argument("--bundle", help="Path to an existing CodeGraph bundle (.codegraph directory)")
+    parser.add_argument("--check", action="store_true", help="(update) Dry-run: report stale/edited/conflicting files, write nothing")
     return parser.parse_args()
+
+
+def run_update(args) -> None:
+    """`harness-wf update` — in-place refresh of harness-owned files.
+
+    Phase A ships the read-only `--check` planner only.  Apply (Phases C/D) is
+    gated on the producer-reproduction refactor and is not wired here yet.
+    """
+    import harness
+    from harness.adapters.profile import load_profile
+    from harness.update.manifest import META_FILENAME
+    from harness.update.updater import plan_update
+
+    profile = load_profile("claude")
+    project = Path(args.project_path)
+    plugin_dir = project / profile.config_dir / profile.plugin_dir_name
+    package_root = Path(harness.__file__).parent
+
+    if not (plugin_dir / META_FILENAME).exists():
+        print(f"[HARNESS] No ownership manifest at {plugin_dir / META_FILENAME}.")
+        print("[HARNESS] This harness predates update support — run a full re-mint (`harness-wf init`).")
+        sys.exit(2)
+
+    if not args.check:
+        print("[HARNESS] Only `--check` (dry-run) is implemented in this phase. Apply is not yet available.")
+        sys.exit(2)
+
+    verdicts = plan_update(plugin_dir, package_root)
+    needs_attention = {"conflict", "missing", "unknown", "removed-upstream"}
+    counts: dict[str, int] = {}
+    print(f"[HARNESS] update --check  ({plugin_dir})\n")
+    for v in verdicts:
+        counts[v.verdict] = counts.get(v.verdict, 0) + 1
+        print(f"  {v.verdict:<16} {v.relpath}")
+    summary = ", ".join(f"{k}={n}" for k, n in sorted(counts.items()))
+    print(f"\n[HARNESS] {len(verdicts)} owned files — {summary or 'none'}")
+    if any(c in counts for c in needs_attention):
+        print("[HARNESS] Some files need a human decision (conflict/missing/unknown).")
 
 
 @observe()
@@ -204,6 +243,13 @@ def main():
     langfuse_context.update_current_trace(session_id=session_id, tags=tags)
 
     args = parse_args()
+
+    # `update` is a distinct lifecycle from `init`: it does not need npx,
+    # CodeGraph, platform selection, or the atomic-swap machinery.
+    if args.command == "update":
+        run_update(args)
+        langfuse_context.flush()
+        return
 
     if not shutil.which("npx"):
         print("\nError: 'npx' command not found. Node.js is required to use CodeGraph.")

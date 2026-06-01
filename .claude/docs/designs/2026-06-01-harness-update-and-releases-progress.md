@@ -11,12 +11,13 @@ Goal: ship `harness-wf update --check` (dry-run) end-to-end. No file in `.claude
 
 - [ ] A1. 🟢 `tests/unit/test_classification.py` → `src/harness/update/classification.py`
       glob→class (`generated`/`customizable`/`derived`), `producer` tag (`template`/`runtime_copy`/`export`/`verbatim`), EXCLUDE set (`state/`,`logs/`,`.venv/`,`.deepeval/`,`__pycache__/`,`*.pyc`,`harness.db`,`uv.lock`,`.env.telemetry-harness`). Assert user paths + pollution are NOT owned.
-- [ ] A2. 🟢 `tests/unit/test_hashing.py` → normalize+hash helper (LF, strip trailing WS) in `manifest.py`. Pure.
-- [ ] A3. 🟢 `tests/unit/test_manifest.py` → `manifest.write_manifest` / `read_manifest`. Records `source_hash`, `rendered_hash`, `class`, `producer`, `source_path`; excludes EXCLUDE set; version from pyproject. (Write is wired into mint in Phase C; here test it standalone against a fixture tree.)
-- [ ] A4. 🟢 `tests/unit/test_updater_plan.py` → `updater.plan_update` two-hash truth table (we_changed × user_edited → current/apply/keep-yours/CONFLICT). Verdict-only, no disk. Parametrized.
-- [ ] A5. 🟢 `tests/unit/test_merge3.py` → `conflict.three_way(ours, base, theirs)` wrapper over `git merge-file -p`. Returns merged text + conflict flag. Pure, fixture-driven.
-- [ ] A6. 🟢 `tests/unit/test_base_sidecar.py` → base sidecar writer (gzip customizable files). Pure.
-- [ ] A7. 🟢 `tests/integration/test_update_check.py` → `harness-wf update --project-path . --check` reads manifest, prints verdicts, **writes nothing**. Assert exit code + zero disk mutation.
+- [x] A1. 🟢 `tests/unit/test_update_classification.py` → `src/harness/update/classification.py` (DONE)
+- [x] A2. 🟢 normalize+hash helper in `manifest.py` → `tests/unit/test_update_manifest.py` (DONE)
+- [x] A3. 🟢 `manifest.write_manifest` / `read_manifest` (standalone) → `tests/unit/test_update_manifest.py` (DONE; real-mint wiring is C1)
+- [x] A4. 🟢 `updater.plan_update` two-hash truth table → `tests/unit/test_update_updater.py` (DONE)
+- [x] A5. 🟢 `conflict.three_way` over `git merge-file -p` → `tests/unit/test_update_merge3.py` (DONE)
+- [x] A6. 🟢 base sidecar writer/reader in `manifest.py` → `tests/unit/test_update_sidecar.py` (DONE)
+- [x] A7. 🟢 `harness-wf update --check` (read-only) in `cli.py` → `tests/integration/test_update_check.py` (DONE)
 
 ## Phase B — Producer reproduction (🔴/🟡 REFACTOR FIRST — gates all apply)
 Goal: given a new package, reproduce the correct "theirs" bytes per `producer`. This is the real first decision.
@@ -24,7 +25,7 @@ Goal: given a new package, reproduce the correct "theirs" bytes per `producer`. 
 - [ ] B1. 🔴 Extract a **pure single-file render** from `mint_workspace` (Jinja + `.claude`→dir + tool_mappings + `@include`) callable as `render_template(src, context)` with NO side effects (no sentinel, no ghost injection, no CONTEXT.md seeding). Characterization tests first to pin current output byte-for-byte.
 - [ ] B2. 🟡 `runtime_copy` reproduction: factor `copy_runtime_modules` so a single runtime artifact (incl. emitted `platform_adapter.py`) can be reproduced for compare/apply.
 - [ ] B3. 🟡 `derived` regeneration: make `export_orchestrator_config`/`export_agents_config`/`export_rules_config` regenerate JSON from an arbitrary (staged) `.md` dir → config dir.
-- [ ] B4. 🟢 `implementer.md` split at exact marker `### STRICT INVARIANTS (Ghost Injection)` — harness owns above, project owns below (R4). Small/pure.
+- [x] B4. 🟢 `implementer.md` split at marker → `src/harness/update/ghost.py`, `tests/unit/test_update_ghost.py` (DONE)
 
 ## Phase C — Transactional apply (after B)
 - [ ] C1. Wire `write_manifest` into `cli.py` as the final post-swap init step; extend an init integration test (assert `owned` present, pollution + `.env.telemetry-harness` excluded).
@@ -39,8 +40,8 @@ Goal: given a new package, reproduce the correct "theirs" bytes per `producer`. 
 - [ ] D3. Cross-MAJOR gate (R9): refuse piecemeal; require migration or re-mint. `--force` (take-theirs, atomic) + `--force-major` + `--adopt` (synthesize manifest from current tree).
 
 ## Slice 2 — Release discipline (parallelizable; mostly process)
-- [ ] S1. 🟢 `tests/unit/test_version_stamp.py` — `.harness-meta.json` version == pyproject version.
-- [ ] S2. 🟢 `CHANGELOG.md` (Keep-a-Changelog) + `docs/RELEASING.md` (tag → SemVer-intent → git-ref/PyPI).
+- [x] S1. 🟢 `tests/unit/test_update_version_stamp.py` — manifest version == pyproject version (DONE)
+- [x] S2. 🟢 `CHANGELOG.md` + `docs/RELEASING.md` (DONE)
 - [ ] S3. Tag `v0.2.0` after Phase A–C land.
 
 ---
