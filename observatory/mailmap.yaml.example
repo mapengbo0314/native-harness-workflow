@@ -1,0 +1,12 @@
+# Map git author aliases to canonical names.
+# Add entries when you see unrecognised authors in the dashboard.
+# To fix at source on each machine:
+#   git config --global user.name "Canonical Name"
+#   git config --global user.email "canonical@email.com"
+
+Your Name:
+  emails:
+    - you@example.com
+    - you@work.com
+  names:
+    - Your Name at Company

@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.indxr-cache/
+repos.yaml
+mailmap.yaml
+*.db
+*.db-shm
+*.db-wal
