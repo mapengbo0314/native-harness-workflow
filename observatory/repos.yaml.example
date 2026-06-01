@@ -1,0 +1,12 @@
+# Path to your local clone of native-harness-workflow (for harness version tracking)
+harness_source_path: /your/workspace/native-harness-workflow
+
+repos:
+  - org: your-github-org
+    repo: your-repo
+    display_name: Your Repo
+    local_path: /your/workspace/your-repo
+  - org: your-github-org
+    repo: another-repo
+    display_name: Another Repo
+    local_path: /your/workspace/another-repo
