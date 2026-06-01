@@ -125,3 +125,60 @@ Skipped during the HITL process (2026-06-01). An external adversarial pass was r
 
 4. **Headless must fail closed, not "auto-keep-yours and proceed."**
    Generated files overwrite while customizable files auto-keep; in headless mode this can ship a generated hook updated against a stale customizable agent it has a contract with — a silent runtime break that reports success. Required: in headless mode a conflict (or a cross-MAJOR version step) **aborts the run, applies nothing, exits non-zero**, and prints the conflict list. Never silently complete a partial update across a contract boundary.
+
+### Reworked Resolutions — Fixes 1 & 2 (supersede the original chat proposals)
+
+A code-grounded review (verified against `minting_engine.py`, `plugin_generator.py`) showed the original fixes for Blockers 1 & 2 fail because (a) the on-disk render is **not** reproducible from `{harness_dir_name, platform, project_slug}` — it also depends on ghost-injected `CONTEXT.md` invariants (`implementer.md`), `selected_agents`, and the injected ingestion key; and (b) `agents.json`/`rules.json`/orchestrator config **embed the rendered `.md` source** (`export_*_config`, `"source": f.read()`), so overwriting the `generated` JSON from the new template silently reverts a user `.md` edit and desyncs the dispatcher (which reads the JSON). The rework below replaces both fixes.
+
+**R1 — Detect with a two-hash split; never compare in rendered space.** Stop trying to re-render the incoming template to match the deployed file. Record **two** fingerprints per owned file and answer two independent questions in the space where each is deterministic:
+- `source_hash` — hash of the **raw upstream source** (the template file, or the runtime module for `copy_runtime_modules` artifacts) at ship time. *"Did WE change it?"* = new-package source_hash ≠ manifest source_hash. Pure template-space; rendering never enters.
+- `rendered_hash` — normalized (LF, trailing-WS-stripped) hash of the **on-disk bytes** at ship time. *"Did the USER edit it?"* = current-disk hash ≠ manifest rendered_hash. Both sides are rendered, so ghost-injection/selected_agents/key content **cancels** — no false positives.
+
+Verdict truth table:
+
+| we_changed | user_edited | verdict |
+|---|---|---|
+| no | no | current (skip) |
+| yes | no | apply |
+| no | yes | keep-yours |
+| yes | yes | CONFLICT |
+
+This eliminates Blocker 1's false-positive storm without storing render context for *detection*. Re-rendering is needed only to **produce** an updated file on `apply`/`theirs`, via a per-file `producer` (below) — and a render/rewrite failure there must be **surfaced, not swallowed** (current pipeline silently `except: pass` on render — that must not carry into update).
+
+**R2 — A third ownership class `derived`, to kill the `.json`↔`.md` desync.** Classes become:
+- `generated` — overwrite from upstream (runtime code, hooks).
+- `customizable` — 3-way merge (`.md` mandate/skill/agent files).
+- `derived` — **regenerate from the post-merge `customizable` sources, never compared or overwritten from a template.** `agents.json`, `rules.json`, orchestrator config are `derived`: after the `.md` files are merged/applied, re-run `export_*_config` over the final on-disk `.md` set so the JSON the dispatcher reads always matches the merged source. Manifest records `derived_from: [<source .md relpaths>]`.
+
+**R3 — Per-file `producer` tag drives reproduction.** Detection is uniform (two hashes); production is not. Tag each owned file:
+- `template` — Jinja + `.claude`→dir + tool_mappings + `@include`; reproducible from stored `render_context {harness_dir_name, platform}` (tool_mappings/subagent syntax derive from the platform profile; `selected_agents` recorded too — currently `[]` on the Claude path but must be captured if populated).
+- `runtime_copy` — `copy_runtime_modules` regex import-rewrite / string-emit (`dispatcher.py`, `runtime_adapter.py`, emitted `platform_adapter.py`, …). NOT Jinja — update re-runs the rewrite, not the renderer.
+- `export` — the `derived` JSON projections (see R2).
+- `verbatim` — copied unchanged.
+
+**R4 — Split `implementer.md` at the ghost-injection marker.** The harness owns `implementer.md` only **up to** the exact line `### STRICT INVARIANTS (Ghost Injection)` (`minting_engine.py:210`); everything after is project-owned and never touched. Base/theirs cover only the harness portion (now reproducible), the invariants tail is preserved verbatim. This is the only special-case needed to make the customizable agent set reproducible.
+
+**R5 — Exclude `.env.telemetry-harness` from the manifest.** It carries the real ingestion key; it is post-mint config, not something `update` should refresh. Add it to the `EXCLUDE` set alongside `state/`, `logs/`, `.venv/`, `.deepeval/`, `__pycache__/`, `*.pyc`, `harness.db`, `uv.lock`.
+
+**R6 — Real 3-way merge via `git merge-file`, not `merge_markdown`.** Keep the gzipped **base sidecar** for `customizable` files only — that part of the original Fix 2 was correct and removes the dependency on retrievable old releases. But the merge engine must be a true diff3: shell out to `git merge-file -p <ours> <base> <theirs>` (verified available; operates on loose files, no repo needed), which emits standard conflict markers and a conflict exit code. The existing `merge_markdown` is a lossy section-*union* with no conflict detection (the "plausible-but-wrong" behavior Alt-D rejected) and must NOT be used for conflict resolution; it may remain only for purely-additive, non-conflicting cases.
+
+**R7 — Source-driven file discovery (resolves the "new file" leash contradiction).** Because detection is keyed off upstream `source_hash`, the plan iterates the **new package's** producer-paths, not only the existing manifest. A producer-path present upstream but absent from the manifest = a **new** owned file to deliver; a manifest entry whose upstream source no longer exists = a **removed** file (emit an explicit remove verdict; for `customizable`, treat as a conflict class needing human/headless-stop). The "leash" is therefore "files matching harness producer-paths," which both delivers new harness files and still cannot touch anything outside the producer mapping (user files remain invisible).
+
+**Revised manifest schema (supersedes Section 3's sketch):**
+```
+.harness-meta.json
+  harness_version, built_at                 # PR #26
+  render_context: { harness_dir_name, platform, selected_agents }
+  owned: { <relpath>: {
+      class: generated|customizable|derived,
+      producer: template|runtime_copy|export|verbatim,
+      source_path: <package-relative upstream path | null for derived>,
+      source_hash, rendered_hash,
+      derived_from: [..]            # derived only
+      owned_until_marker: "..."     # split files only (implementer.md)
+  } }
+.harness-meta/base/<relpath>.gz             # customizable files only
+EXCLUDE += .env.telemetry-harness
+```
+
+**Status of the other two blockers:** Fixes 3 (transactional apply — needs a startup crash-recovery journal, and the `derived` JSON must commit in the same file-set as its `.md` sources) and 4 (headless fail-closed — needs a concrete contract-group source, absent/old-version handling, and whole-group `--force`) remain **SOUND-WITH-GAPS** and are tracked for a follow-up rework. Note R2's `derived` class already removes the worst contract-drift case (the `.md`↔`.json`↔dispatcher triad) that Blocker 4 was most exposed to.
