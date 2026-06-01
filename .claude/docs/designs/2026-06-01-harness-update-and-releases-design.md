@@ -110,4 +110,18 @@ src/harness/update/
 
 ## Section 4 — Adversarial Review
 
-Skipped by user (2026-06-01). May be run later via the adversary pass before execution if desired.
+Skipped during the HITL process (2026-06-01). An external adversarial pass was run afterward; only the findings that are **true correctness/safety blockers** are recorded below. Environmental/line-ending noise and "user edited a file they shouldn't have" cases were judged out of scope.
+
+### ⚠️ Critical Blockers — MUST resolve before implementing Slice 1
+
+1. **Comparison must be render-aware (else every file false-flags as changed).**
+   `minting_engine.py` transforms every file at mint time — Jinja rendering, `.claude`→`target_dir_name`, tool mappings, `@include` inlining. So the on-disk artifact is NOT the raw template. Hashing/diffing the raw template against the rendered on-disk file will mark **everything** as changed and the engine produces garbage verdicts. The manifest hash must be computed over the *rendered* artifact, and the incoming comparison must **re-render the template with the same mint context** before hashing or diffing. This is load-bearing — the feature does not function without it.
+
+2. **A true 3-way merge needs the base TEXT, which the hash-only design cannot reconstruct.**
+   The `[M]erge` (and any real conflict resolution) requires Base + Ours + Theirs. The manifest hash detects divergence but cannot regenerate the base text, so as specified `[M]` collapses to an error-prone 2-way merge. The base is recoverable — it equals "the template that shipped at the deployed version" — but ONLY if old template versions are retrievable (the `cruft` model: store a version ref, recover base on demand). This couples to Slice 2 (versioned, retrievable releases). Decision required: either (a) recover base via versioned templates, or (b) honestly downgrade `[M]` to a 2-way merge and drop the 3-way claim. Do not ship the 3-way claim without (a).
+
+3. **The apply phase must be transactional (no partial-state corruption).**
+   Removing the atomic swap was over-broad. A sequential file-by-file apply that dies mid-run (exception, or abort during an interactive prompt) strands `.claude/` across versions with the manifest out of sync with disk. Required mitigation: stage all resolved writes, apply them as a single file-set commit, and **re-stamp the manifest last**. Scope atomicity to the resolved owned-file set — do not reintroduce the full-dir backup/swap.
+
+4. **Headless must fail closed, not "auto-keep-yours and proceed."**
+   Generated files overwrite while customizable files auto-keep; in headless mode this can ship a generated hook updated against a stale customizable agent it has a contract with — a silent runtime break that reports success. Required: in headless mode a conflict (or a cross-MAJOR version step) **aborts the run, applies nothing, exits non-zero**, and prints the conflict list. Never silently complete a partial update across a contract boundary.
