@@ -165,8 +165,8 @@ def test_assemble_layout_folder_name_is_harness_wr_plugin(tmp_path: Path) -> Non
 
     plugin_dir = project / ".harness_tmp" / "harness-wr-plugin"
     assert plugin_dir.exists(), "folder must be 'harness-wr-plugin' (renamed by S2-T4b)"
-    assert not (project / ".harness_tmp" / "harness-wr-plugin").exists(), (
-        "old harness-wr-plugin name must NOT be used after S2-T4b"
+    assert not (project / ".harness_tmp" / "plugin-generated").exists(), (
+        "old plugin-generated name must NOT be used after S2-T4b"
     )
 
 

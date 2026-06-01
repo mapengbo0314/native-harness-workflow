@@ -1,7 +1,19 @@
 """Plugin generator for orchestrator-based Claude Code integration."""
 import json
+import tomllib
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+
+
+def _read_harness_version() -> str:
+    """Read version from pyproject.toml — single source of truth."""
+    pyproject = Path(__file__).parent.parent.parent.parent / "pyproject.toml"
+    try:
+        with open(pyproject, "rb") as f:
+            return tomllib.load(f)["project"]["version"]
+    except Exception:
+        return "0.0.0"
 
 # NOTE: `load_profile` is imported lazily inside the functions that use it.
 # A top-level import here creates a circular import: plugin_generator ->
@@ -15,7 +27,8 @@ def generate_plugin_manifest(
     project_name: str,
     plugin_version: str = "1.0.0",
     skills_dir: Optional[Path] = None,
-    logical_plugin_dir: Optional[str] = None
+    logical_plugin_dir: Optional[str] = None,
+    harness_version: Optional[str] = None,
 ) -> str:
     """Generate plugin.json for the orchestrator plugin.
 
@@ -34,10 +47,13 @@ def generate_plugin_manifest(
     hooks_dir = plugin_dir / "hooks"
     hooks_dir.mkdir(parents=True, exist_ok=True)
 
+    stamped_version = harness_version or _read_harness_version()
     settings = {
         "name": "orchestrator-plugin",
         "description": f"Auto-generated orchestrator plugin for {project_name}",
-        "version": plugin_version,
+        "version": stamped_version,
+        "harness_version": stamped_version,
+        "built_at": datetime.now(timezone.utc).isoformat(),
         "author": {
             "name": "E2G Harness"
         }
@@ -275,10 +291,11 @@ def generate_orchestrator_plugin(
         print(f"[HARNESS] Generating plugin at {plugin_dir}")
         print(f"[HARNESS] Using boilerplate from {bp_dir}")
 
-        # Generate manifest
+        # Generate manifest — stamp actual harness version from pyproject.toml
         print(f"[HARNESS] Generating manifest...")
-        generate_plugin_manifest(str(plugin_dir), project_name, plugin_version, logical_plugin_dir=str(logical_plugin_dir))
-        generate_local_marketplace(project_path / harness_folder, plugin_version=plugin_version, plugin_dir_name=_plugin_dir_name)
+        harness_version = _read_harness_version()
+        generate_plugin_manifest(str(plugin_dir), project_name, plugin_version, logical_plugin_dir=str(logical_plugin_dir), harness_version=harness_version)
+        generate_local_marketplace(project_path / harness_folder, plugin_version=harness_version, plugin_dir_name=_plugin_dir_name)
 
         # Export configs
         print(f"[HARNESS] Exporting configs...")
