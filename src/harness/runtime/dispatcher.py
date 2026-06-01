@@ -388,12 +388,12 @@ selected_branch MUST be exactly one of: {valid_keys}
         actual_model = getattr(_llm_client_module, "last_actual_model", None)
         if not actual_model:
             _, actual_model = get_active_platform_and_model()
-        langfuse_context.update_current_observation(model=actual_model)
 
         branch_pointers = self.assemble_branch_context(agent_name, str(intent_branch) if intent_branch else "None")
         context["branch_context_pointers"] = branch_pointers
 
         langfuse_context.update_current_observation(
+            model=actual_model,
             output={
                 "intent_branch": intent_branch,
                 "target_agent": routing_decision.get("target_agent"),
