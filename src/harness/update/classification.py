@@ -78,6 +78,15 @@ RUNTIME_SOURCE_MAP: dict[str, Optional[str]] = {
 # Derived JSON projections regenerated from .md via export_*_config.
 DERIVED_FILES: frozenset[str] = frozenset({"agents.json", "rules.json", "orchestrator.json"})
 
+# D8 — declarative mapping: derived JSON filename -> source dir/file (plugin-relative).
+# Each value is the relpath of the .md source that produces the corresponding JSON.
+# agents/ and rules/ are directories; orchestrator.md is a single file in harness_dir.
+DERIVED_FROM: dict[str, str] = {
+    "agents.json": "agents",
+    "rules.json": "rules",
+    "orchestrator.json": "orchestrator.md",
+}
+
 # Emitted plugin manifests with no single template source.
 EMITTED_GENERATED: frozenset[str] = frozenset({
     ".claude-plugin/plugin.json",
