@@ -269,7 +269,11 @@ def run_update(args) -> None:
         print(f"[HARNESS] update applied — {summary or 'no changes'}")
         return
 
-    verdicts = plan_update(plugin_dir, package_root, force=args.force)
+    from harness.update.manifest import read_manifest
+    from harness.update.updater import _migrate_b0_paths
+    manifest = read_manifest(plugin_dir)
+    _migrate_b0_paths(manifest, harness_dir, plugin_dir, package_root, dry_run=True)
+    verdicts = plan_update(plugin_dir, package_root, manifest, force=args.force)
     needs_attention = {"conflict", "requires-human", "unknown", "removed-upstream"}
     counts: dict[str, int] = {}
     print(f"[HARNESS] update --check  ({plugin_dir})\n")

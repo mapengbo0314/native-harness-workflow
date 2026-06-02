@@ -87,3 +87,17 @@ Goal: given a new package, reproduce the correct "theirs" bytes per `producer`. 
 - Missing upstream files with `customizable` properly blocked without `--force`.
 - `_ensure_same_major` correctly blocks unforced cross-major updates.
 - Tests (e.g., `test_plan_update_force`) were correctly renamed and pass.
+
+
+## Current Blockers
+- **`update --check` Broken for B0 Migration (Critical)**: `src/harness/init/cli.py` ignores `_migrate_b0_paths(dry_run=True)` during dry-runs. This causes `update --check` to produce a completely wrong plan (showing migrated files as missing/new) because `plan_update` evaluates against the old un-migrated manifest.
+
+### Structured Review Checklist
+- [x] Severity taxonomy
+- [x] Impact / Regression
+- [x] Reproducibility
+- [x] Confidence
+
+#### Findings
+- [Critical] [src/harness/init/cli.py] [CLI/UX] `update --check` completely skips `_migrate_b0_paths` for dry runs. This causes the pre-planner migration to be ignored, meaning `plan_update` evaluates against the old un-migrated manifest. `cli.py` line 272 must read the manifest, call `_migrate_b0_paths` with `dry_run=True`, and then pass the updated manifest to `plan_update`.
+- [Minor] [src/harness/update/updater.py] [Architecture] `_migrate_b0_paths` properly stages moved files into the manifest dictionary so `plan_update` processes them, but the final manifest writes them using a fresh evaluation against `staged_plugin`. This achieves the requirement but relies on overlapping state updates.
