@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -50,6 +51,16 @@ def _prepared_project(config: str):
         project = Path(tmp) / "project"
         shutil.copytree(TARGET_PROJECT, project)
 
+        # Git repo required for Claude Code hooks to fire in --print mode
+        subprocess.run(["git", "init"], cwd=project, capture_output=True, check=True)
+        subprocess.run(["git", "add", "."], cwd=project, capture_output=True, check=True)
+        subprocess.run(
+            ["git", "commit", "-m", "init", "--allow-empty"],
+            cwd=project, capture_output=True, check=True,
+            env={**os.environ, "GIT_AUTHOR_NAME": "bench", "GIT_AUTHOR_EMAIL": "bench@bench",
+                 "GIT_COMMITTER_NAME": "bench", "GIT_COMMITTER_EMAIL": "bench@bench"},
+        )
+
         if config == "minimal":
             config_dir = FIXTURES_DIR / "configs" / "minimal"
             for f in config_dir.glob("*"):
@@ -88,16 +99,22 @@ def run_scenario(scenario_path: Path, config: str, timeout: int = 300) -> Sessio
 
     with _prepared_project(config) as project:
         plugin_dir = project / ".claude" / "harness-wf-plugin"
-        plugin_flag = ["--plugin-dir", str(plugin_dir)] if plugin_dir.exists() else []
-        base_cmd = ["claude", "--print", "--dangerously-skip-permissions"] + plugin_flag
+        plugin_flags = f"--plugin-dir {shlex.quote(str(plugin_dir))}" if plugin_dir.exists() else ""
 
         turns: list[Turn] = []
         try:
             for i, prompt in enumerate(turn_prompts):
-                cmd = base_cmd + (["--continue"] if i > 0 else [])
+                continue_flag = "--continue" if i > 0 else ""
+                # claude (Bun binary) hangs when stdout is a Python pipe; use shell pipe instead.
+                cmd = (
+                    f"cd {shlex.quote(str(project))} && "
+                    f"echo {shlex.quote(prompt)} | "
+                    f"claude --print --dangerously-skip-permissions "
+                    f"{plugin_flags} {continue_flag}"
+                )
                 result = subprocess.run(
-                    cmd, cwd=project, env=env,
-                    input=prompt, capture_output=True, text=True, timeout=timeout,
+                    cmd, shell=True, env=env,
+                    capture_output=True, text=True, timeout=timeout,
                 )
                 turns.append(Turn(user=prompt, assistant=result.stdout))
         except subprocess.TimeoutExpired:

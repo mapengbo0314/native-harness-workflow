@@ -40,6 +40,7 @@ def load_fallback_classify():
 
 def llm_classify(prompt: str) -> str:
     """Use Claude CLI to classify a prompt the same way the dispatcher would."""
+    import shlex
     system = (
         "You are a routing classifier. Classify the user prompt into exactly one category:\n"
         "A = bug fix or diagnosis (errors, crashes, broken things)\n"
@@ -48,11 +49,14 @@ def llm_classify(prompt: str) -> str:
         "E = miscellaneous or off-topic\n\n"
         "Reply with a single letter: A, B, C, or E. Nothing else."
     )
-    result = subprocess.run(
-        ["claude", "--print", "--dangerously-skip-permissions",
-         "--append-system-prompt", system],
-        input=prompt, capture_output=True, text=True, timeout=30,
+    # Use shell pipe — claude (Bun binary) hangs when stdout is a Python pipe.
+    # --system-prompt replaces the default Claude Code system prompt so the model
+    # returns a bare letter instead of a full coding response.
+    cmd = (
+        f"echo {shlex.quote(prompt)} | claude --print --dangerously-skip-permissions"
+        f" --system-prompt {shlex.quote(system)}"
     )
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=60)
     letter = result.stdout.strip()[:1].upper()
     return letter if letter in "ABCE" else "E"
 
