@@ -18,6 +18,11 @@ from harness.init.render import (
     render_pass1,
     render_template,
 )
+from harness.init.runtime_slice import (
+    RUNTIME_FILE_MAP,
+    rewrite_imports,
+    emit_platform_adapter,
+)
 
 
 def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: str, platform_choice: str, model_choice: str = None, boilerplate_dir: str = None, logical_harness_name: str = None):
@@ -530,74 +535,44 @@ def copy_runtime_modules(target_dir: Path, platform_id: str = "generic") -> None
 
     The old per-platform standalone files (platform_adapter_claude.py, etc.) are
     NOT deleted here — that is deferred to S2-T7.
-    """
-    runtime_src = Path(__file__).parent.parent / "runtime"
-    adapters_src = Path(__file__).parent.parent / "adapters"
-    init_src = Path(__file__).parent
 
-    # Resolve platform_id to a known one; fall back to "generic" for unknowns.
-    _known_platforms = {"claude", "gemini", "codex", "cursor", "generic"}
-    resolved_platform_id = platform_id if platform_id in _known_platforms else "generic"
+    Implementation delegates to the shared helpers in
+    ``harness.init.runtime_slice`` (RUNTIME_FILE_MAP, rewrite_imports,
+    emit_platform_adapter) — single source of truth for file list, regex, and
+    emitted template (D4/D5).
+    """
+    package_root = Path(__file__).parent.parent  # src/harness/
 
     src_dir = target_dir / "src"
     src_dir.mkdir(parents=True, exist_ok=True)
-    (src_dir / "__init__.py").write_text("")
 
-    # Core .py files to copy and import-rewrite.
-    core_files = {
-        "dispatcher.py": runtime_src / "dispatcher.py",
-        "llm_client.py": runtime_src / "llm_client.py",
-        "context_builder.py": runtime_src / "context_builder.py",
-        "langfuse_compat.py": runtime_src / "langfuse_compat.py",
-        "langfuse_instrumentation.py": runtime_src / "langfuse_instrumentation.py",
-        "discovery_engine.py": init_src / "discovery_engine.py",
-        # Canonical runtime adapter slice (replaces per-platform standalones).
-        "runtime_adapter.py": adapters_src / "runtime_adapter.py",
-        "profile.py": adapters_src / "profile.py",
-    }
+    for name, source_rel in RUNTIME_FILE_MAP.items():
+        dest = src_dir / name
 
-    for dest_name, src_path in core_files.items():
-        if src_path.exists():
-            print(f"[HARNESS] Copying {dest_name} ({src_path.name})...")
-            shutil.copy2(src_path, src_dir / dest_name)
+        if source_rel is None:
+            # Emitted files
+            if name == "platform_adapter.py":
+                print(f"[HARNESS] Emitting platform_adapter.py (platform={platform_id!r})...")
+                dest.write_text(emit_platform_adapter(platform_id), encoding="utf-8")
+            elif name == "__init__.py":
+                dest.write_text("")
+            # (any future emitted sentinels land here as empty files)
+        elif not name.endswith(".py"):
+            # Verbatim non-Python copy (e.g. platform_profiles.json)
+            src_path = package_root / source_rel
+            if src_path.exists():
+                print(f"[HARNESS] Copying {name} ({src_path.name})...")
+                shutil.copy2(src_path, dest)
+            else:
+                print(f"[HARNESS] Warning: {name} not found at {src_path}")
         else:
-            print(f"[HARNESS] Warning: {dest_name} not found at {src_path}")
-
-    # Copy platform_profiles.json (non-.py; handled separately from the rewrite loop).
-    profiles_json_src = adapters_src / "platform_profiles.json"
-    if profiles_json_src.exists():
-        print("[HARNESS] Copying platform_profiles.json...")
-        shutil.copy2(profiles_json_src, src_dir / "platform_profiles.json")
-    else:
-        print("[HARNESS] Warning: platform_profiles.json not found")
-
-    # Rewrite harness-internal import paths so copied modules resolve locally.
-    # Widened to cover harness.adapters.* in addition to harness.runtime.* / harness.init.*.
-    # Handles both forms:
-    #   "from harness.runtime.X import Y"   → "from X import Y"
-    #   "from harness.adapters.X import Y"  → "from X import Y"
-    #   "import harness.runtime.X as Y"     → "import X as Y"
-    for py_file in src_dir.glob("*.py"):
-        text = py_file.read_text(encoding="utf-8")
-        patched = re.sub(r"from harness\.(?:runtime|init|adapters)\.", "from ", text)
-        patched = re.sub(r"import harness\.(?:runtime|init|adapters)\.", "import ", patched)
-        if patched != text:
-            py_file.write_text(patched, encoding="utf-8")
-
-    # Emit platform_adapter.py — a minimal no-arg shim with the platform baked in.
-    # The prompt_classifier hook does: from platform_adapter import get_adapter
-    #                                  adapter = get_adapter()
-    # Zero harness.* imports — runtime_adapter is resolved locally after the rewrite above.
-    platform_adapter_content = (
-        '"""Minted platform adapter — auto-generated by copy_runtime_modules.\n\n'
-        "Platform is baked at mint time.  No harness.* imports.\n"
-        '"""\n\n'
-        "from runtime_adapter import get_adapter as _get_adapter\n\n\n"
-        "def get_adapter():\n"
-        f'    """No-arg shim — delegates to runtime_adapter with platform baked in."""\n'
-        f'    return _get_adapter("{resolved_platform_id}")\n'
-    )
-    pa_dest = src_dir / "platform_adapter.py"
-    print(f"[HARNESS] Emitting platform_adapter.py (platform={platform_id!r})...")
-    pa_dest.write_text(platform_adapter_content, encoding="utf-8")
+            # Python source — copy then import-rewrite
+            src_path = package_root / source_rel
+            if src_path.exists():
+                print(f"[HARNESS] Copying {name} ({src_path.name})...")
+                text = src_path.read_text(encoding="utf-8")
+                patched = rewrite_imports(text)
+                dest.write_text(patched, encoding="utf-8")
+            else:
+                print(f"[HARNESS] Warning: {name} not found at {src_path}")
 

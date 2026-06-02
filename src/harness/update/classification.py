@@ -22,6 +22,8 @@ import fnmatch
 from dataclasses import dataclass
 from typing import Optional
 
+from harness.init.runtime_slice import RUNTIME_FILE_MAP
+
 
 @dataclass(frozen=True)
 class Ownership:
@@ -63,19 +65,14 @@ def is_excluded(relpath: str) -> bool:
 # --- runtime slice (copied/emitted by copy_runtime_modules) -----------------
 # deployed ``src/<name>`` -> package-relative source under src/harness/.
 # None == emitted at mint time (no single upstream file).
+#
+# D5: This map is derived from RUNTIME_FILE_MAP (single source of truth in
+# harness.init.runtime_slice).  The shape is preserved identically so that all
+# callers of RUNTIME_SOURCE_MAP continue to work unchanged.
 
 RUNTIME_SOURCE_MAP: dict[str, Optional[str]] = {
-    "src/dispatcher.py": "runtime/dispatcher.py",
-    "src/llm_client.py": "runtime/llm_client.py",
-    "src/context_builder.py": "runtime/context_builder.py",
-    "src/langfuse_compat.py": "runtime/langfuse_compat.py",
-    "src/langfuse_instrumentation.py": "runtime/langfuse_instrumentation.py",
-    "src/discovery_engine.py": "init/discovery_engine.py",
-    "src/runtime_adapter.py": "adapters/runtime_adapter.py",
-    "src/profile.py": "adapters/profile.py",
-    "src/platform_profiles.json": "adapters/platform_profiles.json",
-    "src/platform_adapter.py": None,   # emitted (platform baked in)
-    "src/__init__.py": None,           # emitted (empty)
+    f"src/{name}": source_rel
+    for name, source_rel in RUNTIME_FILE_MAP.items()
 }
 
 # Derived JSON projections regenerated from .md via export_*_config.
