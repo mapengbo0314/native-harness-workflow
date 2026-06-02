@@ -218,3 +218,27 @@ update flags: --check (dry-run) · --force · --force-major · --adopt · --non-
 ```
 
 All four blockers are now resolved at design level; remaining work is execution per the Section 3 TDD sequence (extended with journal-recovery and version-gate tests).
+
+### Phase B — Locked Decisions (2026-06-01)
+
+User decisions for the producer-reproduction phase:
+
+- **D1 — Refactor + characterization (not duplicate).** `mint_workspace` and `copy_runtime_modules` will be refactored to *call* the new pure functions (`render_template`, per-file runtime reproduction), so there is a single source of truth and no drift. Mandatory: pin current output **byte-for-byte** with characterization tests *before* refactoring.
+- **D2 — Replicate current render quirks exactly.** Reproduce the naive `.claude`→dir `str.replace`, the word-boundary regex pass in `assemble_layout`, and the silent `try/except: pass` Jinja-failure behavior faithfully, so `rendered_hash` matches existing deployments. The quirks are filed as separate bugs to fix later under a versioned MAJOR (which ships a migration), never silently.
+- **D6 — Whole-harness scope via an explicit OWNED-ROOTS allow-list.** `update` does NOT walk all of `.claude/`. It enumerates only known harness roots; user-custom files are never even looked at. Ownership stays a *positive* allow-list (classification) AND is gated by manifest membership — two independent gates. Conflict resolution outside the plugin is identical (base sidecar + `git merge-file` keyed by relpath).
+- **D4 — Emitted files made reproducible.** `platform_adapter.py` is re-emitted from `platform` and hashed (upgrades verdict from `unknown` to real).
+- **D5 — Single source of truth for the runtime file list.** Dedupe `copy_runtime_modules.core_files` and `classification.RUNTIME_SOURCE_MAP` into one shared mapping both import.
+- **D7 — Derived JSON regenerated from ALL `.md` in scope** (matches current mint behavior, incl. user-added agents). **D8 — `derived_from` hardcoded** (only 2–3 projections).
+
+**Verified OWNED-ROOTS inventory** (sources confirmed against `templates/boilerplate/`):
+```
+harness-wf-plugin/                  # the plugin (full subtree, per classification)
+rules/                              # customizable .md  -> feeds rules.json
+AGENTS.md                           # customizable
+agent.json, skills.json            # generated/derived projections (verify derivation)
+orchestrator.md                    # customizable, IF present -> feeds orchestrator.json
+.claude-plugin/marketplace.json    # generated
+```
+**Explicitly NOT owned** (user territory — never enumerated): `docs/` (holds the user's own design/progress docs, including this file), `settings.json`, `settings.local.json`, and anything without a harness producer-path.
+
+**Two follow-ups before B3:** (1) confirm whether `agent.json`/`skills.json` are static templates or derived projections; (2) restrict R7 new-file *delivery* outside the plugin to the explicit owned-roots only — never invent a new path in user territory.
