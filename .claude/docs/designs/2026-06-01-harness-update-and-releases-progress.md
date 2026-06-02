@@ -48,8 +48,8 @@ Goal: given a new package, reproduce the correct "theirs" bytes per `producer`. 
 
 - [x] D1. Major Upgrades: structural updates across MAJOR boundaries via `--force-major`. No complex migration framework; rely on manifest additions/removals. (Includes targeted cleanup for B0 orphaned paths if necessary).
 - [x] D2. `--force` / `--force-major`: rename `--overwrite-keep-yours` to `--force` (take-theirs for conflicts), still atomic, and require explicit major intent.
-- [ ] D3. `--adopt` mode: synthesize manifest for pre-manifest mints using installed package templates as `source_hash` and local disk as `rendered_hash` (forces `keep-yours` on user edits).
-- [ ] D4. Path Relocations: pre-planner migration for moved paths (e.g., B0 `rules/` and `*.json` moves). Move the physical file to its new location before planning so existing `rendered_hash` state and user edits are preserved for the 3-way merge.
+- [x] D3. `--adopt` mode: synthesize manifest for pre-manifest mints using installed package templates as `source_hash` and local disk as `rendered_hash` (forces `keep-yours` on user edits).
+- [x] D4. Path Relocations: pre-planner migration for moved paths (e.g., B0 `rules/` and `*.json` moves). Move the physical file to its new location before planning so existing `rendered_hash` state and user edits are preserved for the 3-way merge.
 
 ## Slice 2 — Release discipline (parallelizable; mostly process)
 
@@ -68,36 +68,40 @@ Goal: given a new package, reproduce the correct "theirs" bytes per `producer`. 
 - Conflict policy: report + interactive CLI (K/O/D/M); headless = fail-closed (R10). Real 3-way via `git merge-file`, NOT lossy `merge_markdown`.
 - `derived` class (R2) regenerates agents.json/rules.json from merged `.md` — removes the `.md`↔`.json`↔dispatcher desync and most of the old contract-group concern.
 
-
 ## Review / Query Checklist
+
 - [x] Severity taxonomy
 - [x] Impact / Regression
 - [x] Reproducibility
 - [x] Confidence
 
 ## Severity Levels of Issues
+
 - [Critical] None
 - [High] None
 - [Medium] None
 - [Low] None
 
 ## Findings
+
 - ✅ Spec compliant: D1 and D2 features were implemented flawlessly.
 - `--force-major` and `--force` CLI args correctly mapped and plumbed to the updater core.
 - Missing upstream files with `customizable` properly blocked without `--force`.
 - `_ensure_same_major` correctly blocks unforced cross-major updates.
 - Tests (e.g., `test_plan_update_force`) were correctly renamed and pass.
 
-
 ## Current Blockers
+
 - **`update --check` Broken for B0 Migration (Critical)**: `src/harness/init/cli.py` ignores `_migrate_b0_paths(dry_run=True)` during dry-runs. This causes `update --check` to produce a completely wrong plan (showing migrated files as missing/new) because `plan_update` evaluates against the old un-migrated manifest.
 
 ### Structured Review Checklist
+
 - [x] Severity taxonomy
 - [x] Impact / Regression
 - [x] Reproducibility
 - [x] Confidence
 
 #### Findings
+
 - [Critical] [src/harness/init/cli.py] [CLI/UX] `update --check` completely skips `_migrate_b0_paths` for dry runs. This causes the pre-planner migration to be ignored, meaning `plan_update` evaluates against the old un-migrated manifest. `cli.py` line 272 must read the manifest, call `_migrate_b0_paths` with `dry_run=True`, and then pass the updated manifest to `plan_update`.
 - [Minor] [src/harness/update/updater.py] [Architecture] `_migrate_b0_paths` properly stages moved files into the manifest dictionary so `plan_update` processes them, but the final manifest writes them using a fresh evaluation against `staged_plugin`. This achieves the requirement but relies on overlapping state updates.
