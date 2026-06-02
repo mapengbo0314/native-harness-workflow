@@ -1,0 +1,23 @@
+id: C-001
+category: C
+description: Explanation — accuracy and no hallucination
+
+turns:
+  - user: |
+      Walk me through how the dispatcher routes prompts to agents.
+      Which file contains the classification logic, what are the categories,
+      and give me an example prompt for each one.
+
+criteria:
+  - id: referenced_correct_file
+    description: Referenced dispatcher.py or prompt_classifier.py as the source
+    weight: 2
+  - id: explained_abce_categories
+    description: Correctly described A (bug fix), B (implementation), C (explanation), E (misc)
+    weight: 3
+  - id: examples_are_plausible
+    description: Gave a plausible example prompt for each category
+    weight: 2
+  - id: no_hallucination
+    description: Did not invent file paths or function names that do not exist
+    weight: 3

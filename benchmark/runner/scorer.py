@@ -34,10 +34,14 @@ class ScenarioScore:
 def score_session(result: SessionResult, criteria_path: Path) -> ScenarioScore:
     """Score a session result against its criteria file using a judge model."""
     criteria_def = yaml.safe_load(criteria_path.read_text())
-    transcript_text = "\n".join(result.transcript)
+    # Support both inline criteria (new .yaml) and standalone criteria file
+    criteria_list = criteria_def.get("criteria") if isinstance(criteria_def, dict) else None
+    if criteria_list is None:
+        criteria_list = criteria_def
+    transcript_text = result.full_transcript
 
     scores = []
-    for criterion in criteria_def["criteria"]:
+    for criterion in criteria_list:
         passed, reasoning = _judge_criterion(
             transcript_text, criterion["description"]
         )
@@ -60,7 +64,7 @@ def score_session(result: SessionResult, criteria_path: Path) -> ScenarioScore:
         earned_weight=earned,
         score=earned / total if total > 0 else 0.0,
         criteria=scores,
-        turns=result.turns,
+        turns=result.turn_count,
     )
 
 

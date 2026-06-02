@@ -33,6 +33,10 @@ def build_report(scores: list[ScenarioScore]) -> dict:
                     "score": round(s.score, 3),
                     "turns": s.turns,
                     "session_id": s.session_id,
+                    "criteria": [
+                        {"id": c.id, "passed": c.passed, "reasoning": c.reasoning}
+                        for c in s.criteria
+                    ],
                 }
                 for s in config_scores
             ],

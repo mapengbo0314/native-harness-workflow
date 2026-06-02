@@ -19,6 +19,18 @@ RESULTS_DIR = Path(__file__).parent / "results"
 CONFIGS = ["no_harness", "minimal", "full_harness"]
 
 
+def _collect_scenarios(scenarios_dir: Path, filter_str: str | None) -> list[Path]:
+    """Return .yaml scenarios, falling back to .md if no .yaml exists for a stem."""
+    yaml_files = {f.stem: f for f in sorted(scenarios_dir.rglob("*.yaml"))
+                  if "criteria" not in f.name}
+    md_files = {f.stem: f for f in sorted(scenarios_dir.rglob("*.md"))}
+    # yaml wins; md fills gaps
+    all_scenarios = list({**md_files, **yaml_files}.values())
+    if filter_str:
+        all_scenarios = [f for f in all_scenarios if filter_str in str(f)]
+    return sorted(all_scenarios)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=None, help="Run a single config only")
@@ -27,22 +39,21 @@ def main() -> None:
 
     configs = [args.config] if args.config else CONFIGS
 
-    scenario_files = sorted(SCENARIOS_DIR.rglob("*.md"))
-    if args.scenario:
-        scenario_files = [f for f in scenario_files if args.scenario in str(f)]
+    # Prefer .yaml (multi-turn) over .md (legacy single-turn) per scenario dir
+    scenario_files = _collect_scenarios(SCENARIOS_DIR, args.scenario)
 
     all_scores = []
     for config in configs:
         for scenario_path in scenario_files:
-            criteria_path = scenario_path.parent / (scenario_path.stem.split("_")[0] + "_criteria.yaml")
-            if not criteria_path.exists():
-                print(f"  [skip] no criteria for {scenario_path.name}")
-                continue
-
             print(f"Running {scenario_path.parent.name}/{scenario_path.stem} [{config}]...")
             try:
                 result = run_scenario(scenario_path, config)
-                score = score_session(result, criteria_path)
+                # criteria embedded in .yaml; fall back to sibling _criteria.yaml for .md
+                if scenario_path.suffix == ".yaml":
+                    score = score_session(result, scenario_path)
+                else:
+                    criteria_path = scenario_path.parent / (scenario_path.stem.split("_")[0] + "_criteria.yaml")
+                    score = score_session(result, criteria_path)
                 all_scores.append(score)
                 print(f"  score={score.score:.1%} turns={score.turns}")
             except Exception as e:
