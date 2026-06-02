@@ -212,6 +212,7 @@ def parse_args():
     parser.add_argument("--project-path", required=True, help="Path to the repository")
     parser.add_argument("--bundle", help="Path to an existing CodeGraph bundle (.codegraph directory)")
     parser.add_argument("--check", action="store_true", help="(update) Dry-run: report stale/edited/conflicting files, write nothing")
+    parser.add_argument("--overwrite-keep-yours", action="store_true", help="(update) Force overwrite files modified locally that otherwise have a keep-yours verdict")
     return parser.parse_args()
 
 
@@ -243,6 +244,7 @@ def run_update(args) -> None:
                 package_root,
                 harness_dir=harness_dir,
                 headless=os.environ.get("HARNESS_HEADLESS") == "1",
+                overwrite_keep_yours=args.overwrite_keep_yours,
             )
         except (ConflictResolutionAborted, ConflictResolutionNeedsHuman, UpdateRequiresHuman) as exc:
             print(f"[HARNESS] update requires attention: {exc}")
@@ -254,7 +256,7 @@ def run_update(args) -> None:
         print(f"[HARNESS] update applied — {summary or 'no changes'}")
         return
 
-    verdicts = plan_update(plugin_dir, package_root)
+    verdicts = plan_update(plugin_dir, package_root, overwrite_keep_yours=args.overwrite_keep_yours)
     needs_attention = {"conflict", "requires-human", "unknown", "removed-upstream"}
     counts: dict[str, int] = {}
     print(f"[HARNESS] update --check  ({plugin_dir})\n")

@@ -74,7 +74,7 @@ def test_apply_update_stamps_manifest_with_installed_package_version(tmp_path):
     assert read_manifest(plug)["harness_version"] == "1.2.0"
 
 
-def test_apply_update_headless_requires_human_leaves_disk_unchanged(tmp_path):
+def test_apply_update_restores_customizable_file_when_deleted(tmp_path):
     pkg = tmp_path / "pkg"
     harness_dir = tmp_path / ".claude"
     plug = harness_dir / "harness-wf-plugin"
@@ -85,10 +85,10 @@ def test_apply_update_headless_requires_human_leaves_disk_unchanged(tmp_path):
     _stamp(plug, pkg)
     skill.unlink()
 
-    with pytest.raises(UpdateRequiresHuman):
-        apply_update(plug, pkg, harness_dir=harness_dir, headless=True)
+    apply_update(plug, pkg, harness_dir=harness_dir, headless=True)
 
-    assert not skill.exists()
+    assert skill.exists()
+    assert skill.read_text().strip() == "skill"
     assert not (plug / JOURNAL_FILENAME).exists()
 
 

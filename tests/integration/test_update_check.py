@@ -35,10 +35,21 @@ def minted_project(tmp_path):
 
 
 def _run(project: Path, *args, input_text: str | None = None, env: dict | None = None) -> subprocess.CompletedProcess:
+    env = env.copy() if env is not None else os.environ.copy()
+    if env is not os.environ and "HARNESS_HEADLESS" not in env:
+        pass # If env was provided but didn't have it, keep it that way
+    elif "HARNESS_HEADLESS" in env and env is not os.environ and input_text is not None:
+        pass # Wait, just force remove it if we provide input_text!
+        
+    run_env = env.copy() if env is not None else os.environ.copy()
+    if "HARNESS_HEADLESS" in run_env and input_text is not None:
+        # If we are providing input text, we are explicitly testing interactive mode
+        del run_env["HARNESS_HEADLESS"]
+
     return subprocess.run(
         [sys.executable, "-m", "harness.init.cli", "update",
          "--project-path", str(project), *args],
-        capture_output=True, text=True, input=input_text, env=env,
+        capture_output=True, text=True, input=input_text, env=run_env,
     )
 
 

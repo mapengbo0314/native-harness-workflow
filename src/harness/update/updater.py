@@ -74,6 +74,8 @@ def plan_update(
     plugin_dir: Union[str, Path],
     package_root: Union[str, Path],
     manifest: Optional[dict] = None,
+    *,
+    overwrite_keep_yours: bool = False,
 ) -> list[FileVerdict]:
     """Compute a per-file verdict for every owned entry in the manifest.
 
@@ -138,14 +140,15 @@ def plan_update(
 
         we_changed = hash_file(src) != entry.get("source_hash")
         user_edited = hash_file(disk) != entry.get("rendered_hash")
-        results.append(FileVerdict(relpath, verdict(we_changed, user_edited), cls))
+        v = verdict(we_changed, user_edited)
+        if v == "keep-yours" and overwrite_keep_yours:
+            v = "apply"
+        results.append(FileVerdict(relpath, v, cls))
 
     return results
 
 
 def _missing_verdict(cls: str) -> str:
-    if cls == "customizable":
-        return "requires-human"
     return "restore-missing"
 
 
@@ -157,6 +160,7 @@ def apply_update(
     headless: bool = False,
     input_fn: Callable[[str], str] = input,
     editor: str | Callable[[Path], int | None] | None = None,
+    overwrite_keep_yours: bool = False,
 ) -> list[FileVerdict]:
     """Apply a planned update transactionally.
 
@@ -171,7 +175,7 @@ def apply_update(
 
     manifest = read_manifest(plugin_dir)
     _ensure_same_major(manifest, package_root)
-    verdicts = plan_update(plugin_dir, package_root, manifest)
+    verdicts = plan_update(plugin_dir, package_root, manifest, overwrite_keep_yours=overwrite_keep_yours)
 
     blocking = [v for v in verdicts if v.verdict in {"requires-human", "unknown", "removed-upstream"}]
     if blocking:

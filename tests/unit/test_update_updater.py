@@ -134,24 +134,41 @@ def test_removed_upstream_wins_over_local_missing(tmp_path):
     assert verdicts["src/dispatcher.py"] == "removed-upstream"
 
 
+def test_plan_update_overwrite_keep_yours(tmp_path):
+    pkg = tmp_path / "pkg"
+    plug = tmp_path / "plug"
+    _mk(pkg, plug)
+    (pkg / "runtime" / "dispatcher.py").write_text("v1\n")
+    (plug / "src" / "dispatcher.py").write_text("v1\n")
+    (pkg / "templates/boilerplate/skills/s/SKILL.md").write_text("skill\n")
+    (plug / "skills/s/SKILL.md").write_text("skill\n")
+    write_manifest(plug, pkg, render_context={"platform": "claude"})
+
+    # user edits on disk only -> normally keep-yours, but overwrite_keep_yours forces apply
+    (plug / "skills/s/SKILL.md").write_text("skill EDITED\n")
+
+    verdicts = {v.relpath: v.verdict for v in plan_update(plug, pkg, overwrite_keep_yours=True)}
+    assert verdicts["skills/s/SKILL.md"] == "apply"
+
+
 def test_plan_update_local_missing_policy_by_class(tmp_path):
     pkg = tmp_path / "pkg"
     plug = tmp_path / "plug"
     _mk(pkg, plug)
     (pkg / "runtime" / "dispatcher.py").write_text("v1\n")
     (plug / "src" / "dispatcher.py").write_text("v1\n")
-    (pkg / "templates" / "boilerplate" / "skills" / "s" / "SKILL.md").write_text("skill\n")
-    (plug / "skills" / "s" / "SKILL.md").write_text("skill\n")
+    (pkg / "templates/boilerplate/skills/s/SKILL.md").write_text("skill\n")
+    (plug / "skills/s/SKILL.md").write_text("skill\n")
     (plug / "agents.json").write_text("{}\n")
     write_manifest(plug, pkg, render_context={})
 
     (plug / "src" / "dispatcher.py").unlink()
-    (plug / "skills" / "s" / "SKILL.md").unlink()
+    (plug / "skills/s/SKILL.md").unlink()
     (plug / "agents.json").unlink()
 
     verdicts = {v.relpath: v.verdict for v in plan_update(plug, pkg)}
     assert verdicts["src/dispatcher.py"] == "restore-missing"
-    assert verdicts["skills/s/SKILL.md"] == "requires-human"
+    assert verdicts["skills/s/SKILL.md"] == "restore-missing"
     assert verdicts["agents.json"] == "regenerate-missing"
 
 
