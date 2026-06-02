@@ -246,18 +246,17 @@ orchestrator.md                    # customizable, IF present -> feeds orchestra
 ### Phase B — Decisions, round 2 (2026-06-01)
 
 - **Distribution = PyPI from the start.** `harness-wf` publishes to PyPI; consumers `uv tool install harness-wf` and upgrade with `uv tool upgrade`. "theirs" at update time = the installed package version; base = local sidecar (no registry fetch needed for base). `docs/RELEASING.md` updated to PyPI-primary. **Source of truth = this repo's `main` + SemVer git tags**; `pyproject.toml` version → stamped into `.harness-meta.json` → the per-deployment pin.
-- **`agent.json` / `skills.json` are static AND used only by the harness** (no Claude-native or docs consumer; the sole reference is a *pointer string* in `dispatcher.py:243`). **Decision: relocate both INTO the plugin** (`harness-wf-plugin/`) since nothing outside uses them, then classify as **generated/overwrite-freely**.
-  - **Implication — this is a file relocation = a migration-worthy (MAJOR) change**, like `wr→wf`. It must ship a migration that removes the old `.claude/`-root copies and writes the new in-plugin ones; existing deployments otherwise orphan the old files.
-  - **Implication — `dispatcher.py:243`** builds the pointer `"{platform}/skills.json"` (e.g. `.claude/skills.json`). When `skills.json` moves into the plugin, that pointer must become plugin-relative (`harness-wf-plugin/skills.json` or `${CLAUDE_PLUGIN_ROOT}/skills.json`). Update `_SKILLS_FILENAMES`/path accordingly and add a dispatcher test.
-  - **Effect on owned-roots:** the external (harness-dir-level) set shrinks to `rules/`, `AGENTS.md`, `orchestrator.md` (if present), `.claude-plugin/marketplace.json`. (Open future option: also relocate `rules/` + `orchestrator.md` into the plugin to make it fully self-contained and drop external roots to near-zero — not in scope now.)
-- **Edge files:** **`docs/` is excluded entirely** (user territory — holds the user's design/progress docs). **`orchestrator.md` is owned only when present**, never required.
+- **`agent.json`, `skills.json`, AND `rules/` are used only by the harness** (no Claude-native or docs consumer). `skills.json`'s sole reference is a *pointer string* in `dispatcher.py:243`; the dispatcher reads `rules.json` (`dispatcher.py:142`), not `rules/*.md`; the `../rules/` `@includes` are inlined at mint *before* `assemble_layout`. **Decision (B0): relocate `agent.json`, `skills.json`, and `rules/` INTO the plugin** (`harness-wf-plugin/`), then classify the JSON as **generated/overwrite-freely** and `rules/*.md` as **customizable**. **`AGENTS.md` stays at `.claude/` level** — `CLAUDE.md` points to it (`minting_engine.py:265`); moving it would break the entry-surface pointer.
+  - **Implication — this is a file relocation = a migration-worthy (MAJOR) change**, like `wr→wf`. It must ship a migration that removes the old `.claude/`-root copies (`agent.json`, `skills.json`, `rules/`) and writes the new in-plugin ones; existing deployments otherwise orphan the old files. (The migration runner fully matters once apply/Phase C exists; the mint-layout change can land first.)
+  - **Implication — `dispatcher.py:243`** builds `"{platform}/skills.json"` (e.g. `.claude/skills.json`); it must become plugin-relative (`${CLAUDE_PLUGIN_ROOT}/skills.json`). **`export_rules_config`** must read `plugin/rules/` instead of `harness_dir/rules/` (one-line path change). Add dispatcher + export tests.
+- **Edge files:** **`docs/` is excluded entirely** (user territory — holds the user's design/progress docs). **`orchestrator.md` is owned only when present**, never required (absent in the dogfood repo).
+- **D3 — Characterization vehicle = lightweight render fixture + one e2e backstop.** Pin B1's render output via unit-level fixtures (known templates → fixed context → exact-output assertions; fast, no npx/codegraph in CI), with one full headless mint as a periodic backstop. **Sequencing: B0 → re-baseline → B1** (B0 changes mint output intentionally, so characterize the post-B0 layout).
 
-Revised owned-roots inventory:
+Revised owned-roots inventory (after B0):
 ```
-harness-wf-plugin/                  # plugin (now also contains agent.json, skills.json after relocation)
-rules/                              # customizable .md -> feeds rules.json
-AGENTS.md                           # customizable
-orchestrator.md                    # customizable, IF present -> feeds orchestrator.json
+harness-wf-plugin/                  # plugin — now also contains agent.json, skills.json, rules/
+AGENTS.md                           # customizable — STAYS external (CLAUDE.md pointer)
 .claude-plugin/marketplace.json    # generated
+orchestrator.md                    # customizable, IF present (absent here)
 # NOT owned: docs/, settings.json, settings.local.json, anything w/o a producer-path
 ```
