@@ -176,6 +176,36 @@ def run_embedded_setup(
 
     print("[HARNESS] Embedded setup complete.")
 
+
+def _write_update_metadata(
+    plugin_dir: Optional[Path],
+    *,
+    platform: str,
+    harness_dir_name: str,
+    selected_agents: list[dict],
+) -> None:
+    """Stamp update ownership metadata after the final plugin layout exists."""
+    if not plugin_dir or not plugin_dir.exists():
+        return
+
+    import harness
+    from harness.update.manifest import write_base_sidecar, write_manifest
+
+    package_root = Path(harness.__file__).parent
+    manifest = write_manifest(
+        plugin_dir,
+        package_root,
+        render_context={
+            "platform": platform,
+            "harness_dir_name": harness_dir_name,
+            "selected_agents": selected_agents,
+            "project_name": plugin_dir.parent.parent.name,
+        },
+    )
+    write_base_sidecar(plugin_dir, manifest)
+    print("[HARNESS] Update ownership manifest stamped.")
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Initialize or update a Harness agent workspace.")
     parser.add_argument("command", choices=["init", "update"], help="Command to run")
@@ -187,19 +217,19 @@ def parse_args():
 
 def run_update(args) -> None:
     """`harness-wf update` — in-place refresh of harness-owned files.
-
-    Phase A ships the read-only `--check` planner only.  Apply (Phases C/D) is
-    gated on the producer-reproduction refactor and is not wired here yet.
     """
     import harness
     from harness.adapters.profile import load_profile
     from harness.update.manifest import META_FILENAME
-    from harness.update.updater import plan_update
+    from harness.update.conflict import ConflictResolutionAborted, ConflictResolutionNeedsHuman
+    from harness.update.updater import UpdateRequiresHuman, apply_update, plan_update, recover_journal
 
     profile = load_profile("claude")
     project = Path(args.project_path)
+    harness_dir = project / profile.config_dir
     plugin_dir = project / profile.config_dir / profile.plugin_dir_name
     package_root = Path(harness.__file__).parent
+    recover_journal(plugin_dir)
 
     if not (plugin_dir / META_FILENAME).exists():
         print(f"[HARNESS] No ownership manifest at {plugin_dir / META_FILENAME}.")
@@ -207,11 +237,25 @@ def run_update(args) -> None:
         sys.exit(2)
 
     if not args.check:
-        print("[HARNESS] Only `--check` (dry-run) is implemented in this phase. Apply is not yet available.")
-        sys.exit(2)
+        try:
+            verdicts = apply_update(
+                plugin_dir,
+                package_root,
+                harness_dir=harness_dir,
+                headless=os.environ.get("HARNESS_HEADLESS") == "1",
+            )
+        except (ConflictResolutionAborted, ConflictResolutionNeedsHuman, UpdateRequiresHuman) as exc:
+            print(f"[HARNESS] update requires attention: {exc}")
+            sys.exit(2)
+        counts: dict[str, int] = {}
+        for v in verdicts:
+            counts[v.verdict] = counts.get(v.verdict, 0) + 1
+        summary = ", ".join(f"{k}={n}" for k, n in sorted(counts.items()))
+        print(f"[HARNESS] update applied — {summary or 'no changes'}")
+        return
 
     verdicts = plan_update(plugin_dir, package_root)
-    needs_attention = {"conflict", "missing", "unknown", "removed-upstream"}
+    needs_attention = {"conflict", "requires-human", "unknown", "removed-upstream"}
     counts: dict[str, int] = {}
     print(f"[HARNESS] update --check  ({plugin_dir})\n")
     for v in verdicts:
@@ -220,7 +264,7 @@ def run_update(args) -> None:
     summary = ", ".join(f"{k}={n}" for k, n in sorted(counts.items()))
     print(f"\n[HARNESS] {len(verdicts)} owned files — {summary or 'none'}")
     if any(c in counts for c in needs_attention):
-        print("[HARNESS] Some files need a human decision (conflict/missing/unknown).")
+        print("[HARNESS] Some files need a human decision (conflict/requires-human/unknown/removed-upstream).")
 
 
 @observe()
@@ -339,6 +383,12 @@ def main():
     import time
     target_harness_dir = Path(args.project_path) / harness_folder
     temp_harness_dir = Path(args.project_path) / ".harness_tmp"
+
+    if harness_folder == ".claude":
+        from harness.adapters.profile import load_profile as _load_profile
+        from harness.update.updater import recover_journal
+
+        recover_journal(target_harness_dir / _load_profile("claude").plugin_dir_name)
     
     if temp_harness_dir.exists():
         shutil.rmtree(temp_harness_dir)
@@ -469,6 +519,13 @@ def main():
             print(f"\n[HARNESS] ❌ ERROR: Embedded setup failed: {e}")
             langfuse_context.flush()
             sys.exit(1)
+
+        _write_update_metadata(
+            final_plugin_dir,
+            platform=adapter.get_platform_name(),
+            harness_dir_name=harness_folder,
+            selected_agents=selected_agents,
+        )
 
     finally:
         if temp_harness_dir.exists():

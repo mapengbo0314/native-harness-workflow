@@ -20,7 +20,8 @@ from __future__ import annotations
 
 import fnmatch
 from dataclasses import dataclass
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Union
 
 from harness.init.runtime_slice import RUNTIME_FILE_MAP
 
@@ -155,3 +156,36 @@ def classify(relpath: str) -> Optional[Ownership]:
 
     # Not a recognised harness path -> invisible to update.
     return None
+
+
+def enumerate_source_producers(package_root: Union[str, Path]) -> dict[str, Ownership]:
+    """Return current source-backed upstream producer paths by deployed relpath.
+
+    Emitted and derived paths are intentionally omitted because they do not have
+    a package source file to discover. Local user files are not inspected.
+    """
+    package_root = Path(package_root)
+    producers: dict[str, Ownership] = {}
+
+    for relpath, source_rel in RUNTIME_SOURCE_MAP.items():
+        if source_rel and (package_root / source_rel).is_file():
+            producers[relpath] = Ownership("generated", "runtime_copy", source_rel)
+
+    for relpath, (cls, producer, source_rel) in _BOILERPLATE_FILES.items():
+        if (package_root / source_rel).is_file():
+            producers[relpath] = Ownership(cls, producer, source_rel)
+
+    boilerplate_root = package_root / "templates" / "boilerplate"
+    for dirname in _BOILERPLATE_DIRS:
+        source_dir = boilerplate_root / dirname
+        if not source_dir.is_dir():
+            continue
+        for source in sorted(source_dir.rglob("*")):
+            if not source.is_file():
+                continue
+            relpath = source.relative_to(boilerplate_root).as_posix()
+            ownership = classify(relpath)
+            if ownership and ownership.source_rel == f"templates/boilerplate/{relpath}":
+                producers[relpath] = ownership
+
+    return producers

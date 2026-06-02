@@ -27,6 +27,7 @@ def _mk(pkg: Path, plug: Path):
     (pkg / "runtime").mkdir(parents=True)
     (pkg / "templates" / "boilerplate" / "skills" / "s").mkdir(parents=True)
     (pkg / "templates" / "boilerplate" / "agents").mkdir(parents=True)
+    (pkg / "templates" / "boilerplate" / "scripts").mkdir(parents=True)
     (pkg.parent / "pyproject.toml").write_text('[project]\nversion = "1.0.0"\n')
     (plug / "src").mkdir(parents=True)
     (plug / "skills" / "s").mkdir(parents=True)
@@ -84,4 +85,117 @@ def test_plan_update_user_deleted_file_is_flagged(tmp_path):
     write_manifest(plug, pkg, render_context={})
     (plug / "src" / "dispatcher.py").unlink()  # user deleted
     verdicts = {v.relpath: v.verdict for v in plan_update(plug, pkg)}
-    assert verdicts["src/dispatcher.py"] == "missing"
+    assert verdicts["src/dispatcher.py"] == "restore-missing"
+
+
+def test_plan_update_discovers_new_upstream_producer_paths(tmp_path):
+    pkg = tmp_path / "pkg"
+    plug = tmp_path / "plug"
+    _mk(pkg, plug)
+    (pkg / "runtime" / "dispatcher.py").write_text("v1\n")
+    (plug / "src" / "dispatcher.py").write_text("v1\n")
+    write_manifest(plug, pkg, render_context={})
+
+    (pkg / "templates" / "boilerplate" / "scripts" / "refresh.sh").write_text("new\n")
+
+    verdicts = {v.relpath: v.verdict for v in plan_update(plug, pkg)}
+    assert verdicts["scripts/refresh.sh"] == "new-file"
+
+
+def test_plan_update_still_detects_removed_upstream_from_old_manifest(tmp_path):
+    pkg = tmp_path / "pkg"
+    plug = tmp_path / "plug"
+    _mk(pkg, plug)
+    source = pkg / "runtime" / "dispatcher.py"
+    source.write_text("v1\n")
+    (plug / "src" / "dispatcher.py").write_text("v1\n")
+    write_manifest(plug, pkg, render_context={})
+
+    source.unlink()
+
+    verdicts = {v.relpath: v.verdict for v in plan_update(plug, pkg)}
+    assert verdicts["src/dispatcher.py"] == "removed-upstream"
+
+
+def test_removed_upstream_wins_over_local_missing(tmp_path):
+    pkg = tmp_path / "pkg"
+    plug = tmp_path / "plug"
+    _mk(pkg, plug)
+    source = pkg / "runtime" / "dispatcher.py"
+    source.write_text("v1\n")
+    deployed = plug / "src" / "dispatcher.py"
+    deployed.write_text("v1\n")
+    write_manifest(plug, pkg, render_context={})
+
+    source.unlink()
+    deployed.unlink()
+
+    verdicts = {v.relpath: v.verdict for v in plan_update(plug, pkg)}
+    assert verdicts["src/dispatcher.py"] == "removed-upstream"
+
+
+def test_plan_update_local_missing_policy_by_class(tmp_path):
+    pkg = tmp_path / "pkg"
+    plug = tmp_path / "plug"
+    _mk(pkg, plug)
+    (pkg / "runtime" / "dispatcher.py").write_text("v1\n")
+    (plug / "src" / "dispatcher.py").write_text("v1\n")
+    (pkg / "templates" / "boilerplate" / "skills" / "s" / "SKILL.md").write_text("skill\n")
+    (plug / "skills" / "s" / "SKILL.md").write_text("skill\n")
+    (plug / "agents.json").write_text("{}\n")
+    write_manifest(plug, pkg, render_context={})
+
+    (plug / "src" / "dispatcher.py").unlink()
+    (plug / "skills" / "s" / "SKILL.md").unlink()
+    (plug / "agents.json").unlink()
+
+    verdicts = {v.relpath: v.verdict for v in plan_update(plug, pkg)}
+    assert verdicts["src/dispatcher.py"] == "restore-missing"
+    assert verdicts["skills/s/SKILL.md"] == "requires-human"
+    assert verdicts["agents.json"] == "regenerate-missing"
+
+
+def test_new_upstream_producer_collision_requires_human(tmp_path):
+    pkg = tmp_path / "pkg"
+    plug = tmp_path / "plug"
+    _mk(pkg, plug)
+    (pkg / "runtime" / "dispatcher.py").write_text("v1\n")
+    (plug / "src" / "dispatcher.py").write_text("v1\n")
+    write_manifest(plug, pkg, render_context={})
+
+    (pkg / "templates" / "boilerplate" / "scripts" / "refresh.sh").write_text("new upstream\n")
+    (plug / "scripts").mkdir()
+    (plug / "scripts" / "refresh.sh").write_text("local user file\n")
+
+    verdicts = {v.relpath: v.verdict for v in plan_update(plug, pkg)}
+    assert verdicts["scripts/refresh.sh"] == "requires-human"
+
+
+def test_plan_update_ignores_local_files_outside_producer_paths(tmp_path):
+    pkg = tmp_path / "pkg"
+    plug = tmp_path / "plug"
+    _mk(pkg, plug)
+    (pkg / "runtime" / "dispatcher.py").write_text("v1\n")
+    (plug / "src" / "dispatcher.py").write_text("v1\n")
+    write_manifest(plug, pkg, render_context={})
+
+    (plug / "notes.md").write_text("user file\n")
+
+    verdicts = {v.relpath: v.verdict for v in plan_update(plug, pkg)}
+    assert "notes.md" not in verdicts
+
+
+def test_plan_update_owned_path_replaced_by_directory_requires_human(tmp_path):
+    pkg = tmp_path / "pkg"
+    plug = tmp_path / "plug"
+    _mk(pkg, plug)
+    (pkg / "runtime" / "dispatcher.py").write_text("v1\n")
+    deployed = plug / "src" / "dispatcher.py"
+    deployed.write_text("v1\n")
+    write_manifest(plug, pkg, render_context={})
+
+    deployed.unlink()
+    deployed.mkdir()
+
+    verdicts = {v.relpath: v.verdict for v in plan_update(plug, pkg)}
+    assert verdicts["src/dispatcher.py"] == "requires-human"

@@ -8,6 +8,7 @@ import pytest
 
 from harness.update.classification import (
     classify,
+    enumerate_source_producers,
     is_excluded,
     Ownership,
 )
@@ -136,3 +137,20 @@ def test_agents_json_plural_is_still_derived():
 def test_unknown_user_paths_are_not_owned(relpath):
     # Not excluded as pollution, but also not a harness producer-path -> None.
     assert classify(relpath) is None
+
+
+def test_enumerate_source_producers_only_discovers_known_package_sources(tmp_path):
+    package_root = tmp_path / "pkg"
+    (package_root / "runtime").mkdir(parents=True)
+    (package_root / "runtime" / "dispatcher.py").write_text("runtime\n")
+    (package_root / "templates" / "boilerplate" / "skills" / "known").mkdir(parents=True)
+    (package_root / "templates" / "boilerplate" / "skills" / "known" / "SKILL.md").write_text("skill\n")
+    (package_root / "templates" / "boilerplate" / "docs").mkdir(parents=True)
+    (package_root / "templates" / "boilerplate" / "docs" / "user-note.md").write_text("note\n")
+
+    producers = enumerate_source_producers(package_root)
+
+    assert producers["src/dispatcher.py"].cls == "generated"
+    assert producers["skills/known/SKILL.md"].cls == "customizable"
+    assert "docs/user-note.md" not in producers
+    assert "agents.json" not in producers
