@@ -175,6 +175,7 @@ def apply_update(
     recover_journal(plugin_dir)
 
     manifest = read_manifest(plugin_dir)
+    _migrate_b0_paths(manifest, harness_dir, plugin_dir, package_root, dry_run=False)
     _ensure_same_major(manifest, package_root, force_major=force_major)
     verdicts = plan_update(plugin_dir, package_root, manifest, force=force)
 
@@ -500,3 +501,52 @@ def _stage_marketplace_manifest(
     staged = staging_dir / "marketplace.json"
     staged.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     return [(path, staged)]
+
+
+def _migrate_b0_paths(manifest: dict, harness_dir: Path, plugin_dir: Path, package_root: Path, dry_run: bool = False) -> None:
+    from harness.update.classification import classify
+    from harness.update.manifest import hash_file
+    
+    b0_paths = ["rules", "agent.json", "skills.json"]
+    owned = manifest.setdefault("owned", {})
+    
+    for b0_path in b0_paths:
+        src_path = harness_dir / b0_path
+        if not src_path.exists():
+            continue
+            
+        dest_path = plugin_dir / b0_path
+        
+        # Determine files to migrate
+        if src_path.is_dir():
+            rel_files = [p.relative_to(src_path) for p in src_path.rglob("*") if p.is_file()]
+        else:
+            rel_files = [Path("")]
+            
+        for rel_file in rel_files:
+            item_src = src_path / rel_file if rel_file != Path("") else src_path
+            item_dest = dest_path / rel_file if rel_file != Path("") else dest_path
+            
+            # The manifest key is relative to plugin_dir
+            manifest_key = b0_path if rel_file == Path("") else Path(b0_path).joinpath(rel_file).as_posix()
+            
+            if manifest_key not in owned:
+                classification = classify(manifest_key)
+                if classification:
+                    if not dry_run:
+                        item_dest.parent.mkdir(parents=True, exist_ok=True)
+                        import shutil
+                        shutil.move(str(item_src), str(item_dest))
+                    
+                    pkg_src = package_root / classification.source_rel if classification.source_rel else None
+                    owned[manifest_key] = {
+                        "class": classification.cls,
+                        "producer": classification.producer,
+                        "source_path": classification.source_rel,
+                        "source_hash": hash_file(pkg_src) if pkg_src and pkg_src.exists() else "",
+                        "rendered_hash": hash_file(item_dest if not dry_run else item_src)
+                    }
+                    
+        if not dry_run and src_path.is_dir() and src_path.exists():
+            import shutil
+            shutil.rmtree(str(src_path), ignore_errors=True)

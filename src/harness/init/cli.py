@@ -222,9 +222,9 @@ def run_update(args) -> None:
     """
     import harness
     from harness.adapters.profile import load_profile
-    from harness.update.manifest import META_FILENAME
+    from harness.update.manifest import META_FILENAME, write_manifest, write_base_sidecar, read_manifest
     from harness.update.conflict import ConflictResolutionAborted, ConflictResolutionNeedsHuman
-    from harness.update.updater import UpdateRequiresHuman, apply_update, plan_update, recover_journal
+    from harness.update.updater import UpdateRequiresHuman, apply_update, plan_update, recover_journal, _migrate_b0_paths
 
     profile = load_profile("claude")
     project = Path(args.project_path)
@@ -234,9 +234,19 @@ def run_update(args) -> None:
     recover_journal(plugin_dir)
 
     if not (plugin_dir / META_FILENAME).exists():
-        print(f"[HARNESS] No ownership manifest at {plugin_dir / META_FILENAME}.")
-        print("[HARNESS] This harness predates update support — run a full re-mint (`harness-wf init`).")
-        sys.exit(2)
+        if getattr(args, "adopt", False):
+            print("[HARNESS] Adopting existing workspace by synthesizing manifest...")
+            manifest = write_manifest(
+                plugin_dir,
+                package_root,
+                render_context={"harness_dir_name": profile.config_dir, "platform": profile.platform_name, "selected_agents": []}
+            )
+            write_base_sidecar(plugin_dir, manifest)
+            print("[HARNESS] Manifest synthesized. Proceeding with update...")
+        else:
+            print(f"[HARNESS] No ownership manifest at {plugin_dir / META_FILENAME}.")
+            print("[HARNESS] This harness predates update support — run a full re-mint (`harness-wf init`).")
+            sys.exit(2)
 
     if not args.check:
         try:
