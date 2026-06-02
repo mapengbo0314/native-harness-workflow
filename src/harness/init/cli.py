@@ -214,6 +214,7 @@ def parse_args():
     parser.add_argument("--check", action="store_true", help="(update) Dry-run: report stale/edited/conflicting files, write nothing")
     parser.add_argument("--force", action="store_true", help="(update) Force overwrite files modified locally that otherwise have a keep-yours verdict, and resolve conflicts by taking the new template")
     parser.add_argument("--force-major", action="store_true", help="(update) Allow applying updates across a MAJOR version boundary")
+    parser.add_argument("--adopt", action="store_true", help="(update) Adopt an existing un-manifested harness by generating a base manifest from the current state")
     return parser.parse_args()
 
 
