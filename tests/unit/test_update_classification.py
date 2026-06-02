@@ -96,6 +96,35 @@ def test_plugin_manifest_is_generated_emitted():
     assert o.source_rel is None
 
 
+# --- plugin-root static harness config files (B0 relocation) ---------------
+
+def test_agent_json_is_generated_from_boilerplate():
+    """agent.json (singular, static) relocated into plugin is generated from boilerplate."""
+    o = classify("agent.json")
+    assert o is not None
+    assert o.cls == "generated"
+    assert o.producer == "template"
+    assert o.source_rel == "templates/boilerplate/agent.json"
+
+
+def test_skills_json_is_generated_from_boilerplate():
+    """skills.json relocated into plugin is generated from boilerplate."""
+    o = classify("skills.json")
+    assert o is not None
+    assert o.cls == "generated"
+    assert o.producer == "template"
+    assert o.source_rel == "templates/boilerplate/skills.json"
+
+
+def test_agents_json_plural_is_still_derived():
+    """agents.json (plural, derived) must NOT be confused with agent.json (singular, static)."""
+    o = classify("agents.json")
+    assert o is not None
+    assert o.cls == "derived"
+    assert o.producer == "export"
+    assert o.source_rel is None
+
+
 # --- user / unknown files stay invisible ------------------------------------
 
 @pytest.mark.parametrize("relpath", [

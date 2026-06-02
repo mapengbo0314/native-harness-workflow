@@ -240,9 +240,23 @@ selected_branch MUST be exactly one of: {valid_keys}
         # Add dynamic pointers rather than full text
         platform, _ = get_active_platform_and_model()
         skills_platform = platform if platform != "unknown" else ".claude"
-        _SKILLS_FILENAMES = {".claude": "skills.json"}
-        skills_filename = _SKILLS_FILENAMES.get(skills_platform, "skills_index.json")
-        pointers.append(f"Available Skills Index: {skills_platform}/{skills_filename}")
+        # skills.json now lives inside the plugin dir (config_dir.parent), not the harness root.
+        # For Claude: .claude/harness-wf-plugin/skills.json
+        # For other platforms that don't use a plugin, fall back to the harness root.
+        from harness.adapters.profile import load_profile as _load_profile
+        try:
+            _profile = _load_profile(skills_platform.lstrip("."))
+            if _profile.supports_plugin:
+                skills_pointer = f"{skills_platform}/{_profile.plugin_dir_name}/skills.json"
+            else:
+                _SKILLS_FILENAMES = {".claude": "skills.json"}
+                skills_filename = _SKILLS_FILENAMES.get(skills_platform, "skills_index.json")
+                skills_pointer = f"{skills_platform}/{skills_filename}"
+        except Exception:
+            _SKILLS_FILENAMES = {".claude": "skills.json"}
+            skills_filename = _SKILLS_FILENAMES.get(skills_platform, "skills_index.json")
+            skills_pointer = f"{skills_platform}/{skills_filename}"
+        pointers.append(f"Available Skills Index: {skills_pointer}")
         pointers.append("To load a skill, run: python3 scripts/activate_skill.py <skill_name>")
         
         branch_hints = {

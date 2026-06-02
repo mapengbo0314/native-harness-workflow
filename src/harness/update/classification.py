@@ -102,6 +102,10 @@ _BOILERPLATE_FILES: dict[str, tuple[str, str, str]] = {
     # deployed relpath -> (cls, producer, source_rel)
     "pyproject.toml": ("generated", "verbatim", "templates/boilerplate/pyproject.toml"),
     "README.md": ("generated", "template", "templates/boilerplate/README.md.template"),
+    # Static harness config files relocated into the plugin (not to be confused with
+    # agents.json which is plural and derived).
+    "agent.json": ("generated", "template", "templates/boilerplate/agent.json"),
+    "skills.json": ("generated", "template", "templates/boilerplate/skills.json"),
 }
 
 

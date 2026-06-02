@@ -308,7 +308,11 @@ def generate_orchestrator_plugin(
             if (harness_dir / "orchestrator.md").exists():
                 logical_orchestrator = logical_harness_dir / "orchestrator.md"
                 export_orchestrator_config(harness_dir / "orchestrator.md", config_dir, logical_orchestrator_path=logical_orchestrator)
-            if (harness_dir / "rules").exists():
+            # rules/ is now moved into the plugin by assemble_layout, so read it from plugin_dir
+            if (plugin_dir / "rules").exists():
+                export_rules_config(plugin_dir / "rules", config_dir)
+            elif (harness_dir / "rules").exists():
+                # Fallback for platforms that don't use assemble_layout (e.g. non-plugin platforms)
                 export_rules_config(harness_dir / "rules", config_dir)
 
         # Generate config if we copied any agents
