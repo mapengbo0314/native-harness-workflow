@@ -9,9 +9,7 @@ Readiness legend: 🟢 ready now (pure / read-only, no unknowns) · 🟡 light r
 ## Phase A — Detection foundation (🟢 READY NOW — read-only, mutates nothing)
 Goal: ship `harness-wf update --check` (dry-run) end-to-end. No file in `.claude/` is ever written by this phase.
 
-- [ ] A1. 🟢 `tests/unit/test_classification.py` → `src/harness/update/classification.py`
-      glob→class (`generated`/`customizable`/`derived`), `producer` tag (`template`/`runtime_copy`/`export`/`verbatim`), EXCLUDE set (`state/`,`logs/`,`.venv/`,`.deepeval/`,`__pycache__/`,`*.pyc`,`harness.db`,`uv.lock`,`.env.telemetry-harness`). Assert user paths + pollution are NOT owned.
-- [x] A1. 🟢 `tests/unit/test_update_classification.py` → `src/harness/update/classification.py` (DONE)
+- [x] A1. 🟢 `tests/unit/test_update_classification.py` → `src/harness/update/classification.py` (DONE) — glob→class (`generated`/`customizable`/`derived`), `producer` tags, EXCLUDE set; user paths + pollution NOT owned.
 - [x] A2. 🟢 normalize+hash helper in `manifest.py` → `tests/unit/test_update_manifest.py` (DONE)
 - [x] A3. 🟢 `manifest.write_manifest` / `read_manifest` (standalone) → `tests/unit/test_update_manifest.py` (DONE; real-mint wiring is C1)
 - [x] A4. 🟢 `updater.plan_update` two-hash truth table → `tests/unit/test_update_updater.py` (DONE)
