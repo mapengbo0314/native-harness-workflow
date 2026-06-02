@@ -20,9 +20,10 @@ Goal: ship `harness-wf update --check` (dry-run) end-to-end. No file in `.claude
 - [x] A7. 🟢 `harness-wf update --check` (read-only) in `cli.py` → `tests/integration/test_update_check.py` (DONE)
 
 ## Phase B — Producer reproduction (🔴/🟡 REFACTOR FIRST — gates all apply)
-Goal: given a new package, reproduce the correct "theirs" bytes per `producer`. This is the real first decision.
+Goal: given a new package, reproduce the correct "theirs" bytes per `producer`. Decisions locked: D1 refactor+characterization, D2 replicate quirks exactly, D6 owned-roots allow-list, distribution=PyPI, edge files (ignore docs/, orchestrator-if-present).
 
-- [ ] B1. 🔴 Extract a **pure single-file render** from `mint_workspace` (Jinja + `.claude`→dir + tool_mappings + `@include`) callable as `render_template(src, context)` with NO side effects (no sentinel, no ghost injection, no CONTEXT.md seeding). Characterization tests first to pin current output byte-for-byte.
+- [ ] B0. 🟡 **Relocate `agent.json` + `skills.json` into the plugin** (`harness-wf-plugin/`); update `assemble_layout` payload + `dispatcher.py:243` pointer to plugin-relative; classify generated/overwrite. **Migration-worthy (MAJOR): ship a migration removing the old `.claude/`-root copies.** Add dispatcher path test.
+- [ ] B1. 🔴 Extract a **pure single-file render** from `mint_workspace` (Jinja + `.claude`→dir + tool_mappings + `@include`) callable as `render_template(src, context)` with NO side effects (no sentinel, no ghost injection, no CONTEXT.md seeding). Characterization tests first to pin current output byte-for-byte (D2: replicate quirks incl. naive replace + silent Jinja-fail).
 - [ ] B2. 🟡 `runtime_copy` reproduction: factor `copy_runtime_modules` so a single runtime artifact (incl. emitted `platform_adapter.py`) can be reproduced for compare/apply.
 - [ ] B3. 🟡 `derived` regeneration: make `export_orchestrator_config`/`export_agents_config`/`export_rules_config` regenerate JSON from an arbitrary (staged) `.md` dir → config dir.
 - [x] B4. 🟢 `implementer.md` split at marker → `src/harness/update/ghost.py`, `tests/unit/test_update_ghost.py` (DONE)

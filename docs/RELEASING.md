@@ -31,14 +31,15 @@ change that *should* be a MAJOR with a migration step.
 2. Bump `version` in `pyproject.toml` (single source of truth; stamped into
    `.harness-meta.json` at mint).
 3. Commit, then tag: `git tag vX.Y.Z && git push --tags`.
-4. Distribute (pick one, interim → eventual):
-   - **git ref (interim, zero infra):** consumers `uv tool install git+https://github.com/<owner>/<repo>@vX.Y.Z`
-   - **PyPI (eventual):** `uv build && uv publish`; consumers `uv tool install harness-wf`
+4. Distribute via **PyPI** (primary): `uv build && uv publish`; consumers
+   `uv tool install harness-wf`. A tag without a corresponding PyPI release is
+   not a real release. (Source of truth is `main` + the SemVer tag; PyPI is the
+   distribution channel.)
 
 ## Updating a deployed harness (two steps)
 
 ```
-uv tool upgrade harness-wf          # tool plane: get new templates/runtime
+uv tool upgrade harness-wf          # tool plane: get new templates/runtime from PyPI
 harness-wf update --project-path .  # deployed plane: apply, manifest-scoped
 ```
 

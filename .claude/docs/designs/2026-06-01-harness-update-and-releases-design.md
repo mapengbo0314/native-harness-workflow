@@ -242,3 +242,22 @@ orchestrator.md                    # customizable, IF present -> feeds orchestra
 **Explicitly NOT owned** (user territory — never enumerated): `docs/` (holds the user's own design/progress docs, including this file), `settings.json`, `settings.local.json`, and anything without a harness producer-path.
 
 **Two follow-ups before B3:** (1) confirm whether `agent.json`/`skills.json` are static templates or derived projections; (2) restrict R7 new-file *delivery* outside the plugin to the explicit owned-roots only — never invent a new path in user territory.
+
+### Phase B — Decisions, round 2 (2026-06-01)
+
+- **Distribution = PyPI from the start.** `harness-wf` publishes to PyPI; consumers `uv tool install harness-wf` and upgrade with `uv tool upgrade`. "theirs" at update time = the installed package version; base = local sidecar (no registry fetch needed for base). `docs/RELEASING.md` updated to PyPI-primary. **Source of truth = this repo's `main` + SemVer git tags**; `pyproject.toml` version → stamped into `.harness-meta.json` → the per-deployment pin.
+- **`agent.json` / `skills.json` are static AND used only by the harness** (no Claude-native or docs consumer; the sole reference is a *pointer string* in `dispatcher.py:243`). **Decision: relocate both INTO the plugin** (`harness-wf-plugin/`) since nothing outside uses them, then classify as **generated/overwrite-freely**.
+  - **Implication — this is a file relocation = a migration-worthy (MAJOR) change**, like `wr→wf`. It must ship a migration that removes the old `.claude/`-root copies and writes the new in-plugin ones; existing deployments otherwise orphan the old files.
+  - **Implication — `dispatcher.py:243`** builds the pointer `"{platform}/skills.json"` (e.g. `.claude/skills.json`). When `skills.json` moves into the plugin, that pointer must become plugin-relative (`harness-wf-plugin/skills.json` or `${CLAUDE_PLUGIN_ROOT}/skills.json`). Update `_SKILLS_FILENAMES`/path accordingly and add a dispatcher test.
+  - **Effect on owned-roots:** the external (harness-dir-level) set shrinks to `rules/`, `AGENTS.md`, `orchestrator.md` (if present), `.claude-plugin/marketplace.json`. (Open future option: also relocate `rules/` + `orchestrator.md` into the plugin to make it fully self-contained and drop external roots to near-zero — not in scope now.)
+- **Edge files:** **`docs/` is excluded entirely** (user territory — holds the user's design/progress docs). **`orchestrator.md` is owned only when present**, never required.
+
+Revised owned-roots inventory:
+```
+harness-wf-plugin/                  # plugin (now also contains agent.json, skills.json after relocation)
+rules/                              # customizable .md -> feeds rules.json
+AGENTS.md                           # customizable
+orchestrator.md                    # customizable, IF present -> feeds orchestrator.json
+.claude-plugin/marketplace.json    # generated
+# NOT owned: docs/, settings.json, settings.local.json, anything w/o a producer-path
+```
