@@ -179,9 +179,7 @@ def apply_update(
     verdicts = plan_update(plugin_dir, package_root, manifest, force=force)
 
     blocking = [v for v in verdicts if v.verdict in {"requires-human", "unknown"}]
-    if not force_major:
-        blocking.extend(v for v in verdicts if v.verdict == "removed-upstream")
-    elif not force:
+    if not force:
         # Only block on customizable removed-upstream if force is not provided
         blocking.extend(v for v in verdicts if v.verdict == "removed-upstream" and v.cls == "customizable")
 
@@ -432,8 +430,9 @@ def _commit_staged_files(
         backup.parent.mkdir(parents=True, exist_ok=True)
         if target.exists():
             os.replace(target, backup)
-        staged.parent.mkdir(parents=True, exist_ok=True)
-        os.replace(staged, target)
+        if staged.exists():
+            staged.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(staged, target)
 
 
 def _cleanup_journal(plugin_dir: Path) -> None:
