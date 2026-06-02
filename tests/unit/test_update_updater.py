@@ -134,7 +134,7 @@ def test_removed_upstream_wins_over_local_missing(tmp_path):
     assert verdicts["src/dispatcher.py"] == "removed-upstream"
 
 
-def test_plan_update_overwrite_keep_yours(tmp_path):
+def test_plan_update_force(tmp_path):
     pkg = tmp_path / "pkg"
     plug = tmp_path / "plug"
     _mk(pkg, plug)
@@ -144,10 +144,10 @@ def test_plan_update_overwrite_keep_yours(tmp_path):
     (plug / "skills/s/SKILL.md").write_text("skill\n")
     write_manifest(plug, pkg, render_context={"platform": "claude"})
 
-    # user edits on disk only -> normally keep-yours, but overwrite_keep_yours forces apply
+    # user edits on disk only -> normally keep-yours, but force forces apply
     (plug / "skills/s/SKILL.md").write_text("skill EDITED\n")
 
-    verdicts = {v.relpath: v.verdict for v in plan_update(plug, pkg, overwrite_keep_yours=True)}
+    verdicts = {v.relpath: v.verdict for v in plan_update(plug, pkg, force=True)}
     assert verdicts["skills/s/SKILL.md"] == "apply"
 
 

@@ -75,7 +75,7 @@ def plan_update(
     package_root: Union[str, Path],
     manifest: Optional[dict] = None,
     *,
-    overwrite_keep_yours: bool = False,
+    force: bool = False,
 ) -> list[FileVerdict]:
     """Compute a per-file verdict for every owned entry in the manifest.
 
@@ -141,7 +141,7 @@ def plan_update(
         we_changed = hash_file(src) != entry.get("source_hash")
         user_edited = hash_file(disk) != entry.get("rendered_hash")
         v = verdict(we_changed, user_edited)
-        if v == "keep-yours" and overwrite_keep_yours:
+        if v in {"keep-yours", "conflict"} and force:
             v = "apply"
         results.append(FileVerdict(relpath, v, cls))
 
@@ -160,7 +160,8 @@ def apply_update(
     headless: bool = False,
     input_fn: Callable[[str], str] = input,
     editor: str | Callable[[Path], int | None] | None = None,
-    overwrite_keep_yours: bool = False,
+    force: bool = False,
+    force_major: bool = False,
 ) -> list[FileVerdict]:
     """Apply a planned update transactionally.
 
@@ -174,10 +175,16 @@ def apply_update(
     recover_journal(plugin_dir)
 
     manifest = read_manifest(plugin_dir)
-    _ensure_same_major(manifest, package_root)
-    verdicts = plan_update(plugin_dir, package_root, manifest, overwrite_keep_yours=overwrite_keep_yours)
+    _ensure_same_major(manifest, package_root, force_major=force_major)
+    verdicts = plan_update(plugin_dir, package_root, manifest, force=force)
 
-    blocking = [v for v in verdicts if v.verdict in {"requires-human", "unknown", "removed-upstream"}]
+    blocking = [v for v in verdicts if v.verdict in {"requires-human", "unknown"}]
+    if not force_major:
+        blocking.extend(v for v in verdicts if v.verdict == "removed-upstream")
+    elif not force:
+        # Only block on customizable removed-upstream if force is not provided
+        blocking.extend(v for v in verdicts if v.verdict == "removed-upstream" and v.cls == "customizable")
+
     if blocking:
         raise UpdateRequiresHuman(_format_blocking(blocking))
 
@@ -280,6 +287,12 @@ def _resolve_into_staging(
         if v.verdict in {"current", "keep-yours"}:
             continue
         if v.verdict in {"derived", "regenerate-missing"}:
+            continue
+        if v.verdict == "removed-upstream":
+            target = staged_plugin / v.relpath
+            if target.exists():
+                target.unlink()
+            changed.add(v.relpath)
             continue
 
         entry = owned.get(v.relpath)
@@ -433,13 +446,13 @@ def _cleanup_journal(plugin_dir: Path) -> None:
             shutil.rmtree(backup_root, ignore_errors=True)
 
 
-def _ensure_same_major(manifest: dict, package_root: Path) -> None:
+def _ensure_same_major(manifest: dict, package_root: Path, *, force_major: bool = False) -> None:
     old = _parse_semver_major(manifest.get("harness_version"))
     new = _parse_semver_major(_read_harness_version(package_root))
     if old is None or new is None:
         raise UpdateRequiresHuman("harness version is absent or unparseable")
-    if old != new:
-        raise UpdateRequiresHuman("cross-major update requires migration or re-mint")
+    if old != new and not force_major:
+        raise UpdateRequiresHuman("cross-major update requires explicit --force-major")
 
 
 def _parse_semver_major(version: object) -> Optional[int]:

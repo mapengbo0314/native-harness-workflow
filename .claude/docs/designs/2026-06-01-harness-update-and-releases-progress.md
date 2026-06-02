@@ -22,7 +22,7 @@ Goal: ship `harness-wf update --check` (dry-run) end-to-end. No file in `.claude
 
 Goal: given a new package, reproduce the correct "theirs" bytes per `producer`. Decisions locked: D1 refactor+characterization, D2 replicate quirks exactly, D6 owned-roots allow-list, distribution=PyPI, edge files (ignore docs/, orchestrator-if-present).
 
-- [x] B0. 🟡 **Relocate `agent.json`, `skills.json`, AND `rules/` into the plugin** — DONE (commits 479322c, aab59cb; assemble_layout payload + dispatcher pointer + export_rules path + classification + relocation test; 448 passing) (`harness-wf-plugin/`); add to `assemble_layout` payload; fix `dispatcher.py:243` pointer → `${CLAUDE_PLUGIN_ROOT}/skills.json`; point `export_rules_config` at `plugin/rules/`. Classify JSON generated/overwrite, `rules/*.md` customizable. **AGENTS.md stays external** (CLAUDE.md pointer). **Migration-worthy (MAJOR): migration removes old `.claude/`-root copies** (full effect once apply/Phase C lands). Add dispatcher + export tests. _Do B0 before B1 (it changes mint output)._
+- [x] B0. 🟡 **Relocate `agent.json`, `skills.json`, AND `rules/` into the plugin** — DONE (commits 479322c, aab59cb; assemble*layout payload + dispatcher pointer + export_rules path + classification + relocation test; 448 passing) (`harness-wf-plugin/`); add to `assemble_layout` payload; fix `dispatcher.py:243` pointer → `${CLAUDE_PLUGIN_ROOT}/skills.json`; point `export_rules_config` at `plugin/rules/`. Classify JSON generated/overwrite, `rules/*.md`customizable. **AGENTS.md stays external** (CLAUDE.md pointer). **Migration-worthy (MAJOR): migration removes old`.claude/`-root copies\*_ (full effect once apply/Phase C lands). Add dispatcher + export tests. \_Do B0 before B1 (it changes mint output)._
 - [x] B1. DONE (commits 1a1e24a, a127bc6) — `src/harness/init/render.py` (`render_pass1`, `render_template`, moved `TemplateRenderer`+`process_includes`); mint Pass-1 calls `render_pass1`; 9 characterization tests; two-pass ordering preserved; 457 passing. Caveat: orchestrator injection now after render_pass1 (benign, snapshots unchanged; irrelevant to update's render_template). — was: Extract a **pure single-file render** from `mint_workspace` (Jinja + `.claude`→dir + tool_mappings + `@include`) callable as `render_template(src, context)` with NO side effects (no sentinel, no ghost injection, no CONTEXT.md seeding). **D3: lightweight render fixture + one e2e backstop**; characterize the **post-B0** layout byte-for-byte first (D2: replicate quirks incl. naive replace + silent Jinja-fail). Then refactor mint to CALL it (D1).
 - [x] B2. DONE (commit 0d78360) — `src/harness/init/runtime_slice.py` (`RUNTIME_FILE_MAP`, `rewrite_imports`, `emit_platform_adapter`, `reproduce_runtime_file`); `copy_runtime_modules` refactored to use them; `classification.RUNTIME_SOURCE_MAP` derived from the shared map (D5); platform_adapter re-emit (D4); 524 passing.
 - [x] B3. DONE (commit 2905e96) — `regenerate_derived(plugin_dir, harness_dir=None)` in `plugin_generator.py` orchestrates the existing `export_*` (no reimpl); skips absent orchestrator.md; `DERIVED_FROM` mapping (D8) in classification; desync-prevention + idempotency tests; 545 passing.
@@ -44,11 +44,12 @@ Goal: given a new package, reproduce the correct "theirs" bytes per `producer`. 
 - [x] Final code-quality review after spec re-review passes.
 - [x] If approved, mark C2/C3/C4/C6/C7 `[x]` and run the final Phase C focused suite.
 
-## Phase D — Migration semantics & force modes (after safe apply)
+## Phase D — Major Upgrades & Force Modes (after safe apply)
 
-- [ ] D1. Migration-aware cross-MAJOR flow: refuse piecemeal by default; require migration or re-mint.
-- [ ] D2. `--force` / `--force-major`: take-theirs for conflicts, still atomic, and require explicit major intent.
-- [ ] D3. Deferred: `--adopt` mode for pre-manifest mints (synthesize manifest from current tree as base).
+- [x] D1. Major Upgrades: structural updates across MAJOR boundaries via `--force-major`. No complex migration framework; rely on manifest additions/removals. (Includes targeted cleanup for B0 orphaned paths if necessary).
+- [x] D2. `--force` / `--force-major`: rename `--overwrite-keep-yours` to `--force` (take-theirs for conflicts), still atomic, and require explicit major intent.
+- [ ] D3. `--adopt` mode: synthesize manifest for pre-manifest mints using installed package templates as `source_hash` and local disk as `rendered_hash` (forces `keep-yours` on user edits).
+- [ ] D4. Path Relocations: pre-planner migration for moved paths (e.g., B0 `rules/` and `*.json` moves). Move the physical file to its new location before planning so existing `rendered_hash` state and user edits are preserved for the 3-way merge.
 
 ## Slice 2 — Release discipline (parallelizable; mostly process)
 
@@ -66,3 +67,23 @@ Goal: given a new package, reproduce the correct "theirs" bytes per `producer`. 
 - Hard constraint: `update` only touches files matching harness producer-paths; user files stay invisible (R7).
 - Conflict policy: report + interactive CLI (K/O/D/M); headless = fail-closed (R10). Real 3-way via `git merge-file`, NOT lossy `merge_markdown`.
 - `derived` class (R2) regenerates agents.json/rules.json from merged `.md` — removes the `.md`↔`.json`↔dispatcher desync and most of the old contract-group concern.
+
+
+## Review / Query Checklist
+- [x] Severity taxonomy
+- [x] Impact / Regression
+- [x] Reproducibility
+- [x] Confidence
+
+## Severity Levels of Issues
+- [Critical] None
+- [High] None
+- [Medium] None
+- [Low] None
+
+## Findings
+- ✅ Spec compliant: D1 and D2 features were implemented flawlessly.
+- `--force-major` and `--force` CLI args correctly mapped and plumbed to the updater core.
+- Missing upstream files with `customizable` properly blocked without `--force`.
+- `_ensure_same_major` correctly blocks unforced cross-major updates.
+- Tests (e.g., `test_plan_update_force`) were correctly renamed and pass.
