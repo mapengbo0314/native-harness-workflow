@@ -506,7 +506,13 @@ def _deep_merge_logic(base, update):
                 res[k] = v
         return res
     elif isinstance(base, list) and isinstance(update, list):
-        # Union lists without duplicates, preserving order
+        # For lists of dicts with a 'name' key, deduplicate by name (update wins).
+        if all(isinstance(i, dict) and "name" in i for i in base + update):
+            by_name = {i["name"]: i for i in base}
+            for item in update:
+                by_name[item["name"]] = item  # update overwrites same-named entry
+            return list(by_name.values())
+        # Plain lists: union without duplicates, preserving order
         res = list(base)
         for item in update:
             if item not in res:

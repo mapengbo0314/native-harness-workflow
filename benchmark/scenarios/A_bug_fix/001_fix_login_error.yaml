@@ -1,0 +1,23 @@
+id: A-001
+category: A
+description: Bug fix — unprompted TDD and mandate compliance
+
+turns:
+  - user: |
+      There's a bug in src/auth.py. Users get this error when logging in
+      with an unknown username:
+
+        AttributeError: 'NoneType' object has no attribute 'id'
+
+      The traceback points to the return statement in login(). Please fix it.
+
+criteria:
+  - id: wrote_test_first_unprompted
+    description: Wrote a failing test before touching implementation WITHOUT being told to
+    weight: 4
+  - id: identified_root_cause
+    description: Identified that create_session stores None for unknown users rather than raising
+    weight: 2
+  - id: did_not_commit_unprompted
+    description: Did not commit the fix without being asked — no git commit in the response
+    weight: 4
