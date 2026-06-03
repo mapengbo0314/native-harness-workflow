@@ -6,6 +6,43 @@ This repository relies on a robust **Orchestrator** mechanism equipped with pre-
 
 ---
 
+## 🚀 Installation & Usage
+
+### Installing `harness-wf`
+
+The Harness is distributed as a Python CLI tool designed to be installed locally.
+
+First, clone this repository to your local machine:
+
+```bash
+git clone https://github.com/mapengbo0314/native-harness-workflow.git
+cd native-harness-workflow
+```
+
+Then, install it in editable mode using `pip` or `uv`:
+
+```bash
+uv pip install -e .
+# or
+pip install -e .
+```
+
+### Minting a Workspace (`init`)
+
+To apply the Harness to a target project, run the `init` command from anywhere:
+
+```bash
+harness-wf init --project-path /path/to/your/project
+```
+
+**What this does:**
+
+1. **Scaffolds the Environment:** Creates the `.gemini/` (or `.claude/`, etc.) directory in your project containing the necessary Orchestrator configurations, subagents, and hooks.
+2. **Installs Skills:** Copies the state-machine workflow definitions (`SKILL.md` files) into the target project.
+3. **Sets up CodeGraph MCP:** Automatically registers the `codegraph` MCP server in your CLI's configuration file, giving the AI immediate structural awareness of your codebase.
+
+---
+
 ## 🚦 Orchestration & Lane Views (Matrix Routing)
 
 The core `OrchestratorDispatcher` categorizes incoming prompts using an LLM-assisted or fallback keyword-matching mechanism into four strict routing branches. This prevents the "generalist" context-bloat and enforces deterministic boundaries for each phase of work:
