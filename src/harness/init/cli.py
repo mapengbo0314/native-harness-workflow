@@ -606,7 +606,7 @@ def main():
         counter += 1
     
     print(f"\n\n{counter}. [ACTION REQUIRED] Context Automation:")
-    print("   - The CodeGraph CI GitHub Action (.github/workflows/codegraph-ci.yml) has been generated.")
+    print("   - Run npx -y @colbymchenry/codegraph init --index in the root of your project.")
     counter += 1
         
     print(f"\n{'='*60}\n")

@@ -174,30 +174,9 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
     # Generate Platform Rules Pointers IN THE ROOT DIRECTORY
     harness_prefix = f".{active_platform}" if active_platform in ["gemini", "claude", "cursor", "codex"] else target_dir_name
     adapter = get_adapter(active_platform)
-    
-    # --- Generate CodeGraph CI Workflow ---
+
     root_staging_dir = target_path / "root_staging"
     root_staging_dir.mkdir(parents=True, exist_ok=True)
-
-    ci_dir = root_staging_dir / ".github" / "workflows"
-    ci_dir.mkdir(parents=True, exist_ok=True)
-    ci_path = ci_dir / "codegraph-ci.yml"
-    ci_content = """name: CI CodeGraph Build Check
-    on: [push, pull_request]
-    jobs:
-    build-graph:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Build CodeGraph
-        run: CODEGRAPH_DEBUG=1 npx -y @colbymchenry/codegraph init --index
-    """
-    with open(ci_path, "w") as f:
-        f.write(ci_content)
-    print(f"[HARNESS] Staged CodeGraph CI at {ci_path}")
 
     pointer_content = f"""# Agentic Harness    
 Please read `{harness_prefix}/AGENTS.md` for core repository instructions and routing rules.
