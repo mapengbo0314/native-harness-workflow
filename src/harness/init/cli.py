@@ -215,6 +215,7 @@ def parse_args():
     parser.add_argument("--force", action="store_true", help="(update) Force overwrite files modified locally that otherwise have a keep-yours verdict, and resolve conflicts by taking the new template")
     parser.add_argument("--force-major", action="store_true", help="(update) Allow applying updates across a MAJOR version boundary")
     parser.add_argument("--adopt", action="store_true", help="(update) Adopt an existing un-manifested harness by generating a base manifest from the current state")
+    parser.add_argument("--platform", help="(update) Explicitly specify the platform to update (e.g. claude, gemini). Overrides auto-detection.")
     return parser.parse_args()
 
 
@@ -227,10 +228,51 @@ def run_update(args) -> None:
     from harness.update.conflict import ConflictResolutionAborted, ConflictResolutionNeedsHuman
     from harness.update.updater import UpdateRequiresHuman, apply_update, plan_update, recover_journal, _migrate_b0_paths
 
-    profile = load_profile("claude")
     project = Path(args.project_path)
+    
+    # Auto-detect active platform
+    import json
+    from harness.adapters.profile import load_profile, _DEFAULT_PROFILES_PATH
+    
+    detected_platform = getattr(args, "platform", None)
+    
+    with open(_DEFAULT_PROFILES_PATH, encoding="utf-8") as fh:
+        profiles_data = json.load(fh)
+        
+    if not detected_platform:
+        for plat, data in profiles_data.items():
+            if (project / data["config_dir"]).exists():
+                detected_platform = plat
+                break
+            
+    if not detected_platform:
+        print("[HARNESS] No harness configuration found. Please run `harness-wf init` first.")
+        sys.exit(2)
+        
+    try:
+        profile = load_profile(detected_platform)
+    except Exception as e:
+        print(f"[HARNESS] Error loading profile for platform '{detected_platform}': {e}")
+        sys.exit(2)
+    
+    # Fast-fail if the detected platform does not support in-place plugin updates
+    if not profile.supports_plugin:
+        print(f"[HARNESS] Found {profile.config_dir} directory.")
+        print("[HARNESS] In-place updates via `update` are currently only supported for platforms with a plugin structure (e.g. Claude).")
+        print(f"[HARNESS] To update your {profile.config_dir} workspace, please run `harness-wf init --project-path .` to perform a smart merge.")
+        sys.exit(2)
+        
     harness_dir = project / profile.config_dir
-    plugin_dir = project / profile.config_dir / profile.plugin_dir_name
+    plugin_dir = project / profile.config_dir / str(profile.plugin_dir_name)
+
+    if not plugin_dir.exists():
+        if getattr(args, "adopt", False):
+            print(f"[HARNESS] Cannot adopt: {plugin_dir} does not exist.")
+            sys.exit(2)
+        else:
+            print(f"[HARNESS] {plugin_dir} is missing. Please run `harness-wf init` to re-mint the workspace.")
+            sys.exit(2)
+
     package_root = Path(harness.__file__).parent
     recover_journal(plugin_dir)
 

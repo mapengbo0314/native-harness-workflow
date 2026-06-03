@@ -73,3 +73,55 @@ The orchestrator sits atop robust system-level hooks that intercept agent action
   - **Anti-Destruction**: Regex heuristics block dangerous bash commands like `rm -rf /` or wildcard recursive deletions before they hit the shell.
   - **Secret Protection**: Explicitly blocks file tools or bash commands from touching `.env` files (except safe `.env.sample` templates) to prevent credentials from entering the LLM context or logs.
 - **Langfuse Telemetry**: Native, deeply integrated observation traces (`@observe`). Intent classification, phase calculation, and model selection are tracked via environment injection to ensure full auditability of agent performance.
+
+---
+
+## 🔭 Observatory Dashboard
+
+The engineering intelligence dashboard has been migrated into this repository under `observatory/`. It tracks harness adoption status, AI commit percentages, rework rates, and commit sizes across repositories.
+
+Personal configuration files (`repos.yaml`, `mailmap.yaml`) are explicitly ignored by Git. Example templates are provided. The dashboard uses the `indxr` executable on your `$PATH` to calculate code health hotspots with graceful degradation if it is missing.
+
+For a comprehensive guide on interpreting the dashboard, please see [`observatory/METRICS.md`](observatory/METRICS.md).
+
+### Setup
+
+```bash
+cd observatory
+cp repos.yaml.example repos.yaml
+cp mailmap.yaml.example mailmap.yaml
+# Fill in your repos and GITHUB_TOKEN in observatory/.env
+npm install
+npm run dev
+```
+
+---
+
+## 🔄 Updating the Harness
+
+As new workflows, skills, or prompt templates are added to the harness, you can update an existing project without losing your local customizations using the `update` command.
+
+From the root of your project:
+
+```bash
+# Preview what would be updated (dry-run)
+harness-wf update --project-path . --check
+
+# Apply the update
+harness-wf update --project-path .
+
+# Force overwrite any locally modified files that are conflicting
+harness-wf update --project-path . --force
+
+# For older Claude plugins without a tracking manifest, generate one first
+harness-wf update --project-path . --adopt
+```
+
+_(Note: Automated in-place updates are currently only fully supported for the Claude Code plugin structure. Other platforms require re-running `harness-wf init` to re-mint the workspace.)_
+
+### For Harness Maintainers
+
+When modifying the core harness files in `src/harness` or `src/harness/templates`:
+
+1. You **must** bump the `version` field in the root `pyproject.toml`. The updater uses the package version to determine if a project is out-of-date.
+2. Ensure you add your changes to the templates so that `harness-wf update` can correctly calculate diffs during the next deployment.
