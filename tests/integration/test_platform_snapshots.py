@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 import pytest
 from harness.init.cli import main
+from harness.update.manifest import read_base
 
 def check_snapshot(project_path: Path, platform: str, relative_paths: list[str]):
     snapshot_dir = Path("tests/fixtures/snapshots") / platform
@@ -158,6 +159,24 @@ def test_claude_plugin_layout(temp_project):
     assert (plugin_path / "hooks" / "hooks.json").exists()
     assert (plugin_path / "agents").exists()
     assert (plugin_path / "skills").exists()
+    manifest_path = plugin_path / ".harness-meta.json"
+    assert manifest_path.exists()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    owned = manifest["owned"]
+    assert owned
+    assert manifest["render_context"]["platform"] == "claude"
+    assert manifest["render_context"]["harness_dir_name"] == ".claude"
+    assert manifest["render_context"]["selected_agents"] == []
+    assert ".claude-plugin/plugin.json" in owned
+    assert "agents/implementer.md" in owned
+    assert owned["agents/implementer.md"]["class"] == "customizable"
+    assert (plugin_path / ".harness-meta" / "base" / "agents" / "implementer.md.gz").exists()
+    assert read_base(plugin_path, "agents/implementer.md") is not None
+    assert ".env.telemetry-harness" not in owned
+    assert not any(path.startswith("state/") or path == "state" for path in owned)
+    assert not any("__pycache__" in path for path in owned)
+    assert ".harness-meta.json" not in owned
+    assert not any(path.startswith(".harness-meta/") for path in owned)
     assert not (temp_project / ".mcp.json").exists()
     for config_file in (plugin_path / "config").glob("*.json"):
         assert ".harness_tmp" not in config_file.read_text()

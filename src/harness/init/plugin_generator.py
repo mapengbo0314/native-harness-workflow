@@ -223,6 +223,44 @@ def export_rules_config(rules_dir: Path, config_dir: Path) -> str:
     return str(export_path)
 
 
+def regenerate_derived(plugin_dir: Path, *, harness_dir: Optional[Path] = None) -> list[str]:
+    """Regenerate derived JSON projections from the current on-disk .md sources.
+
+    Orchestrates the existing export_* functions — does NOT re-implement JSON shaping.
+
+    Args:
+        plugin_dir: Path to the deployed plugin directory (contains agents/, rules/, *.json).
+        harness_dir: Optional path to the harness root (e.g. .claude/) used to locate
+                     orchestrator.md.  If not given, or if orchestrator.md is absent there,
+                     the orchestrator.json regeneration is silently skipped.
+
+    Returns:
+        List of regenerated file names (basenames), e.g. ["agents.json", "rules.json"].
+        Absent source directories / files are skipped gracefully — no error is raised.
+    """
+    plugin_dir = Path(plugin_dir)
+    regenerated: list[str] = []
+
+    agents_dir = plugin_dir / "agents"
+    if agents_dir.exists():
+        export_agents_config(agents_dir, plugin_dir)
+        regenerated.append("agents.json")
+
+    rules_dir = plugin_dir / "rules"
+    if rules_dir.exists():
+        export_rules_config(rules_dir, plugin_dir)
+        regenerated.append("rules.json")
+
+    # orchestrator.md is optional; prefer harness_dir location.
+    if harness_dir is not None:
+        orchestrator_md = Path(harness_dir) / "orchestrator.md"
+        if orchestrator_md.exists():
+            export_orchestrator_config(orchestrator_md, plugin_dir)
+            regenerated.append("orchestrator.json")
+
+    return regenerated
+
+
 def render_plugin_readme(plugin_dir: Path, bp_dir: Path, fallback_bp_dir: Path, project_name: str) -> str:
     """Render plugin README from the static boilerplate template."""
     template_path = bp_dir / "README.md.template"
@@ -308,7 +346,11 @@ def generate_orchestrator_plugin(
             if (harness_dir / "orchestrator.md").exists():
                 logical_orchestrator = logical_harness_dir / "orchestrator.md"
                 export_orchestrator_config(harness_dir / "orchestrator.md", config_dir, logical_orchestrator_path=logical_orchestrator)
-            if (harness_dir / "rules").exists():
+            # rules/ is now moved into the plugin by assemble_layout, so read it from plugin_dir
+            if (plugin_dir / "rules").exists():
+                export_rules_config(plugin_dir / "rules", config_dir)
+            elif (harness_dir / "rules").exists():
+                # Fallback for platforms that don't use assemble_layout (e.g. non-plugin platforms)
                 export_rules_config(harness_dir / "rules", config_dir)
 
         # Generate config if we copied any agents

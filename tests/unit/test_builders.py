@@ -42,8 +42,14 @@ def _make_harness_tmp(base: Path, platform_dir: str) -> Path:
         (harness_tmp / sub).mkdir(parents=True, exist_ok=True)
         # Plant a marker file so we can assert the move occurred
         (harness_tmp / sub / f"sample_{sub}.md").write_text(f"# {sub} stub\n")
+    # rules/ payload dir (relocated into plugin by B0)
+    (harness_tmp / "rules").mkdir(parents=True, exist_ok=True)
+    (harness_tmp / "rules" / "coding_mandate.md").write_text("# coding mandate stub\n")
     # pyproject.toml payload file
     (harness_tmp / "pyproject.toml").write_text("[tool.example]\n")
+    # agent.json and skills.json payload files (relocated into plugin by B0)
+    (harness_tmp / "agent.json").write_text('{"agents": []}\n')
+    (harness_tmp / "skills.json").write_text('{"skills": []}\n')
     return harness_tmp
 
 
@@ -165,8 +171,8 @@ def test_assemble_layout_folder_name_is_harness_wf_plugin(tmp_path: Path) -> Non
 
     plugin_dir = project / ".harness_tmp" / "harness-wf-plugin"
     assert plugin_dir.exists(), "folder must be 'harness-wf-plugin' (renamed by S2-T4b)"
-    assert not (project / ".harness_tmp" / "harness-wr-plugin").exists(), (
-        "old harness-wr-plugin name must NOT be used after S2-T4b"
+    assert not (project / ".harness_tmp" / "harness_wf_plugin").exists(), (
+        "old harness_wf_plugin name must NOT be used after S2-T4b"
     )
 
 
@@ -225,3 +231,49 @@ def test_generate_core_infrastructure_gemini_no_plugin_generated(
 
     assert not (harness_dir / "harness-wf-plugin").exists()
     assert not (harness_dir / "harness-wf-plugin").exists()
+
+
+# ---------------------------------------------------------------------------
+# (e) B0 relocation: agent.json, skills.json, rules/ move into plugin dir
+# ---------------------------------------------------------------------------
+
+def test_assemble_layout_relocates_agent_skills_rules_into_plugin(
+    tmp_path: Path,
+) -> None:
+    """B0: assemble_layout must MOVE agent.json, skills.json, and rules/ INTO harness-wf-plugin/.
+
+    Verifies both that the artefacts land inside the plugin directory and that
+    they are no longer present at the harness_tmp root (move, not copy).
+    """
+    adapter = get_adapter("claude")
+    project = tmp_path / "myproject"
+    project.mkdir()
+    harness_tmp = _make_harness_tmp(project, ".claude")
+
+    # Pre-conditions: planted items exist at the harness_tmp root
+    assert (harness_tmp / "rules" / "coding_mandate.md").exists()
+    assert (harness_tmp / "agent.json").exists()
+    assert (harness_tmp / "skills.json").exists()
+
+    adapter.assemble_layout(project)
+
+    plugin_dir = project / ".harness_tmp" / "harness-wf-plugin"
+
+    # Post-conditions: items exist INSIDE plugin dir
+    assert (plugin_dir / "rules").is_dir(), "rules/ must be inside harness-wf-plugin/"
+    assert (plugin_dir / "rules" / "coding_mandate.md").exists(), (
+        "rules/coding_mandate.md must be inside harness-wf-plugin/"
+    )
+    assert (plugin_dir / "agent.json").exists(), "agent.json must be inside harness-wf-plugin/"
+    assert (plugin_dir / "skills.json").exists(), "skills.json must be inside harness-wf-plugin/"
+
+    # Post-conditions: items are NO LONGER at the harness_tmp root (move, not copy)
+    assert not (harness_tmp / "rules").exists(), (
+        "rules/ must be removed from harness_tmp root after move"
+    )
+    assert not (harness_tmp / "agent.json").exists(), (
+        "agent.json must be removed from harness_tmp root after move"
+    )
+    assert not (harness_tmp / "skills.json").exists(), (
+        "skills.json must be removed from harness_tmp root after move"
+    )

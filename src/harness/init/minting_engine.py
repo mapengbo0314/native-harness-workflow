@@ -6,76 +6,24 @@ import yaml
 import urllib.request
 import difflib
 from pathlib import Path
-from jinja2 import Environment, BaseLoader
 from harness.init.plugin_generator import generate_orchestrator_plugin
 from harness.init.discovery_engine import detect_tech_stack
 from harness.adapters import get_adapter
+# Single source of truth for the two-pass render. TemplateRenderer and
+# process_includes were relocated to render.py; re-imported here to preserve the
+# existing minting_engine.process_includes / .TemplateRenderer call sites.
+from harness.init.render import (
+    TemplateRenderer,
+    process_includes,
+    render_pass1,
+    render_template,
+)
+from harness.init.runtime_slice import (
+    RUNTIME_FILE_MAP,
+    rewrite_imports,
+    emit_platform_adapter,
+)
 
-class TemplateRenderer:
-    def __init__(self):
-        self.env = Environment(
-            loader=BaseLoader(),
-            block_start_string='<!--%',
-            block_end_string='%-->',
-            variable_start_string='<!--$',
-            variable_end_string='$-->',
-            comment_start_string='<!--#',
-            comment_end_string='#-->',
-        )
-
-    def render_string(self, source: str, context: dict) -> str:
-        template = self.env.from_string(source)
-        return template.render(**context)
-
-
-def process_includes(content: str, current_file_path: str, target_root: Path, tool_replacements: dict, target_dir_name: str, visited: set = None) -> str:
-    """Recursively resolves @path includes at the start of lines, applying placeholders."""
-    if visited is None:
-        visited = set()
-        
-    lines = content.splitlines()
-    new_lines = []
-    
-    for line in lines:
-        if line.strip().startswith("@") and not line.strip().startswith("@ "):
-            include_path_str = line.strip()[1:].strip()
-            
-            # Resolve the path relative to the current file
-            current_dir = os.path.dirname(current_file_path)
-            include_path = Path(os.path.normpath(os.path.join(current_dir, include_path_str)))
-            
-            abs_path_str = str(include_path.absolute())
-            if abs_path_str in visited:
-                print(f"Warning: Circular include detected for {include_path}")
-                new_lines.append(line)
-                continue
-                
-            if include_path.exists() and include_path.is_file():
-                try:
-                    with open(include_path, "r") as f:
-                        include_content = f.read()
-                        
-                    # Apply placeholders and tool mappings to the included content FIRST
-                    include_content = include_content.replace(".claude", target_dir_name)
-                    for old_tool, new_tool in tool_replacements.items():
-                        include_content = include_content.replace(old_tool, new_tool)
-                        
-                    visited.add(abs_path_str)
-                    # Recursively process includes in the included file
-                    resolved_content = process_includes(include_content, str(include_path), target_root, tool_replacements, target_dir_name, visited)
-                    visited.remove(abs_path_str)
-                    new_lines.append(resolved_content)
-                except Exception as e:
-                    print(f"Warning: Failed to inline {include_path}: {e}")
-                    new_lines.append(line)
-            else:
-                # If it doesn't exist, maybe it's a subagent name like @agent
-                # or it hasn't been minted yet. We leave it as is if it's not a valid file.
-                new_lines.append(line)
-        else:
-            new_lines.append(line)
-            
-    return "\n".join(new_lines)
 
 def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: str, platform_choice: str, model_choice: str = None, boilerplate_dir: str = None, logical_harness_name: str = None):
     """Copies boilerplate, injects styled configs, and writes setup prerequisites."""
@@ -123,9 +71,11 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
             "PROJECT_SLUG": project_slug
         }
 
-        renderer = TemplateRenderer()
-
-        # Step 1: Apply placeholders and tool mappings to all files
+        # Step 1: Apply placeholders and tool mappings to all files.
+        # The placeholder + Jinja + tool-mapping transform is delegated to the
+        # shared render_pass1 (single source of truth shared with the update
+        # machinery). The orchestrator.md-only specialized-agents injection is
+        # mint-specific and stays in this loop, applied after render_pass1.
         for root, _, files in os.walk(target_path):
             for file in files:
                 if file.endswith((".md", ".json", ".yaml", ".yml")) or file == ".env.telemetry-harness":
@@ -133,36 +83,24 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
                     try:
                         with open(filepath, "r") as f:
                             content = f.read()
-                            
-                        new_content = content
-                        
-                        # Handle old-style placeholders for backward compatibility or direct strings
-                        new_content = new_content.replace(".claude", target_dir_name)
-                        if "@boilerplate-agent" in new_content:
-                            new_content = new_content.replace("@boilerplate-agent", target_dir_name)
-                            
-                        # Apply Template Rendering
-                        try:
-                            new_content = renderer.render_string(new_content, renderer_context)
-                        except Exception as render_err:
-                            # If rendering fails (e.g. because of random <!--$ in some file), just log and move on
-                            pass
-                            
+
+                        new_content = render_pass1(
+                            content,
+                            target_dir_name=target_dir_name,
+                            tool_replacements=tool_replacements,
+                            jinja_context=renderer_context,
+                        )
+
                         # Apply specialized agents injection to the active orchestrator surface.
                         if file == "orchestrator.md" and selected_agents:
                             agent_names = [agent['name'] for agent in selected_agents]
                             agents_str = ", ".join([f"`@{name}`" for name in agent_names])
                             injection = f"\n- **Domain Specific Routing**: If the task involves domain-specific areas similar to the domains defined by the newly minted specialized agents ({agents_str}), you MUST route to those agents. Refer to their markdown files in the agents directory for their specific mandates.\n"
-                            
+
                             # Inject right before the Negative Routing Rules section
                             if "**Negative Routing Rules" in new_content:
                                 new_content = new_content.replace("**Negative Routing Rules", injection + "**Negative Routing Rules")
 
-                            
-                        # Apply tool mappings if any
-                        for old_tool, new_tool in tool_replacements.items():
-                            new_content = new_content.replace(old_tool, new_tool)
-                            
                         if new_content != content:
                             with open(filepath, "w") as f:
                                 f.write(new_content)
@@ -214,7 +152,7 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
         # Create the opt-in sentinel for the PostToolUse formatter hook.
         # Bootstrap projects get it automatically so formatting runs from day one.
         # Retrofit projects must add it manually after fixing pre-existing formatting.
-        sentinel_path = Path(project_path) / ".claude" / ".harness-format-enabled"
+        sentinel_path = target_path / ".harness-format-enabled"
         sentinel_path.parent.mkdir(parents=True, exist_ok=True)
         sentinel_path.touch()
         print(f"[HARNESS] Created formatter sentinel at {sentinel_path}")
@@ -603,74 +541,44 @@ def copy_runtime_modules(target_dir: Path, platform_id: str = "generic") -> None
 
     The old per-platform standalone files (platform_adapter_claude.py, etc.) are
     NOT deleted here — that is deferred to S2-T7.
-    """
-    runtime_src = Path(__file__).parent.parent / "runtime"
-    adapters_src = Path(__file__).parent.parent / "adapters"
-    init_src = Path(__file__).parent
 
-    # Resolve platform_id to a known one; fall back to "generic" for unknowns.
-    _known_platforms = {"claude", "gemini", "codex", "cursor", "generic"}
-    resolved_platform_id = platform_id if platform_id in _known_platforms else "generic"
+    Implementation delegates to the shared helpers in
+    ``harness.init.runtime_slice`` (RUNTIME_FILE_MAP, rewrite_imports,
+    emit_platform_adapter) — single source of truth for file list, regex, and
+    emitted template (D4/D5).
+    """
+    package_root = Path(__file__).parent.parent  # src/harness/
 
     src_dir = target_dir / "src"
     src_dir.mkdir(parents=True, exist_ok=True)
-    (src_dir / "__init__.py").write_text("")
 
-    # Core .py files to copy and import-rewrite.
-    core_files = {
-        "dispatcher.py": runtime_src / "dispatcher.py",
-        "llm_client.py": runtime_src / "llm_client.py",
-        "context_builder.py": runtime_src / "context_builder.py",
-        "langfuse_compat.py": runtime_src / "langfuse_compat.py",
-        "langfuse_instrumentation.py": runtime_src / "langfuse_instrumentation.py",
-        "discovery_engine.py": init_src / "discovery_engine.py",
-        # Canonical runtime adapter slice (replaces per-platform standalones).
-        "runtime_adapter.py": adapters_src / "runtime_adapter.py",
-        "profile.py": adapters_src / "profile.py",
-    }
+    for name, source_rel in RUNTIME_FILE_MAP.items():
+        dest = src_dir / name
 
-    for dest_name, src_path in core_files.items():
-        if src_path.exists():
-            print(f"[HARNESS] Copying {dest_name} ({src_path.name})...")
-            shutil.copy2(src_path, src_dir / dest_name)
+        if source_rel is None:
+            # Emitted files
+            if name == "platform_adapter.py":
+                print(f"[HARNESS] Emitting platform_adapter.py (platform={platform_id!r})...")
+                dest.write_text(emit_platform_adapter(platform_id), encoding="utf-8")
+            elif name == "__init__.py":
+                dest.write_text("")
+            # (any future emitted sentinels land here as empty files)
+        elif not name.endswith(".py"):
+            # Verbatim non-Python copy (e.g. platform_profiles.json)
+            src_path = package_root / source_rel
+            if src_path.exists():
+                print(f"[HARNESS] Copying {name} ({src_path.name})...")
+                shutil.copy2(src_path, dest)
+            else:
+                print(f"[HARNESS] Warning: {name} not found at {src_path}")
         else:
-            print(f"[HARNESS] Warning: {dest_name} not found at {src_path}")
-
-    # Copy platform_profiles.json (non-.py; handled separately from the rewrite loop).
-    profiles_json_src = adapters_src / "platform_profiles.json"
-    if profiles_json_src.exists():
-        print("[HARNESS] Copying platform_profiles.json...")
-        shutil.copy2(profiles_json_src, src_dir / "platform_profiles.json")
-    else:
-        print("[HARNESS] Warning: platform_profiles.json not found")
-
-    # Rewrite harness-internal import paths so copied modules resolve locally.
-    # Widened to cover harness.adapters.* in addition to harness.runtime.* / harness.init.*.
-    # Handles both forms:
-    #   "from harness.runtime.X import Y"   → "from X import Y"
-    #   "from harness.adapters.X import Y"  → "from X import Y"
-    #   "import harness.runtime.X as Y"     → "import X as Y"
-    for py_file in src_dir.glob("*.py"):
-        text = py_file.read_text(encoding="utf-8")
-        patched = re.sub(r"from harness\.(?:runtime|init|adapters)\.", "from ", text)
-        patched = re.sub(r"import harness\.(?:runtime|init|adapters)\.", "import ", patched)
-        if patched != text:
-            py_file.write_text(patched, encoding="utf-8")
-
-    # Emit platform_adapter.py — a minimal no-arg shim with the platform baked in.
-    # The prompt_classifier hook does: from platform_adapter import get_adapter
-    #                                  adapter = get_adapter()
-    # Zero harness.* imports — runtime_adapter is resolved locally after the rewrite above.
-    platform_adapter_content = (
-        '"""Minted platform adapter — auto-generated by copy_runtime_modules.\n\n'
-        "Platform is baked at mint time.  No harness.* imports.\n"
-        '"""\n\n'
-        "from runtime_adapter import get_adapter as _get_adapter\n\n\n"
-        "def get_adapter():\n"
-        f'    """No-arg shim — delegates to runtime_adapter with platform baked in."""\n'
-        f'    return _get_adapter("{resolved_platform_id}")\n'
-    )
-    pa_dest = src_dir / "platform_adapter.py"
-    print(f"[HARNESS] Emitting platform_adapter.py (platform={platform_id!r})...")
-    pa_dest.write_text(platform_adapter_content, encoding="utf-8")
+            # Python source — copy then import-rewrite
+            src_path = package_root / source_rel
+            if src_path.exists():
+                print(f"[HARNESS] Copying {name} ({src_path.name})...")
+                text = src_path.read_text(encoding="utf-8")
+                patched = rewrite_imports(text)
+                dest.write_text(patched, encoding="utf-8")
+            else:
+                print(f"[HARNESS] Warning: {name} not found at {src_path}")
 

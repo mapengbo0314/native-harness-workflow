@@ -304,6 +304,27 @@ def test_classify_intent_captures_correct_model_from_platform(tmp_path, monkeypa
                 os.chdir(original_cwd)
 
 
+def test_assemble_branch_context_skills_pointer_in_plugin(tmp_path, monkeypatch):
+    """assemble_branch_context must reference the in-plugin skills.json for Claude (B0)."""
+    config_dir = tmp_path / "harness-wf-plugin" / "config"
+    config_dir.mkdir(parents=True)
+    dispatcher = OrchestratorDispatcher(str(config_dir))
+
+    # Simulate Claude platform detection via env var
+    monkeypatch.setenv("HARNESS_PLATFORM_CLI", "claude")
+
+    context = dispatcher.assemble_branch_context("implementer", "D")
+
+    # skills.json must now be inside the plugin, not at the harness root
+    assert "harness-wf-plugin/skills.json" in context, (
+        f"Expected 'harness-wf-plugin/skills.json' in context pointers, got:\n{context}"
+    )
+    # Must NOT reference the old root-level location
+    assert context.count("skills.json") == 1, "skills.json should appear exactly once"
+    # Verify it includes the platform prefix
+    assert ".claude/harness-wf-plugin/skills.json" in context
+
+
 def test_dispatch_agent_captures_correct_model_from_platform(tmp_path, monkeypatch):
     """Test that dispatch_agent captures the correct model for detected platform."""
     from unittest.mock import patch

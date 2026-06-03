@@ -176,12 +176,114 @@ def run_embedded_setup(
 
     print("[HARNESS] Embedded setup complete.")
 
+
+def _write_update_metadata(
+    plugin_dir: Optional[Path],
+    *,
+    platform: str,
+    harness_dir_name: str,
+    selected_agents: list[dict],
+) -> None:
+    """Stamp update ownership metadata after the final plugin layout exists."""
+    if not plugin_dir or not plugin_dir.exists():
+        return
+
+    import harness
+    from harness.update.manifest import write_base_sidecar, write_manifest
+
+    package_root = Path(harness.__file__).parent
+    manifest = write_manifest(
+        plugin_dir,
+        package_root,
+        render_context={
+            "platform": platform,
+            "harness_dir_name": harness_dir_name,
+            "selected_agents": selected_agents,
+            "project_name": plugin_dir.parent.parent.name,
+        },
+    )
+    write_base_sidecar(plugin_dir, manifest)
+    print("[HARNESS] Update ownership manifest stamped.")
+
+
 def parse_args():
-    parser = argparse.ArgumentParser(description="Initialize a new Harness agent workspace.")
-    parser.add_argument("command", choices=["init"], help="Command to run")
+    parser = argparse.ArgumentParser(description="Initialize or update a Harness agent workspace.")
+    parser.add_argument("command", choices=["init", "update"], help="Command to run")
     parser.add_argument("--project-path", required=True, help="Path to the repository")
     parser.add_argument("--bundle", help="Path to an existing CodeGraph bundle (.codegraph directory)")
+    parser.add_argument("--check", action="store_true", help="(update) Dry-run: report stale/edited/conflicting files, write nothing")
+    parser.add_argument("--force", action="store_true", help="(update) Force overwrite files modified locally that otherwise have a keep-yours verdict, and resolve conflicts by taking the new template")
+    parser.add_argument("--force-major", action="store_true", help="(update) Allow applying updates across a MAJOR version boundary")
+    parser.add_argument("--adopt", action="store_true", help="(update) Adopt an existing un-manifested harness by generating a base manifest from the current state")
     return parser.parse_args()
+
+
+def run_update(args) -> None:
+    """`harness-wf update` — in-place refresh of harness-owned files.
+    """
+    import harness
+    from harness.adapters.profile import load_profile
+    from harness.update.manifest import META_FILENAME, write_manifest, write_base_sidecar, read_manifest
+    from harness.update.conflict import ConflictResolutionAborted, ConflictResolutionNeedsHuman
+    from harness.update.updater import UpdateRequiresHuman, apply_update, plan_update, recover_journal, _migrate_b0_paths
+
+    profile = load_profile("claude")
+    project = Path(args.project_path)
+    harness_dir = project / profile.config_dir
+    plugin_dir = project / profile.config_dir / profile.plugin_dir_name
+    package_root = Path(harness.__file__).parent
+    recover_journal(plugin_dir)
+
+    if not (plugin_dir / META_FILENAME).exists():
+        if getattr(args, "adopt", False):
+            print("[HARNESS] Adopting existing workspace by synthesizing manifest...")
+            manifest = write_manifest(
+                plugin_dir,
+                package_root,
+                render_context={"harness_dir_name": profile.config_dir, "platform": profile.platform_name, "selected_agents": []}
+            )
+            write_base_sidecar(plugin_dir, manifest)
+            print("[HARNESS] Manifest synthesized. Proceeding with update...")
+        else:
+            print(f"[HARNESS] No ownership manifest at {plugin_dir / META_FILENAME}.")
+            print("[HARNESS] This harness predates update support — run a full re-mint (`harness-wf init`).")
+            sys.exit(2)
+
+    if not args.check:
+        try:
+            verdicts = apply_update(
+                plugin_dir,
+                package_root,
+                harness_dir=harness_dir,
+                headless=os.environ.get("HARNESS_HEADLESS") == "1",
+                force=args.force,
+                force_major=args.force_major,
+            )
+        except (ConflictResolutionAborted, ConflictResolutionNeedsHuman, UpdateRequiresHuman) as exc:
+            print(f"[HARNESS] update requires attention: {exc}")
+            sys.exit(2)
+        counts: dict[str, int] = {}
+        for v in verdicts:
+            counts[v.verdict] = counts.get(v.verdict, 0) + 1
+        summary = ", ".join(f"{k}={n}" for k, n in sorted(counts.items()))
+        print(f"[HARNESS] update applied — {summary or 'no changes'}")
+        return
+
+    from harness.update.manifest import read_manifest
+    from harness.update.updater import _migrate_b0_paths
+    manifest = read_manifest(plugin_dir)
+    _migrate_b0_paths(manifest, harness_dir, plugin_dir, package_root, dry_run=True)
+    verdicts = plan_update(plugin_dir, package_root, manifest, force=args.force)
+    needs_attention = {"conflict", "requires-human", "unknown", "removed-upstream"}
+    counts: dict[str, int] = {}
+    print(f"[HARNESS] update --check  ({plugin_dir})\n")
+    for v in verdicts:
+        counts[v.verdict] = counts.get(v.verdict, 0) + 1
+        print(f"  {v.verdict:<16} {v.relpath}")
+    summary = ", ".join(f"{k}={n}" for k, n in sorted(counts.items()))
+    print(f"\n[HARNESS] {len(verdicts)} owned files — {summary or 'none'}")
+    if any(c in counts for c in needs_attention):
+        print("[HARNESS] Some files need a human decision (conflict/requires-human/unknown/removed-upstream).")
 
 
 @observe()
@@ -204,6 +306,13 @@ def main():
     langfuse_context.update_current_trace(session_id=session_id, tags=tags)
 
     args = parse_args()
+
+    # `update` is a distinct lifecycle from `init`: it does not need npx,
+    # CodeGraph, platform selection, or the atomic-swap machinery.
+    if args.command == "update":
+        run_update(args)
+        langfuse_context.flush()
+        return
 
     if not shutil.which("npx"):
         print("\nError: 'npx' command not found. Node.js is required to use CodeGraph.")
@@ -293,6 +402,12 @@ def main():
     import time
     target_harness_dir = Path(args.project_path) / harness_folder
     temp_harness_dir = Path(args.project_path) / ".harness_tmp"
+
+    if harness_folder == ".claude":
+        from harness.adapters.profile import load_profile as _load_profile
+        from harness.update.updater import recover_journal
+
+        recover_journal(target_harness_dir / _load_profile("claude").plugin_dir_name)
     
     if temp_harness_dir.exists():
         shutil.rmtree(temp_harness_dir)
@@ -423,6 +538,13 @@ def main():
             print(f"\n[HARNESS] ❌ ERROR: Embedded setup failed: {e}")
             langfuse_context.flush()
             sys.exit(1)
+
+        _write_update_metadata(
+            final_plugin_dir,
+            platform=adapter.get_platform_name(),
+            harness_dir_name=harness_folder,
+            selected_agents=selected_agents,
+        )
 
     finally:
         if temp_harness_dir.exists():
