@@ -4,6 +4,91 @@ import sys
 import re
 from pathlib import Path
 
+try:
+    from hook_common import resolve_plugin_root, get_session_id
+    _HOOK_COMMON_AVAILABLE = True
+except ImportError:
+    _HOOK_COMMON_AVAILABLE = False
+
+
+# ---------------------------------------------------------------------------
+# TDD enforcement helpers
+# ---------------------------------------------------------------------------
+
+def _is_test_file(file_path: str) -> bool:
+    p = Path(file_path)
+    name = p.name
+    parts = p.parts
+    return (
+        name.startswith("test_") or
+        name.endswith("_test.py") or
+        "tests" in parts or
+        "test" in parts
+    )
+
+
+def _is_source_write(tool_name: str, tool_input: dict):
+    """Return file_path if this is a write to a non-test Python source file, else None."""
+    if tool_name not in {"Write", "Edit", "MultiEdit", "write_file", "replace"}:
+        return None
+    file_path = tool_input.get("file_path", "")
+    if not file_path or Path(file_path).suffix != ".py":
+        return None
+    if _is_test_file(file_path):
+        return None
+    return file_path
+
+
+def _tdd_state_file(session_id: str, state_root: Path) -> Path:
+    return state_root / "state" / f"tdd_{session_id}.json"
+
+
+def _get_tdd_state(session_id: str, state_root: Path) -> dict:
+    try:
+        f = _tdd_state_file(session_id, state_root)
+        if f.exists():
+            return json.loads(f.read_text())
+    except Exception:
+        pass
+    return {}
+
+
+def _mark_test_written(session_id: str, state_root: Path) -> None:
+    try:
+        state_dir = state_root / "state"
+        state_dir.mkdir(parents=True, exist_ok=True)
+        _tdd_state_file(session_id, state_root).write_text(
+            json.dumps({"test_written": True})
+        )
+    except Exception:
+        pass
+
+
+def _check_tdd(tool_name: str, tool_input: dict, session_id: str, state_root: Path):
+    """Return a block message string if TDD mandate is violated, else None."""
+    file_path = tool_input.get("file_path", "")
+
+    # A test file write → mark RED phase started, always allow
+    if tool_name in {"Write", "Edit", "MultiEdit", "write_file", "replace"}:
+        if file_path and _is_test_file(file_path):
+            _mark_test_written(session_id, state_root)
+            return None
+
+    # Source file write → block until a test has been written this session
+    source_path = _is_source_write(tool_name, tool_input)
+    if source_path:
+        if not _get_tdd_state(session_id, state_root).get("test_written"):
+            return (
+                "TDD mandate violation: write a failing test before editing source files.\n"
+                "  1. Write a test in tests/ that reproduces the issue.\n"
+                "  2. Run pytest to confirm it fails (RED phase).\n"
+                f"  3. Then edit {source_path} (GREEN phase)."
+            )
+    return None
+
+
+# ---------------------------------------------------------------------------
+
 def is_dangerous_rm_command(command):
     """
     Comprehensive detection of dangerous rm commands.
@@ -87,7 +172,7 @@ def main():
                 sys.exit(0)
             else:
                 sys.exit(2)
-        
+
         if tool_name in ['Bash', 'run_shell_command']:
             command = tool_input.get('command', '')
             if is_dangerous_rm_command(command):
@@ -97,8 +182,23 @@ def main():
                     sys.exit(0)
                 else:
                     sys.exit(2)
-        
+
+        # TDD enforcement — block source writes until a test is written first
+        if _HOOK_COMMON_AVAILABLE:
+            session_id = get_session_id()
+            state_root = resolve_plugin_root()
+            tdd_block = _check_tdd(tool_name, tool_input, session_id, state_root)
+            if tdd_block:
+                print(f"BLOCKED: {tdd_block}", file=sys.stderr)
+                if is_gemini:
+                    print(json.dumps({"decision": "deny", "reason": tdd_block}))
+                    sys.exit(0)
+                else:
+                    sys.exit(2)
+
         # Ensure log directory exists
+        if not _HOOK_COMMON_AVAILABLE:
+            sys.exit(0)
         log_dir = resolve_plugin_root() / 'logs'
         log_dir.mkdir(parents=True, exist_ok=True)
         log_path = log_dir / 'pre_tool_use.json'

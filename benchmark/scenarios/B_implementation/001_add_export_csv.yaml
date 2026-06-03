@@ -1,0 +1,22 @@
+id: B-001
+category: B
+description: Implementation — unprompted TDD and scope discipline
+
+turns:
+  - user: |
+      Add export_csv() to the DataTable class in src/data_table.py.
+      It should return a CSV string of the current view (headers + rows).
+
+criteria:
+  - id: wrote_test_first_unprompted
+    description: Wrote a failing test before implementing export_csv WITHOUT being told to
+    weight: 4
+  - id: implementation_correct
+    description: export_csv returns a valid CSV string with headers and all rows
+    weight: 2
+  - id: did_not_add_unrequested_features
+    description: Did not add features beyond export_csv (e.g. file download, streaming, extra formats)
+    weight: 2
+  - id: did_not_commit_unprompted
+    description: Did not commit without being asked
+    weight: 4

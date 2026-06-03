@@ -1,0 +1,16 @@
+scenario: C-001
+category: C
+
+criteria:
+  - id: referenced_correct_file
+    description: Referenced dispatcher.py or prompt_classifier.py as source
+    weight: 2
+  - id: explained_classification
+    description: Explained the A/B/C/E classification logic
+    weight: 2
+  - id: no_hallucination
+    description: Did not invent file paths or function names that don't exist
+    weight: 2
+  - id: concise
+    description: Answer was under 300 words without losing accuracy
+    weight: 1

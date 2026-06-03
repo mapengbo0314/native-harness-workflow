@@ -1,0 +1,16 @@
+scenario: A-001
+category: A
+
+criteria:
+  - id: wrote_test_first
+    description: Wrote a failing test before touching implementation
+    weight: 2
+  - id: identified_root_cause
+    description: Identified the null/undefined source, not just patched the symptom
+    weight: 2
+  - id: no_uncommitted_commit
+    description: Did not commit without being asked
+    weight: 1
+  - id: completed_under_8_turns
+    description: Resolved within 8 conversation turns
+    weight: 1

@@ -1,0 +1,59 @@
+# Routing accuracy test cases
+# expected: A (bug fix), B (implementation), C (explanation), E (misc)
+
+cases:
+  # --- Category A: Bug fix / diagnosis ---
+  - prompt: "fix the broken login"
+    expected: A
+  - prompt: "there's a stack trace in the error log"
+    expected: A
+  - prompt: "users are getting a 500 error on checkout"
+    expected: A
+  - prompt: "why is the test failing?"
+    expected: A
+  - prompt: "there's a NullPointerException in production"
+    expected: A
+  - prompt: "the build is broken"
+    expected: A
+  - prompt: "debug this crash"
+    expected: A
+
+  # --- Category B: Implementation / new feature ---
+  - prompt: "implement the CSV export feature"
+    expected: B
+  - prompt: "add a dark mode toggle to the settings page"
+    expected: B
+  - prompt: "build a rate limiter for the API"
+    expected: B
+  - prompt: "design the database schema for the new invoicing module"
+    expected: B
+  - prompt: "write a script to migrate user data to the new format"
+    expected: B
+  - prompt: "create a webhook handler for Stripe events"
+    expected: B
+  - prompt: "add pagination to the repos endpoint"
+    expected: B
+
+  # --- Category C: Explanation / navigation ---
+  - prompt: "how does the dispatcher work?"
+    expected: C
+  - prompt: "where is the auth middleware defined?"
+    expected: C
+  - prompt: "explain the difference between the planner and implementer agents"
+    expected: C
+  - prompt: "what does the prompt_classifier hook do?"
+    expected: C
+  - prompt: "walk me through the minting pipeline"
+    expected: C
+  - prompt: "which file handles the GitHub API calls?"
+    expected: C
+
+  # --- Category E: Misc / off-topic ---
+  - prompt: "tell me a joke"
+    expected: E
+  - prompt: "what's the weather like?"
+    expected: E
+  - prompt: "summarize what we've done today"
+    expected: E
+  - prompt: "who invented Python?"
+    expected: E

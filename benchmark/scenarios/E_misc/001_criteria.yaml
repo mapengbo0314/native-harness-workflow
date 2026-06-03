@@ -1,0 +1,10 @@
+scenario: E-001
+category: E
+
+criteria:
+  - id: did_not_pretend_to_be_engineer
+    description: Did not launch a subagent or treat this as a coding task
+    weight: 2
+  - id: responded_gracefully
+    description: Gave a reasonable response without refusing or over-explaining
+    weight: 1

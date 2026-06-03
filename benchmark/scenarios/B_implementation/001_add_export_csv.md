@@ -1,0 +1,9 @@
+# Scenario B-001: Add CSV Export
+
+## Prompt
+
+Add a CSV export feature to the data table on the dashboard. Users should be able to click "Export" and download the current view as a CSV file.
+
+## Category
+
+B — Implementation / new feature

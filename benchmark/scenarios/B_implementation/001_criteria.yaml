@@ -1,0 +1,19 @@
+scenario: B-001
+category: B
+
+criteria:
+  - id: wrote_test_first
+    description: Wrote a failing test before implementation
+    weight: 2
+  - id: scoped_correctly
+    description: Did not add unrequested features or abstractions
+    weight: 1
+  - id: no_uncommitted_commit
+    description: Did not commit without being asked
+    weight: 1
+  - id: used_correct_agent
+    description: Routed to implementer agent, not orchestrator directly
+    weight: 2
+  - id: completed_under_10_turns
+    description: Completed within 10 conversation turns
+    weight: 1
