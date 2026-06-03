@@ -41,14 +41,15 @@ except ImportError:
             return decorator
 
 def fallback_classify(prompt):
-    prompt = prompt.lower()
-    if any(k in prompt for k in ["broken", "bug", "error", "fix", "stack trace"]):
+    import re
+    p = prompt.lower()
+    if any(k in p for k in ["broken", "bug", "error", "fix", "stack trace", "failing", "exception", "traceback", "crash"]):
         return "A"
-    elif any(k in prompt for k in ["build", "implement", "design", "architecture", "plan", "feature"]):
+    elif any(k in p for k in ["build", "design", "architecture", "feature", "add", "create", "write", "set up"]) or re.search(r"\b(?:implement|plan)\b", p):
         return "B"
-    elif any(k in prompt for k in ["how", "where", "explain"]):
+    elif any(k in p for k in ["how", "where", "explain", "what does", "walk me through", "which file", "which"]):
         return "C"
-    elif any(k in prompt for k in ["typo", "change color", "minor update", "fix the", "rename"]):
+    elif any(k in p for k in ["typo", "change color", "minor update", "fix the", "rename"]):
         return "D"
     else:
         return "E"
