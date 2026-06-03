@@ -46,14 +46,14 @@ def test_transactional_minting_and_smart_merge(tmp_path, monkeypatch):
             
             harness_dir = project_path / ".gemini"
             assert harness_dir.exists()
-            assert (harness_dir / "AGENTS.md").exists()
+            assert (harness_dir / "orchestrator.md").exists()
             assert not (harness_dir / "mcp.json").exists()            
             # --- PHASE 2: Manual Modifications ---
-            # 1. Modify a section in AGENTS.md
-            agents_path = harness_dir / "AGENTS.md"
-            orig_content = agents_path.read_text()
-            modified_content = orig_content + "\n## Custom Additions\nThis is a custom modification.\n"
-            agents_path.write_text(modified_content)
+            # 1. Modify a section in orchestrator.md
+            orchestrator_path = harness_dir / "orchestrator.md"
+            orig_content = orchestrator_path.read_text()
+            modified_content = orig_content + "\n## Custom Section\nCustom content here.\n"
+            orchestrator_path.write_text(modified_content)
             
             # 2. Modify agent.json (deep merge test)
             agent_json_path = harness_dir / "agent.json"
@@ -115,7 +115,7 @@ def test_transactional_minting_and_smart_merge(tmp_path, monkeypatch):
             assert len(backups) >= 1
             backup_dir = backups[0]
             assert backup_dir.is_dir()
-            assert (backup_dir / "AGENTS.md").exists()
+            assert (backup_dir / ".harness-meta.json").exists()
 
 def test_headless_auto_overwrite_conflict(tmp_path, monkeypatch):
     """

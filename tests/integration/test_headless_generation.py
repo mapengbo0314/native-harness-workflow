@@ -49,7 +49,6 @@ def test_headless_harness_generation(choice, target_dir_name):
 
             assert (payload_base / "skills").exists(), f"skills/ not found in {payload_base} for platform {choice}"
             assert (payload_base / "agents").exists(), f"agents/ not found in {payload_base} for platform {choice}"
-            assert (target_path / "AGENTS.md").exists(), f"AGENTS.md not found in {target_path} for platform {choice}"
 
         finally:
             # The tempfile.TemporaryDirectory cleans up stragglers automatically

@@ -191,11 +191,8 @@ def test_codex_layout(temp_project):
     run_harness_init(temp_project, "5", llm="openai")
     
     assert (temp_project / "CODEX.md").exists()
-    # AGENTS.md is inside .codex
-    assert (temp_project / ".codex" / "AGENTS.md").exists()
     
     assert not (temp_project / ".mcp.json").exists()
     check_snapshot(temp_project, "codex", [
-        "CODEX.md",
-        ".codex/AGENTS.md"
+        "CODEX.md"
     ])
