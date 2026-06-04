@@ -104,13 +104,26 @@ class ClaudeAdapter(PlatformAdapter):
     def configure_cli(self, project_path: Path) -> None:
         import subprocess
         import shlex
+        import json
         claude = shutil.which("claude")
         if not claude:
             print("[HARNESS] Warning: 'claude' CLI not found. Please register MCP tools manually.")
             return
-            
+
+        # Register codegraph with alwaysLoad so its tools are never deferred behind
+        # Tool Search. `claude mcp add` has no alwaysLoad flag, so use add-json.
+        # `--scope project` writes the registration to the repo-level .mcp.json
+        # (committed, portable) instead of the machine-local ~/.claude.json, so a
+        # fresh clone gets codegraph without a per-machine setup step. Options are
+        # placed before the positionals so <json> remains the final argv element.
+        codegraph_config = json.dumps({
+            "type": "stdio",
+            "command": "npx",
+            "args": ["-y", "@colbymchenry/codegraph", "serve", "--mcp"],
+            "alwaysLoad": True,
+        })
         commands = [
-            [claude, "mcp", "add", "codegraph", "--", "npx", "-y", "@colbymchenry/codegraph", "serve", "--mcp"],
+            [claude, "mcp", "add-json", "--scope", "project", "codegraph", codegraph_config],
         ]
 
         for command in commands:

@@ -211,18 +211,6 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
             
     print(f"\nHarness files staged in {root_staging_dir}. They will be merged into the project root automatically.")
 
-    # Create an MCP config for CodeGraph
-    mcp_config = {
-        "mcpServers": {
-            "codegraph": {
-                "command": "npx",
-                "args": ["-y", "@colbymchenry/codegraph", "serve", "--mcp"]
-            }
-        }
-    }
-    
-    # mcp.json generation removed in task 2
-         
     # Helper to generate a valid URL-safe slug
     def to_slug(text):
         # 1. Handle CamelCase (Insert hyphens between lower-to-upper transitions)

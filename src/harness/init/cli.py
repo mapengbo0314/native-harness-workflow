@@ -47,29 +47,6 @@ def _platform_name(platform_choice: str) -> str:
     }.get(platform_choice, platform_choice).lower()
 
 
-def _build_mcp_config(mcps_to_install: list[dict]) -> dict:
-    mcp_servers = {
-        "codegraph": {
-            "command": "npx",
-            "args": ["-y", "@colbymchenry/codegraph", "serve", "--mcp"],
-        }
-    }
-
-    for mcp in mcps_to_install or []:
-        command = mcp.get("command", "")
-        try:
-            parts = shlex.split(command)
-        except ValueError as exc:
-            raise HarnessSetupError(f"Invalid command string for MCP {mcp.get('name')}: {exc}") from exc
-        if parts:
-            mcp_servers[mcp["name"]] = {
-                "command": parts[0],
-                "args": parts[1:],
-            }
-
-    return {"mcpServers": mcp_servers}
-
-
 from harness.adapters import get_adapter
 
 def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
@@ -216,7 +193,57 @@ def parse_args():
     parser.add_argument("--force-major", action="store_true", help="(update) Allow applying updates across a MAJOR version boundary")
     parser.add_argument("--adopt", action="store_true", help="(update) Adopt an existing un-manifested harness by generating a base manifest from the current state")
     parser.add_argument("--platform", help="(update) Explicitly specify the platform to update (e.g. claude, gemini). Overrides auto-detection.")
+    parser.add_argument(
+        "--codegraph-exclusion",
+        help="(init) Path to a gitignore-style file whose glob patterns are merged "
+             "into .codegraph/config.json exclude[] before the initial index, so "
+             "excluded code is never indexed.",
+    )
     return parser.parse_args()
+
+
+def _resolve_exclusion_file(args) -> Optional[str]:
+    """Resolve --codegraph-exclusion to an existing path, or None."""
+    raw = getattr(args, "codegraph_exclusion", None)
+    if not raw:
+        return None
+    path = raw if os.path.isabs(raw) else os.path.join(args.project_path, raw)
+    if not os.path.exists(path):
+        print(f"\nWarning: --codegraph-exclusion file not found at {path}; ignoring.")
+        return None
+    return path
+
+
+def _apply_codegraph_exclusions(codegraph_dir: str, exclusion_file: str) -> None:
+    """Merge gitignore-style globs from `exclusion_file` into the CodeGraph
+    config's exclude[] array. CodeGraph reads .codegraph/config.json on index,
+    so patterns added here keep the listed code out of the graph."""
+    config_path = os.path.join(codegraph_dir, "config.json")
+    if not os.path.exists(config_path):
+        print(f"Warning: CodeGraph config not found at {config_path}; cannot apply exclusions.")
+        return
+
+    patterns = []
+    with open(exclusion_file, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            patterns.append(line)
+    if not patterns:
+        return
+
+    with open(config_path, encoding="utf-8") as fh:
+        config = json.load(fh)
+    exclude = config.setdefault("exclude", [])
+    added = 0
+    for pat in patterns:
+        if pat not in exclude:
+            exclude.append(pat)
+            added += 1
+    with open(config_path, "w", encoding="utf-8") as fh:
+        json.dump(config, fh, indent=2)
+    print(f"Applied {added} CodeGraph exclusion pattern(s) from {os.path.basename(exclusion_file)} -> {config_path}")
 
 
 def run_update(args) -> None:
@@ -381,18 +408,39 @@ def main():
             env = os.environ.copy()
             env["npm_config_yes"] = "true"
             env["CODEGRAPH_DEBUG"] = "1"
-            
-            subprocess.run(
-                ["npx", "--yes", "@colbymchenry/codegraph", "init", "--index"],
-                cwd=args.project_path,
-                env=env,
-                check=True
-            )
+
+            exclusion_file = _resolve_exclusion_file(args)
+            if exclusion_file:
+                # Split init from index so the exclusion patterns land in
+                # config.json BEFORE the first index runs — no force re-index.
+                subprocess.run(
+                    ["npx", "--yes", "@colbymchenry/codegraph", "init"],
+                    cwd=args.project_path, env=env, check=True,
+                )
+                _apply_codegraph_exclusions(default_codegraph_dir, exclusion_file)
+                subprocess.run(
+                    ["npx", "--yes", "@colbymchenry/codegraph", "index"],
+                    cwd=args.project_path, env=env, check=True,
+                )
+            else:
+                subprocess.run(
+                    ["npx", "--yes", "@colbymchenry/codegraph", "init", "--index"],
+                    cwd=args.project_path,
+                    env=env,
+                    check=True
+                )
             # After building, ensure we use the newly created default dir
             codegraph_dir = default_codegraph_dir
             codegraph_db_path = os.path.join(codegraph_dir, "codegraph.db")
         except subprocess.CalledProcessError as e:
             print(f"\nWarning: Failed to build CodeGraph: {e}")
+    else:
+        # DB already present — still honor a newly supplied exclusion file by
+        # merging it into config.json. No re-index here (per "no force"); the
+        # running serve watcher / next natural sync applies the updated config.
+        exclusion_file = _resolve_exclusion_file(args)
+        if exclusion_file:
+            _apply_codegraph_exclusions(codegraph_dir, exclusion_file)
             # Continuing without hard crash as per fallback behavior
 
     print("Stage 1: Resolving bundled boilerplate...")
