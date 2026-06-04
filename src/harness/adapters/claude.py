@@ -104,13 +104,26 @@ class ClaudeAdapter(PlatformAdapter):
     def configure_cli(self, project_path: Path) -> None:
         import subprocess
         import shlex
+        import json
         claude = shutil.which("claude")
         if not claude:
             print("[HARNESS] Warning: 'claude' CLI not found. Please register MCP tools manually.")
             return
-            
+
+        # Register codegraph with alwaysLoad so its tools are never deferred behind
+        # Tool Search. `claude mcp add` has no alwaysLoad flag, so use add-json.
+        # `--scope project` writes the registration to the repo-level .mcp.json
+        # (committed, portable) instead of the machine-local ~/.claude.json, so a
+        # fresh clone gets codegraph without a per-machine setup step. Options are
+        # placed before the positionals so <json> remains the final argv element.
+        codegraph_config = json.dumps({
+            "type": "stdio",
+            "command": "npx",
+            "args": ["-y", "@colbymchenry/codegraph", "serve", "--mcp"],
+            "alwaysLoad": True,
+        })
         commands = [
-            [claude, "mcp", "add", "codegraph", "--", "npx", "-y", "@colbymchenry/codegraph", "serve", "--mcp"],
+            [claude, "mcp", "add-json", "--scope", "project", "codegraph", codegraph_config],
         ]
 
         for command in commands:
@@ -139,6 +152,7 @@ class ClaudeAdapter(PlatformAdapter):
         target_agent = routing_decision.get("target_agent")
 
         agent_invokes_skill = routing_decision.get("agent_invokes_skill", False)
+        dispatch_directive = ""
 
         if target_skill and target_agent:
             agent_name = target_agent.lstrip("@")
@@ -164,6 +178,12 @@ class ClaudeAdapter(PlatformAdapter):
         else:
             modified_prompt = original_prompt
 
+        # Claude's UserPromptSubmit hook only honours hookSpecificOutput.additionalContext
+        # — modifiedPrompt / systemPromptExtension are NOT recognised and get dropped. So
+        # everything the model must see beyond its own prompt (system state + dispatch
+        # directive) must be delivered via additionalContext.
+        additional_context = (context_extension or "") + dispatch_directive
+
         return {
             "classification": branch,
             "modifiedPrompt": modified_prompt,
@@ -171,6 +191,7 @@ class ClaudeAdapter(PlatformAdapter):
             "target_skill": target_skill,
             "hookSpecificOutput": {
                 "hookEventName": hook_event_name,
+                "additionalContext": additional_context,
                 "systemPromptExtension": context_extension,
                 "modifiedPrompt": modified_prompt,
             }

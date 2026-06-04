@@ -94,7 +94,7 @@ def test_full_harness_lifecycle():
         # Verify .claude/ exists (since we chose platform 2)
         harness_dir = project_path / ".claude"
         assert harness_dir.exists(), ".claude folder was not generated"
-        assert (harness_dir / "AGENTS.md").exists(), "AGENTS.md missing"
+        assert (harness_dir / "orchestrator.md").exists(), "orchestrator.md missing"
 
         # Step 3: Active Verification
         
@@ -117,7 +117,6 @@ Successfully minted and verified a live project from `sample-py-app` boilerplate
 
 ### Manifest of Generated Artifacts:
 - `.claude/` (Harness Home)
-  - `AGENTS.md` (Main Roster)
   - `harness-wf-plugin/` (The active plugin)
 - `.mcp.json` (Repo-level MCP configuration)
 - `ONBOARDING_DOMAIN.md` (AI-generated domain context)

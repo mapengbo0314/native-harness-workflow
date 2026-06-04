@@ -363,6 +363,38 @@ class TestPromptClassifierContract:
             f"got {type(output['hookSpecificOutput'])}"
         )
 
+    def test_stdout_has_additional_context(self, exec_plugin_root: tuple[str, Path]) -> None:
+        """hookSpecificOutput.additionalContext must carry everything the model
+        needs to see beyond its own prompt.
+
+        additionalContext is the ONLY field Claude Code's UserPromptSubmit hook
+        honours for injecting context — modifiedPrompt / systemPromptExtension are
+        silently dropped. So additionalContext must equal the system state plus
+        whatever the adapter appended to the prompt (the dispatch directive, when
+        the request routes to an agent/skill). Regression guard for the bug where
+        the directive never reached the model and skills never fired.
+        """
+        platform, root = exec_plugin_root
+        interpreter, script = _resolve_hook_command(root, platform, "prompt_classifier.py")
+        event = self._event(platform)
+        result = _run_hook(root, platform, script, interpreter, event)
+        output = _assert_valid_json_stdout(result, f"{platform} prompt_classifier")
+        hso = output["hookSpecificOutput"]
+        assert "additionalContext" in hso, (
+            f"{platform} prompt_classifier: hookSpecificOutput missing 'additionalContext' "
+            f"— Claude would inject nothing.\nGot: {hso}"
+        )
+        # Structural invariant: additionalContext = systemPromptExtension + prompt-suffix.
+        prompt = event.get("prompt", "")
+        modified = output.get("modifiedPrompt", "")
+        appended = modified[len(prompt):] if modified.startswith(prompt) else ""
+        expected = (hso.get("systemPromptExtension") or "") + appended
+        assert hso["additionalContext"] == expected, (
+            f"{platform} prompt_classifier: additionalContext does not carry the system "
+            f"state + appended directive.\n  additionalContext: {hso['additionalContext']!r}\n"
+            f"  expected:          {expected!r}"
+        )
+
     def test_prompt_is_preserved_in_modified_prompt(
         self, exec_plugin_root: tuple[str, Path]
     ) -> None:

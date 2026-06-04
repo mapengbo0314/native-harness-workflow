@@ -172,49 +172,45 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
     active_platform = platform_map.get(platform_choice, platform_choice).lower()
 
     # Generate Platform Rules Pointers IN THE ROOT DIRECTORY
-    harness_prefix = f".{active_platform}" if active_platform in ["gemini", "claude", "cursor", "codex"] else target_dir_name
     adapter = get_adapter(active_platform)
 
     root_staging_dir = target_path / "root_staging"
     root_staging_dir.mkdir(parents=True, exist_ok=True)
 
-    pointer_content = f"""# Agentic Harness    
-Please read `{harness_prefix}/AGENTS.md` for core repository instructions and routing rules.
-The Orchestrator agent and core rules are located in `{harness_prefix}/orchestrator.md`.
-"""
-
-    if active_platform in ["cursor", "codex"]:
-        pointer_content += "\n## Available Agent Skills\n"
-        pointer_content += "To activate a skill, you MUST use your file reading tool to read its instructions into your context before beginning work.\n\n"
-        
-        skills_dir = target_path / "skills"
-        if skills_dir.exists():
-            for skill_path in sorted(skills_dir.iterdir()):
-                if skill_path.is_dir() and (skill_path / "SKILL.md").exists():
-                    pointer_content += f"- **{skill_path.name}**: `{harness_prefix}/skills/{skill_path.name}/SKILL.md`\n"
+    injection_block = """<!-- harness:start -->
+**Graph-first:** Prefer the `codegraph` MCP (start with `codegraph_context`) over Grep/Glob/`find` for code search and navigation. Use text search only for non-indexed content (e.g. UI strings).
+<!-- harness:end -->"""
 
     files_to_generate = adapter.get_rules_pointer_files()
+    project_root = Path(project_path)
     
     for rules_file in files_to_generate:
+        existing_file_path = project_root / rules_file
+        content = ""
+        if existing_file_path.exists():
+            try:
+                with open(existing_file_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+            except Exception as e:
+                print(f"Warning: Failed to read {existing_file_path}: {e}")
+                
+        pattern = r"<!-- harness:start -->.*?<!-- harness:end -->"
+        if re.search(pattern, content, flags=re.DOTALL):
+            new_content = re.sub(pattern, injection_block, content, flags=re.DOTALL)
+        else:
+            if content and not content.endswith('\n'):
+                content += '\n'
+            if content and not content.endswith('\n\n'):
+                content += '\n'
+            new_content = content + injection_block + "\n"
+
         staging_file_path = root_staging_dir / rules_file
         staging_file_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(staging_file_path, "w") as f:
-            f.write(pointer_content)
+        with open(staging_file_path, "w", encoding="utf-8") as f:
+            f.write(new_content)
             
     print(f"\nHarness files staged in {root_staging_dir}. They will be merged into the project root automatically.")
 
-    # Create an MCP config for CodeGraph
-    mcp_config = {
-        "mcpServers": {
-            "codegraph": {
-                "command": "npx",
-                "args": ["-y", "@colbymchenry/codegraph", "serve", "--mcp"]
-            }
-        }
-    }
-    
-    # mcp.json generation removed in task 2
-         
     # Helper to generate a valid URL-safe slug
     def to_slug(text):
         # 1. Handle CamelCase (Insert hyphens between lower-to-upper transitions)
@@ -226,45 +222,16 @@ The Orchestrator agent and core rules are located in `{harness_prefix}/orchestra
         return re.sub(r'-+', '-', s3).strip('-')
 
     # Generate Specialized Agents
-    if adapter.get_agent_manifest_format() == "yaml":
-        agents_md_content = "# Codex Agents Manifest\n\n"
-        for agent in selected_agents:
-            safe_name = to_slug(agent["name"])
-            
-            zone = agent.get("zone", "Core").lower()
-            if zone in ["infra", "logic"]:
-                sandbox_mode = "workspace-write"
-            else:
-                sandbox_mode = "read-only"
-                
-            model_val = model_choice if model_choice else "claude-3-5-sonnet-20241022"
-            
-            yaml_block = f"```yaml\ndescription: \"{agent['role']}\"\nmodel: \"{model_val}\"\nsandbox_mode: \"{sandbox_mode}\"\nmcp_servers: [\"codegraph\"]\n```"
-            
-            system_prompt = agent.get("system_prompt", f"# {agent['name']}\n\n{agent['role']}")
-            
-            
-            agents_md_content += f"## {safe_name}\n{yaml_block}\n\n{system_prompt}\n\n"
-            
-        agents_file_path = target_path / "AGENTS.md"
+    for agent in selected_agents:
+        safe_name = to_slug(agent["name"])
         
-        # Apply placeholders and includes
-        agents_md_content = agents_md_content.replace(".claude", target_dir_name)
-        agents_md_content = process_includes(agents_md_content, str(agents_file_path), target_path, tool_replacements, target_dir_name)
+        agent_dir_path = target_path / "agents"
+        agent_dir_path.mkdir(parents=True, exist_ok=True)
+        agent_file_path = agent_dir_path / f"{safe_name}.md" 
         
-        with open(agents_file_path, 'w') as f:
-            f.write(agents_md_content)
-    else:
-        for agent in selected_agents:
-            safe_name = to_slug(agent["name"])
-            
-            agent_dir_path = target_path / "agents"
-            agent_dir_path.mkdir(parents=True, exist_ok=True)
-            agent_file_path = agent_dir_path / f"{safe_name}.md" 
-            
-            # Select base tools based on platform
-            if adapter.get_platform_name() == "claude":
-                tools_list = """  - Read
+        # Select base tools based on platform
+        if adapter.get_platform_name() == "claude":
+            tools_list = """  - Read
   - Grep
   - Edit
   - Bash
@@ -274,8 +241,8 @@ The Orchestrator agent and core rules are located in `{harness_prefix}/orchestra
   - mcp_codegraph_codegraph_context
   - mcp_codegraph_codegraph_callers
   - mcp_codegraph_codegraph_impact"""
-            else:
-                tools_list = """  - read_file
+        else:
+            tools_list = """  - read_file
   - grep_search
   - replace
   - run_shell_command
@@ -285,31 +252,31 @@ The Orchestrator agent and core rules are located in `{harness_prefix}/orchestra
   - mcp_codegraph_codegraph_context
   - mcp_codegraph_codegraph_callers
   - mcp_codegraph_codegraph_impact"""
-            
-            frontmatter = f"""---
+        
+        frontmatter = f"""---
 name: {safe_name}
 description: {agent["role"]}
 tools:
 {tools_list}
 ---
 """
-            system_prompt = agent.get("system_prompt", f"# {agent['name']}\n\n{agent['role']}")
-            
+        system_prompt = agent.get("system_prompt", f"# {agent['name']}\n\n{agent['role']}")
+        
 
-            # Determine the correct include syntax based on platform
-            include_pointer = ""
-            if active_platform not in ["gemini", "claude", "cursor", "codex", "agents"]:
-                # Fallback for cursor/agents where include syntax might not be natively supported
-                include_pointer = "<!-- Core Mandates should be read from ../rules/base_mandate.md -->\n\n"
+        # Determine the correct include syntax based on platform
+        include_pointer = ""
+        if active_platform not in ["gemini", "claude", "cursor", "codex", "agents"]:
+            # Fallback for cursor/agents where include syntax might not be natively supported
+            include_pointer = "<!-- Core Mandates should be read from ../rules/base_mandate.md -->\n\n"
 
-            final_content = frontmatter + include_pointer + system_prompt + "\n"
-            
-            # Final post-processing for placeholders and includes
-            final_content = re.sub(r'(^|[\s/"\'])\.claude([\s/"\']|$)', r'\1' + target_dir_name + r'\2', final_content)
-            final_content = process_includes(final_content, str(agent_file_path), target_path, tool_replacements, target_dir_name)
-            
-            with open(agent_file_path, 'w') as f:
-                f.write(final_content)
+        final_content = frontmatter + include_pointer + system_prompt + "\n"
+        
+        # Final post-processing for placeholders and includes
+        final_content = re.sub(r'(^|[\s/"\'])\.claude([\s/"\']|$)', r'\1' + target_dir_name + r'\2', final_content)
+        final_content = process_includes(final_content, str(agent_file_path), target_path, tool_replacements, target_dir_name)
+        
+        with open(agent_file_path, 'w') as f:
+            f.write(final_content)
 
     print(f"Successfully minted workspace at {target_dir}")
     print("\nNext Steps:")

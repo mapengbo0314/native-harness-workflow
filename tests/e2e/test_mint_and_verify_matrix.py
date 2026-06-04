@@ -130,15 +130,18 @@ _CANONICAL_SKILLS: frozenset[str] = frozenset(
 )
 
 # Expected MCP codegraph registration command fragments per platform.
-# The full commands (verified from real adapter source, 2026-05-30):
-#   claude: [<claude>, "mcp", "add", "codegraph", "--", "npx", "-y",
-#            "@colbymchenry/codegraph", "serve", "--mcp"]
+# The full commands (verified from real adapter source):
+#   claude: [<claude>, "mcp", "add-json", "codegraph", "<json>"]  where <json>
+#            carries the stdio command plus "alwaysLoad": true (so codegraph's
+#            tools are never deferred behind Tool Search). `claude mcp add` has
+#            no alwaysLoad flag, hence add-json with a JSON payload.
 #   gemini: [<gemini>, "mcp", "add", "codegraph", "npx", "-y",
 #            "@colbymchenry/codegraph", "serve", "--mcp"]
-# We assert the presence of the key semantic tokens: "mcp", "add", "codegraph",
-# and "@colbymchenry/codegraph".
+# We assert the presence of the key semantic tokens as standalone argv elements;
+# for claude, "@colbymchenry/codegraph" and "alwaysLoad" live inside the JSON
+# payload arg and are checked separately below.
 _MCP_COMMAND_TOKENS: dict[str, list[str]] = {
-    "claude": ["mcp", "add", "codegraph", "@colbymchenry/codegraph"],
+    "claude": ["mcp", "add-json", "codegraph"],
     "gemini": ["mcp", "add", "codegraph", "@colbymchenry/codegraph"],
 }
 
@@ -654,6 +657,19 @@ class TestSkillsAndMcpInstalled:
             f"  expected tokens : {expected_tokens}\n"
             f"  actual command  : {cmd}"
         )
+
+        # Claude registers via add-json so it can set alwaysLoad — the package
+        # spec and the alwaysLoad flag live inside the JSON payload arg, not as
+        # standalone argv tokens. Verify both are present and well-formed.
+        if platform == "claude":
+            payload = json.loads(cmd[-1])
+            assert "@colbymchenry/codegraph" in payload.get("args", []), (
+                f"claude: add-json payload missing codegraph package: {cmd[-1]}"
+            )
+            assert payload.get("alwaysLoad") is True, (
+                f"claude: add-json payload must set alwaysLoad=true so codegraph "
+                f"is never deferred behind Tool Search.  payload: {cmd[-1]}"
+            )
 
 
 # ---------------------------------------------------------------------------

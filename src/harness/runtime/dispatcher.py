@@ -240,7 +240,7 @@ selected_branch MUST be exactly one of: {valid_keys}
         # Add dynamic pointers rather than full text
         platform, _ = get_active_platform_and_model()
         skills_platform = platform if platform != "unknown" else ".claude"
-        # skills.json now lives inside the plugin dir (config_dir.parent), not the harness root.
+        # skills.json now lives inside the plugin dir (config_dir is the plugin root), not the harness root.
         # For Claude: .claude/harness-wf-plugin/skills.json
         # For other platforms that don't use a plugin, fall back to the harness root.
         from harness.adapters.profile import load_profile as _load_profile
@@ -277,15 +277,15 @@ selected_branch MUST be exactly one of: {valid_keys}
         """
         project_root = Path(project_root)
         
-        # Robustly resolve harness home by traversing upward from config_dir looking for AGENTS.md
+        # Robustly resolve harness home by traversing upward from config_dir looking for .harness-meta.json
         harness_home = self.config_dir
         while harness_home != harness_home.parent:
-            if (harness_home / "AGENTS.md").exists():
+            if (harness_home / ".harness-meta.json").exists():
                 break
             harness_home = harness_home.parent
         
-        # Fallback if AGENTS.md is missing for some reason
-        if not (harness_home / "AGENTS.md").exists():
+        # Fallback if .harness-meta.json is missing for some reason
+        if not (harness_home / ".harness-meta.json").exists():
             harness_home = self.config_dir.parent.parent
             
         current_phase = "Unknown"
