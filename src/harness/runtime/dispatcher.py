@@ -240,7 +240,7 @@ selected_branch MUST be exactly one of: {valid_keys}
         # Add dynamic pointers rather than full text
         platform, _ = get_active_platform_and_model()
         skills_platform = platform if platform != "unknown" else ".claude"
-        # skills.json now lives inside the plugin dir (config_dir.parent), not the harness root.
+        # skills.json now lives inside the plugin dir (config_dir is the plugin root), not the harness root.
         # For Claude: .claude/harness-wf-plugin/skills.json
         # For other platforms that don't use a plugin, fall back to the harness root.
         from harness.adapters.profile import load_profile as _load_profile

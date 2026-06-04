@@ -152,6 +152,7 @@ class ClaudeAdapter(PlatformAdapter):
         target_agent = routing_decision.get("target_agent")
 
         agent_invokes_skill = routing_decision.get("agent_invokes_skill", False)
+        dispatch_directive = ""
 
         if target_skill and target_agent:
             agent_name = target_agent.lstrip("@")
@@ -177,6 +178,12 @@ class ClaudeAdapter(PlatformAdapter):
         else:
             modified_prompt = original_prompt
 
+        # Claude's UserPromptSubmit hook only honours hookSpecificOutput.additionalContext
+        # — modifiedPrompt / systemPromptExtension are NOT recognised and get dropped. So
+        # everything the model must see beyond its own prompt (system state + dispatch
+        # directive) must be delivered via additionalContext.
+        additional_context = (context_extension or "") + dispatch_directive
+
         return {
             "classification": branch,
             "modifiedPrompt": modified_prompt,
@@ -184,6 +191,7 @@ class ClaudeAdapter(PlatformAdapter):
             "target_skill": target_skill,
             "hookSpecificOutput": {
                 "hookEventName": hook_event_name,
+                "additionalContext": additional_context,
                 "systemPromptExtension": context_extension,
                 "modifiedPrompt": modified_prompt,
             }

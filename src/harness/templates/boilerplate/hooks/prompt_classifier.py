@@ -54,7 +54,9 @@ def fallback_classify(prompt):
     else:
         return "E"
 
-@observe(name="user_prompt")
+# capture_output=False: main() ends in sys.exit(0) (returns None); the default
+# auto-capture would overwrite the span output we set via complete_prompt_span.
+@observe(name="user_prompt", capture_output=False)
 def main():
     try:
         try:
@@ -74,7 +76,9 @@ def main():
         current_dir = Path(__file__).parent
         plugin_root = current_dir.parent
         src_dir = plugin_root / "src"
-        config_dir = plugin_root / "config"
+        # Config JSONs (agents.json, rules.json, orchestrator.json) are minted to
+        # the plugin root, not a config/ subdir — see plugin_generator.py.
+        config_dir = plugin_root
         
         if str(src_dir) not in sys.path:
             sys.path.insert(0, str(src_dir))
@@ -190,18 +194,24 @@ def main():
         except Exception as e:
             print(f"DEBUG: Adapter formatting failed: {e}", file=sys.stderr)
             output = {
-                "classification": branch, 
+                "classification": branch,
                 "modifiedPrompt": prompt + system_state,
                 "system_prompt_extension": system_state,
                 "target_agent": target_agent,
                 "hookSpecificOutput": {
                     "hookEventName": hook_event_name,
+                    "additionalContext": system_state,
                     "systemPromptExtension": system_state,
                     "modifiedPrompt": prompt + system_state,
                     "target_agent": target_agent
                 }
             }
-            
+
+        langfuse_instrumentation.complete_prompt_span(
+            modified_prompt=output.get("modifiedPrompt", prompt),
+            system_state=system_state,
+            routing_decision=routing_decision,
+        )
         print(json.dumps(output))
         langfuse_instrumentation.ensure_flush()
         sys.exit(0)
