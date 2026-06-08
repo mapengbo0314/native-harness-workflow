@@ -1,6 +1,7 @@
 """Spawn Claude CLI sessions for benchmark scenarios and capture transcripts."""
 from __future__ import annotations
 
+import json
 import os
 import shlex
 import shutil
@@ -12,6 +13,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
+
+_RTK_HOOK_COMMAND = "rtk hook claude"
+_RTK_SYSTEM_PROMPT = (
+    "RTK is active. Prefix every shell command with `rtk` to compress output "
+    "(e.g. `rtk git status`, `rtk pytest`, `rtk ls`). "
+    "This reduces token consumption 60-90% per command."
+)
 
 FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
 TARGET_PROJECT = FIXTURES_DIR / "target_project"
@@ -67,6 +75,11 @@ def _prepared_project(config: str):
                 shutil.copy(f, project / f.name)
         elif config == "full_harness":
             _mint_harness(project)
+        elif config == "rtk":
+            _inject_rtk_hook(project)
+        elif config == "full_harness_rtk":
+            _mint_harness(project)
+            _inject_rtk_hook(project)
         # no_harness: nothing to overlay
 
         yield project
@@ -81,6 +94,42 @@ def _mint_harness(project: Path) -> None:
         capture_output=True,
         text=True,
     )
+
+
+def _inject_rtk_hook(project: Path) -> None:
+    """Merge RTK's PreToolUse hook into .claude/settings.json.
+
+    Note: PreToolUse hooks don't fire in --print mode; the RTK system prompt
+    injected in run_scenario() is the active instruction path for benchmarks.
+    The hook config ensures correct behaviour in interactive / non-print runs.
+    """
+    if not shutil.which("rtk"):
+        print("  WARNING: rtk not found on PATH — hook written but will fail at runtime")
+
+    claude_dir = project / ".claude"
+    claude_dir.mkdir(exist_ok=True)
+    settings_path = claude_dir / "settings.json"
+
+    settings: dict = {}
+    if settings_path.exists():
+        try:
+            settings = json.loads(settings_path.read_text())
+        except json.JSONDecodeError:
+            pass
+
+    pre_tool_use: list = settings.setdefault("hooks", {}).setdefault("PreToolUse", [])
+
+    already_present = any(
+        any(_RTK_HOOK_COMMAND in h.get("command", "") for h in entry.get("hooks", []))
+        for entry in pre_tool_use
+    )
+    if not already_present:
+        pre_tool_use.append({
+            "matcher": "Bash",
+            "hooks": [{"type": "command", "command": _RTK_HOOK_COMMAND}],
+        })
+
+    settings_path.write_text(json.dumps(settings, indent=2))
 
 
 def run_scenario(scenario_path: Path, config: str, timeout: int = 300) -> SessionResult:
@@ -101,6 +150,13 @@ def run_scenario(scenario_path: Path, config: str, timeout: int = 300) -> Sessio
         plugin_dir = project / ".claude" / "harness-wf-plugin"
         plugin_flags = f"--plugin-dir {shlex.quote(str(plugin_dir))}" if plugin_dir.exists() else ""
 
+        # PreToolUse hooks don't fire in --print mode; inject RTK awareness as a
+        # system prompt so the agent actually uses rtk-prefixed commands.
+        rtk_flag = (
+            f"--append-system-prompt {shlex.quote(_RTK_SYSTEM_PROMPT)}"
+            if config in ("rtk", "full_harness_rtk") else ""
+        )
+
         turns: list[Turn] = []
         try:
             for i, prompt in enumerate(turn_prompts):
@@ -110,7 +166,7 @@ def run_scenario(scenario_path: Path, config: str, timeout: int = 300) -> Sessio
                     f"cd {shlex.quote(str(project))} && "
                     f"echo {shlex.quote(prompt)} | "
                     f"claude --print --dangerously-skip-permissions "
-                    f"{plugin_flags} {continue_flag}"
+                    f"{plugin_flags} {rtk_flag} {continue_flag}"
                 )
                 result = subprocess.run(
                     cmd, shell=True, env=env,

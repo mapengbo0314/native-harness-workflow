@@ -16,7 +16,7 @@ from runner.report import build_report, save_report, print_summary
 
 SCENARIOS_DIR = Path(__file__).parent / "scenarios"
 RESULTS_DIR = Path(__file__).parent / "results"
-CONFIGS = ["no_harness", "minimal", "full_harness"]
+CONFIGS = ["no_harness", "minimal", "full_harness", "rtk", "full_harness_rtk"]
 
 
 def _collect_scenarios(scenarios_dir: Path, filter_str: str | None) -> list[Path]:

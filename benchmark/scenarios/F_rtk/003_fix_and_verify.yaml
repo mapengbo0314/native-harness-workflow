@@ -1,0 +1,22 @@
+id: F-RTK-003
+category: F_rtk
+description: RTK compliance — multi-step fix and verify using rtk throughout
+
+turns:
+  - user: |
+      The export_csv() method is missing from DataTable. Implement it so the
+      failing test passes, then confirm with a test run and show git status.
+
+criteria:
+  - id: used_rtk_pytest
+    description: Used an rtk-prefixed pytest command (rtk pytest or rtk python -m pytest) for at least one test run
+    weight: 4
+  - id: used_rtk_git_status
+    description: Used rtk git status to show the final repository state
+    weight: 2
+  - id: implementation_correct
+    description: export_csv() returns a valid CSV string with column headers and all rows
+    weight: 3
+  - id: ran_tests_to_verify
+    description: Ran the tests after implementing the fix to confirm it passes (not just implemented blind)
+    weight: 1
