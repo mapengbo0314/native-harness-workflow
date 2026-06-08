@@ -12,12 +12,14 @@ first). One clean commit per phase. The abandoned DDD work lives on
 
 ## Completed
 - [x] Phase 0 — Docs: design + this progress checklist.
+- [x] Phase 1 — Model + MCP (commit 96346ff, 2026-06-07)
 
-## Phase 1 — Model + MCP
-- [ ] `tests/unit/test_domain_model.py` (OpsManifest: 7 topics incl. business, topic(), blank-drop list-aware)
-- [ ] `src/harness/domain/model.py`
-- [ ] `tests/unit/test_domain_server.py` (domain_ops; find_manifest_path → DOMAIN_JSON_PATH / `<plugin>/domain/domain.json`)
-- [ ] `src/harness/domain/server.py`
+## Phase 1 — Model + MCP (DONE)
+- [x] `tests/unit/test_domain_model.py` (32 tests — OpsManifest: 7 topics incl. business, topic(), blank-drop list-aware)
+- [x] `src/harness/domain/model.py`
+- [x] `src/harness/domain/__init__.py`
+- [x] `tests/unit/test_domain_server.py` (17 tests — domain_ops; find_manifest_path env-override + ancestor-walk)
+- [x] `src/harness/domain/server.py`
 
 ## Phase 2 — Detectors
 - [ ] `tests/unit/test_domain_detect.py` (languages via GitHub API mocked + extension fallback; cdxgen frameworks/services mocked; cdxgen-failure degradation)
