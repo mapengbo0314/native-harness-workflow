@@ -161,10 +161,7 @@ def main():
         # on planning/question branches. Best-effort; never breaks the hook.
         business = {}
         try:
-            try:
-                from model import OpsManifest  # deployed flat in the plugin
-            except Exception:
-                from harness.domain.model import OpsManifest  # dev / repo
+            from model import OpsManifest  # deployed flat in the plugin
             _dj = os.environ.get("DOMAIN_JSON_PATH")
             if _dj:
                 _djp = Path(_dj)
