@@ -21,9 +21,6 @@ TOPICS: tuple[str, ...] = (
     "business",
 )
 
-_BLANK = ("", None)
-
-
 def _clean(d: object) -> dict:
     """Return a copy of *d* with blank values removed.
 
