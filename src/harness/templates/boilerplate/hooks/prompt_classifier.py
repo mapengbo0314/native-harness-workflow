@@ -157,6 +157,29 @@ def main():
         except Exception as e:
             print(f"DEBUG: Failed to save campaign state: {e}", file=sys.stderr)
 
+        # Load the compiled business digest (small) so build_context can push it
+        # on planning/question branches. Best-effort; never breaks the hook.
+        business = {}
+        try:
+            try:
+                from model import OpsManifest  # deployed flat in the plugin
+            except Exception:
+                from harness.domain.model import OpsManifest  # dev / repo
+            _dj = os.environ.get("DOMAIN_JSON_PATH")
+            if _dj:
+                _djp = Path(_dj)
+            else:
+                try:
+                    from hook_common import resolve_plugin_root
+                    _djp = resolve_plugin_root() / "domain" / "domain.json"
+                except Exception:
+                    _djp = Path.cwd() / "domain.json"
+            if _djp.exists():
+                business = OpsManifest.load(_djp).business
+        except Exception as e:
+            print(f"DEBUG: business load failed: {e}", file=sys.stderr)
+            business = {}
+
         try:
             from context_builder import build_context
             system_state = build_context(
@@ -165,7 +188,8 @@ def main():
                 auth_msg=auth_msg,
                 branch=branch,
                 missing_documents=artifacts_missing,
-                manifest_state=manifest_state
+                manifest_state=manifest_state,
+                business=business
             )
         except Exception as e:
             print(f"DEBUG: context_builder failed: {e}", file=sys.stderr)

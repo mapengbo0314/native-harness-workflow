@@ -61,5 +61,49 @@ def test_build_context_no_missing_artifacts():
         branch="A",
         missing_documents=[]
     )
-    
+
     assert "Missing Documents: None" in result
+
+
+_BIZ = {
+    "direction": "Win SMB invoicing on correctness",
+    "priorities": ["data integrity", "auditability"],
+}
+
+
+@pytest.mark.parametrize("branch", ["B", "C"])
+def test_business_injected_on_planning_and_question_branches(branch):
+    result = build_context(
+        phase="3 (Planning)", target_agent="@planner", auth_msg="",
+        branch=branch, missing_documents=[], business=_BIZ,
+    )
+    assert 'Product direction (domain_ops "business")' in result
+    assert "Win SMB invoicing on correctness" in result
+    assert "data integrity; auditability" in result   # list rendered inline
+
+
+@pytest.mark.parametrize("branch", ["A", "D", "E"])
+def test_business_absent_on_other_branches(branch):
+    result = build_context(
+        phase="4 (Execution)", target_agent="@implementer", auth_msg="",
+        branch=branch, missing_documents=[], business=_BIZ,
+    )
+    assert "Product direction" not in result
+
+
+def test_business_empty_omitted_on_b():
+    result = build_context(
+        phase="3 (Planning)", target_agent="@planner", auth_msg="",
+        branch="B", missing_documents=[], business={},
+    )
+    assert "Product direction" not in result
+
+
+def test_business_render_is_capped():
+    big = {"direction": "x" * 5000, "priorities": ["y" * 5000]}
+    result = build_context(
+        phase="3 (Planning)", target_agent="@planner", auth_msg="",
+        branch="B", missing_documents=[], business=big,
+    )
+    # the business block must be bounded (cap 600 + a little framing), not 10k.
+    assert len(result) < 1200
