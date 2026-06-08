@@ -23,16 +23,24 @@ def build_report(scores: list[ScenarioScore]) -> dict:
             continue
         avg_score = sum(s.score for s in config_scores) / len(config_scores)
         avg_turns = sum(s.turns for s in config_scores) / len(config_scores)
+        agent_usage = _sum_usage(s.agent_usage for s in config_scores)
+        judge_usage = _sum_usage(s.judge_usage for s in config_scores)
         summary[config] = {
             "scenarios_run": len(config_scores),
             "avg_score": round(avg_score, 3),
             "avg_turns": round(avg_turns, 1),
+            "agent_usage": agent_usage,
+            "judge_usage": judge_usage,
             "scenarios": [
                 {
                     "id": s.scenario_id,
                     "score": round(s.score, 3),
                     "turns": s.turns,
                     "session_id": s.session_id,
+                    "agent_usage": s.agent_usage.as_dict(),
+                    "judge_usage": s.judge_usage.as_dict(),
+                    "error": s.error,
+                    "transcript": s.transcript,
                     "criteria": [
                         {"id": c.id, "passed": c.passed, "reasoning": c.reasoning}
                         for c in s.criteria
@@ -44,6 +52,10 @@ def build_report(scores: list[ScenarioScore]) -> dict:
 
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
+        "provider": scores[0].provider if scores else None,
+        "judge_provider": scores[0].judge_provider if scores else None,
+        "agent_usage": _sum_usage(s.agent_usage for s in scores),
+        "judge_usage": _sum_usage(s.judge_usage for s in scores),
         "configs": summary,
     }
 
@@ -57,7 +69,38 @@ def save_report(report: dict, results_dir: Path) -> Path:
 
 
 def print_summary(report: dict) -> None:
-    print(f"\n{'Config':<15} {'Scenarios':>10} {'Avg Score':>10} {'Avg Turns':>10}")
-    print("-" * 50)
+    print(
+        f"\nAgent: {report.get('provider') or 'n/a'} | "
+        f"Judge: {report.get('judge_provider') or 'n/a'}"
+    )
+    print(
+        f"\n{'Config':<18} {'Scenarios':>9} {'Score':>8} {'Turns':>7} "
+        f"{'Agent tok':>11} {'Judge tok':>11}"
+    )
+    print("-" * 72)
     for config, data in report["configs"].items():
-        print(f"{config:<15} {data['scenarios_run']:>10} {data['avg_score']:>10.1%} {data['avg_turns']:>10.1f}")
+        print(
+            f"{config:<18} {data['scenarios_run']:>9} "
+            f"{data['avg_score']:>8.1%} {data['avg_turns']:>7.1f} "
+            f"{data['agent_usage']['total_tokens']:>11,} "
+            f"{data['judge_usage']['total_tokens']:>11,}"
+        )
+    print(
+        f"\nTotal tokens: agent={report['agent_usage']['total_tokens']:,}, "
+        f"judge={report['judge_usage']['total_tokens']:,}"
+    )
+
+
+def _sum_usage(usages) -> dict[str, int]:
+    totals = {
+        "input_tokens": 0,
+        "cached_input_tokens": 0,
+        "uncached_input_tokens": 0,
+        "output_tokens": 0,
+        "reasoning_output_tokens": 0,
+        "total_tokens": 0,
+    }
+    for usage in usages:
+        for key, value in usage.as_dict().items():
+            totals[key] += value
+    return totals

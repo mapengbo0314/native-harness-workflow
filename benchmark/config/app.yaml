@@ -1,0 +1,5 @@
+tasks_dir: "benchmark/tasks"
+results_dir: "benchmark/results"
+work_root: "/tmp/harness-bench-work"
+default_timeout_sec: 300
+default_rounds: 1

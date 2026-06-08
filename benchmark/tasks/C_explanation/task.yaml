@@ -1,0 +1,8 @@
+task_id: "C-explanation-001"
+title: "Explain dispatcher routing"
+prompt_files:
+  - "prompt.txt"
+fixtures_dir: "fixtures"
+oracle_module: "oracle_grade.py"
+timeout_sec: 120
+tags: ["explanation", "navigation", "dispatcher"]

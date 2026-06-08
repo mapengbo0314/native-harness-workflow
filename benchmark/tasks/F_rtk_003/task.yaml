@@ -1,0 +1,8 @@
+task_id: "F-rtk-003"
+title: "RTK compliance — fix and verify"
+prompt_files:
+  - "prompt.txt"
+fixtures_dir: "fixtures"
+oracle_module: "oracle_grade.py"
+timeout_sec: 300
+tags: ["rtk", "compliance", "implementation"]
