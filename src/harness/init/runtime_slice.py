@@ -47,6 +47,9 @@ RUNTIME_FILE_MAP: dict[str, Optional[str]] = {
     "langfuse_compat.py":        "runtime/langfuse_compat.py",
     "langfuse_instrumentation.py": "runtime/langfuse_instrumentation.py",
     "discovery_engine.py":       "init/discovery_engine.py",
+    # Domain runtime slice: the MCP server imports `model`. Flattened on deploy.
+    "model.py":                  "domain/model.py",
+    "server.py":                 "domain/server.py",
     "runtime_adapter.py":        "adapters/runtime_adapter.py",
     "profile.py":                "adapters/profile.py",
     "platform_profiles.json":    "adapters/platform_profiles.json",
@@ -59,8 +62,8 @@ RUNTIME_FILE_MAP: dict[str, Optional[str]] = {
 # ---------------------------------------------------------------------------
 
 # Regex covers harness.runtime.*, harness.init.*, harness.adapters.*
-_HARNESS_FROM_RE = re.compile(r"from harness\.(?:runtime|init|adapters)\.")
-_HARNESS_IMPORT_RE = re.compile(r"import harness\.(?:runtime|init|adapters)\.")
+_HARNESS_FROM_RE = re.compile(r"from harness\.(?:runtime|init|adapters|domain)\.")
+_HARNESS_IMPORT_RE = re.compile(r"import harness\.(?:runtime|init|adapters|domain)\.")
 
 
 def rewrite_imports(text: str) -> str:

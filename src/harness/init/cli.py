@@ -47,7 +47,10 @@ def _platform_name(platform_choice: str) -> str:
     }.get(platform_choice, platform_choice).lower()
 
 
+from pathlib import Path
 from harness.adapters import get_adapter
+from harness.domain.seed import run_domain_init, _DEFAULT_MANIFEST_REL, _DEFAULT_REFERENCE_REL
+from harness.domain.compiler import run_domain_compile
 
 def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
     required = [
@@ -185,7 +188,7 @@ def _write_update_metadata(
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Initialize or update a Harness agent workspace.")
-    parser.add_argument("command", choices=["init", "update"], help="Command to run")
+    parser.add_argument("command", choices=["init", "update", "domain-init", "domain-compile"], help="Command to run")
     parser.add_argument("--project-path", required=True, help="Path to the repository")
     parser.add_argument("--bundle", help="Path to an existing CodeGraph bundle (.codegraph directory)")
     parser.add_argument("--check", action="store_true", help="(update) Dry-run: report stale/edited/conflicting files, write nothing")
@@ -380,6 +383,22 @@ def main():
     # CodeGraph, platform selection, or the atomic-swap machinery.
     if args.command == "update":
         run_update(args)
+        langfuse_context.flush()
+        return
+
+    # `domain-init` / `domain-compile` are offline, plugin-scoped; no npx/CodeGraph.
+    if args.command == "domain-init":
+        run_domain_init(args.project_path)
+        langfuse_context.flush()
+        return
+
+    if args.command == "domain-compile":
+        proj = Path(args.project_path)
+        run_domain_compile(
+            proj,
+            manifest_path=proj / _DEFAULT_MANIFEST_REL,
+            reference_dir=proj / _DEFAULT_REFERENCE_REL,
+        )
         langfuse_context.flush()
         return
 
@@ -640,6 +659,11 @@ def main():
         if temp_harness_dir.exists():
             shutil.rmtree(temp_harness_dir)
 
+    # Scaffold the project-ops manifest + reference docs dir (best-effort).
+    try:
+        run_domain_init(args.project_path)
+    except Exception as e:
+        print(f"[HARNESS] Warning: domain scaffold skipped: {e}")
 
     print(f"\n\n{'='*60}")
     print("🚀 ONBOARDING COMPLETE")

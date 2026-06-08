@@ -68,6 +68,9 @@ class TestDedupeRuntimeSourceMap:
             "platform_profiles.json",
             "platform_adapter.py",
             "__init__.py",
+            # domain runtime slice — MCP server needs model + server
+            "model.py",
+            "server.py",
         }
         assert set(RUNTIME_FILE_MAP.keys()) == expected_names
 
@@ -117,6 +120,10 @@ class TestRewriteImports:
         # "harness.adapters." is stripped wholesale; leaves just the module name
         text = "import harness.adapters.profile as p"
         assert rewrite_imports(text) == "import profile as p"
+
+    def test_from_harness_domain(self):
+        text = "from harness.domain.model import OpsManifest"
+        assert rewrite_imports(text) == "from model import OpsManifest"
 
     def test_non_harness_imports_unchanged(self):
         text = "from pathlib import Path\nimport json\nimport os"

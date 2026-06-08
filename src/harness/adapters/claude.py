@@ -122,8 +122,23 @@ class ClaudeAdapter(PlatformAdapter):
             "args": ["-y", "@colbymchenry/codegraph", "serve", "--mcp"],
             "alwaysLoad": True,
         })
+        # Domain MCP: serves domain_ops(topic) from the plugin's domain.json.
+        # Runs the deployed flat server (plugin src/) and is pointed at the
+        # plugin-scoped, user-owned domain.json via DOMAIN_JSON_PATH.
+        _plugin_rel = f"{load_profile('claude').config_dir}/{load_profile('claude').plugin_dir_name}"
+        domain_config = json.dumps({
+            "type": "stdio",
+            "command": "python3",
+            "args": ["-m", "server"],
+            "env": {
+                "PYTHONPATH": f"{_plugin_rel}/src",
+                "DOMAIN_JSON_PATH": f"{_plugin_rel}/domain/domain.json",
+            },
+            "alwaysLoad": True,
+        })
         commands = [
             [claude, "mcp", "add-json", "--scope", "project", "codegraph", codegraph_config],
+            [claude, "mcp", "add-json", "--scope", "project", "domain", domain_config],
         ]
 
         for command in commands:
