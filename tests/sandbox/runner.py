@@ -85,10 +85,10 @@ def mint_harness(project_path: str, project_name: str, model: str = None):
     context_dir.mkdir(parents=True, exist_ok=True)
     context_file = context_dir / "CONTEXT.md"
     if not context_file.exists():
-        context_file.write_text("# Project Context\n\n## Purpose\nSandbox Test\n\n## Ubiquitous Language\nNone\n\n## Strict Invariants\nNone\n")
+        context_file.write_text("# Project Context\n\n## Purpose\nSandbox Test\n\n## Strict Invariants\nNone\n")
 
     # Mock domain content for SME synthesis
-    domain_content = "Proposed Agent Name: @domain-sme\nDomain Invariants:\nNone\nUbiquitous Language:\nNone\n- [x] orchestrator-plugin (local)"
+    domain_content = "Proposed Agent Name: @domain-sme\nDomain Invariants:\nNone\n- [x] orchestrator-plugin (local)"
     
     from harness.adapters import get_adapter
     from harness.init.minting_engine import copy_runtime_modules
