@@ -76,7 +76,9 @@ class CursorAdapter(PlatformAdapter):
         data: Dict = {}
         if mcp_path.exists():
             try:
-                data = json.loads(mcp_path.read_text(encoding="utf-8")) or {}
+                loaded = json.loads(mcp_path.read_text(encoding="utf-8"))
+                if isinstance(loaded, dict):
+                    data = loaded
             except (json.JSONDecodeError, OSError):
                 data = {}
         servers = data.setdefault("mcpServers", {})

@@ -167,6 +167,22 @@ def test_cursor_configure_cli_merges_existing_servers(tmp_path):
     assert "domain" in data["mcpServers"]
 
 
+def test_cursor_configure_cli_recovers_from_non_object_json(tmp_path):
+    # A valid-but-non-object .cursor/mcp.json (e.g. a list) must not crash the
+    # mint — it should be replaced with a fresh object containing domain.
+    from harness.adapters import get_adapter
+
+    mcp_json = tmp_path / ".cursor" / "mcp.json"
+    mcp_json.parent.mkdir(parents=True)
+    mcp_json.write_text(json.dumps(["not", "an", "object"]))
+
+    get_adapter("cursor").configure_cli(tmp_path)  # must not raise
+
+    data = json.loads(mcp_json.read_text())
+    assert isinstance(data, dict)
+    assert "domain" in data["mcpServers"]
+
+
 def test_codex_configure_cli_writes_config_toml(tmp_path):
     from harness.adapters import get_adapter
 
