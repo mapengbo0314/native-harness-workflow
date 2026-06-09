@@ -4,7 +4,31 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
+
 from harness.init import cli
+
+
+def test_platform_flag_rejects_unknown_value(monkeypatch, tmp_path):
+    """--platform must constrain to known platforms (argparse choices=) so an
+    invalid value fails cleanly with exit code 2 instead of silently passing
+    through to load_profile()."""
+    monkeypatch.setattr(
+        "sys.argv",
+        ["harness-wf", "update", "--project-path", str(tmp_path), "--platform", "bogus"],
+    )
+    with pytest.raises(SystemExit) as exc:
+        cli.parse_args()
+    assert exc.value.code == 2
+
+
+@pytest.mark.parametrize("platform", ["claude", "gemini", "codex", "cursor", "generic"])
+def test_platform_flag_accepts_known_values(monkeypatch, tmp_path, platform):
+    monkeypatch.setattr(
+        "sys.argv",
+        ["harness-wf", "update", "--project-path", str(tmp_path), "--platform", platform],
+    )
+    assert cli.parse_args().platform == platform
 
 
 def test_parse_args_accepts_domain_init(monkeypatch, tmp_path):

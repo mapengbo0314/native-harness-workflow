@@ -44,8 +44,10 @@
       "- glob": "- glob"
     },
     "event_mappings": {
-      "PreCompact": "PreCompress",
-      "PostToolUse": "AfterTool"
+      "UserPromptSubmit": "BeforeAgent",
+      "PreToolUse": "BeforeTool",
+      "PostToolUse": "AfterTool",
+      "PreCompact": "PreCompress"
     },
     "skill_invocation": "activate_skill(\"{skill}\")",
     "subagent_invocation": "@{agent} {description}",

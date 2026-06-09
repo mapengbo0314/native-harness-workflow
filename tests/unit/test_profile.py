@@ -120,7 +120,15 @@ class TestGeminiFieldValues:
         assert self.p.plugin_dir_name is None
 
     def test_event_mappings(self):
-        assert self.p.event_mappings == {"PreCompact": "PreCompress", "PostToolUse": "AfterTool"}
+        # Full Claude->Gemini event-name remap. Gemini CLI's taxonomy is
+        # BeforeAgent (prompt submit) / BeforeTool / AfterTool / PreCompress —
+        # it has no UserPromptSubmit / PreToolUse / PostToolUse / PreCompact.
+        assert self.p.event_mappings == {
+            "UserPromptSubmit": "BeforeAgent",
+            "PreToolUse": "BeforeTool",
+            "PostToolUse": "AfterTool",
+            "PreCompact": "PreCompress",
+        }
 
     def test_rules_pointer_files(self):
         assert self.p.rules_pointer_files == ["GEMINI.md"]

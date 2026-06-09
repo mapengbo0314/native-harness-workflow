@@ -75,6 +75,66 @@ def test_install_hooks_resolves_harness_plugin_root(platform, config_dir, env_va
 
 
 # ---------------------------------------------------------------------------
+# 1b. gemini install_hooks remaps Claude event names to Gemini's taxonomy
+# ---------------------------------------------------------------------------
+# Gemini CLI has NO UserPromptSubmit / PreToolUse / PostToolUse / PreCompact
+# events. Its taxonomy is BeforeAgent (prompt submit) / BeforeTool / AfterTool /
+# PreCompress. A minted hooks.json ships with Claude's event-name keys, so
+# install_hooks MUST rewrite them — otherwise the prompt-classifier and
+# security hooks are bound to non-existent events and never fire.
+# Refs: https://geminicli.com/docs/hooks/reference/ , https://geminicli.com/docs/hooks/
+
+def _write_full_hooks(project_path: Path, config_dir: str) -> Path:
+    """Write a hooks.json with all four Claude event keys the boilerplate uses."""
+    hooks_dir = project_path / config_dir / "hooks"
+    hooks_dir.mkdir(parents=True)
+    hooks_json = hooks_dir / "hooks.json"
+    hooks_json.write_text(
+        json.dumps(
+            {
+                "hooks": {
+                    "UserPromptSubmit": [{"hooks": [{"command": "x"}]}],
+                    "PreToolUse": [{"matcher": "*", "hooks": [{"command": "y"}]}],
+                    "PostToolUse": [{"matcher": "*", "hooks": [{"command": "z"}]}],
+                    "PreCompact": [{"matcher": "*", "hooks": [{"command": "w"}]}],
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    return hooks_json
+
+
+def test_gemini_py_has_no_unused_shlex_import():
+    """gemini.py imported shlex inside configure_cli but never used it."""
+    gemini_src = (
+        REPO_ROOT / "src" / "harness" / "adapters" / "gemini.py"
+    ).read_text(encoding="utf-8")
+    assert "import shlex" not in gemini_src, (
+        "gemini.py still imports shlex (unused)"
+    )
+
+
+def test_gemini_install_hooks_remaps_event_names(tmp_path):
+    from harness.adapters import get_adapter
+
+    hooks_json = _write_full_hooks(tmp_path, ".gemini")
+    get_adapter("gemini").install_hooks(tmp_path)
+
+    data = json.loads(hooks_json.read_text())
+    keys = set(data["hooks"])
+    # Gemini's real event names.
+    assert keys == {"BeforeAgent", "BeforeTool", "AfterTool", "PreCompress"}, (
+        f"gemini hooks.json keys not remapped to Gemini taxonomy: {keys}"
+    )
+    # None of Claude's event names survive.
+    for claude_event in ("UserPromptSubmit", "PreToolUse", "PostToolUse", "PreCompact"):
+        assert claude_event not in keys, (
+            f"gemini: Claude event name {claude_event!r} not rewritten"
+        )
+
+
+# ---------------------------------------------------------------------------
 # 2. resolve_plugin_root env-var support
 # ---------------------------------------------------------------------------
 
@@ -136,6 +196,27 @@ def test_gemini_configure_cli_registers_domain(tmp_path, monkeypatch):
     joined = " ".join(cmd)
     assert "PYTHONPATH=.gemini/src" in joined
     assert "DOMAIN_JSON_PATH=.gemini/domain/domain.json" in joined
+
+
+def test_generic_configure_cli_is_noop_no_domain_mcp(tmp_path):
+    """Generic is a catch-all with no specific CLI and no agreed MCP-registration
+    convention (codex=.codex/config.toml, cursor=.cursor/mcp.json, gemini=CLI;
+    there is no universal .agents/mcp.json standard). Fabricating one would be
+    dishonest, so domain MCP registration is N/A for generic: configure_cli is a
+    no-op and writes nothing claiming domain_ops. (Documented in
+    docs/platform-support.md.)"""
+    from harness.adapters import get_adapter
+
+    get_adapter("generic").configure_cli(tmp_path)
+
+    # No MCP-registration artefacts of any kind.
+    assert not (tmp_path / ".agents" / "mcp.json").exists()
+    assert not (tmp_path / ".agents" / "config.toml").exists()
+    assert not (tmp_path / ".mcp.json").exists()
+    # Nothing under .agents references the domain MCP server.
+    for p in (tmp_path / ".agents").rglob("*"):
+        if p.is_file():
+            assert "domain" not in p.read_text(encoding="utf-8", errors="ignore")
 
 
 def test_cursor_configure_cli_writes_mcp_json(tmp_path):

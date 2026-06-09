@@ -51,8 +51,8 @@ Verified artifact structures (real mint runs, 2026-05-30):
     src/
 
   gemini  (.gemini/)
-    hooks/hooks.json            — events: UserPromptSubmit, PreCompress,
-                                           PreToolUse, AfterTool
+    hooks/hooks.json            — events: BeforeAgent, BeforeTool,
+                                           AfterTool, PreCompress
     hooks/{prompt_classifier,pre_tool_use,post_tool_use,notify_compression}.py
     hooks/hook_common.py
     agents/{adversary,debugger,implementer,planner,reviewer,verifier}.md
@@ -104,10 +104,13 @@ _HOOK_ENV_VAR: dict[str, str] = {
     "gemini": "GEMINI_PLUGIN_ROOT",
 }
 
-# Expected hook event names per platform (verified from real mint, 2026-05-30)
+# Expected hook event names per platform. Gemini CLI has its own event taxonomy
+# (no UserPromptSubmit/PreToolUse/PostToolUse/PreCompact); install_hooks remaps
+# all four Claude keys to BeforeAgent/BeforeTool/AfterTool/PreCompress.
+# (Gemini deep-research pass, June 2026 — see docs/platform-support.md.)
 _EXPECTED_HOOK_EVENTS: dict[str, set[str]] = {
     "claude": {"UserPromptSubmit", "PreCompact", "PreToolUse", "PostToolUse"},
-    "gemini": {"UserPromptSubmit", "PreCompress", "PreToolUse", "AfterTool"},
+    "gemini": {"BeforeAgent", "BeforeTool", "AfterTool", "PreCompress"},
 }
 
 # Minimum set of skill directories expected in skills/
@@ -368,7 +371,7 @@ class TestWiring:
         platform-correct set.
 
         claude: {UserPromptSubmit, PreCompact, PreToolUse, PostToolUse}
-        gemini: {UserPromptSubmit, PreCompress, PreToolUse, AfterTool}
+        gemini: {BeforeAgent, BeforeTool, AfterTool, PreCompress}
         """
         platform, root = plugin_root
         hooks_file = root / "hooks" / "hooks.json"

@@ -166,7 +166,11 @@ def test_claude_generalist_remap_in_modified_prompt() -> None:
 
 
 def test_gemini_no_generalist_remap() -> None:
-    """Gemini runtime adapter must NOT remap 'generalist' — keep it as-is."""
+    """Gemini runtime adapter must NOT remap 'generalist' — keep it as-is.
+
+    Gemini's BeforeAgent hook is append-only (no prompt rewrite), so the routing
+    directive lives in hookSpecificOutput.additionalContext, not modifiedPrompt.
+    """
     runtime = _runtime_get_adapter("gemini")
     routing = {
         "classification": "AGENT",
@@ -176,11 +180,12 @@ def test_gemini_no_generalist_remap() -> None:
     result = runtime.format_hook_response(
         "test", routing, "", "BeforeAgent"
     )
-    assert "generalist" in result["modifiedPrompt"], (
-        "Gemini runtime adapter: 'generalist' not found in modifiedPrompt — "
+    ac = result["hookSpecificOutput"]["additionalContext"]
+    assert "generalist" in ac, (
+        "Gemini runtime adapter: 'generalist' not found in additionalContext — "
         "unexpected remap applied"
     )
-    assert "general-purpose" not in result["modifiedPrompt"], (
+    assert "general-purpose" not in ac, (
         "Gemini runtime adapter: 'general-purpose' appeared — claude remap leaked"
     )
 
@@ -464,6 +469,14 @@ class TestMintedAdapterEquality:
             f"  canonical: {r_canonical}\n"
             f"  minted:    {r_minted}"
         )
+        # Gemini schema guard: BeforeAgent is append-only — no invented fields.
+        assert set(r_minted).issubset(
+            {"continue", "systemMessage", "decision", "reason", "hookSpecificOutput"}
+        )
+        assert set(r_minted["hookSpecificOutput"]).issubset(
+            {"hookEventName", "additionalContext"}
+        )
+        assert "modifiedPrompt" not in r_minted
 
     @pytest.mark.parametrize("routing_label,routing_decision", _ROUTING_CASES)
     def test_codex_minted_adapter_format_hook_response(

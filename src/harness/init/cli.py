@@ -219,7 +219,11 @@ def parse_args():
     parser.add_argument("--force", action="store_true", help="(update) Force overwrite files modified locally that otherwise have a keep-yours verdict, and resolve conflicts by taking the new template")
     parser.add_argument("--force-major", action="store_true", help="(update) Allow applying updates across a MAJOR version boundary")
     parser.add_argument("--adopt", action="store_true", help="(update) Adopt an existing un-manifested harness by generating a base manifest from the current state")
-    parser.add_argument("--platform", help="(update) Explicitly specify the platform to update (e.g. claude, gemini). Overrides auto-detection.")
+    parser.add_argument(
+        "--platform",
+        choices=["claude", "gemini", "codex", "cursor", "generic"],
+        help="(update) Explicitly specify the platform to update (claude, gemini, codex, cursor, generic). Overrides auto-detection.",
+    )
     parser.add_argument(
         "--codegraph-exclusion",
         help="(init) Path to a gitignore-style file whose glob patterns are merged "

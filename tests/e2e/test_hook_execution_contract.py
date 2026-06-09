@@ -287,10 +287,11 @@ class TestPromptClassifierContract:
     UserPromptSubmit / BeforeAgent hook.
 
     Input:  {"prompt": "<text>", "hookEventName": "<event>"}
-    Output: JSON object with keys:
-            - "classification" (branch letter A–E)
-            - "modifiedPrompt" (string)
-            - "hookSpecificOutput" (object)
+    Output (claude): {classification, modifiedPrompt, hookSpecificOutput, ...}
+    Output (gemini): append-only — BeforeAgent cannot rewrite the prompt, so the
+            output is {continue, hookSpecificOutput{hookEventName,
+            additionalContext}} (no classification / modifiedPrompt). The routing
+            decision + SYSTEM STATE are folded into additionalContext.
     Exit:   0
     """
 
@@ -323,8 +324,15 @@ class TestPromptClassifierContract:
         _assert_valid_json_stdout(result, f"{platform} prompt_classifier")
 
     def test_stdout_has_classification(self, exec_plugin_root: tuple[str, Path]) -> None:
-        """Output must contain 'classification' key with a letter branch A–E."""
+        """Output must contain 'classification' key with a letter branch A–E.
+
+        Gemini is append-only (BeforeAgent): it emits no top-level classification
+        field — the routing is folded into additionalContext — so this is a
+        claude-only contract.
+        """
         platform, root = exec_plugin_root
+        if platform == "gemini":
+            pytest.skip("gemini append-only output carries no top-level 'classification'")
         interpreter, script = _resolve_hook_command(root, platform, "prompt_classifier.py")
         result = _run_hook(root, platform, script, interpreter, self._event(platform))
         output = _assert_valid_json_stdout(result, f"{platform} prompt_classifier")
@@ -338,8 +346,14 @@ class TestPromptClassifierContract:
         )
 
     def test_stdout_has_modified_prompt(self, exec_plugin_root: tuple[str, Path]) -> None:
-        """Output must contain 'modifiedPrompt' key."""
+        """Output must contain 'modifiedPrompt' key.
+
+        Gemini's BeforeAgent cannot rewrite the prompt, so it must NOT emit
+        'modifiedPrompt' — claude-only contract.
+        """
         platform, root = exec_plugin_root
+        if platform == "gemini":
+            pytest.skip("gemini append-only output does not (and must not) emit 'modifiedPrompt'")
         interpreter, script = _resolve_hook_command(root, platform, "prompt_classifier.py")
         result = _run_hook(root, platform, script, interpreter, self._event(platform))
         output = _assert_valid_json_stdout(result, f"{platform} prompt_classifier")
@@ -347,6 +361,26 @@ class TestPromptClassifierContract:
             f"{platform} prompt_classifier: output missing 'modifiedPrompt' key.\n"
             f"Got: {output}"
         )
+
+    def test_gemini_append_only_shape(self, exec_plugin_root: tuple[str, Path]) -> None:
+        """Gemini's BeforeAgent output must be append-only: no classification /
+        modifiedPrompt, only {continue, hookSpecificOutput{hookEventName,
+        additionalContext}}, and the original prompt is NOT echoed back."""
+        platform, root = exec_plugin_root
+        if platform != "gemini":
+            pytest.skip("gemini-only append-only shape contract")
+        interpreter, script = _resolve_hook_command(root, platform, "prompt_classifier.py")
+        event = self._event(platform)
+        result = _run_hook(root, platform, script, interpreter, event)
+        output = _assert_valid_json_stdout(result, f"{platform} prompt_classifier")
+        assert "classification" not in output
+        assert "modifiedPrompt" not in output
+        assert set(output).issubset(
+            {"continue", "systemMessage", "decision", "reason", "hookSpecificOutput"}
+        )
+        hso = output["hookSpecificOutput"]
+        assert set(hso).issubset({"hookEventName", "additionalContext"})
+        assert event["prompt"] not in hso.get("additionalContext", "")
 
     def test_stdout_has_hook_specific_output(self, exec_plugin_root: tuple[str, Path]) -> None:
         """Output must contain 'hookSpecificOutput' object."""
@@ -382,9 +416,16 @@ class TestPromptClassifierContract:
         hso = output["hookSpecificOutput"]
         assert "additionalContext" in hso, (
             f"{platform} prompt_classifier: hookSpecificOutput missing 'additionalContext' "
-            f"— Claude would inject nothing.\nGot: {hso}"
+            f"— the model would receive nothing.\nGot: {hso}"
         )
-        # Structural invariant: additionalContext = systemPromptExtension + prompt-suffix.
+        if platform == "gemini":
+            # Gemini is append-only: additionalContext carries the routing
+            # directive + SYSTEM STATE, but never the rewritten prompt
+            # (modifiedPrompt does not exist on a BeforeAgent response).
+            assert "modifiedPrompt" not in output
+            assert event.get("prompt", "") not in hso["additionalContext"]
+            return
+        # Claude structural invariant: additionalContext = systemPromptExtension + prompt-suffix.
         prompt = event.get("prompt", "")
         modified = output.get("modifiedPrompt", "")
         appended = modified[len(prompt):] if modified.startswith(prompt) else ""
@@ -398,8 +439,14 @@ class TestPromptClassifierContract:
     def test_prompt_is_preserved_in_modified_prompt(
         self, exec_plugin_root: tuple[str, Path]
     ) -> None:
-        """The original prompt text must be a prefix/substring of modifiedPrompt."""
+        """The original prompt text must be a prefix/substring of modifiedPrompt.
+
+        Claude-only: Gemini's BeforeAgent cannot rewrite the prompt (append-only),
+        so there is no modifiedPrompt to preserve the prompt in.
+        """
         platform, root = exec_plugin_root
+        if platform == "gemini":
+            pytest.skip("gemini append-only output has no modifiedPrompt")
         interpreter, script = _resolve_hook_command(root, platform, "prompt_classifier.py")
         event = self._event(platform)
         result = _run_hook(root, platform, script, interpreter, event)

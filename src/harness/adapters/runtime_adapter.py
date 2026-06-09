@@ -86,12 +86,14 @@ class RuntimeAdapter:
         platform.  Platform-specific logic (generalist remap, CTA string) is
         read from the profile rather than hard-coded.
 
-        Codex is a special case: it enforces ``deny_unknown_fields`` and cannot
-        rewrite the prompt, so its output carries ONLY Codex-valid fields and the
-        routing + context are folded into ``hookSpecificOutput.additionalContext``.
+        Codex and Gemini are append-only special cases: their prompt hooks
+        (Codex ``UserPromptSubmit`` / Gemini ``BeforeAgent``) can only *inject*
+        context via ``hookSpecificOutput.additionalContext`` and CANNOT rewrite
+        the prompt, so their output carries ONLY valid fields and the routing +
+        context are folded into ``additionalContext``.
         """
-        if self._platform == "codex":
-            return self._format_codex_hook_response(
+        if self._platform in ("codex", "gemini"):
+            return self._format_append_only_hook_response(
                 routing_decision, context_extension, hook_event_name
             )
         if self._platform == "cursor":
@@ -152,24 +154,30 @@ class RuntimeAdapter:
         }
 
     # ------------------------------------------------------------------
-    # Codex-specific hook response (deny_unknown_fields, no prompt rewrite)
+    # Append-only hook response (codex / gemini: no prompt rewrite)
     # ------------------------------------------------------------------
 
-    def _format_codex_hook_response(
+    def _format_append_only_hook_response(
         self,
         routing_decision: dict,
         context_extension: str,
         hook_event_name: str,
     ) -> dict:
-        """Codex hook output.
+        """Append-only hook output for Codex (``UserPromptSubmit``) and Gemini
+        (``BeforeAgent``).
 
-        Codex's UserPromptSubmit hook can only *inject* context (via
-        ``hookSpecificOutput.additionalContext``) — it cannot rewrite the
-        prompt — and it rejects unknown fields. So the routing decision that
-        other platforms prepend to the prompt is re-expressed as an injected
-        instruction and concatenated with the SYSTEM STATE block. Codex uses
-        Claude's hook *event names* verbatim, so ``hook_event_name`` is passed
-        through unchanged (``event_mappings = {}``).
+        Both platforms' prompt hooks can only *inject* context (via
+        ``hookSpecificOutput.additionalContext``) — they cannot rewrite the
+        prompt. Codex additionally rejects unknown fields (``deny_unknown_fields``)
+        and Gemini's ``additionalContext`` is documented as "text appended to the
+        prompt for this turn", so for both we emit ONLY append-only-valid fields.
+        The routing decision that prompt-rewriting platforms prepend is re-expressed
+        as an injected instruction and concatenated with the SYSTEM STATE block.
+
+        ``hook_event_name`` is passed through unchanged: Codex reuses Claude's
+        event names verbatim, and Gemini's actual event name (``BeforeAgent``) is
+        already remapped by the hooks.json install step, so the runtime hook is
+        invoked with — and must echo back — the correct event name.
         """
         branch = routing_decision.get("classification")
         target_skill = routing_decision.get("target_skill")

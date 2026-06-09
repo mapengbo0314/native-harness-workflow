@@ -200,6 +200,13 @@ class TestGeminiExactValues:
     def test_event_mappings_PostToolUse(self, profiles):
         assert profiles["gemini"]["event_mappings"]["PostToolUse"] == "AfterTool"
 
+    def test_event_mappings_UserPromptSubmit(self, profiles):
+        # Gemini's prompt-submit hook is BeforeAgent (no UserPromptSubmit event).
+        assert profiles["gemini"]["event_mappings"]["UserPromptSubmit"] == "BeforeAgent"
+
+    def test_event_mappings_PreToolUse(self, profiles):
+        assert profiles["gemini"]["event_mappings"]["PreToolUse"] == "BeforeTool"
+
     def test_skill_invocation_template(self, profiles):
         tmpl = profiles["gemini"]["skill_invocation"]
         assert "{skill}" in tmpl

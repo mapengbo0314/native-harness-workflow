@@ -147,30 +147,67 @@ class TestFormatHookResponse:
         assert out["modifiedPrompt"] == PROMPT
 
     # Gemini ----------------------------------------------------------------
+    # Gemini's prompt hook is BeforeAgent (there is NO UserPromptSubmit on
+    # Gemini CLI). BeforeAgent is append-only: it injects via
+    # hookSpecificOutput.additionalContext ("text appended to the prompt for
+    # this turn") and CANNOT rewrite the prompt. So — like Codex — Gemini's
+    # hook output must carry ONLY append-only-valid fields and fold the routing
+    # decision + SYSTEM STATE into additionalContext. (Refs: geminicli.com
+    # /docs/hooks/reference, /docs/hooks/.)
 
-    def test_gemini_skill_and_agent(self):
+    # Gemini-valid top-level keys (BeforeAgent schema).
+    _GEMINI_ALLOWED_TOP = {"continue", "systemMessage", "decision", "reason",
+                           "hookSpecificOutput"}
+    _GEMINI_ALLOWED_HSO = {"hookEventName", "additionalContext"}
+    # Invented fields Gemini's BeforeAgent ignores (no prompt rewrite).
+    _GEMINI_FORBIDDEN = {"classification", "modifiedPrompt",
+                         "system_prompt_extension", "systemPromptExtension",
+                         "target_agent", "target_skill"}
+
+    def test_gemini_emits_only_valid_fields(self):
         out = self._adapter("gemini").format_hook_response(
             PROMPT, SKILL_AGENT_DECISION, CONTEXT_EXT, HOOK_EVENT
         )
-        mp = out["modifiedPrompt"]
-        assert "activate_skill(" in mp
-        assert "@debugger" in mp
-        assert "Skill(" not in mp
-        assert "Task(" not in mp
+        assert set(out).issubset(self._GEMINI_ALLOWED_TOP), (
+            f"gemini emitted unknown top-level fields: "
+            f"{set(out) - self._GEMINI_ALLOWED_TOP}"
+        )
+        for forbidden in self._GEMINI_FORBIDDEN:
+            assert forbidden not in out, f"gemini must not emit top-level {forbidden!r}"
+        hso = out["hookSpecificOutput"]
+        assert set(hso).issubset(self._GEMINI_ALLOWED_HSO), (
+            f"gemini emitted unknown hookSpecificOutput fields: "
+            f"{set(hso) - self._GEMINI_ALLOWED_HSO}"
+        )
+        assert hso["hookEventName"] == HOOK_EVENT
+        assert "continue" in out
+
+    def test_gemini_folds_routing_and_context_into_additional_context(self):
+        out = self._adapter("gemini").format_hook_response(
+            PROMPT, SKILL_AGENT_DECISION, CONTEXT_EXT, HOOK_EVENT
+        )
+        ac = out["hookSpecificOutput"]["additionalContext"]
+        assert "activate_skill(" in ac
+        assert "@debugger" in ac
+        assert CONTEXT_EXT in ac
+        # BeforeAgent cannot rewrite the prompt: it is not echoed back.
+        assert PROMPT not in ac
 
     def test_gemini_agent_only(self):
         out = self._adapter("gemini").format_hook_response(
             PROMPT, AGENT_ONLY_DECISION, CONTEXT_EXT, HOOK_EVENT
         )
-        mp = out["modifiedPrompt"]
-        assert "@generalist" in mp
-        assert "activate_skill(" not in mp
+        ac = out["hookSpecificOutput"]["additionalContext"]
+        assert "@generalist" in ac
+        assert "activate_skill(" not in ac
 
     def test_gemini_no_target_passthrough(self):
         out = self._adapter("gemini").format_hook_response(
-            PROMPT, NO_TARGET_DECISION, "", HOOK_EVENT
+            PROMPT, NO_TARGET_DECISION, CONTEXT_EXT, HOOK_EVENT
         )
-        assert out["modifiedPrompt"] == PROMPT
+        ac = out["hookSpecificOutput"]["additionalContext"]
+        assert ac == CONTEXT_EXT
+        assert out["continue"] is True
 
     # Codex -----------------------------------------------------------------
     # Codex enforces deny_unknown_fields and cannot rewrite the prompt. Its
@@ -299,13 +336,16 @@ class TestFormatHookResponse:
         assert "HARNESS DISPATCH" in mp
 
     # Shared output shape ---------------------------------------------------
-    # Codex and cursor are excluded: they have distinct, schema-restricted
-    # outputs. Codex rejects modifiedPrompt/classification/systemPromptExtension
-    # via deny_unknown_fields; cursor's beforeSubmitPrompt only honours
-    # {continue, user_message} and cannot route/rewrite. Their shapes are
-    # asserted by the platform-specific tests above.
+    # Codex, cursor and gemini are excluded: they have distinct, schema-restricted
+    # outputs. Codex and gemini are append-only (BeforeAgent / UserPromptSubmit
+    # inject via additionalContext and cannot rewrite the prompt); cursor's
+    # beforeSubmitPrompt only honours {continue, user_message} and cannot
+    # route/rewrite. Their shapes are asserted by the platform-specific tests
+    # above.
 
-    _CLAUDE_SHAPE_PLATFORMS = [p for p in PLATFORMS if p not in ("codex", "cursor")]
+    _CLAUDE_SHAPE_PLATFORMS = [
+        p for p in PLATFORMS if p not in ("codex", "cursor", "gemini")
+    ]
 
     @pytest.mark.parametrize("platform", _CLAUDE_SHAPE_PLATFORMS)
     def test_output_always_has_required_keys(self, platform):
