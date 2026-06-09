@@ -94,6 +94,8 @@ class RuntimeAdapter:
             return self._format_codex_hook_response(
                 routing_decision, context_extension, hook_event_name
             )
+        if self._platform == "cursor":
+            return self._format_cursor_hook_response()
         branch = routing_decision.get("classification")
         target_skill = routing_decision.get("target_skill")
         target_agent = routing_decision.get("target_agent")
@@ -205,6 +207,29 @@ class RuntimeAdapter:
                 "additionalContext": additional_context,
             },
         }
+
+    # ------------------------------------------------------------------
+    # Cursor-specific hook response (no per-turn routing — rules + subagents)
+    # ------------------------------------------------------------------
+
+    def _format_cursor_hook_response(self) -> dict:
+        """Cursor hook output (honest, no per-turn routing).
+
+        Cursor's ``beforeSubmitPrompt`` hook can only return
+        ``{continue, user_message}`` — it **cannot inject context or rewrite the
+        prompt** (an open Cursor feature request). There is no per-turn channel
+        for the SYSTEM STATE block or forced routing, so per-turn routing is OFF
+        for Cursor (accepted product decision): the harness is delivered through
+        Cursor-native mechanisms instead — rules files (``AGENTS.md`` /
+        ``.cursor/rules``), native subagents (``.cursor/agents/*.md``), and MCP
+        (``domain_ops``).
+
+        Emitting the routing schema (``modifiedPrompt`` / ``target_agent`` /
+        ``hookSpecificOutput``) would be dishonest — Cursor ignores those fields
+        entirely. So we return only the Cursor-valid ``{continue: true}`` and let
+        the prompt proceed unmodified.
+        """
+        return {"continue": True}
 
 
 _KNOWN_PLATFORMS = frozenset({"claude", "gemini", "codex", "cursor", "generic"})

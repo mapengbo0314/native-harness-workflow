@@ -30,6 +30,7 @@ from unittest.mock import MagicMock, patch
 _PLATFORM_CHOICES: dict[str, str] = {
     "gemini": "1",
     "claude": "2",
+    "cursor": "3",
     "codex": "5",
 }
 
@@ -37,6 +38,7 @@ _PLATFORM_CHOICES: dict[str, str] = {
 _PLUGIN_ROOT_SUBPATH: dict[str, str] = {
     "gemini": ".gemini",
     "claude": ".claude/harness-wf-plugin",
+    "cursor": ".cursor",
     "codex": ".codex",
 }
 

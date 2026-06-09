@@ -227,6 +227,16 @@ def test_codex_layout(temp_project):
 def test_cursor_layout(temp_project):
     run_harness_init(temp_project, "3")
 
+    # Cursor reads AGENTS.md (cross-vendor); .cursorrules is deprecated and the
+    # copilot-instructions file is a foreign convention. The rules pointer must
+    # carry the standing harness guidance (graph-first, domain_ops).
+    assert (temp_project / "AGENTS.md").exists()
+    assert not (temp_project / ".cursorrules").exists()
+    assert not (temp_project / ".github" / "copilot-instructions.md").exists()
+    agents_md = (temp_project / "AGENTS.md").read_text()
+    assert "codegraph" in agents_md  # harness rules pointer content
+    assert "domain_ops" in agents_md
+
     assert not (temp_project / ".mcp.json").exists()
 
     # configure_cli writes/merges the project-local cursor MCP registration.
@@ -239,7 +249,29 @@ def test_cursor_layout(temp_project):
     # domain.json scaffolded under the cursor config dir (platform-aware seed)
     assert (temp_project / ".cursor" / "domain" / "domain.json").exists()
 
+    # Native subagents: the harness's specialized agents land as Cursor-native
+    # subagents under .cursor/agents/*.md (markdown + YAML frontmatter). The
+    # tool names must be mapped to Cursor's tools (edit_file / run_terminal_cmd /
+    # grep), NOT the Claude/foreign names.
+    cursor_agents = temp_project / ".cursor" / "agents"
+    assert cursor_agents.exists(), "cursor: .cursor/agents/ not generated"
+    agent_files = list(cursor_agents.glob("*.md"))
+    assert agent_files, "cursor: no native subagent markdown files generated"
+    impl = (cursor_agents / "implementer.md")
+    assert impl.exists()
+    impl_text = impl.read_text()
+    assert impl_text.startswith("---"), "cursor agent missing YAML frontmatter"
+    assert "name: implementer" in impl_text
+    assert "description:" in impl_text
+    # Cursor tool names, not Claude/foreign ones.
+    assert "edit_file" in impl_text
+    assert "run_terminal_cmd" in impl_text
+    assert "replace" not in impl_text
+    assert "write_file" not in impl_text
+    assert "run_shell_command" not in impl_text
+
     check_snapshot(temp_project, "cursor", [
+        "AGENTS.md",
         ".cursor/mcp.json",
     ])
 

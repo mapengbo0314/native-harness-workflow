@@ -88,7 +88,7 @@ _SUBAGENT_CALL_CASES: list[tuple[str, str, str | None]] = [
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("platform", ["claude", "gemini", "codex"])
+@pytest.mark.parametrize("platform", ["claude", "gemini", "codex", "cursor"])
 @pytest.mark.parametrize("routing_label,routing_decision", _ROUTING_CASES)
 def test_runtime_adapter_format_hook_response_equals_canonical(
     platform: str, routing_label: str, routing_decision: dict
@@ -209,6 +209,13 @@ def _codex_mint_root(tmp_path_factory) -> Path:
     from tests.e2e._mint_helpers import mint_platform
     tmp = tmp_path_factory.mktemp("runtime_adapter_codex")
     return mint_platform(tmp, "codex")
+
+
+@pytest.fixture(scope="session")
+def _cursor_mint_root(tmp_path_factory) -> Path:
+    from tests.e2e._mint_helpers import mint_platform
+    tmp = tmp_path_factory.mktemp("runtime_adapter_cursor")
+    return mint_platform(tmp, "cursor")
 
 
 @pytest.fixture(
@@ -484,3 +491,28 @@ class TestMintedAdapterEquality:
         assert set(r_minted["hookSpecificOutput"]).issubset(
             {"hookEventName", "additionalContext"}
         )
+
+    @pytest.mark.parametrize("routing_label,routing_decision", _ROUTING_CASES)
+    def test_cursor_minted_adapter_format_hook_response(
+        self, routing_label: str, routing_decision: dict, _cursor_mint_root: Path
+    ) -> None:
+        """Minted cursor get_adapter().format_hook_response equals canonical and
+        emits only Cursor-valid hook output (per-turn routing is OFF for Cursor:
+        beforeSubmitPrompt can only return {continue, user_message})."""
+        minted = self._load_minted_adapter(_cursor_mint_root, "cursor")
+        canonical = _canonical_get_adapter("cursor")
+        r_minted = minted.format_hook_response(
+            "test prompt", routing_decision, "ctx", "UserPromptSubmit"
+        )
+        r_canonical = canonical.format_hook_response(
+            "test prompt", routing_decision, "ctx", "UserPromptSubmit"
+        )
+        assert r_minted == r_canonical, (
+            f"[cursor/{routing_label}] minted adapter != canonical\n"
+            f"  canonical: {r_canonical}\n"
+            f"  minted:    {r_minted}"
+        )
+        # Cursor schema guard: only {continue, user_message}; no routing fields.
+        assert set(r_minted).issubset({"continue", "user_message"})
+        assert "modifiedPrompt" not in r_minted
+        assert "hookSpecificOutput" not in r_minted

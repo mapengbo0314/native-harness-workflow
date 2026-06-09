@@ -244,21 +244,48 @@ class TestFormatHookResponse:
         assert "Hand off to" not in ac
 
     # Cursor ----------------------------------------------------------------
+    # Cursor's beforeSubmitPrompt can only return {continue, user_message}; it
+    # cannot inject context or rewrite the prompt. Per-turn routing is OFF for
+    # Cursor (accepted product decision) — the harness ships via rules files +
+    # native subagents + MCP instead. So the hook output must carry ONLY
+    # Cursor-valid fields and must NOT emit the invented routing schema.
 
-    def test_cursor_agent_only(self):
+    # Cursor-valid top-level keys (per docs/platform-support.md).
+    _CURSOR_ALLOWED_TOP = {"continue", "user_message"}
+    # Invented fields the harness used to emit that Cursor ignores entirely.
+    _CURSOR_FORBIDDEN = {"classification", "modifiedPrompt",
+                         "system_prompt_extension", "systemPromptExtension",
+                         "target_agent", "target_skill", "hookSpecificOutput"}
+
+    def test_cursor_emits_only_valid_fields(self):
+        out = self._adapter("cursor").format_hook_response(
+            PROMPT, SKILL_AGENT_DECISION, CONTEXT_EXT, HOOK_EVENT
+        )
+        assert set(out).issubset(self._CURSOR_ALLOWED_TOP), (
+            f"cursor emitted unknown top-level fields: "
+            f"{set(out) - self._CURSOR_ALLOWED_TOP}"
+        )
+        for forbidden in self._CURSOR_FORBIDDEN:
+            assert forbidden not in out, f"cursor must not emit top-level {forbidden!r}"
+        assert out["continue"] is True
+
+    def test_cursor_does_not_rewrite_prompt_or_route(self):
         decision = {**AGENT_ONLY_DECISION, "target_agent": "@planner"}
         out = self._adapter("cursor").format_hook_response(
-            PROMPT, decision, "", HOOK_EVENT
+            PROMPT, decision, CONTEXT_EXT, HOOK_EVENT
         )
-        mp = out["modifiedPrompt"]
-        assert "@planner" in mp
-        assert "HARNESS DISPATCH" in mp
+        # Cursor cannot rewrite the prompt nor inject a routing directive.
+        assert "modifiedPrompt" not in out
+        assert "hookSpecificOutput" not in out
+        # If a user_message is surfaced it must not carry a fake dispatch.
+        assert "HARNESS DISPATCH" not in out.get("user_message", "")
 
-    def test_cursor_no_target_passthrough(self):
+    def test_cursor_no_target_continues(self):
         out = self._adapter("cursor").format_hook_response(
             PROMPT, NO_TARGET_DECISION, CONTEXT_EXT, HOOK_EVENT
         )
-        assert out["modifiedPrompt"] == PROMPT
+        assert out["continue"] is True
+        assert "modifiedPrompt" not in out
 
     # Generic ---------------------------------------------------------------
 
@@ -272,11 +299,13 @@ class TestFormatHookResponse:
         assert "HARNESS DISPATCH" in mp
 
     # Shared output shape ---------------------------------------------------
-    # Codex is excluded: it has a distinct, schema-restricted output (Codex
-    # rejects modifiedPrompt/classification/systemPromptExtension via
-    # deny_unknown_fields). Its shape is asserted by the codex-specific tests.
+    # Codex and cursor are excluded: they have distinct, schema-restricted
+    # outputs. Codex rejects modifiedPrompt/classification/systemPromptExtension
+    # via deny_unknown_fields; cursor's beforeSubmitPrompt only honours
+    # {continue, user_message} and cannot route/rewrite. Their shapes are
+    # asserted by the platform-specific tests above.
 
-    _CLAUDE_SHAPE_PLATFORMS = [p for p in PLATFORMS if p != "codex"]
+    _CLAUDE_SHAPE_PLATFORMS = [p for p in PLATFORMS if p not in ("codex", "cursor")]
 
     @pytest.mark.parametrize("platform", _CLAUDE_SHAPE_PLATFORMS)
     def test_output_always_has_required_keys(self, platform):
@@ -337,6 +366,54 @@ class TestCodexProfileData:
         assert "Hand off to" not in prof.subagent_invocation_tpl
         assert "Hand off to" not in prof.subagent_text_call_without_skill
         assert "Hand off to" not in prof.subagent_text_call_with_skill
+
+
+# ---------------------------------------------------------------------------
+# 2c. Cursor profile-data corrections (platform_profiles.json cursor block)
+# ---------------------------------------------------------------------------
+
+class TestCursorProfileData:
+    def _profile(self):
+        from harness.adapters.profile import load_profile
+        return load_profile("cursor")
+
+    def test_rules_pointer_is_agents_md(self):
+        # .cursorrules is deprecated; the copilot file is a foreign convention.
+        # AGENTS.md is cross-vendor and Cursor reads it.
+        assert self._profile().rules_pointer_files == ["AGENTS.md"]
+
+    def test_subagent_invocation_uses_slash_not_at(self):
+        # In Cursor, @ = file/context mentions (NOT agents); /agent is correct.
+        prof = self._profile()
+        assert prof.subagent_invocation("planner", "do x") == "/planner do x"
+        assert prof.subagent_text_call("planner") == "/planner"
+        assert prof.subagent_text_call("planner", skill="diagnose") == (
+            "/planner — invoke skill /diagnose first"
+        )
+        # No stray @-agent mentions survive.
+        assert "@" not in prof.subagent_invocation_tpl
+        assert "@" not in prof.subagent_text_call_without_skill
+        assert "@" not in prof.subagent_text_call_with_skill
+
+    def test_skill_invocation_uses_slash_token(self):
+        prof = self._profile()
+        rendered = prof.skill_invocation("my-skill")
+        assert rendered == "/my-skill"
+        assert "Use " not in rendered
+
+    def test_tool_mappings_map_to_cursor_tools(self):
+        tm = self._profile().tool_mappings
+        # Cursor exposes edit_file, run_terminal_cmd, grep, read_file.
+        assert tm.get("replace") == "edit_file"
+        assert tm.get("write_file") == "edit_file"
+        assert tm.get("run_shell_command") == "run_terminal_cmd"
+        assert tm.get("grep_search") == "grep"
+        assert tm.get("read_file") == "read_file"
+        # Cursor has no glob; closest is grep / codebase_search.
+        assert tm.get("glob") == "grep"
+        # No mapping should point at a Claude-only tool name.
+        for claude_only in ("Read", "Grep", "Edit", "Write", "Bash", "Glob"):
+            assert claude_only not in tm.values()
 
 
 # ---------------------------------------------------------------------------

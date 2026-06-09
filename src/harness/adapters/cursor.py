@@ -2,37 +2,36 @@ import os
 from pathlib import Path
 from typing import Dict, List
 from harness.adapters.base import PlatformAdapter
+from harness.adapters.profile import load_profile
 
 
 class CursorAdapter(PlatformAdapter):
     def get_platform_name(self) -> str:
-        return "cursor"
+        return load_profile("cursor").platform_name
 
     def get_config_dir_name(self) -> str:
-        return ".cursor"
+        return load_profile("cursor").config_dir
 
     def get_plugin_env_var_name(self) -> str:
-        return "CURSOR_PLUGIN_ROOT"
+        return load_profile("cursor").plugin_env_var
 
     def get_tool_mappings(self) -> Dict[str, str]:
-        return {}
+        return load_profile("cursor").tool_mappings
 
     def format_subagent_prompt(self, task_desc: str) -> str:
         return task_desc
 
     def format_skill_invocation(self, skill_name: str) -> str:
-        return f'Use {skill_name}'
+        return load_profile("cursor").skill_invocation(skill_name)
 
     def format_subagent_invocation(self, agent_name: str, description: str) -> str:
-        return f'@{agent_name} {description}'
+        return load_profile("cursor").subagent_invocation(agent_name, description)
 
     def get_subagent_text_call(self, agent_name: str, skill_name: str = None) -> str:
-        if skill_name:
-            return f'@{agent_name} — invoke skill {skill_name} first'
-        return f'@{agent_name}'
+        return load_profile("cursor").subagent_text_call(agent_name, skill=skill_name)
 
     def get_rules_pointer_files(self) -> List[str]:
-        return [".cursorrules", ".github/copilot-instructions.md"]
+        return load_profile("cursor").rules_pointer_files
 
     def get_hook_directory(self) -> str:
         return f"{self.get_config_dir_name()}/hooks"
@@ -93,24 +92,24 @@ class CursorAdapter(PlatformAdapter):
         mcp_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
     def get_agent_manifest_format(self) -> str:
-        return "markdown"
+        return load_profile("cursor").manifest_format
 
     def format_hook_response(self, original_prompt: str, routing_decision: dict, context_extension: str, hook_event_name: str) -> dict:
-        branch = routing_decision.get("classification")
-        target_agent = routing_decision.get("target_agent") or "@generalist"
+        """Cursor hook output (honest — no per-turn routing).
 
-        modified_prompt = f"{target_agent} {original_prompt}" if target_agent else original_prompt
-        modified_prompt += context_extension
+        Cursor's ``beforeSubmitPrompt`` can only return
+        ``{continue, user_message}``; it cannot inject context or rewrite the
+        prompt. Per-turn routing is therefore OFF for Cursor (accepted product
+        decision) — the harness ships via rules files (``AGENTS.md``), native
+        subagents (``.cursor/agents/*.md``) and MCP instead. So the output must
+        carry ONLY Cursor-valid fields and must NOT emit the invented routing
+        schema (``modifiedPrompt`` / ``target_agent`` / ``hookSpecificOutput``).
 
-        return {
-            "classification": branch,
-            "modifiedPrompt": modified_prompt,
-            "system_prompt_extension": context_extension,
-            "target_agent": target_agent,
-            "hookSpecificOutput": {
-                "hookEventName": hook_event_name,
-                "systemPromptExtension": context_extension,
-                "modifiedPrompt": modified_prompt,
-                "target_agent": target_agent
-            }
-        }
+        Delegates to the profile-driven RuntimeAdapter so the canonical (mint
+        time) and runtime (minted) cursor outputs stay byte-identical — pinned
+        by tests/unit/test_runtime_adapter.py.
+        """
+        from harness.adapters.runtime_adapter import RuntimeAdapter
+        return RuntimeAdapter("cursor").format_hook_response(
+            original_prompt, routing_decision, context_extension, hook_event_name
+        )

@@ -106,10 +106,25 @@ implementation pass.
 - ✅ **Done** (PR #36): domain MCP registration (gemini/cursor/codex), platform-aware
   manifest paths, the `${HARNESS_PLUGIN_ROOT}` hook-placeholder fix, and
   `resolve_plugin_root` env vars. cursor/codex hooks now *launch*.
-- ⏳ **Deferred** (this document is the spec): the mapping corrections above, the
-  Codex `format_hook_response` rewrite to `additionalContext`, and the
-  Cursor-native rules-file + subagent generation. These change minting output and
-  snapshots and should be done as a dedicated pass.
+- ✅ **Done** (Codex pass): the Codex mapping corrections, the Codex
+  `format_hook_response` rewrite to `additionalContext`, and `AGENTS.md`
+  generation.
+- ✅ **Done** (Cursor pass): the Cursor mapping corrections
+  (`rules_pointer_files`→`AGENTS.md`, `/agent` & `/skill` invocation,
+  `tool_mappings`→`edit_file`/`run_terminal_cmd`/`grep`/`read_file`); the honest
+  `format_hook_response` (Cursor's `beforeSubmitPrompt` can only return
+  `{continue, user_message}`, so the hook emits `{"continue": true}` and per-turn
+  routing is OFF); `AGENTS.md` rules-pointer generation; and native subagents
+  emitted under `.cursor/agents/*.md` with Cursor-mapped tool names. `cursor.py`
+  is now profile-driven and byte-identical to the runtime adapter (drift test
+  extended to cursor).
+- ⏳ **Deferred** (Cursor): the `.cursor/agents/*.md` frontmatter still uses the
+  shared boilerplate shape (`name`, `description`, `tools` — with a duplicated
+  `edit_file` where `replace`+`write_file` collapse). Cursor's native subagent
+  frontmatter wants `name`, `description`, `model`. Emitting a Cursor-specific
+  frontmatter (add `model`, dedup `tools`) is a shared-boilerplate generator
+  rework (it affects every platform's agent emission), so it is deferred to a
+  dedicated agent-frontmatter pass rather than half-migrated here.
 
 ## Caveats
 
