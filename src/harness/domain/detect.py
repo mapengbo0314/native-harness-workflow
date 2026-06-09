@@ -9,8 +9,10 @@ failure degrades gracefully to a partial/empty result — detection never blocks
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
+import tempfile
 from collections import Counter
 from pathlib import Path
 from typing import Callable, Optional
@@ -28,8 +30,33 @@ _GITHUB_RE = re.compile(r"github\.com[:/]+([^/]+/[^/]+?)(?:\.git)?/?$")
 
 
 def _run(cmd, **kw):
-    """Default subprocess runner (capture text, never raise on non-zero)."""
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=kw.get("timeout", 120))
+    """Default subprocess runner (capture text, never raise on non-zero).
+
+    Forwards optional ``cwd``/``env`` so callers can sandbox where a tool writes
+    its artifacts (cdxgen drops ``bom.json`` into the working directory)."""
+    return subprocess.run(
+        cmd, capture_output=True, text=True,
+        timeout=kw.get("timeout", 120), cwd=kw.get("cwd"), env=kw.get("env"),
+    )
+
+
+# detected language → cdxgen project type (``-t``). Telling cdxgen the ecosystem
+# is what turns "0 components" into a populated BOM; TS and JS share one type.
+_LANG_TO_CDXGEN_TYPE = {
+    "Python": "python", "JavaScript": "javascript", "TypeScript": "javascript",
+    "Java": "java", "Kotlin": "java", "Scala": "java", "Go": "go", "Rust": "rust",
+    "Ruby": "ruby", "PHP": "php", "C#": "csharp",
+}
+
+
+def _cdxgen_types(languages: list[str]) -> list[str]:
+    """Map detected languages → de-duplicated cdxgen ``-t`` project types."""
+    out: list[str] = []
+    for lang in languages:
+        t = _LANG_TO_CDXGEN_TYPE.get(lang)
+        if t and t not in out:
+            out.append(t)
+    return out
 
 
 def _http_get_json(url: str) -> Optional[dict]:
@@ -85,19 +112,46 @@ def detect_languages(
     return _extension_languages(project_path)
 
 
-def detect_frameworks(project_path, *, run: Callable = _run) -> dict:
-    """Frameworks + services via cdxgen (CycloneDX BOM). Degrades to empty lists
-    on any failure (cdxgen missing, non-zero exit, unparseable output)."""
-    empty = {"frameworks": [], "services": []}
-    try:
-        result = run([
-            "npx", "--yes", "@cyclonedx/cdxgen", "-o", "-", "--no-validate", str(project_path),
-        ])
+def _cdxgen_bom(project_path, types: list[str], *, run: Callable = _run) -> Optional[dict]:
+    """Run cdxgen and return the parsed CycloneDX BOM dict, or None on any failure.
+
+    cdxgen's ``-o -`` stdout mode is unreliable (it logs to stdout and still
+    writes a file), so we write the BOM to an explicit file inside a temp dir —
+    with ``cwd`` set to that dir so cdxgen can never drop ``bom.json`` into the
+    scanned repo — then read and parse the file."""
+    with tempfile.TemporaryDirectory() as td:
+        out = os.path.join(td, "bom.json")
+        cmd = ["npx", "--yes", "@cyclonedx/cdxgen@12", "--no-validate", "-o", out]
+        for t in types:
+            cmd += ["-t", t]
+        # Absolute: cwd is the temp dir, so a relative path would scan the wrong place.
+        cmd.append(str(Path(project_path).resolve()))
+        try:
+            result = run(cmd, cwd=td, env={**os.environ, "FETCH_LICENSE": "false"})
+        except Exception:
+            return None
         if getattr(result, "returncode", 1) != 0:
-            return empty
-        bom = json.loads(result.stdout)
-    except Exception:
-        return empty
+            return None
+        try:
+            with open(out) as f:
+                bom = json.loads(f.read())
+        except Exception:
+            return None
+    return bom if isinstance(bom, dict) else None
+
+
+def detect_frameworks(
+    project_path,
+    *,
+    run: Callable = _run,
+    languages: Optional[list[str]] = None,
+    bom_fn: Callable[..., Optional[dict]] = _cdxgen_bom,
+) -> dict:
+    """Frameworks + services via cdxgen (CycloneDX BOM). ``languages`` selects the
+    cdxgen project type(s). Degrades to empty lists on any failure (cdxgen
+    missing, non-zero exit, no/unparseable BOM)."""
+    empty = {"frameworks": [], "services": []}
+    bom = bom_fn(project_path, _cdxgen_types(languages or []), run=run)
     if not isinstance(bom, dict):
         return empty
     frameworks = [
@@ -120,7 +174,7 @@ def detect_stack(
 ) -> list[str]:
     """Combined stack: languages then frameworks, de-duplicated (order-preserving)."""
     langs = detect_languages(project_path, run=run, http_get=http_get)
-    frameworks = frameworks_fn(project_path, run=run).get("frameworks", [])
+    frameworks = frameworks_fn(project_path, run=run, languages=langs).get("frameworks", [])
     out: list[str] = []
     for item in [*langs, *frameworks]:
         if item not in out:
