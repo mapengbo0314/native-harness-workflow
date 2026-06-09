@@ -59,3 +59,6 @@ temp_pdf_copy.pdf
 .gemini/state/
 .claude/logs/
 .claude/state/
+
+# cdxgen SBOM scratch output (transient; frameworks are distilled into domain.json)
+bom.json
