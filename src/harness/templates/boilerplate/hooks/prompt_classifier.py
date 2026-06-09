@@ -214,18 +214,18 @@ def main():
             )
         except Exception as e:
             print(f"DEBUG: Adapter formatting failed: {e}", file=sys.stderr)
+            # Honest, universally-valid degraded response: inject the system
+            # state via the one field every platform honours (additionalContext)
+            # and let the prompt proceed. We deliberately do NOT emit the
+            # invented routing fields (modifiedPrompt/target_agent/...) — codex
+            # rejects unknown fields (deny_unknown_fields) and cursor/gemini
+            # ignore them, so on the crash path they'd only do harm.
             output = {
-                "classification": branch,
-                "modifiedPrompt": prompt + system_state,
-                "system_prompt_extension": system_state,
-                "target_agent": target_agent,
+                "continue": True,
                 "hookSpecificOutput": {
                     "hookEventName": hook_event_name,
                     "additionalContext": system_state,
-                    "systemPromptExtension": system_state,
-                    "modifiedPrompt": prompt + system_state,
-                    "target_agent": target_agent
-                }
+                },
             }
 
         langfuse_instrumentation.complete_prompt_span(

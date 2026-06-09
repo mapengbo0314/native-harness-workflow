@@ -115,6 +115,26 @@ def test_gemini_py_has_no_unused_shlex_import():
     )
 
 
+def test_prompt_classifier_crash_fallback_is_honest():
+    """The minted prompt_classifier's except-path fallback (used only if the
+    adapter's format_hook_response raises) must NOT emit the invented routing
+    schema — codex rejects unknown fields (deny_unknown_fields) and
+    cursor/gemini ignore them. The degraded path must stay honest: a minimal
+    {continue, hookSpecificOutput{hookEventName, additionalContext}}.
+    """
+    src = (
+        REPO_ROOT / "src" / "harness" / "templates" / "boilerplate"
+        / "hooks" / "prompt_classifier.py"
+    ).read_text(encoding="utf-8")
+    assert "Adapter formatting failed" in src, "fallback marker moved — update this guard"
+    fallback = src.split("Adapter formatting failed")[1].split("langfuse_instrumentation")[0]
+    for bad in ('"modifiedPrompt"', '"system_prompt_extension"',
+                '"target_agent"', '"classification"', '"systemPromptExtension"'):
+        assert bad not in fallback, (
+            f"prompt_classifier crash fallback still emits invented field {bad}"
+        )
+
+
 def test_gemini_install_hooks_remaps_event_names(tmp_path):
     from harness.adapters import get_adapter
 
