@@ -67,3 +67,34 @@ def test_creates_parent_dirs(tmp_path):
     path = _init(tmp_path)
     assert path.parent.name == "domain"
     assert path.parent.exists()
+
+
+# --- domain-refresh: re-detect stack, merge it, preserve authored fields ----
+
+def test_refresh_updates_only_stack_preserving_authored_fields(tmp_path):
+    mp = tmp_path / "plugin" / "domain" / "domain.json"
+    mp.parent.mkdir(parents=True)
+    mp.write_text(json.dumps({
+        "schema_version": 1,
+        "stack": ["Go"],
+        "deploy": {"command": "./ship"},
+        "business": {"direction": "grow"},
+    }))
+    seed.run_domain_refresh(
+        tmp_path, manifest_path=mp, detect_stack_fn=lambda p: ["Python", "fastapi"],
+    )
+    data = json.loads(mp.read_text())
+    assert data["stack"] == ["Python", "fastapi"]      # re-detected
+    assert data["deploy"] == {"command": "./ship"}     # authored, preserved
+    assert data["business"] == {"direction": "grow"}   # compiled, preserved
+
+
+def test_refresh_is_noop_with_hint_when_manifest_missing(tmp_path):
+    mp = tmp_path / "plugin" / "domain" / "domain.json"
+    msgs = []
+    seed.run_domain_refresh(
+        tmp_path, manifest_path=mp,
+        detect_stack_fn=lambda p: ["Python"], output_fn=msgs.append,
+    )
+    assert not mp.exists()                             # nothing created
+    assert any("domain-init" in m for m in msgs)      # tells you what to run

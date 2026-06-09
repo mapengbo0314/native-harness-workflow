@@ -121,3 +121,29 @@ def run_domain_init(
     mp.write_text(json.dumps(build_scaffold(stack, references), indent=2) + "\n", encoding="utf-8")
     output_fn(f"Scaffolded {mp}. Fill the slots; add docs to {ref_dir}, then run domain-compile.")
     return mp
+
+
+def run_domain_refresh(
+    project_path,
+    *,
+    manifest_path: Optional[Path] = None,
+    detect_stack_fn: Callable = detect.detect_stack,
+    output_fn: Callable[[str], None] = print,
+) -> Path:
+    """Re-detect the stack and merge it into an existing domain.json, updating
+    only `stack` and leaving authored sections (environments/test/deploy/infra)
+    and the compiled `business` untouched. No-op with a hint if the manifest
+    doesn't exist yet — run `domain-init` first. (Mirror of `domain-compile`,
+    which refreshes only `business`.)"""
+    pp = Path(project_path)
+    mp = Path(manifest_path) if manifest_path else pp / _DEFAULT_MANIFEST_REL
+
+    if not mp.exists():
+        output_fn(f"No domain.json at {mp} — run `harness-wf domain-init` first.")
+        return mp
+
+    data = json.loads(mp.read_text(encoding="utf-8"))
+    data["stack"] = list(detect_stack_fn(pp))
+    mp.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    output_fn(f"Refreshed stack ({len(data['stack'])} item(s)) in {mp}.")
+    return mp

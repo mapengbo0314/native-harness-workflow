@@ -49,7 +49,7 @@ def _platform_name(platform_choice: str) -> str:
 
 from pathlib import Path
 from harness.adapters import get_adapter
-from harness.domain.seed import run_domain_init, _DEFAULT_MANIFEST_REL, _DEFAULT_REFERENCE_REL
+from harness.domain.seed import run_domain_init, run_domain_refresh, _DEFAULT_MANIFEST_REL, _DEFAULT_REFERENCE_REL
 from harness.domain.compiler import run_domain_compile
 
 def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
@@ -188,7 +188,7 @@ def _write_update_metadata(
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Initialize or update a Harness agent workspace.")
-    parser.add_argument("command", choices=["init", "update", "domain-init", "domain-compile"], help="Command to run")
+    parser.add_argument("command", choices=["init", "update", "domain-init", "domain-refresh", "domain-compile"], help="Command to run")
     parser.add_argument("--project-path", required=True, help="Path to the repository")
     parser.add_argument("--bundle", help="Path to an existing CodeGraph bundle (.codegraph directory)")
     parser.add_argument("--check", action="store_true", help="(update) Dry-run: report stale/edited/conflicting files, write nothing")
@@ -389,6 +389,11 @@ def main():
     # `domain-init` / `domain-compile` are offline, plugin-scoped; no npx/CodeGraph.
     if args.command == "domain-init":
         run_domain_init(args.project_path)
+        langfuse_context.flush()
+        return
+
+    if args.command == "domain-refresh":
+        run_domain_refresh(args.project_path)
         langfuse_context.flush()
         return
 

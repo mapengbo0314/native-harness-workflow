@@ -26,6 +26,20 @@ def test_main_routes_domain_init(monkeypatch, tmp_path):
     assert calls["p"] == str(tmp_path)
 
 
+def test_parse_args_accepts_domain_refresh(monkeypatch, tmp_path):
+    monkeypatch.setattr("sys.argv", ["harness-wf", "domain-refresh", "--project-path", str(tmp_path)])
+    assert cli.parse_args().command == "domain-refresh"
+
+
+def test_main_routes_domain_refresh(monkeypatch, tmp_path):
+    monkeypatch.setenv("LANGFUSE_ENABLED", "false")
+    monkeypatch.setattr("sys.argv", ["harness-wf", "domain-refresh", "--project-path", str(tmp_path)])
+    calls = {}
+    with patch.object(cli, "run_domain_refresh", side_effect=lambda p, **k: calls.update(p=p)):
+        cli.main()
+    assert calls["p"] == str(tmp_path)
+
+
 def test_main_routes_domain_compile(monkeypatch, tmp_path):
     monkeypatch.setenv("LANGFUSE_ENABLED", "false")
     monkeypatch.setattr("sys.argv", ["harness-wf", "domain-compile", "--project-path", str(tmp_path)])
