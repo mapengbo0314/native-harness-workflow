@@ -673,6 +673,81 @@ class TestSkillsAndMcpInstalled:
 
 
 # ---------------------------------------------------------------------------
+# L4 — domain MCP registration across ALL platforms
+# ---------------------------------------------------------------------------
+
+
+class TestDomainMcpRegistrationMatrix:
+    """Every supported platform registers the ``domain`` MCP server pointed at
+    its own deployed root. claude/gemini register via the platform CLI;
+    cursor/codex have no usable project-scope CLI so they write the project-
+    local config file directly.
+
+    Registration is asserted at the adapter level (call configure_cli with the
+    CLI patched / on a tmp project), independent of an installed external tool.
+    """
+
+    def _capture_cli(self, adapter, tmp_path: Path) -> list[list[str]]:
+        captured: list[list[str]] = []
+
+        def _mock_run(cmd, **kwargs):
+            captured.append(list(cmd))
+            return MagicMock(returncode=0)
+
+        with (
+            patch("shutil.which", return_value="/usr/local/bin/cli"),
+            patch("subprocess.run", side_effect=_mock_run),
+        ):
+            adapter.configure_cli(tmp_path)
+        return captured
+
+    def test_claude_registers_domain_via_add_json(self, tmp_path):
+        from harness.adapters import get_adapter
+
+        captured = self._capture_cli(get_adapter("claude"), tmp_path)
+        domain_calls = [c for c in captured if "domain" in c and "mcp" in c]
+        assert domain_calls, f"claude: no domain registration call: {captured}"
+        cmd = domain_calls[0]
+        assert "add-json" in cmd
+        payload = json.loads(cmd[-1])
+        assert payload["env"]["PYTHONPATH"] == ".claude/harness-wf-plugin/src"
+        assert payload["env"]["DOMAIN_JSON_PATH"] == (
+            ".claude/harness-wf-plugin/domain/domain.json"
+        )
+
+    def test_gemini_registers_domain_via_cli(self, tmp_path):
+        from harness.adapters import get_adapter
+
+        captured = self._capture_cli(get_adapter("gemini"), tmp_path)
+        domain_calls = [c for c in captured if "domain" in c and "mcp" in c]
+        assert domain_calls, f"gemini: no domain registration call: {captured}"
+        cmd = domain_calls[0]
+        assert "--" not in cmd  # installed gemini CLI drops args after --
+        assert cmd[-3:] == ["python3", "-m", "server"]
+        joined = " ".join(cmd)
+        assert "PYTHONPATH=.gemini/src" in joined
+        assert "DOMAIN_JSON_PATH=.gemini/domain/domain.json" in joined
+
+    def test_cursor_writes_project_mcp_json(self, tmp_path):
+        from harness.adapters import get_adapter
+
+        get_adapter("cursor").configure_cli(tmp_path)
+        data = json.loads((tmp_path / ".cursor" / "mcp.json").read_text())
+        env = data["mcpServers"]["domain"]["env"]
+        assert env["PYTHONPATH"] == ".cursor/src"
+        assert env["DOMAIN_JSON_PATH"] == ".cursor/domain/domain.json"
+
+    def test_codex_writes_project_config_toml(self, tmp_path):
+        from harness.adapters import get_adapter
+
+        get_adapter("codex").configure_cli(tmp_path)
+        text = (tmp_path / ".codex" / "config.toml").read_text()
+        assert "[mcp_servers.domain]" in text
+        assert 'PYTHONPATH = ".codex/src"' in text
+        assert 'DOMAIN_JSON_PATH = ".codex/domain/domain.json"' in text
+
+
+# ---------------------------------------------------------------------------
 # L5 (S1-T5) — Routing behavior / scenario matrix
 # ---------------------------------------------------------------------------
 

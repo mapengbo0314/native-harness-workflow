@@ -22,6 +22,26 @@ from harness.domain import detect
 _DEFAULT_MANIFEST_REL = ".claude/harness-wf-plugin/domain/domain.json"
 _DEFAULT_REFERENCE_REL = ".claude/docs/reference"
 
+
+def _platform_paths(platform: Optional[str]):
+    """Compute (manifest_rel, reference_rel) for *platform*, relative to the
+    project root. ``None`` → the legacy claude defaults (byte-identical).
+
+    For plugin platforms (claude) the deployed root is
+    ``<config_dir>/<plugin_dir_name>``; for embedded platforms (gemini/cursor/
+    codex/generic) it is ``<config_dir>``. The manifest lives at
+    ``<root>/domain/domain.json``; the reference docs at
+    ``<config_dir>/docs/reference``.
+    """
+    if platform is None:
+        return _DEFAULT_MANIFEST_REL, _DEFAULT_REFERENCE_REL
+    # Imported lazily so seed.py keeps no hard dependency at module import time.
+    from harness.adapters.profile import load_profile
+
+    profile = load_profile(platform)
+    root = profile.domain_root_rel()
+    return f"{root}/domain/domain.json", f"{profile.config_dir}/docs/reference"
+
 # conventional docs worth suggesting as references (path → first H1 label)
 _REFERENCE_CANDIDATES = (
     "README.md", "CHANGELOG.md", "CONTRIBUTING.md", "ARCHITECTURE.md",
@@ -98,16 +118,24 @@ def build_scaffold(stack, references) -> dict:
 def run_domain_init(
     project_path,
     *,
+    platform: Optional[str] = None,
     manifest_path: Optional[Path] = None,
     reference_dir: Optional[Path] = None,
     detect_stack_fn: Callable = detect.detect_stack,
     output_fn: Callable[[str], None] = print,
 ) -> Path:
     """Detect → scaffold. Returns the manifest path. Never clobbers an existing
-    domain.json (preserves authored content on re-run/re-mint)."""
+    domain.json (preserves authored content on re-run/re-mint).
+
+    When *platform* is given (and explicit paths are not) the default manifest
+    and reference locations are computed from that platform's profile, so a
+    non-claude mint writes under the right config dir. Explicit
+    ``manifest_path``/``reference_dir`` always win. ``platform=None`` preserves
+    the legacy claude defaults exactly."""
     pp = Path(project_path)
-    mp = Path(manifest_path) if manifest_path else pp / _DEFAULT_MANIFEST_REL
-    ref_dir = Path(reference_dir) if reference_dir else pp / _DEFAULT_REFERENCE_REL
+    manifest_rel, reference_rel = _platform_paths(platform)
+    mp = Path(manifest_path) if manifest_path else pp / manifest_rel
+    ref_dir = Path(reference_dir) if reference_dir else pp / reference_rel
 
     scaffold_reference_dir(ref_dir)
 
@@ -126,6 +154,7 @@ def run_domain_init(
 def run_domain_refresh(
     project_path,
     *,
+    platform: Optional[str] = None,
     manifest_path: Optional[Path] = None,
     detect_stack_fn: Callable = detect.detect_stack,
     output_fn: Callable[[str], None] = print,
@@ -134,9 +163,14 @@ def run_domain_refresh(
     only `stack` and leaving authored sections (environments/test/deploy/infra)
     and the compiled `business` untouched. No-op with a hint if the manifest
     doesn't exist yet — run `domain-init` first. (Mirror of `domain-compile`,
-    which refreshes only `business`.)"""
+    which refreshes only `business`.)
+
+    *platform* selects the default manifest location (see `run_domain_init`);
+    an explicit ``manifest_path`` always wins. ``platform=None`` preserves the
+    legacy claude default."""
     pp = Path(project_path)
-    mp = Path(manifest_path) if manifest_path else pp / _DEFAULT_MANIFEST_REL
+    manifest_rel, _ = _platform_paths(platform)
+    mp = Path(manifest_path) if manifest_path else pp / manifest_rel
 
     if not mp.exists():
         output_fn(f"No domain.json at {mp} — run `harness-wf domain-init` first.")

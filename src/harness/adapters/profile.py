@@ -93,6 +93,22 @@ class PlatformProfile:
             .replace("{description}", description)
         )
 
+    def domain_root_rel(self) -> str:
+        """The deployed root (relative to the project root) that holds the
+        domain MCP's ``domain/`` and ``src/`` payload.
+
+        - plugin platforms (claude): ``<config_dir>/<plugin_dir_name>``
+          (e.g. ``.claude/harness-wf-plugin``).
+        - embedded platforms (gemini/cursor/codex/generic): ``<config_dir>``
+          (e.g. ``.gemini``).
+
+        DOMAIN_JSON_PATH = ``<root>/domain/domain.json`` and
+        PYTHONPATH = ``<root>/src`` are derived from this.
+        """
+        if self.supports_plugin and self.plugin_dir_name:
+            return f"{self.config_dir}/{self.plugin_dir_name}"
+        return self.config_dir
+
     def subagent_text_call(self, agent: str, skill: Optional[str] = None) -> str:
         """
         Format the subagent text-call template.

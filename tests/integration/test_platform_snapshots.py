@@ -197,12 +197,45 @@ def test_claude_plugin_layout(temp_project):
 
 def test_codex_layout(temp_project):
     run_harness_init(temp_project, "5", llm="openai")
-    
+
     assert (temp_project / "CODEX.md").exists()
-    
+
     assert not (temp_project / ".mcp.json").exists()
+
+    # configure_cli writes the project-local codex MCP registration directly
+    # (no usable codex CLI for project scope).
+    codex_cfg = temp_project / ".codex" / "config.toml"
+    assert codex_cfg.exists(), "codex: .codex/config.toml not written by configure_cli"
+    cfg_text = codex_cfg.read_text()
+    assert "[mcp_servers.domain]" in cfg_text
+    assert 'DOMAIN_JSON_PATH = ".codex/domain/domain.json"' in cfg_text
+
+    # domain.json scaffolded under the codex config dir (platform-aware seed)
+    assert (temp_project / ".codex" / "domain" / "domain.json").exists()
+
     check_snapshot(temp_project, "codex", [
-        "CODEX.md"
+        "CODEX.md",
+        ".codex/config.toml",
+    ])
+
+
+def test_cursor_layout(temp_project):
+    run_harness_init(temp_project, "3")
+
+    assert not (temp_project / ".mcp.json").exists()
+
+    # configure_cli writes/merges the project-local cursor MCP registration.
+    cursor_mcp = temp_project / ".cursor" / "mcp.json"
+    assert cursor_mcp.exists(), "cursor: .cursor/mcp.json not written by configure_cli"
+    data = json.loads(cursor_mcp.read_text())
+    domain = data["mcpServers"]["domain"]
+    assert domain["env"]["DOMAIN_JSON_PATH"] == ".cursor/domain/domain.json"
+
+    # domain.json scaffolded under the cursor config dir (platform-aware seed)
+    assert (temp_project / ".cursor" / "domain" / "domain.json").exists()
+
+    check_snapshot(temp_project, "cursor", [
+        ".cursor/mcp.json",
     ])
 
 

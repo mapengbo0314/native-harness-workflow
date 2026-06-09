@@ -50,7 +50,7 @@ class CursorAdapter(PlatformAdapter):
                     with open(filepath, "r", encoding="utf-8") as f:
                         content = f.read()
                         
-                    new_content = content.replace("${CLAUDE_PLUGIN_ROOT}", f"${{{self.get_plugin_env_var_name()}}}")
+                    new_content = content.replace("${HARNESS_PLUGIN_ROOT}", f"${{{self.get_plugin_env_var_name()}}}")
                     new_content = re.sub(r'(^|[\s/"\'])\.claude([\s/"\']|$)', r'\1' + self.get_config_dir_name() + r'\2', new_content)
                     
                     if new_content != content:
@@ -61,7 +61,34 @@ class CursorAdapter(PlatformAdapter):
         pass
 
     def configure_cli(self, project_path: Path) -> None:
-        pass
+        # Cursor has no MCP-registration CLI, so write the project-local
+        # .cursor/mcp.json directly. Read-merge any existing file so other
+        # servers the user registered are preserved. The deployed root for an
+        # embedded platform is the config dir itself (.cursor), so the server
+        # (src/) and manifest (domain/domain.json) live directly under it.
+        import json
+        from harness.adapters.profile import load_profile
+
+        root = load_profile("cursor").domain_root_rel()
+        mcp_path = project_path / self.get_config_dir_name() / "mcp.json"
+        mcp_path.parent.mkdir(parents=True, exist_ok=True)
+
+        data: Dict = {}
+        if mcp_path.exists():
+            try:
+                data = json.loads(mcp_path.read_text(encoding="utf-8")) or {}
+            except (json.JSONDecodeError, OSError):
+                data = {}
+        servers = data.setdefault("mcpServers", {})
+        servers["domain"] = {
+            "command": "python3",
+            "args": ["-m", "server"],
+            "env": {
+                "PYTHONPATH": f"{root}/src",
+                "DOMAIN_JSON_PATH": f"{root}/domain/domain.json",
+            },
+        }
+        mcp_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
     def get_agent_manifest_format(self) -> str:
         return "markdown"

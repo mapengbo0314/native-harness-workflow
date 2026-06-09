@@ -37,6 +37,15 @@ class HarnessSetupError(RuntimeError):
     """Raised when mandatory one-step harness setup cannot be completed."""
 
 
+def _post_mint_domain_init(project_path, platform: str, *, run_init=None):
+    """Scaffold the project-ops manifest under the active platform's deployed
+    root (best-effort). Threads `platform` so seed.py resolves the correct
+    config dir (e.g. .gemini/domain/domain.json for a gemini mint)."""
+    if run_init is None:
+        run_init = run_domain_init  # resolved lazily (imported below in this module)
+    return run_init(project_path, platform=platform)
+
+
 def _platform_name(platform_choice: str) -> str:
     return {
         "1": "gemini",
@@ -412,22 +421,36 @@ def main():
         return
 
     # `domain-init` / `domain-compile` are offline, plugin-scoped; no npx/CodeGraph.
+    # An explicit --platform threads the per-platform deployed root through so a
+    # non-claude workspace reads/writes domain.json under its own config dir;
+    # absent the flag, behaviour is the legacy claude default (unchanged).
+    _domain_platform = getattr(args, "platform", None)
+
     if args.command == "domain-init":
-        run_domain_init(args.project_path)
+        run_domain_init(args.project_path, platform=_domain_platform)
         langfuse_context.flush()
         return
 
     if args.command == "domain-refresh":
-        run_domain_refresh(args.project_path)
+        run_domain_refresh(args.project_path, platform=_domain_platform)
         langfuse_context.flush()
         return
 
     if args.command == "domain-compile":
         proj = Path(args.project_path)
+        if _domain_platform:
+            from harness.adapters.profile import load_profile as _lp
+            _p = _lp(_domain_platform)
+            _root = _p.domain_root_rel()
+            manifest_path = proj / _root / "domain" / "domain.json"
+            reference_dir = proj / _p.config_dir / "docs" / "reference"
+        else:
+            manifest_path = proj / _DEFAULT_MANIFEST_REL
+            reference_dir = proj / _DEFAULT_REFERENCE_REL
         run_domain_compile(
             proj,
-            manifest_path=proj / _DEFAULT_MANIFEST_REL,
-            reference_dir=proj / _DEFAULT_REFERENCE_REL,
+            manifest_path=manifest_path,
+            reference_dir=reference_dir,
         )
         langfuse_context.flush()
         return
@@ -702,8 +725,10 @@ def main():
             shutil.rmtree(temp_harness_dir)
 
     # Scaffold the project-ops manifest + reference docs dir (best-effort).
+    # Thread the active platform so the manifest lands under the right config
+    # dir (.claude/harness-wf-plugin for claude, .gemini/.cursor/.codex else).
     try:
-        run_domain_init(args.project_path)
+        _post_mint_domain_init(args.project_path, adapter.get_platform_name())
     except Exception as e:
         print(f"[HARNESS] Warning: domain scaffold skipped: {e}")
 

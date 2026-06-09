@@ -1,0 +1,7 @@
+[mcp_servers.domain]
+command = "python3"
+args = ["-m", "server"]
+
+[mcp_servers.domain.env]
+PYTHONPATH = ".codex/src"
+DOMAIN_JSON_PATH = ".codex/domain/domain.json"

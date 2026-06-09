@@ -20,6 +20,10 @@ def resolve_plugin_root() -> Path:
         return Path(os.environ["GEMINI_PLUGIN_ROOT"]).resolve()
     if os.environ.get("CLAUDE_PLUGIN_ROOT"):
         return Path(os.environ["CLAUDE_PLUGIN_ROOT"]).resolve()
+    if os.environ.get("CURSOR_PLUGIN_ROOT"):
+        return Path(os.environ["CURSOR_PLUGIN_ROOT"]).resolve()
+    if os.environ.get("CODEX_PLUGIN_ROOT"):
+        return Path(os.environ["CODEX_PLUGIN_ROOT"]).resolve()
     return Path(__file__).parent.parent.resolve()
 
 def get_session_id() -> str:

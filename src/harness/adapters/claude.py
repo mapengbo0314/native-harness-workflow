@@ -125,7 +125,7 @@ class ClaudeAdapter(PlatformAdapter):
         # Domain MCP: serves domain_ops(topic) from the plugin's domain.json.
         # Runs the deployed flat server (plugin src/) and is pointed at the
         # plugin-scoped, user-owned domain.json via DOMAIN_JSON_PATH.
-        _plugin_rel = f"{load_profile('claude').config_dir}/{load_profile('claude').plugin_dir_name}"
+        _plugin_rel = load_profile("claude").domain_root_rel()
         domain_config = json.dumps({
             "type": "stdio",
             "command": "python3",

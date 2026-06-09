@@ -50,7 +50,7 @@ class CodexAdapter(PlatformAdapter):
                     with open(filepath, "r", encoding="utf-8") as f:
                         content = f.read()
                         
-                    new_content = content.replace("${CLAUDE_PLUGIN_ROOT}", f"${{{self.get_plugin_env_var_name()}}}")
+                    new_content = content.replace("${HARNESS_PLUGIN_ROOT}", f"${{{self.get_plugin_env_var_name()}}}")
                     new_content = re.sub(r'(^|[\s/"\'])\.claude([\s/"\']|$)', r'\1' + self.get_config_dir_name() + r'\2', new_content)
                     
                     if new_content != content:
@@ -61,7 +61,41 @@ class CodexAdapter(PlatformAdapter):
         pass
 
     def configure_cli(self, project_path: Path) -> None:
-        pass
+        # Codex's `codex mcp add` only registers servers globally (~/.codex),
+        # not project-locally, so we write the project-local .codex/config.toml
+        # directly. We use a text template (no TOML-writer dependency) and an
+        # idempotency guard: if the [mcp_servers.domain] table is already
+        # present we skip. Existing file content is preserved (tables appended).
+        #
+        # NOTE: codex only loads project-local config when the user has
+        # "trusted" the project — without that, this registration is inert.
+        from harness.adapters.profile import load_profile
+
+        root = load_profile("codex").domain_root_rel()
+        cfg_path = project_path / self.get_config_dir_name() / "config.toml"
+        cfg_path.parent.mkdir(parents=True, exist_ok=True)
+
+        existing = ""
+        if cfg_path.exists():
+            existing = cfg_path.read_text(encoding="utf-8")
+            if "[mcp_servers.domain]" in existing:
+                return  # idempotent: already registered
+
+        block = (
+            "[mcp_servers.domain]\n"
+            'command = "python3"\n'
+            'args = ["-m", "server"]\n'
+            "\n"
+            "[mcp_servers.domain.env]\n"
+            f'PYTHONPATH = "{root}/src"\n'
+            f'DOMAIN_JSON_PATH = "{root}/domain/domain.json"\n'
+        )
+
+        if existing and not existing.endswith("\n"):
+            existing += "\n"
+        # Separate from any prior content with a blank line for readability.
+        new_content = existing + ("\n" if existing else "") + block
+        cfg_path.write_text(new_content, encoding="utf-8")
 
     def get_agent_manifest_format(self) -> str:
         return "yaml"

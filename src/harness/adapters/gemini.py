@@ -75,13 +75,33 @@ class GeminiAdapter(PlatformAdapter):
             print("[HARNESS] Warning: 'gemini' CLI not found. Please register MCP tools manually.")
             return
             
+        # Domain MCP: serves domain_ops(topic) from the deployed domain.json.
+        # Gemini has no add-json; use `mcp add` with -e env flags. The command
+        # (`python3`) is the `commandOrUrl` positional and `-m server` are the
+        # trailing variadic args — gemini's yargs parser captures them as the
+        # server's args (verified: settings.json args == ["-m", "server"]). We
+        # intentionally do NOT use a `--` separator: the installed gemini CLI
+        # drops everything after `--`, which would strip `python3 -m server`.
+        # The deployed root for an embedded platform is the config dir itself
+        # (.gemini), so the server (src/) and manifest (domain/domain.json)
+        # live directly under it.
+        _root = load_profile("gemini").domain_root_rel()
         commands = [
             [gemini, "mcp", "add", "codegraph", "npx", "-y", "@colbymchenry/codegraph", "serve", "--mcp"],
+            [
+                gemini, "mcp", "add", "--scope", "project",
+                "-e", f"PYTHONPATH={_root}/src",
+                "-e", f"DOMAIN_JSON_PATH={_root}/domain/domain.json",
+                "domain", "python3", "-m", "server",
+            ],
         ]
 
         for command in commands:
             result = subprocess.run(command, cwd=project_path, capture_output=True, text=True, env=os.environ.copy())
             if result.returncode != 0:
+                if "already exists" in result.stderr or "already exists" in result.stdout:
+                    print(f"[HARNESS] Info: MCP server already registered for command: {' '.join(command)}")
+                    continue
                 raise Exception(f"CLI MCP registration failed: {' '.join(command)}\nError: {result.stderr}")
 
     def get_agent_manifest_format(self) -> str:

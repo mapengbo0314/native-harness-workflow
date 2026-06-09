@@ -300,3 +300,31 @@ class TestConvenienceAccessors:
         assert p.subagent_text_call("agent-x", skill="diagnose") == (
             "Hand off to agent-x — invoke skill diagnose first"
         )
+
+
+# ---------------------------------------------------------------------------
+# Deployed domain-root (relative to project root)
+# ---------------------------------------------------------------------------
+
+class TestDomainRootRel:
+    """The deployed root holding domain/ + src/ for the domain MCP, relative
+    to the project root.
+
+    - plugin platforms (claude): <config_dir>/<plugin_dir_name>
+    - embedded platforms (gemini/cursor/codex/generic): <config_dir>
+    """
+
+    def test_claude_uses_plugin_subdir(self):
+        assert load_profile("claude").domain_root_rel() == ".claude/harness-wf-plugin"
+
+    def test_gemini_uses_config_dir(self):
+        assert load_profile("gemini").domain_root_rel() == ".gemini"
+
+    def test_cursor_uses_config_dir(self):
+        assert load_profile("cursor").domain_root_rel() == ".cursor"
+
+    def test_codex_uses_config_dir(self):
+        assert load_profile("codex").domain_root_rel() == ".codex"
+
+    def test_generic_uses_config_dir(self):
+        assert load_profile("generic").domain_root_rel() == ".agents"
