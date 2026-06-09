@@ -40,6 +40,34 @@ class TestHeadlessCLI(unittest.TestCase):
         mock_input.assert_not_called()
 
     @patch('harness.init.cli.parse_args')
+    @patch('subprocess.run')
+    @patch('sys.exit')
+    @patch.dict(os.environ, {"HARNESS_HEADLESS": "1"})
+    def test_cli_without_rtk_flags_never_runs_rtk_setup(
+        self, mock_exit, mock_run, mock_parse_args
+    ):
+        mock_run.return_value.returncode = 0
+        mock_run.return_value.stdout = ""
+        mock_run.return_value.stderr = ""
+        args = MagicMock()
+        args.project_path = self.test_dir
+        args.bundle = None
+        args.rtk = False
+        args.install_rtk = False
+        mock_parse_args.return_value = args
+
+        with (
+            patch('harness.init.minting_engine.mint_workspace'),
+            patch('harness.init.rtk.setup_rtk') as mock_setup_rtk,
+        ):
+            try:
+                main()
+            except SystemExit:
+                pass
+
+        mock_setup_rtk.assert_not_called()
+
+    @patch('harness.init.cli.parse_args')
     @patch('builtins.input', side_effect=AssertionError("input() called in headless mode!"))
     @patch('subprocess.run')
     @patch('sys.exit')

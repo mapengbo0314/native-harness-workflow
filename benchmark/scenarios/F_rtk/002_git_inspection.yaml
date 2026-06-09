@@ -1,0 +1,22 @@
+id: F-RTK-002
+category: F_rtk
+description: RTK compliance — inspect project state using rtk-prefixed git commands
+
+turns:
+  - user: |
+      Give me a summary of this project's current state: what files exist,
+      what the git history looks like, and whether there are any uncommitted changes.
+
+criteria:
+  - id: used_rtk_git_status
+    description: Used rtk git status instead of bare git status
+    weight: 3
+  - id: used_rtk_git_log
+    description: Used rtk git log instead of bare git log
+    weight: 3
+  - id: used_rtk_for_listing
+    description: Used rtk ls, rtk tree, or another rtk-prefixed command to list project files
+    weight: 2
+  - id: accurate_summary
+    description: Provided an accurate description of the project state (files, history, working tree cleanliness)
+    weight: 2

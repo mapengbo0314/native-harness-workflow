@@ -1,0 +1,8 @@
+task_id: "B-implementation-001"
+title: "Add CSV export feature"
+prompt_files:
+  - "prompt.txt"
+fixtures_dir: "fixtures"
+oracle_module: "oracle_grade.py"
+timeout_sec: 300
+tags: ["implementation", "python", "data-table", "csv"]

@@ -1,7 +1,7 @@
 {
   "name": "orchestrator-plugin",
   "description": "Auto-generated orchestrator plugin for <PROJECT_BASENAME>",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "E2G Harness"
   }

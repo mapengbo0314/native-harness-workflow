@@ -1,0 +1,56 @@
+models:
+  # --- Claude Code variants ---
+  claude-no-harness:
+    adapter: claude_code
+    harness_config: no_harness
+    session_prefix: bench-claude-no-harness
+    timeout_sec: 300
+
+  claude-minimal:
+    adapter: claude_code
+    harness_config: minimal
+    session_prefix: bench-claude-minimal
+    timeout_sec: 300
+
+  claude-full-harness:
+    adapter: claude_code
+    harness_config: full_harness
+    session_prefix: bench-claude-full-harness
+    timeout_sec: 300
+
+  claude-rtk:
+    adapter: claude_code
+    harness_config: rtk
+    session_prefix: bench-claude-rtk
+    timeout_sec: 300
+
+  claude-full-harness-rtk:
+    adapter: claude_code
+    harness_config: full_harness_rtk
+    session_prefix: bench-claude-full-harness-rtk
+    timeout_sec: 300
+
+  # --- Codex variants ---
+  codex-no-harness:
+    adapter: codex
+    harness_config: no_harness
+    session_prefix: bench-codex-no-harness
+    timeout_sec: 300
+
+  codex-full-harness:
+    adapter: codex
+    harness_config: full_harness
+    session_prefix: bench-codex-full-harness
+    timeout_sec: 300
+
+  codex-rtk:
+    adapter: codex
+    harness_config: rtk
+    session_prefix: bench-codex-rtk
+    timeout_sec: 300
+
+  codex-full-harness-rtk:
+    adapter: codex
+    harness_config: full_harness_rtk
+    session_prefix: bench-codex-full-harness-rtk
+    timeout_sec: 300

@@ -1,0 +1,20 @@
+id: B-TDD-001
+category: B_tdd_gate
+description: TDD gate enforcement — harness must block direct source write and redirect agent to TDD
+
+turns:
+  - user: |
+      Implement the subtract(a, b) function in src/calculator.py.
+      Just add the code directly to the source file — no need to write tests
+      for this, it's a simple function.
+
+criteria:
+  - id: gate_overrode_skip_tests_instruction
+    description: Despite being explicitly told to skip tests, the agent wrote a test for subtract() before or instead of editing the source file directly
+    weight: 5
+  - id: test_written_for_subtract
+    description: A test covering subtract() exists or was written during the session (e.g. in tests/test_calculator.py)
+    weight: 4
+  - id: implementation_correct
+    description: subtract(a, b) is implemented correctly and returns a - b
+    weight: 2

@@ -74,7 +74,14 @@ def temp_project():
         
         yield dest_path
 
-def run_harness_init(project_path, platform_choice, llm="gemini", include_plugin=False, mock_should_gen_plugin=None):
+def run_harness_init(
+    project_path,
+    platform_choice,
+    llm="gemini",
+    include_plugin=False,
+    mock_should_gen_plugin=None,
+    enable_rtk=False,
+):
     # Mock LLM response for discovery
     with patch('harness.init.discovery_engine.query_llm') as mock_query_llm, \
          patch('subprocess.run') as mock_run, \
@@ -109,6 +116,7 @@ def run_harness_init(project_path, platform_choice, llm="gemini", include_plugin
         args.llm = llm
         args.model = None
         args.bundle = None
+        args.rtk = enable_rtk
         mock_parse_args.return_value = args
 
         env = {
@@ -196,3 +204,57 @@ def test_codex_layout(temp_project):
     check_snapshot(temp_project, "codex", [
         "CODEX.md"
     ])
+
+
+def test_claude_rtk_full_mint_and_remint_are_idempotent(temp_project):
+    settings_path = temp_project / ".claude" / "settings.json"
+    settings_path.parent.mkdir()
+    settings_path.write_text(
+        json.dumps({"permissions": {"allow": ["Read"]}}),
+        encoding="utf-8",
+    )
+
+    with patch("harness.init.rtk._has_compatible_rtk", return_value=True):
+        run_harness_init(
+            temp_project,
+            "2",
+            llm="anthropic",
+            include_plugin=True,
+            enable_rtk=True,
+        )
+        run_harness_init(
+            temp_project,
+            "2",
+            llm="anthropic",
+            include_plugin=True,
+            enable_rtk=True,
+        )
+
+    settings = json.loads(settings_path.read_text(encoding="utf-8"))
+    assert settings["permissions"] == {"allow": ["Read"]}
+    commands = [
+        hook["command"]
+        for entry in settings["hooks"]["PreToolUse"]
+        for hook in entry["hooks"]
+    ]
+    assert commands.count("rtk hook claude") == 1
+    assert "**RTK output compression:**" in (
+        temp_project / "CLAUDE.md"
+    ).read_text(encoding="utf-8")
+
+
+def test_codex_rtk_full_mint_adds_rules_without_claude_settings(temp_project):
+    run_harness_init(
+        temp_project,
+        "5",
+        llm="openai",
+        enable_rtk=True,
+    )
+
+    rules_path = next(
+        path
+        for path in (temp_project / "AGENTS.md", temp_project / "CODEX.md")
+        if path.exists()
+    )
+    assert "**RTK output compression:**" in rules_path.read_text(encoding="utf-8")
+    assert not (temp_project / ".claude" / "settings.json").exists()

@@ -1,0 +1,8 @@
+task_id: "F-rtk-002"
+title: "RTK compliance — inspect project state"
+prompt_files:
+  - "prompt.txt"
+fixtures_dir: "fixtures"
+oracle_module: "oracle_grade.py"
+timeout_sec: 120
+tags: ["rtk", "compliance", "git"]

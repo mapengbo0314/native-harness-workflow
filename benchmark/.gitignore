@@ -1,2 +1,4 @@
-results/*.json
+results/
 __pycache__/
+.indxr-cache/
+INDEX.md
