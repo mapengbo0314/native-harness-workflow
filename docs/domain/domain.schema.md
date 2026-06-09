@@ -27,7 +27,9 @@ present) is ignored by the model.
 
 - **`stack`** — `harness-wf domain-init` runs detection: GitHub Linguist via the
   `/languages` API (weighted; file-extension fallback offline) + cdxgen (`npx`)
-  for frameworks and services. No code-structure inference.
+  for frameworks and services. No code-structure inference. Re-run
+  `harness-wf domain-refresh` when dependencies change — it re-detects and merges
+  **only** `stack`, leaving authored sections and `business` untouched.
 - **`environments` / `test` / `deploy` / `infra`** — scaffolded as empty slots by
   `domain-init`; engineers fill the facts only they know.
 - **`references`** — `domain-init` pre-suggests conventional docs (path → first
@@ -51,6 +53,8 @@ present) is ignored by the model.
 detect (stack)  →  scaffold (slots + docs/reference/)  →  author (engineers fill
 slots, drop docs)  →  compile (LLM → business)  →  consume (domain_ops pull +
 business push on B/C)
+
+         re-detect stack over time:  domain-refresh  (merges only `stack`)
 ```
 
 `domain.json` is hand-editable — every field can be corrected directly; detection
