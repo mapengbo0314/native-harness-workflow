@@ -1,0 +1,160 @@
+{
+  "claude": {
+    "platform_name": "claude",
+    "config_dir": ".claude",
+    "plugin_env_var": "CLAUDE_PLUGIN_ROOT",
+    "tool_mappings": {
+      "- read_file": "- Read",
+      "- grep_search": "- Grep",
+      "- replace": "- Edit",
+      "- write_file": "- Write",
+      "- run_shell_command": "- Bash",
+      "- glob": "- Glob",
+      "read_file": "Read",
+      "grep_search": "Grep",
+      "replace": "Edit",
+      "write_file": "Write",
+      "run_shell_command": "Bash",
+      "glob": "Glob"
+    },
+    "event_mappings": {},
+    "skill_invocation": "Skill(\"{skill}\")",
+    "subagent_invocation": "Task(subagent_type=\"{agent}\", description=\"{description}\")",
+    "subagent_text_call": {
+      "without_skill": "Task(subagent_type=\"{agent}\")",
+      "with_skill": "Task(subagent_type=\"{agent}\", description=\"Invoke Skill('{skill}') as your first action.\")"
+    },
+    "manifest_format": "markdown",
+    "rules_pointer_files": ["CLAUDE.md"],
+    "supports_plugin": true,
+    "plugin_dir_name": "harness-wf-plugin",
+    "generalist_remap": true,
+    "hook_agent_only_cta": "Make this Task call now."
+  },
+  "gemini": {
+    "platform_name": "gemini",
+    "config_dir": ".gemini",
+    "plugin_env_var": "GEMINI_PLUGIN_ROOT",
+    "tool_mappings": {
+      "- read_file": "- read_file",
+      "- grep_search": "- grep_search",
+      "- replace": "- replace",
+      "- write_file": "- write_file",
+      "- run_shell_command": "- run_shell_command",
+      "- glob": "- glob"
+    },
+    "event_mappings": {
+      "UserPromptSubmit": "BeforeAgent",
+      "PreToolUse": "BeforeTool",
+      "PostToolUse": "AfterTool",
+      "PreCompact": "PreCompress"
+    },
+    "skill_invocation": "activate_skill(\"{skill}\")",
+    "subagent_invocation": "@{agent} {description}",
+    "subagent_text_call": {
+      "without_skill": "@{agent}",
+      "with_skill": "@{agent} — activate_skill(\"{skill}\") as your first action"
+    },
+    "manifest_format": "markdown",
+    "rules_pointer_files": ["GEMINI.md"],
+    "supports_plugin": false,
+    "plugin_dir_name": null,
+    "generalist_remap": false,
+    "hook_agent_only_cta": "Make this agent call now."
+  },
+  "codex": {
+    "platform_name": "codex",
+    "config_dir": ".codex",
+    "plugin_env_var": "CODEX_PLUGIN_ROOT",
+    "tool_mappings": {
+      "- replace": "- apply_patch",
+      "- write_file": "- apply_patch",
+      "- run_shell_command": "- shell",
+      "- read_file": "- shell",
+      "- grep_search": "- shell",
+      "- glob": "- shell",
+      "replace": "apply_patch",
+      "write_file": "apply_patch",
+      "run_shell_command": "shell",
+      "read_file": "shell",
+      "grep_search": "shell",
+      "glob": "shell",
+      "Edit": "apply_patch",
+      "Write": "apply_patch",
+      "Bash": "shell",
+      "Read": "shell",
+      "Grep": "shell",
+      "Glob": "shell"
+    },
+    "event_mappings": {},
+    "skill_invocation": "${skill}",
+    "subagent_invocation": "spawn .codex/agents/{agent}.toml — {description}",
+    "subagent_text_call": {
+      "without_skill": "spawn .codex/agents/{agent}.toml",
+      "with_skill": "spawn .codex/agents/{agent}.toml — run skill ${skill} first"
+    },
+    "manifest_format": "yaml",
+    "rules_pointer_files": ["AGENTS.md"],
+    "supports_plugin": false,
+    "plugin_dir_name": null,
+    "generalist_remap": false,
+    "hook_agent_only_cta": "Spawn this agent now."
+  },
+  "cursor": {
+    "platform_name": "cursor",
+    "config_dir": ".cursor",
+    "plugin_env_var": "CURSOR_PLUGIN_ROOT",
+    "tool_mappings": {
+      "- read_file": "- read_file",
+      "- grep_search": "- grep",
+      "- replace": "- edit_file",
+      "- write_file": "- edit_file",
+      "- run_shell_command": "- run_terminal_cmd",
+      "- glob": "- grep",
+      "read_file": "read_file",
+      "grep_search": "grep",
+      "replace": "edit_file",
+      "write_file": "edit_file",
+      "run_shell_command": "run_terminal_cmd",
+      "glob": "grep",
+      "Read": "read_file",
+      "Grep": "grep",
+      "Edit": "edit_file",
+      "Write": "edit_file",
+      "Bash": "run_terminal_cmd",
+      "Glob": "grep"
+    },
+    "event_mappings": {},
+    "skill_invocation": "/{skill}",
+    "subagent_invocation": "/{agent} {description}",
+    "subagent_text_call": {
+      "without_skill": "/{agent}",
+      "with_skill": "/{agent} — invoke skill /{skill} first"
+    },
+    "manifest_format": "markdown",
+    "rules_pointer_files": ["AGENTS.md"],
+    "supports_plugin": false,
+    "plugin_dir_name": null,
+    "generalist_remap": false,
+    "hook_agent_only_cta": "Make this agent call now."
+  },
+  "generic": {
+    "platform_name": "agents",
+    "config_dir": ".agents",
+    "plugin_env_var": "AGENTS_PLUGIN_ROOT",
+    "tool_mappings": {},
+    "event_mappings": {},
+    "skill_invocation": "Use {skill}",
+    "subagent_invocation": "@{agent} {description}",
+    "subagent_text_call": {
+      "without_skill": "@{agent}",
+      "with_skill": "@{agent} — invoke skill {skill} first"
+    },
+    "manifest_format": "markdown",
+    "rules_pointer_files": [],
+    "supports_plugin": false,
+    "plugin_dir_name": null,
+    "generalist_remap": false,
+    "hook_agent_only_cta": "Make this agent call now."
+  }
+}

@@ -224,7 +224,7 @@ def test_generic_configure_cli_is_noop_no_domain_mcp(tmp_path):
     there is no universal .agents/mcp.json standard). Fabricating one would be
     dishonest, so domain MCP registration is N/A for generic: configure_cli is a
     no-op and writes nothing claiming domain_ops. (Documented in
-    docs/platform-support.md.)"""
+    .claude/docs/platform-support.md.)"""
     from harness.adapters import get_adapter
 
     get_adapter("generic").configure_cli(tmp_path)

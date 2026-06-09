@@ -125,29 +125,7 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
                     except Exception as e:
                         print(f"Warning: Failed to process includes in {filepath}: {e}")
 
-        # --- Ghost Injection for implementer.md ---
-        context_file = os.path.join(project_path, "docs", "domain", "CONTEXT.md")
-        invariants_text = ""
-        if not os.path.exists(context_file):
-            os.makedirs(os.path.dirname(context_file), exist_ok=True)
-            with open(context_file, "w") as f:
-                f.write("# Project Context\n\n## Purpose\n\n## Strict Invariants\n")
-        
-        try:
-            with open(context_file, "r") as f:
-                c_text = f.read()
-                if "## Strict Invariants" in c_text:
-                    invariants_text = c_text.split("## Strict Invariants")[1].strip()
-        except Exception as e:
-            print(f"Warning: Failed to read CONTEXT.md for Ghost Injection: {e}")
-        
-        if invariants_text:
-            implementer_path = target_path / "agents" / "implementer.md"
-            if implementer_path.exists():
-                with open(implementer_path, "a") as f:
-                    f.write("\n\n### STRICT INVARIANTS (Ghost Injection)\n" + invariants_text)
-                    
-        # --- End Ghost Injection ---
+
 
         # Create the opt-in sentinel for the PostToolUse formatter hook.
         # Bootstrap projects get it automatically so formatting runs from day one.

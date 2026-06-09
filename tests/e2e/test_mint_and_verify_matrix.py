@@ -107,7 +107,7 @@ _HOOK_ENV_VAR: dict[str, str] = {
 # Expected hook event names per platform. Gemini CLI has its own event taxonomy
 # (no UserPromptSubmit/PreToolUse/PostToolUse/PreCompact); install_hooks remaps
 # all four Claude keys to BeforeAgent/BeforeTool/AfterTool/PreCompress.
-# (Gemini deep-research pass, June 2026 — see docs/platform-support.md.)
+# (Gemini deep-research pass, June 2026 — see .claude/docs/platform-support.md.)
 _EXPECTED_HOOK_EVENTS: dict[str, set[str]] = {
     "claude": {"UserPromptSubmit", "PreCompact", "PreToolUse", "PostToolUse"},
     "gemini": {"BeforeAgent", "BeforeTool", "AfterTool", "PreCompress"},

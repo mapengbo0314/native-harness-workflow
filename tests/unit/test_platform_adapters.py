@@ -214,7 +214,7 @@ class TestFormatHookResponse:
     # hook output must carry ONLY Codex-valid fields, and the routing decision
     # + context must be folded into hookSpecificOutput.additionalContext.
 
-    # Codex-valid top-level keys (per docs/platform-support.md).
+    # Codex-valid top-level keys (per .claude/docs/platform-support.md).
     _CODEX_ALLOWED_TOP = {"continue", "systemMessage", "decision", "reason",
                           "hookSpecificOutput"}
     _CODEX_ALLOWED_HSO = {"hookEventName", "additionalContext"}
@@ -287,7 +287,7 @@ class TestFormatHookResponse:
     # native subagents + MCP instead. So the hook output must carry ONLY
     # Cursor-valid fields and must NOT emit the invented routing schema.
 
-    # Cursor-valid top-level keys (per docs/platform-support.md).
+    # Cursor-valid top-level keys (per .claude/docs/platform-support.md).
     _CURSOR_ALLOWED_TOP = {"continue", "user_message"}
     # Invented fields the harness used to emit that Cursor ignores entirely.
     _CURSOR_FORBIDDEN = {"classification", "modifiedPrompt",

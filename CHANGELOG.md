@@ -13,6 +13,7 @@ with **intent** (see `docs/RELEASING.md`):
 ## [Unreleased]
 
 ### Added
+
 - Ownership manifest (`.harness-meta.json` `owned` map) and the read-only
   `harness-wf update --check` planner: two-hash detection (template-space
   "did we change it" + rendered-space "did the user edit it"), real 3-way
@@ -21,9 +22,11 @@ with **intent** (see `docs/RELEASING.md`):
   2026-06-01 update design.)
 
 ### Changed
+
 - `plugin.json` version is stamped from `pyproject.toml`; build metadata
   lives in `.harness-meta.json` (PR #26).
 
 ## [0.1.0]
+
 - Initial harness minting CLI (`harness-wf init`): platform adapters,
   orchestrator plugin generation, hooks, skills, agents, CodeGraph onboarding.

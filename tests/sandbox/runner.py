@@ -80,13 +80,6 @@ def mint_harness(project_path: str, project_name: str, model: str = None):
     # Use absolute path for boilerplate to be robust to execution directory
     boilerplate_dir = str(Path(project_root) / "src" / "harness" / "templates" / "boilerplate")
     
-    # Create minimal docs/domain/CONTEXT.md if it doesn't exist
-    context_dir = project_path / "docs" / "domain"
-    context_dir.mkdir(parents=True, exist_ok=True)
-    context_file = context_dir / "CONTEXT.md"
-    if not context_file.exists():
-        context_file.write_text("# Project Context\n\n## Purpose\nSandbox Test\n\n## Strict Invariants\nNone\n")
-
     # Mock domain content for SME synthesis
     domain_content = "Proposed Agent Name: @domain-sme\nDomain Invariants:\nNone\n- [x] orchestrator-plugin (local)"
     

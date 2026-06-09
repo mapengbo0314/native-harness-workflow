@@ -9,9 +9,6 @@ def test_plugin_manifest_generation():
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_project = Path(tmp_dir) / "test_project"
         tmp_project.mkdir()
-        (tmp_project / "docs" / "domain").mkdir(parents=True)
-        (tmp_project / "docs" / "domain" / "CONTEXT.md").write_text("# Context")
-
         plugin_path = Path(generate_orchestrator_plugin(str(tmp_project), "TestProject"))
 
         # Check manifest exists

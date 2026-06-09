@@ -27,13 +27,7 @@ def acquire_mcp_context(project_path: str) -> str:
     
     context_parts = []
     
-    # Priority 1: CONTEXT.md (The Wizard's output)
-    context_file = os.path.join(project_path, "docs", "domain", "CONTEXT.md")
-    if os.path.exists(context_file):
-        with open(context_file, "r") as f:
-            context_parts.append("=== PROJECT CORE CONTEXT ===\n" + f.read())
-
-    # Priority 2: CodeGraph Symbols (Optional: If we want to seed with some high-level info)
+    # Priority 1: CodeGraph Symbols (Optional: If we want to seed with some high-level info)
     # For now, we rely on the agents using the MCP tool themselves, but we can check if DB exists
     codegraph_db = os.path.join(project_path, ".codegraph", "codegraph.db")
     if os.path.exists(codegraph_db):
