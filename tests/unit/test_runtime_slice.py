@@ -100,8 +100,8 @@ class TestRewriteImports:
         assert rewrite_imports(text) == "from dispatcher import Dispatcher"
 
     def test_from_harness_init(self):
-        text = "from harness.init.discovery_engine import detect_tech_stack"
-        assert rewrite_imports(text) == "from discovery_engine import detect_tech_stack"
+        text = "from harness.init.discovery_engine import acquire_mcp_context"
+        assert rewrite_imports(text) == "from discovery_engine import acquire_mcp_context"
 
     def test_from_harness_adapters(self):
         # "harness.adapters." is stripped wholesale; leaves just the module name

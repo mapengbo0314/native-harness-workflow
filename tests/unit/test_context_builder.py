@@ -18,7 +18,9 @@ def test_build_context_base():
     assert "Authorization: Authorized" in result
     assert "JIT RULE:" not in result
 
-def test_build_context_planning_jit():
+def test_build_context_planning_no_ddd_jit():
+    # Planning no longer injects a DDD / ubiquitous-language JIT rule; domain
+    # knowledge now flows from the project-ops manifest (business digest), not DDD.
     result = build_context(
         phase="3 (Planning)",
         target_agent="@generalist",
@@ -26,9 +28,11 @@ def test_build_context_planning_jit():
         branch="B",
         missing_documents=[]
     )
-    
+
     assert "=== SYSTEM STATE ===" in result
-    assert "JIT RULE: You MUST adhere to Domain-Driven Design (DDD) principles. Ensure the ubiquitous language is used." in result
+    assert "Domain-Driven Design" not in result
+    assert "ubiquitous language" not in result
+    assert "JIT RULE:" not in result
 
 def test_build_context_execution_jit():
     result = build_context(

@@ -7,7 +7,6 @@ import urllib.request
 import difflib
 from pathlib import Path
 from harness.init.plugin_generator import generate_orchestrator_plugin
-from harness.init.discovery_engine import detect_tech_stack
 from harness.adapters import get_adapter
 # Single source of truth for the two-pass render. TemplateRenderer and
 # process_includes were relocated to render.py; re-imported here to preserve the
@@ -131,7 +130,7 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
         if not os.path.exists(context_file):
             os.makedirs(os.path.dirname(context_file), exist_ok=True)
             with open(context_file, "w") as f:
-                f.write("# Project Context\n\n## Purpose\n\n## Ubiquitous Language\n\n## Strict Invariants\n")
+                f.write("# Project Context\n\n## Purpose\n\n## Strict Invariants\n")
         
         try:
             with open(context_file, "r") as f:

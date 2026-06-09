@@ -24,7 +24,7 @@ full unit+integration suite green (725 passed).**
 - Compile input scaling uses per-doc + total cap with truncation; full **map-reduce** (per-doc summarize → merge) deferred until a real large-docs case needs it.
 - `adapters/claude.py` domain MCP registration is wired but **not runtime-verified** in a live minted project this session (needs an end-to-end `harness-wf init` smoke test).
 - Optional **draft-approval** before writing `business` not implemented (writes directly; hand-editable after). 
-- The planning JIT line in `context_builder` still says "DDD / ubiquitous language" — stale vs this design; left as a separate cleanup.
+- ~~The planning JIT line in `context_builder` still says "DDD / ubiquitous language"~~ — **resolved**: removed the planning DDD JIT line, dropped the `## Ubiquitous Language` CONTEXT.md scaffold, and retired the entire old DDD/onboarding cluster from `discovery_engine.py` (`discover_agents`, `deep_audit_discovery`, `detect_tech_stack`, `generate_onboarding_domain_doc`, `generate_grilling_questions`, `synthesize_grilled_context` + `get_symbol_census`/`get_file_tree_summary` helpers). `run_debug.py` repointed to `domain.detect.detect_stack`. Obsolete tests removed; suite green (884 passed).
 - `business` not yet populated for this repo (needs `harness-wf domain-compile` with a local CLI + authored `.claude/docs/reference/` docs).
 
 ## Blockers

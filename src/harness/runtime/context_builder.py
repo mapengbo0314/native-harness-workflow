@@ -47,9 +47,7 @@ def build_context(phase: str, target_agent: str, auth_msg: str, branch: str, mis
 
         system_state += f"In-Progress Designs: {', '.join(manifest_state.get('progress_found', [])) or 'None'}\n"
 
-    if phase == "3 (Planning)":
-        system_state += "JIT RULE: You MUST adhere to Domain-Driven Design (DDD) principles. Ensure the ubiquitous language is used.\n"
-    elif "Execution" in phase:
+    if "Execution" in phase:
         system_state += "JIT RULE: You MUST strictly follow Test-Driven Development (TDD). Write the failing test first.\n"
         
     system_state += "====================\n"
