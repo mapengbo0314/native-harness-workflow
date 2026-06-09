@@ -198,7 +198,12 @@ def test_claude_plugin_layout(temp_project):
 def test_codex_layout(temp_project):
     run_harness_init(temp_project, "5", llm="openai")
 
-    assert (temp_project / "CODEX.md").exists()
+    # Codex reads AGENTS.md (project + ~/.codex/AGENTS.md); CODEX.md is fictional.
+    assert (temp_project / "AGENTS.md").exists()
+    assert not (temp_project / "CODEX.md").exists()
+    agents_md = (temp_project / "AGENTS.md").read_text()
+    assert "codegraph" in agents_md  # harness rules pointer content
+    assert "domain_ops" in agents_md
 
     assert not (temp_project / ".mcp.json").exists()
 
@@ -214,7 +219,7 @@ def test_codex_layout(temp_project):
     assert (temp_project / ".codex" / "domain" / "domain.json").exists()
 
     check_snapshot(temp_project, "codex", [
-        "CODEX.md",
+        "AGENTS.md",
         ".codex/config.toml",
     ])
 

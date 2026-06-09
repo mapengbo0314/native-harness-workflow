@@ -30,12 +30,14 @@ from unittest.mock import MagicMock, patch
 _PLATFORM_CHOICES: dict[str, str] = {
     "gemini": "1",
     "claude": "2",
+    "codex": "5",
 }
 
 # Where the wiring artifacts land after a full headless mint for each platform
 _PLUGIN_ROOT_SUBPATH: dict[str, str] = {
     "gemini": ".gemini",
     "claude": ".claude/harness-wf-plugin",
+    "codex": ".codex",
 }
 
 
@@ -100,7 +102,7 @@ def mint_platform(tmp_path: Path, platform: str) -> Path:
         }
     )
 
-    llm_choice = "anthropic" if platform == "claude" else "gemini"
+    llm_choice = {"claude": "anthropic", "codex": "openai"}.get(platform, "gemini")
 
     with (
         patch("harness.init.discovery_engine.query_llm") as mock_llm,
@@ -126,6 +128,7 @@ def mint_platform(tmp_path: Path, platform: str) -> Path:
             "HARNESS_PLATFORM": platform_choice,
             "GEMINI_API_KEY": "fake-key",
             "ANTHROPIC_API_KEY": "fake-key",
+            "OPENAI_API_KEY": "fake-key",
             "PATH": os.environ.get("PATH", ""),
         }
         with patch.dict(os.environ, env):

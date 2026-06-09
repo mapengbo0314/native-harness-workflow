@@ -173,21 +173,75 @@ class TestFormatHookResponse:
         assert out["modifiedPrompt"] == PROMPT
 
     # Codex -----------------------------------------------------------------
+    # Codex enforces deny_unknown_fields and cannot rewrite the prompt. Its
+    # hook output must carry ONLY Codex-valid fields, and the routing decision
+    # + context must be folded into hookSpecificOutput.additionalContext.
 
-    def test_codex_uses_handoff_syntax(self):
+    # Codex-valid top-level keys (per docs/platform-support.md).
+    _CODEX_ALLOWED_TOP = {"continue", "systemMessage", "decision", "reason",
+                          "hookSpecificOutput"}
+    _CODEX_ALLOWED_HSO = {"hookEventName", "additionalContext"}
+    # Invented fields the harness used to emit that Codex rejects/ignores.
+    _CODEX_FORBIDDEN = {"classification", "modifiedPrompt",
+                        "system_prompt_extension", "systemPromptExtension",
+                        "target_agent", "target_skill"}
+
+    def test_codex_emits_only_valid_fields(self):
         out = self._adapter("codex").format_hook_response(
             PROMPT, SKILL_AGENT_DECISION, CONTEXT_EXT, HOOK_EVENT
         )
-        mp = out["modifiedPrompt"]
-        assert "Hand off to" in mp
-        assert "Skill(" not in mp
-        assert "Task(" not in mp
+        # No unknown top-level fields.
+        assert set(out).issubset(self._CODEX_ALLOWED_TOP), (
+            f"codex emitted unknown top-level fields: {set(out) - self._CODEX_ALLOWED_TOP}"
+        )
+        for forbidden in self._CODEX_FORBIDDEN:
+            assert forbidden not in out, f"codex must not emit top-level {forbidden!r}"
+        # hookSpecificOutput restricted to {hookEventName, additionalContext}.
+        hso = out["hookSpecificOutput"]
+        assert set(hso).issubset(self._CODEX_ALLOWED_HSO), (
+            f"codex emitted unknown hookSpecificOutput fields: "
+            f"{set(hso) - self._CODEX_ALLOWED_HSO}"
+        )
+        assert hso["hookEventName"] == HOOK_EVENT
+        assert "continue" in out
+
+    def test_codex_folds_routing_and_context_into_additional_context(self):
+        out = self._adapter("codex").format_hook_response(
+            PROMPT, SKILL_AGENT_DECISION, CONTEXT_EXT, HOOK_EVENT
+        )
+        ac = out["hookSpecificOutput"]["additionalContext"]
+        # The routing target and the context extension both live in additionalContext.
+        assert "debugger" in ac
+        assert CONTEXT_EXT in ac
+        # Codex cannot rewrite the prompt: the original prompt is NOT echoed back.
+        assert PROMPT not in ac
 
     def test_codex_no_target_passthrough(self):
         out = self._adapter("codex").format_hook_response(
             PROMPT, NO_TARGET_DECISION, CONTEXT_EXT, HOOK_EVENT
         )
-        assert out["modifiedPrompt"] == PROMPT
+        # With no routing target, additionalContext is just the context extension.
+        ac = out["hookSpecificOutput"]["additionalContext"]
+        assert ac == CONTEXT_EXT
+        assert out["continue"] is True
+
+    def test_codex_skill_invocation_uses_dollar_token(self):
+        out = self._adapter("codex").format_hook_response(
+            PROMPT, SKILL_AGENT_DECISION, CONTEXT_EXT, HOOK_EVENT
+        )
+        ac = out["hookSpecificOutput"]["additionalContext"]
+        # Skills are invoked $skill-name on Codex; the fictional "Activate skill"
+        # phrasing must be gone.
+        assert "$harness-systematic-debugging" in ac
+        assert "Activate skill" not in ac
+
+    def test_codex_no_fictional_handoff_token(self):
+        out = self._adapter("codex").format_hook_response(
+            PROMPT, AGENT_ONLY_DECISION, CONTEXT_EXT, HOOK_EVENT
+        )
+        ac = out["hookSpecificOutput"]["additionalContext"]
+        # The fictional "Hand off to {agent}" convention does not exist on Codex.
+        assert "Hand off to" not in ac
 
     # Cursor ----------------------------------------------------------------
 
@@ -218,8 +272,13 @@ class TestFormatHookResponse:
         assert "HARNESS DISPATCH" in mp
 
     # Shared output shape ---------------------------------------------------
+    # Codex is excluded: it has a distinct, schema-restricted output (Codex
+    # rejects modifiedPrompt/classification/systemPromptExtension via
+    # deny_unknown_fields). Its shape is asserted by the codex-specific tests.
 
-    @pytest.mark.parametrize("platform", PLATFORMS)
+    _CLAUDE_SHAPE_PLATFORMS = [p for p in PLATFORMS if p != "codex"]
+
+    @pytest.mark.parametrize("platform", _CLAUDE_SHAPE_PLATFORMS)
     def test_output_always_has_required_keys(self, platform):
         out = self._adapter(platform).format_hook_response(
             PROMPT, SKILL_AGENT_DECISION, CONTEXT_EXT, HOOK_EVENT
@@ -232,12 +291,52 @@ class TestFormatHookResponse:
         assert "systemPromptExtension" in hso
         assert "modifiedPrompt" in hso
 
-    @pytest.mark.parametrize("platform", PLATFORMS)
+    @pytest.mark.parametrize("platform", _CLAUDE_SHAPE_PLATFORMS)
     def test_classification_preserved(self, platform):
         out = self._adapter(platform).format_hook_response(
             PROMPT, SKILL_AGENT_DECISION, CONTEXT_EXT, HOOK_EVENT
         )
         assert out["classification"] == "A"
+
+
+# ---------------------------------------------------------------------------
+# 2b. Codex profile-data corrections (platform_profiles.json codex block)
+# ---------------------------------------------------------------------------
+
+class TestCodexProfileData:
+    def _profile(self):
+        from harness.adapters.profile import load_profile
+        return load_profile("codex")
+
+    def test_rules_pointer_is_agents_md(self):
+        # Codex reads AGENTS.md; CODEX.md is fictional.
+        assert self._profile().rules_pointer_files == ["AGENTS.md"]
+
+    def test_tool_mappings_map_to_codex_tools(self):
+        tm = self._profile().tool_mappings
+        # Codex has shell (command exec) + apply_patch (file edits).
+        # Match the key style used by other profiles (with and without "- ").
+        assert tm.get("run_shell_command") == "shell"
+        assert tm.get("Bash") == "shell"
+        assert tm.get("replace") == "apply_patch"
+        assert tm.get("write_file") == "apply_patch"
+        assert tm.get("Edit") == "apply_patch"
+        assert tm.get("Write") == "apply_patch"
+        # No mapping should point at a Claude-only tool name.
+        assert "Read" not in tm.values()
+        assert "Grep" not in tm.values()
+
+    def test_skill_invocation_uses_dollar_token(self):
+        prof = self._profile()
+        rendered = prof.skill_invocation("my-skill")
+        assert rendered == "$my-skill"
+        assert "Activate skill" not in rendered
+
+    def test_subagent_invocation_has_no_fictional_handoff(self):
+        prof = self._profile()
+        assert "Hand off to" not in prof.subagent_invocation_tpl
+        assert "Hand off to" not in prof.subagent_text_call_without_skill
+        assert "Hand off to" not in prof.subagent_text_call_with_skill
 
 
 # ---------------------------------------------------------------------------

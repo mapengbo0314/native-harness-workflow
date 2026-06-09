@@ -88,7 +88,7 @@ _SUBAGENT_CALL_CASES: list[tuple[str, str, str | None]] = [
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("platform", ["claude", "gemini"])
+@pytest.mark.parametrize("platform", ["claude", "gemini", "codex"])
 @pytest.mark.parametrize("routing_label,routing_decision", _ROUTING_CASES)
 def test_runtime_adapter_format_hook_response_equals_canonical(
     platform: str, routing_label: str, routing_decision: dict
@@ -202,6 +202,13 @@ def _gemini_mint_root(tmp_path_factory) -> Path:
     from tests.e2e._mint_helpers import mint_platform
     tmp = tmp_path_factory.mktemp("runtime_adapter_gemini")
     return mint_platform(tmp, "gemini")
+
+
+@pytest.fixture(scope="session")
+def _codex_mint_root(tmp_path_factory) -> Path:
+    from tests.e2e._mint_helpers import mint_platform
+    tmp = tmp_path_factory.mktemp("runtime_adapter_codex")
+    return mint_platform(tmp, "codex")
 
 
 @pytest.fixture(
@@ -449,4 +456,31 @@ class TestMintedAdapterEquality:
             f"[gemini/{routing_label}] minted adapter != canonical\n"
             f"  canonical: {r_canonical}\n"
             f"  minted:    {r_minted}"
+        )
+
+    @pytest.mark.parametrize("routing_label,routing_decision", _ROUTING_CASES)
+    def test_codex_minted_adapter_format_hook_response(
+        self, routing_label: str, routing_decision: dict, _codex_mint_root: Path
+    ) -> None:
+        """Minted codex get_adapter().format_hook_response equals canonical and
+        emits only Codex-valid (deny_unknown_fields) hook output."""
+        minted = self._load_minted_adapter(_codex_mint_root, "codex")
+        canonical = _canonical_get_adapter("codex")
+        r_minted = minted.format_hook_response(
+            "test prompt", routing_decision, "ctx", "UserPromptSubmit"
+        )
+        r_canonical = canonical.format_hook_response(
+            "test prompt", routing_decision, "ctx", "UserPromptSubmit"
+        )
+        assert r_minted == r_canonical, (
+            f"[codex/{routing_label}] minted adapter != canonical\n"
+            f"  canonical: {r_canonical}\n"
+            f"  minted:    {r_minted}"
+        )
+        # Codex schema guard: no invented fields survive into the minted output.
+        assert set(r_minted).issubset(
+            {"continue", "systemMessage", "decision", "reason", "hookSpecificOutput"}
+        )
+        assert set(r_minted["hookSpecificOutput"]).issubset(
+            {"hookEventName", "additionalContext"}
         )

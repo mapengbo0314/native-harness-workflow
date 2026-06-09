@@ -288,17 +288,19 @@ class TestConvenienceAccessors:
     # --- codex ---
 
     def test_codex_skill_invocation(self):
+        # Codex invokes skills as $skill-name (the "Activate skill" phrasing is fictional).
         p = load_profile("codex")
-        assert p.skill_invocation("baz") == "Activate skill baz"
+        assert p.skill_invocation("baz") == "$baz"
 
     def test_codex_subagent_text_call_without_skill(self):
+        # Codex subagents are .codex/agents/*.toml + explicit spawn (no "Hand off" token).
         p = load_profile("codex")
-        assert p.subagent_text_call("agent-x") == "Hand off to agent-x"
+        assert p.subagent_text_call("agent-x") == "spawn .codex/agents/agent-x.toml"
 
     def test_codex_subagent_text_call_with_skill(self):
         p = load_profile("codex")
         assert p.subagent_text_call("agent-x", skill="diagnose") == (
-            "Hand off to agent-x — invoke skill diagnose first"
+            "spawn .codex/agents/agent-x.toml — run skill $diagnose first"
         )
 
 

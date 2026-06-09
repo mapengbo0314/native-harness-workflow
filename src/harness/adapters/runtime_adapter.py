@@ -85,7 +85,15 @@ class RuntimeAdapter:
         Behavior is byte-identical to the canonical adapter for the minted
         platform.  Platform-specific logic (generalist remap, CTA string) is
         read from the profile rather than hard-coded.
+
+        Codex is a special case: it enforces ``deny_unknown_fields`` and cannot
+        rewrite the prompt, so its output carries ONLY Codex-valid fields and the
+        routing + context are folded into ``hookSpecificOutput.additionalContext``.
         """
+        if self._platform == "codex":
+            return self._format_codex_hook_response(
+                routing_decision, context_extension, hook_event_name
+            )
         branch = routing_decision.get("classification")
         target_skill = routing_decision.get("target_skill")
         target_agent = routing_decision.get("target_agent")
@@ -138,6 +146,63 @@ class RuntimeAdapter:
                 "additionalContext": additional_context,
                 "systemPromptExtension": context_extension,
                 "modifiedPrompt": modified_prompt,
+            },
+        }
+
+    # ------------------------------------------------------------------
+    # Codex-specific hook response (deny_unknown_fields, no prompt rewrite)
+    # ------------------------------------------------------------------
+
+    def _format_codex_hook_response(
+        self,
+        routing_decision: dict,
+        context_extension: str,
+        hook_event_name: str,
+    ) -> dict:
+        """Codex hook output.
+
+        Codex's UserPromptSubmit hook can only *inject* context (via
+        ``hookSpecificOutput.additionalContext``) — it cannot rewrite the
+        prompt — and it rejects unknown fields. So the routing decision that
+        other platforms prepend to the prompt is re-expressed as an injected
+        instruction and concatenated with the SYSTEM STATE block. Codex uses
+        Claude's hook *event names* verbatim, so ``hook_event_name`` is passed
+        through unchanged (``event_mappings = {}``).
+        """
+        branch = routing_decision.get("classification")
+        target_skill = routing_decision.get("target_skill")
+        target_agent = routing_decision.get("target_agent")
+        agent_invokes_skill = routing_decision.get("agent_invokes_skill", False)
+
+        directive = ""
+        if target_skill and target_agent:
+            agent_name = target_agent.lstrip("@")
+            skill_ref = self.format_skill_invocation(target_skill)
+            agent_ref = self.get_subagent_text_call(
+                agent_name, target_skill if agent_invokes_skill else None
+            )
+            directive = (
+                f"HARNESS DISPATCH: invoke {skill_ref} as your first action, "
+                f"then {agent_ref}. Do not answer directly. "
+            )
+        elif target_agent:
+            agent_name = target_agent.lstrip("@")
+            description = (
+                f"Branch {branch}: Answer this question. Read-only — do not modify files."
+            )
+            cta = self._profile.hook_agent_only_cta
+            directive = (
+                f"HARNESS DISPATCH: {self.format_subagent_invocation(agent_name, description)}. "
+                f"{cta} Do not answer directly. "
+            )
+
+        additional_context = directive + (context_extension or "")
+
+        return {
+            "continue": True,
+            "hookSpecificOutput": {
+                "hookEventName": hook_event_name,
+                "additionalContext": additional_context,
             },
         }
 

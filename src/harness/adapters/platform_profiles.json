@@ -64,20 +64,39 @@
     "platform_name": "codex",
     "config_dir": ".codex",
     "plugin_env_var": "CODEX_PLUGIN_ROOT",
-    "tool_mappings": {},
+    "tool_mappings": {
+      "- replace": "- apply_patch",
+      "- write_file": "- apply_patch",
+      "- run_shell_command": "- shell",
+      "- read_file": "- shell",
+      "- grep_search": "- shell",
+      "- glob": "- shell",
+      "replace": "apply_patch",
+      "write_file": "apply_patch",
+      "run_shell_command": "shell",
+      "read_file": "shell",
+      "grep_search": "shell",
+      "glob": "shell",
+      "Edit": "apply_patch",
+      "Write": "apply_patch",
+      "Bash": "shell",
+      "Read": "shell",
+      "Grep": "shell",
+      "Glob": "shell"
+    },
     "event_mappings": {},
-    "skill_invocation": "Activate skill {skill}",
-    "subagent_invocation": "Hand off to {agent}: {description}",
+    "skill_invocation": "${skill}",
+    "subagent_invocation": "spawn .codex/agents/{agent}.toml — {description}",
     "subagent_text_call": {
-      "without_skill": "Hand off to {agent}",
-      "with_skill": "Hand off to {agent} — invoke skill {skill} first"
+      "without_skill": "spawn .codex/agents/{agent}.toml",
+      "with_skill": "spawn .codex/agents/{agent}.toml — run skill ${skill} first"
     },
     "manifest_format": "yaml",
-    "rules_pointer_files": ["CODEX.md"],
+    "rules_pointer_files": ["AGENTS.md"],
     "supports_plugin": false,
     "plugin_dir_name": null,
     "generalist_remap": false,
-    "hook_agent_only_cta": "Make this agent call now."
+    "hook_agent_only_cta": "Spawn this agent now."
   },
   "cursor": {
     "platform_name": "cursor",
