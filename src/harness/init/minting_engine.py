@@ -23,9 +23,10 @@ from harness.init.runtime_slice import (
     rewrite_imports,
     emit_platform_adapter,
 )
+from harness.init.rtk import RTK_RULES
 
 
-def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: str, platform_choice: str, model_choice: str = None, boilerplate_dir: str = None, logical_harness_name: str = None):
+def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: str, platform_choice: str, model_choice: str = None, boilerplate_dir: str = None, logical_harness_name: str = None, enable_rtk: bool = False):
     """Copies boilerplate, injects styled configs, and writes setup prerequisites."""
     target_path = Path(target_dir)
     target_dir_name = logical_harness_name if logical_harness_name else target_path.name
@@ -177,9 +178,16 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
     root_staging_dir = target_path / "root_staging"
     root_staging_dir.mkdir(parents=True, exist_ok=True)
 
-    injection_block = """<!-- harness:start -->
-**Graph-first:** Prefer the `codegraph` MCP (start with `codegraph_context`) over Grep/Glob/`find` for code search and navigation. Use text search only for non-indexed content (e.g. UI strings).
-<!-- harness:end -->"""
+    rules = [
+        "**Graph-first:** Prefer the `codegraph` MCP (start with `codegraph_context`) over Grep/Glob/`find` for code search and navigation. Use text search only for non-indexed content (e.g. UI strings)."
+    ]
+    if enable_rtk:
+        rules.append(RTK_RULES)
+    injection_block = (
+        "<!-- harness:start -->\n"
+        + "\n\n".join(rules)
+        + "\n<!-- harness:end -->"
+    )
 
     files_to_generate = adapter.get_rules_pointer_files()
     project_root = Path(project_path)
@@ -527,4 +535,3 @@ def copy_runtime_modules(target_dir: Path, platform_id: str = "generic") -> None
                 dest.write_text(patched, encoding="utf-8")
             else:
                 print(f"[HARNESS] Warning: {name} not found at {src_path}")
-

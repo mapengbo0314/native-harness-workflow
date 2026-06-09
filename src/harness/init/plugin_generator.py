@@ -69,6 +69,7 @@ def generate_plugin_manifest(
     settings_path = claude_plugin_dir / "plugin.json"
     with open(settings_path, 'w') as f:
         json.dump(settings, f, indent=2)
+        f.write("\n")
 
     # .harness-meta.json — our own metadata, not validated by Claude
     meta_path = plugin_dir / ".harness-meta.json"

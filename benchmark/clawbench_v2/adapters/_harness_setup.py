@@ -43,8 +43,7 @@ def prepare_workspace_for_config(workspace: Path, harness_config: str, provider:
         _inject_rtk_hook(workspace, provider)
 
     elif harness_config == "full_harness_rtk":
-        _mint_harness(workspace, provider)
-        _inject_rtk_hook(workspace, provider)
+        _mint_harness(workspace, provider, enable_rtk=True)
 
     else:
         raise ValueError(f"Unknown harness_config: {harness_config!r}")
@@ -81,7 +80,12 @@ def _copy_minimal_config(project: Path) -> None:
         shutil.copy(f, project / f.name)
 
 
-def _mint_harness(project: Path, provider: str) -> None:
+def _mint_harness(
+    project: Path,
+    provider: str,
+    *,
+    enable_rtk: bool = False,
+) -> None:
     """Run `harness-wf init` to install the full plugin into the project."""
     # Map provider name to platform choice number shown by harness-wf init prompt
     platform_choice = {"claude": "2\n", "codex": "5\n"}[provider]
@@ -95,6 +99,8 @@ def _mint_harness(project: Path, provider: str) -> None:
     if command[0] == sys.executable:
         command.extend(["-m", "harness.init.cli"])
     command.extend(["init", "--project-path", str(project)])
+    if enable_rtk:
+        command.append("--install-rtk")
 
     subprocess.run(
         command,

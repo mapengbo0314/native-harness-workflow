@@ -82,14 +82,18 @@ def _prepared_project(config: str, provider: str):
         elif config == "rtk":
             _inject_rtk_hook(project, provider)
         elif config == "full_harness_rtk":
-            _mint_harness(project, provider)
-            _inject_rtk_hook(project, provider)
+            _mint_harness(project, provider, enable_rtk=True)
         # no_harness: nothing to overlay
 
         yield project
 
 
-def _mint_harness(project: Path, provider: str) -> None:
+def _mint_harness(
+    project: Path,
+    provider: str,
+    *,
+    enable_rtk: bool = False,
+) -> None:
     """Run harness-wf init to install the full plugin into the temp project."""
     platform_choice = {"claude": "2\n", "codex": "5\n"}[provider]
     repo_root = Path(__file__).resolve().parents[2]
@@ -103,6 +107,8 @@ def _mint_harness(project: Path, provider: str) -> None:
     if command[0] == sys.executable:
         command.extend(["-m", "harness.init.cli"])
     command.extend(["init", "--project-path", str(project)])
+    if enable_rtk:
+        command.append("--install-rtk")
 
     subprocess.run(
         command,
