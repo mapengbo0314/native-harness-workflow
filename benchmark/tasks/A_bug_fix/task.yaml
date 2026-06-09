@@ -1,0 +1,8 @@
+task_id: "A-bug-fix-001"
+title: "Fix login error"
+prompt_files:
+  - "prompt.txt"
+fixtures_dir: "fixtures"
+oracle_module: "oracle_grade.py"
+timeout_sec: 300
+tags: ["bug-fix", "python", "auth"]

@@ -1,0 +1,1 @@
+Give me a summary of this project's current state: what files exist, what the git history looks like, and whether there are any uncommitted changes.

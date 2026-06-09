@@ -35,11 +35,29 @@ To apply the Harness to a target project, run the `init` command from anywhere:
 harness-wf init --project-path /path/to/your/project
 ```
 
+To enable optional [RTK](https://github.com/rtk-ai/rtk) shell-output
+compression, add `--rtk`. Interactive setup offers to install RTK when it is
+missing:
+
+```bash
+harness-wf init --project-path /path/to/your/project --rtk
+```
+
+For headless or CI setup, explicitly authorize installation:
+
+```bash
+harness-wf init --project-path /path/to/your/project --install-rtk
+```
+
+Without either flag, RTK is never checked, installed, or configured. If RTK
+installation fails, harness setup warns and continues without it.
+
 **What this does:**
 
 1. **Scaffolds the Environment:** Creates the `.gemini/` (or `.claude/`, etc.) directory in your project containing the necessary Orchestrator configurations, subagents, and hooks.
 2. **Installs Skills:** Copies the state-machine workflow definitions (`SKILL.md` files) into the target project.
 3. **Sets up CodeGraph MCP:** Automatically registers the `codegraph` MCP server in your CLI's configuration file, giving the AI immediate structural awareness of your codebase.
+4. **Optionally configures RTK:** With `--rtk`, adds RTK usage rules and installs a project-level Claude `PreToolUse` hook when supported.
 
 ---
 

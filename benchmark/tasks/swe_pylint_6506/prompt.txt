@@ -1,0 +1,33 @@
+You are working in the pylint repository.
+
+## Bug
+
+When an unrecognized option is passed to pylint, a raw Python traceback is
+printed to the user in addition to the error message. This is not user-friendly.
+
+```
+$ pylint -Q
+************* Module Command line
+Command line:1:0: E0015: Unrecognized option found: Q (unrecognized-option)
+Traceback (most recent call last):
+  ...
+pylint.config.exceptions._UnrecognizedOptionError
+```
+
+## Expected behaviour
+
+Pylint should print a clean usage/error message and exit with a non-zero status,
+without a traceback. The error message part is fine; the traceback is not.
+
+## Task
+
+Find where the unrecognized option exception bubbles up uncaught and handle it
+gracefully — print a proper error and call `sys.exit`.
+
+After fixing, verify with:
+
+```
+python -m pytest tests/config/test_config.py::test_unknown_option_name tests/config/test_config.py::test_unknown_short_option_name -x -q
+```
+
+Both tests should pass.

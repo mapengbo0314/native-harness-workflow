@@ -1,0 +1,8 @@
+task_id: "swe-sympy-12236"
+title: "sympy: wrong result with apart() on symbolic expression"
+prompt_files:
+  - "prompt.txt"
+oracle_module: "oracle_grade.py"
+hooks_module: "hooks.py"
+timeout_sec: 600
+tags: ["swe-bench", "sympy", "bug-fix", "real-world"]

@@ -1,0 +1,33 @@
+You are working in the sympy repository.
+
+## Bug
+
+The `apart()` function returns the wrong result when the expression contains a
+symbolic parameter.
+
+```python
+from sympy import symbols
+a = symbols('a', real=True)
+t = symbols('t', real=True, negative=False)
+bug = a * (-t + (-t + 1) * (2 * t - 1)) / (2 * t - 1)
+
+bug.apart(t)          # returns -a*t  (WRONG)
+bug.subs(a, 1).apart(t)  # returns -t + 1/2 - 1/(2*(2*t - 1))  (correct)
+```
+
+The result is wrong when the expression has a symbolic coefficient. Substituting
+a concrete value first gives the correct result.
+
+## Task
+
+Find the root cause in the partial fraction decomposition code and fix it. The
+bug is likely in how `apart()` handles the division step when symbolic
+parameters are present.
+
+After fixing, verify with:
+
+```
+python -m pytest sympy/polys/tests/test_polytools.py::test_div -x -q
+```
+
+The test should pass.

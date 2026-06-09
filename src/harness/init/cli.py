@@ -143,6 +143,8 @@ def run_embedded_setup(
     harness_dir: Path,
     platform_choice: str,
     plugin_dir: Optional[Path],
+    enable_rtk: bool = False,
+    install_rtk: bool = False,
 ) -> None:
     print("\n[HARNESS] Running embedded setup...")
     if sys.version_info < (3, 8):
@@ -150,6 +152,19 @@ def run_embedded_setup(
 
     adapter = get_adapter(_platform_name(platform_choice))
     adapter.configure_cli(project_path)
+
+    if enable_rtk:
+        from harness.init.rtk import setup_rtk
+
+        try:
+            setup_rtk(
+                project_path,
+                adapter.get_platform_name(),
+                install_if_missing=install_rtk,
+                interactive=os.environ.get("HARNESS_HEADLESS") != "1",
+            )
+        except ValueError as exc:
+            print(f"[HARNESS] Warning: {exc} Continuing without RTK.")
     
     if plugin_dir and plugin_dir.exists():
         _validate_claude_plugin(project_path, plugin_dir)
@@ -201,6 +216,16 @@ def parse_args():
         help="(init) Path to a gitignore-style file whose glob patterns are merged "
              "into .codegraph/config.json exclude[] before the initial index, so "
              "excluded code is never indexed.",
+    )
+    parser.add_argument(
+        "--rtk",
+        action="store_true",
+        help="Enable optional RTK shell-output compression in the minted harness.",
+    )
+    parser.add_argument(
+        "--install-rtk",
+        action="store_true",
+        help="Install RTK automatically if missing; implies --rtk.",
     )
     return parser.parse_args()
 
@@ -476,6 +501,15 @@ def main():
         sys.exit(1)
         
     selected_agents = []
+    install_rtk = (
+        getattr(args, "install_rtk", False) is True
+        or os.environ.get("HARNESS_INSTALL_RTK") == "1"
+    )
+    enable_rtk = (
+        getattr(args, "rtk", False) is True
+        or os.environ.get("HARNESS_RTK") == "1"
+        or install_rtk
+    )
 
     print("\n=== Platform Selection ===")
     print("1. Gemini CLI")
@@ -539,7 +573,8 @@ def main():
             args.project_path, 
             platform_choice, 
             boilerplate_dir=str(boilerplate_dir), 
-            logical_harness_name=harness_folder
+            logical_harness_name=harness_folder,
+            enable_rtk=enable_rtk,
         )
 
         adapter = get_adapter(_platform_name(platform_choice))
@@ -647,6 +682,8 @@ def main():
                 target_harness_dir,
                 platform_choice,
                 final_plugin_dir,
+                enable_rtk=enable_rtk,
+                install_rtk=install_rtk,
             )
         except HarnessSetupError as e:
             print(f"\n[HARNESS] ❌ ERROR: Embedded setup failed: {e}")

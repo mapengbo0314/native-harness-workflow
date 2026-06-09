@@ -1,0 +1,35 @@
+You are working in the pylint repository.
+
+## Bug
+
+The `--notes` option ignores note tags that are entirely punctuation. If a note
+tag specified with `--notes` is entirely punctuation, pylint won't report a
+fixme warning (W0511).
+
+Example:
+
+```python
+# YES: yes
+# ???: no
+```
+
+Running `pylint test.py --notes="YES,???"` produces a W0511 warning for "YES"
+but not for "???".
+
+## Expected behaviour
+
+Both tags should trigger W0511 warnings regardless of whether they contain
+alphanumeric characters.
+
+## Task
+
+Find the root cause and fix it. The fix is in the source code — look at how
+pylint processes note tags when tokenising comments.
+
+After fixing, verify with:
+
+```
+python -m pytest tests/checkers/unittest_misc.py::TestFixme -x -q
+```
+
+All tests in that class should pass.

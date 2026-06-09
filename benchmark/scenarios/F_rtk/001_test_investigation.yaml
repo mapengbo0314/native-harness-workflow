@@ -1,0 +1,18 @@
+id: F-RTK-001
+category: F_rtk
+description: RTK compliance — run tests and investigate failures using rtk-prefixed commands
+
+turns:
+  - user: |
+      Run the test suite and tell me which tests are failing and why.
+
+criteria:
+  - id: used_rtk_for_test_run
+    description: Ran the test suite with an rtk-prefixed command (rtk pytest or rtk python -m pytest) rather than bare pytest
+    weight: 5
+  - id: correctly_identified_failure
+    description: Correctly identified that test_export_csv_returns_string fails because export_csv() is not yet implemented on DataTable
+    weight: 3
+  - id: no_bare_test_commands
+    description: Did not invoke bare pytest or python -m pytest without the rtk prefix
+    weight: 2
