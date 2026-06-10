@@ -58,6 +58,41 @@ installation fails, harness setup warns and continues without it.
 2. **Installs Skills:** Copies the state-machine workflow definitions (`SKILL.md` files) into the target project.
 3. **Sets up CodeGraph MCP:** Automatically registers the `codegraph` MCP server in your CLI's configuration file, giving the AI immediate structural awareness of your codebase.
 4. **Optionally configures RTK:** With `--rtk`, adds RTK usage rules and installs a project-level Claude `PreToolUse` hook when supported.
+5. **Scaffolds the Project-Ops Manifest:** Detects your stack and creates `domain.json` under the platform's deployed root, and registers the `domain` MCP server so agents can pull real repo operations via `domain_ops(topic)` (see below).
+
+### Project-Ops Manifest (`domain.json`)
+
+The manifest holds the repo's *real* operational knowledge — `stack`,
+`environments`, `test`, `deploy`, `infra`, `references`, `business` — and is
+served to agents at runtime by the `domain` MCP server's single pull tool,
+`domain_ops(topic)`. Agents consult it before build/test/deploy work instead
+of guessing commands, and the `business` digest is injected on planning and
+question branches.
+
+`init` detects the stack automatically. Finishing the setup is **two steps**:
+
+1. **Drop your product docs** (PRD, direction, business goals) into your
+   platform's reference dir — `.claude/docs/reference/` for a Claude mint
+   (`.gemini/docs/reference/` etc. for embedded platforms).
+2. **Compile them** into the manifest's `business` section:
+
+   ```bash
+   harness-wf domain-compile --project-path . --platform claude
+   ```
+
+   Requires a `claude` or `gemini` CLI on PATH. Re-run whenever the docs
+   change — a failed compile never wipes a previously compiled section.
+
+Fill the `environments` / `test` / `deploy` / `infra` slots by hand (they are
+scaffolded empty), and re-detect the stack after it changes:
+
+```bash
+harness-wf domain-refresh --project-path .
+```
+
+`domain.json` is **user-owned**: re-running `init` never clobbers it and
+`harness-wf update` never touches it. Schema reference:
+[`.claude/docs/domain/domain.schema.md`](.claude/docs/domain/domain.schema.md).
 
 ---
 

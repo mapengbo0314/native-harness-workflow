@@ -21,6 +21,24 @@ def _read_harness_version() -> str:
 # harness.init.plugin_generator (partially initialized). Deferring to call
 # time avoids the cycle (adapters package is fully initialized by then).
 
+# Transient content the plugin creates at runtime: state/logs from hooks, and
+# .venv/ because `uv run` materializes a venv next to the plugin's pyproject
+# on first hook execution.
+_PLUGIN_GITIGNORE_ENTRIES = ("state/", "logs/", ".venv/")
+
+
+def _write_plugin_gitignore(plugin_dir: Path) -> None:
+    """Ensure the plugin .gitignore contains the required entries, merging
+    with (never clobbering) any user-added lines. Idempotent."""
+    path = Path(plugin_dir) / ".gitignore"
+    existing = path.read_text(encoding="utf-8") if path.exists() else ""
+    lines = existing.splitlines()
+    missing = [e for e in _PLUGIN_GITIGNORE_ENTRIES if e not in lines]
+    if not missing:
+        return
+    merged = lines + missing
+    path.write_text("\n".join(merged) + "\n", encoding="utf-8")
+
 
 def generate_plugin_manifest(
     target_dir: str,
@@ -323,7 +341,7 @@ def generate_orchestrator_plugin(
         config_dir = plugin_dir
         plugin_dir.mkdir(parents=True, exist_ok=True)
 
-        (plugin_dir / ".gitignore").write_text("state/\nlogs/\n")
+        _write_plugin_gitignore(plugin_dir)
 
         harness_dir = project_path / harness_folder
         logical_harness_dir = project_path / final_harness

@@ -19,15 +19,20 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Disable the Langfuse SDK when no credentials are present so it never tries
-# to export spans and produce 401 noise.  Credentials can be supplied as either:
+# to export spans and produce auth-warning noise.  Credentials can be supplied
+# as either:
 #   - HARNESS_GLOBAL_INGESTION_BASE64 (OTEL Authorization header, base64 pk:sk)
 #   - LANGFUSE_PUBLIC_KEY + LANGFUSE_SECRET_KEY  (Python SDK direct)
-_has_langfuse_creds = (
-    os.environ.get("HARNESS_GLOBAL_INGESTION_BASE64")
-    or (os.environ.get("LANGFUSE_SECRET_KEY") and os.environ.get("LANGFUSE_PUBLIC_KEY"))
-)
-if not _has_langfuse_creds:
-    os.environ.setdefault("LANGFUSE_ENABLED", "false")
+def _disable_langfuse_unless_configured(environ=os.environ) -> None:
+    has_creds = (
+        environ.get("HARNESS_GLOBAL_INGESTION_BASE64")
+        or (environ.get("LANGFUSE_SECRET_KEY") and environ.get("LANGFUSE_PUBLIC_KEY"))
+    )
+    if not has_creds:
+        environ.setdefault("LANGFUSE_ENABLED", "false")          # harness compat gate (langfuse_compat.py)
+        environ.setdefault("LANGFUSE_TRACING_ENABLED", "false")  # langfuse v3+/v4 SDK kill-switch
+
+_disable_langfuse_unless_configured()
 
 from langfuse import observe
 from harness.runtime.langfuse_compat import langfuse_context
@@ -35,6 +40,30 @@ from harness.runtime.langfuse_compat import langfuse_context
 
 class HarnessSetupError(RuntimeError):
     """Raised when mandatory one-step harness setup cannot be completed."""
+
+
+def _post_mint_domain_init(project_path, platform: str, *, run_init=None):
+    """Scaffold the project-ops manifest under the active platform's deployed
+    root (best-effort). Threads `platform` so seed.py resolves the correct
+    config dir (e.g. .gemini/domain/domain.json for a gemini mint)."""
+    if run_init is None:
+        run_init = run_domain_init  # resolved lazily (imported below in this module)
+    return run_init(project_path, platform=platform)
+
+
+def _domain_next_steps(platform: str) -> str:
+    """Post-init guidance for the project-ops manifest: where to drop product
+    docs and how to compile them into domain.json. Paths come from the same
+    rule the scaffold used (seed._platform_paths)."""
+    _, reference_rel = _platform_paths(platform)
+    return (
+        "   The project-ops manifest (domain.json) was scaffolded with your detected stack.\n"
+        "   Two steps to finish it:\n"
+        f"   a) Drop your product docs (PRD, direction, business goals) into {reference_rel}/\n"
+        f"   b) Run: harness-wf domain-compile --project-path . --platform {platform}\n"
+        "      This distills them into domain.json's `business` section, which agents\n"
+        "      pull via the `domain` MCP tool (domain_ops). Re-run it whenever the docs change."
+    )
 
 
 def _platform_name(platform_choice: str) -> str:
@@ -47,7 +76,10 @@ def _platform_name(platform_choice: str) -> str:
     }.get(platform_choice, platform_choice).lower()
 
 
+from pathlib import Path
 from harness.adapters import get_adapter
+from harness.domain.seed import run_domain_init, run_domain_refresh, _platform_paths
+from harness.domain.compiler import run_domain_compile
 
 def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
     required = [
@@ -200,14 +232,18 @@ def _write_update_metadata(
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Initialize or update a Harness agent workspace.")
-    parser.add_argument("command", choices=["init", "update"], help="Command to run")
+    parser.add_argument("command", choices=["init", "update", "domain-init", "domain-refresh", "domain-compile"], help="Command to run")
     parser.add_argument("--project-path", required=True, help="Path to the repository")
     parser.add_argument("--bundle", help="Path to an existing CodeGraph bundle (.codegraph directory)")
     parser.add_argument("--check", action="store_true", help="(update) Dry-run: report stale/edited/conflicting files, write nothing")
     parser.add_argument("--force", action="store_true", help="(update) Force overwrite files modified locally that otherwise have a keep-yours verdict, and resolve conflicts by taking the new template")
     parser.add_argument("--force-major", action="store_true", help="(update) Allow applying updates across a MAJOR version boundary")
     parser.add_argument("--adopt", action="store_true", help="(update) Adopt an existing un-manifested harness by generating a base manifest from the current state")
-    parser.add_argument("--platform", help="(update) Explicitly specify the platform to update (e.g. claude, gemini). Overrides auto-detection.")
+    parser.add_argument(
+        "--platform",
+        choices=["claude", "gemini", "codex", "cursor", "generic"],
+        help="(update) Explicitly specify the platform to update (claude, gemini, codex, cursor, generic). Overrides auto-detection.",
+    )
     parser.add_argument(
         "--codegraph-exclusion",
         help="(init) Path to a gitignore-style file whose glob patterns are merged "
@@ -405,6 +441,36 @@ def main():
     # CodeGraph, platform selection, or the atomic-swap machinery.
     if args.command == "update":
         run_update(args)
+        langfuse_context.flush()
+        return
+
+    # `domain-init` / `domain-compile` are offline, plugin-scoped; no npx/CodeGraph.
+    # An explicit --platform threads the per-platform deployed root through so a
+    # non-claude workspace reads/writes domain.json under its own config dir;
+    # absent the flag, behaviour is the legacy claude default (unchanged).
+    _domain_platform = getattr(args, "platform", None)
+
+    if args.command == "domain-init":
+        run_domain_init(args.project_path, platform=_domain_platform)
+        langfuse_context.flush()
+        return
+
+    if args.command == "domain-refresh":
+        run_domain_refresh(args.project_path, platform=_domain_platform)
+        langfuse_context.flush()
+        return
+
+    if args.command == "domain-compile":
+        proj = Path(args.project_path)
+        # Same path-resolution rule as domain-init/refresh (seed._platform_paths).
+        manifest_rel, reference_rel = _platform_paths(_domain_platform)
+        manifest_path = proj / manifest_rel
+        reference_dir = proj / reference_rel
+        run_domain_compile(
+            proj,
+            manifest_path=manifest_path,
+            reference_dir=reference_dir,
+        )
         langfuse_context.flush()
         return
 
@@ -677,6 +743,15 @@ def main():
         if temp_harness_dir.exists():
             shutil.rmtree(temp_harness_dir)
 
+    # Scaffold the project-ops manifest + reference docs dir (best-effort).
+    # Thread the active platform so the manifest lands under the right config
+    # dir (.claude/harness-wf-plugin for claude, .gemini/.cursor/.codex else).
+    domain_scaffolded = False
+    try:
+        _post_mint_domain_init(args.project_path, adapter.get_platform_name())
+        domain_scaffolded = True
+    except Exception as e:
+        print(f"[HARNESS] Warning: domain scaffold skipped: {e}")
 
     print(f"\n\n{'='*60}")
     print("🚀 ONBOARDING COMPLETE")
@@ -693,7 +768,15 @@ def main():
     print(f"\n\n{counter}. [ACTION REQUIRED] Context Automation:")
     print("   - Run npx -y @colbymchenry/codegraph init --index in the root of your project.")
     counter += 1
-        
+
+    if domain_scaffolded:
+        print(f"\n{counter}. [ACTION REQUIRED] Project-Ops Manifest:")
+        try:
+            print(_domain_next_steps(adapter.get_platform_name()))
+        except Exception:
+            print("   Drop product docs into your platform's docs/reference dir, then run harness-wf domain-compile.")
+        counter += 1
+
     print(f"\n{'='*60}\n")
     langfuse_context.flush()
 

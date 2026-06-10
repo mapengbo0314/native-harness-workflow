@@ -88,7 +88,7 @@ _SUBAGENT_CALL_CASES: list[tuple[str, str, str | None]] = [
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("platform", ["claude", "gemini"])
+@pytest.mark.parametrize("platform", ["claude", "gemini", "codex", "cursor"])
 @pytest.mark.parametrize("routing_label,routing_decision", _ROUTING_CASES)
 def test_runtime_adapter_format_hook_response_equals_canonical(
     platform: str, routing_label: str, routing_decision: dict
@@ -166,7 +166,11 @@ def test_claude_generalist_remap_in_modified_prompt() -> None:
 
 
 def test_gemini_no_generalist_remap() -> None:
-    """Gemini runtime adapter must NOT remap 'generalist' — keep it as-is."""
+    """Gemini runtime adapter must NOT remap 'generalist' — keep it as-is.
+
+    Gemini's BeforeAgent hook is append-only (no prompt rewrite), so the routing
+    directive lives in hookSpecificOutput.additionalContext, not modifiedPrompt.
+    """
     runtime = _runtime_get_adapter("gemini")
     routing = {
         "classification": "AGENT",
@@ -176,11 +180,12 @@ def test_gemini_no_generalist_remap() -> None:
     result = runtime.format_hook_response(
         "test", routing, "", "BeforeAgent"
     )
-    assert "generalist" in result["modifiedPrompt"], (
-        "Gemini runtime adapter: 'generalist' not found in modifiedPrompt — "
+    ac = result["hookSpecificOutput"]["additionalContext"]
+    assert "generalist" in ac, (
+        "Gemini runtime adapter: 'generalist' not found in additionalContext — "
         "unexpected remap applied"
     )
-    assert "general-purpose" not in result["modifiedPrompt"], (
+    assert "general-purpose" not in ac, (
         "Gemini runtime adapter: 'general-purpose' appeared — claude remap leaked"
     )
 
@@ -202,6 +207,20 @@ def _gemini_mint_root(tmp_path_factory) -> Path:
     from tests.e2e._mint_helpers import mint_platform
     tmp = tmp_path_factory.mktemp("runtime_adapter_gemini")
     return mint_platform(tmp, "gemini")
+
+
+@pytest.fixture(scope="session")
+def _codex_mint_root(tmp_path_factory) -> Path:
+    from tests.e2e._mint_helpers import mint_platform
+    tmp = tmp_path_factory.mktemp("runtime_adapter_codex")
+    return mint_platform(tmp, "codex")
+
+
+@pytest.fixture(scope="session")
+def _cursor_mint_root(tmp_path_factory) -> Path:
+    from tests.e2e._mint_helpers import mint_platform
+    tmp = tmp_path_factory.mktemp("runtime_adapter_cursor")
+    return mint_platform(tmp, "cursor")
 
 
 @pytest.fixture(
@@ -450,3 +469,63 @@ class TestMintedAdapterEquality:
             f"  canonical: {r_canonical}\n"
             f"  minted:    {r_minted}"
         )
+        # Gemini schema guard: BeforeAgent is append-only — no invented fields.
+        assert set(r_minted).issubset(
+            {"continue", "systemMessage", "decision", "reason", "hookSpecificOutput"}
+        )
+        assert set(r_minted["hookSpecificOutput"]).issubset(
+            {"hookEventName", "additionalContext"}
+        )
+        assert "modifiedPrompt" not in r_minted
+
+    @pytest.mark.parametrize("routing_label,routing_decision", _ROUTING_CASES)
+    def test_codex_minted_adapter_format_hook_response(
+        self, routing_label: str, routing_decision: dict, _codex_mint_root: Path
+    ) -> None:
+        """Minted codex get_adapter().format_hook_response equals canonical and
+        emits only Codex-valid (deny_unknown_fields) hook output."""
+        minted = self._load_minted_adapter(_codex_mint_root, "codex")
+        canonical = _canonical_get_adapter("codex")
+        r_minted = minted.format_hook_response(
+            "test prompt", routing_decision, "ctx", "UserPromptSubmit"
+        )
+        r_canonical = canonical.format_hook_response(
+            "test prompt", routing_decision, "ctx", "UserPromptSubmit"
+        )
+        assert r_minted == r_canonical, (
+            f"[codex/{routing_label}] minted adapter != canonical\n"
+            f"  canonical: {r_canonical}\n"
+            f"  minted:    {r_minted}"
+        )
+        # Codex schema guard: no invented fields survive into the minted output.
+        assert set(r_minted).issubset(
+            {"continue", "systemMessage", "decision", "reason", "hookSpecificOutput"}
+        )
+        assert set(r_minted["hookSpecificOutput"]).issubset(
+            {"hookEventName", "additionalContext"}
+        )
+
+    @pytest.mark.parametrize("routing_label,routing_decision", _ROUTING_CASES)
+    def test_cursor_minted_adapter_format_hook_response(
+        self, routing_label: str, routing_decision: dict, _cursor_mint_root: Path
+    ) -> None:
+        """Minted cursor get_adapter().format_hook_response equals canonical and
+        emits only Cursor-valid hook output (per-turn routing is OFF for Cursor:
+        beforeSubmitPrompt can only return {continue, user_message})."""
+        minted = self._load_minted_adapter(_cursor_mint_root, "cursor")
+        canonical = _canonical_get_adapter("cursor")
+        r_minted = minted.format_hook_response(
+            "test prompt", routing_decision, "ctx", "UserPromptSubmit"
+        )
+        r_canonical = canonical.format_hook_response(
+            "test prompt", routing_decision, "ctx", "UserPromptSubmit"
+        )
+        assert r_minted == r_canonical, (
+            f"[cursor/{routing_label}] minted adapter != canonical\n"
+            f"  canonical: {r_canonical}\n"
+            f"  minted:    {r_minted}"
+        )
+        # Cursor schema guard: only {continue, user_message}; no routing fields.
+        assert set(r_minted).issubset({"continue", "user_message"})
+        assert "modifiedPrompt" not in r_minted
+        assert "hookSpecificOutput" not in r_minted

@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "domain": {
+      "command": "python3",
+      "args": [
+        "-m",
+        "server"
+      ],
+      "env": {
+        "PYTHONPATH": ".cursor/src",
+        "DOMAIN_JSON_PATH": ".cursor/domain/domain.json"
+      }
+    }
+  }
+}

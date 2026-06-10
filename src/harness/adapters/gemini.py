@@ -45,8 +45,18 @@ class GeminiAdapter(PlatformAdapter):
                     new_content = re.sub(r'(^|[\s/"\'])\.claude([\s/"\']|$)', r'\1' + self.get_config_dir_name() + r'\2', new_content)
                     
                     if file == "hooks.json":
-                        new_content = new_content.replace('"PreCompact":', '"PreCompress":')
-                        new_content = new_content.replace('"PostToolUse":', '"AfterTool":')
+                        # Gemini CLI's hook taxonomy differs from Claude's:
+                        # UserPromptSubmit->BeforeAgent, PreToolUse->BeforeTool,
+                        # PostToolUse->AfterTool, PreCompact->PreCompress. The
+                        # boilerplate hooks.json ships Claude's event-name keys,
+                        # so they MUST be rewritten or the hooks bind to events
+                        # that don't exist on Gemini and never fire. Driven from
+                        # the profile's event_mappings so it stays single-sourced.
+                        # Refs: https://geminicli.com/docs/hooks/reference/
+                        for claude_event, gemini_event in load_profile("gemini").event_mappings.items():
+                            new_content = new_content.replace(
+                                f'"{claude_event}":', f'"{gemini_event}":'
+                            )
                     
                     if new_content != content:
                         with open(filepath, "w", encoding="utf-8") as f:
@@ -69,19 +79,38 @@ class GeminiAdapter(PlatformAdapter):
 
     def configure_cli(self, project_path: Path) -> None:
         import subprocess
-        import shlex
         gemini = shutil.which("gemini")
         if not gemini:
             print("[HARNESS] Warning: 'gemini' CLI not found. Please register MCP tools manually.")
             return
             
+        # Domain MCP: serves domain_ops(topic) from the deployed domain.json.
+        # Gemini has no add-json; use `mcp add` with -e env flags. The command
+        # (`python3`) is the `commandOrUrl` positional and `-m server` are the
+        # trailing variadic args — gemini's yargs parser captures them as the
+        # server's args (verified: settings.json args == ["-m", "server"]). We
+        # intentionally do NOT use a `--` separator: the installed gemini CLI
+        # drops everything after `--`, which would strip `python3 -m server`.
+        # The deployed root for an embedded platform is the config dir itself
+        # (.gemini), so the server (src/) and manifest (domain/domain.json)
+        # live directly under it.
+        _root = load_profile("gemini").domain_root_rel()
         commands = [
             [gemini, "mcp", "add", "codegraph", "npx", "-y", "@colbymchenry/codegraph", "serve", "--mcp"],
+            [
+                gemini, "mcp", "add", "--scope", "project",
+                "-e", f"PYTHONPATH={_root}/src",
+                "-e", f"DOMAIN_JSON_PATH={_root}/domain/domain.json",
+                "domain", "python3", "-m", "server",
+            ],
         ]
 
         for command in commands:
             result = subprocess.run(command, cwd=project_path, capture_output=True, text=True, env=os.environ.copy())
             if result.returncode != 0:
+                if "already exists" in result.stderr or "already exists" in result.stdout:
+                    print(f"[HARNESS] Info: MCP server already registered for command: {' '.join(command)}")
+                    continue
                 raise Exception(f"CLI MCP registration failed: {' '.join(command)}\nError: {result.stderr}")
 
     def get_agent_manifest_format(self) -> str:
@@ -97,49 +126,23 @@ class GeminiAdapter(PlatformAdapter):
         return load_profile("gemini").subagent_text_call(agent_name, skill=skill_name)
 
     def format_hook_response(self, original_prompt: str, routing_decision: dict, context_extension: str, hook_event_name: str) -> dict:
-        branch = routing_decision.get("classification")
-        target_skill = routing_decision.get("target_skill")
-        target_agent = routing_decision.get("target_agent")
+        """Gemini hook output (BeforeAgent, append-only — no prompt rewrite).
 
-        agent_invokes_skill = routing_decision.get("agent_invokes_skill", False)
-        dispatch_directive = ""
+        Gemini CLI has no ``UserPromptSubmit`` event; its prompt-submit hook is
+        ``BeforeAgent``, whose ``hookSpecificOutput.additionalContext`` is "text
+        appended to the prompt for this turn". It cannot rewrite the prompt, so —
+        like Codex — the routing decision + SYSTEM STATE are folded into
+        ``additionalContext`` and the output carries only append-only-valid fields
+        (``modifiedPrompt`` / ``systemPromptExtension`` / ``target_agent`` are
+        invented and ignored by Gemini). Refs:
+        https://geminicli.com/docs/hooks/reference/ ,
+        https://geminicli.com/docs/hooks/ .
 
-        if target_skill and target_agent:
-            agent_name = target_agent.lstrip("@")
-            skill_ref = self.format_skill_invocation(target_skill)
-            agent_ref = self.get_subagent_text_call(agent_name, target_skill if agent_invokes_skill else None)
-            dispatch_directive = (
-                f"\n\nHARNESS DISPATCH:\n"
-                f"  {skill_ref} → {agent_ref}\n\n"
-                f"Invoke the skill as your first action. The skill will direct you to dispatch the agent. Do not answer directly."
-            )
-            modified_prompt = original_prompt + dispatch_directive
-        elif target_agent:
-            agent_name = target_agent.lstrip("@")
-            description = f"Branch {branch}: Answer this question. Read-only — do not modify files."
-            dispatch_directive = (
-                f"\n\nHARNESS DISPATCH:\n"
-                f"  {self.format_subagent_invocation(agent_name, description)}\n\n"
-                f"Make this agent call now. Do not answer directly."
-            )
-            modified_prompt = original_prompt + dispatch_directive
-        else:
-            modified_prompt = original_prompt
-
-        # Deliver system state + dispatch directive via additionalContext so the
-        # platform's UserPromptSubmit hook actually injects it (modifiedPrompt /
-        # systemPromptExtension are not recognised by Claude Code).
-        additional_context = (context_extension or "") + dispatch_directive
-
-        return {
-            "classification": branch,
-            "modifiedPrompt": modified_prompt,
-            "target_agent": target_agent,
-            "target_skill": target_skill,
-            "hookSpecificOutput": {
-                "hookEventName": hook_event_name,
-                "additionalContext": additional_context,
-                "systemPromptExtension": context_extension,
-                "modifiedPrompt": modified_prompt,
-            }
-        }
+        Delegates to the profile-driven RuntimeAdapter so the canonical (mint
+        time) and runtime (minted) gemini outputs stay byte-identical — pinned by
+        tests/unit/test_runtime_adapter.py.
+        """
+        from harness.adapters.runtime_adapter import RuntimeAdapter
+        return RuntimeAdapter("gemini").format_hook_response(
+            original_prompt, routing_decision, context_extension, hook_event_name
+        )

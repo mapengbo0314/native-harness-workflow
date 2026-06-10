@@ -1,6 +1,6 @@
 import subprocess
 
-from benchmark.clawbench_v2.adapters import _harness_setup
+from clawbench_v2.adapters import _harness_setup
 
 
 def test_full_harness_rtk_uses_harness_rtk_flag(monkeypatch, tmp_path):

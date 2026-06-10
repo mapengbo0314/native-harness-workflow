@@ -15,6 +15,8 @@ project_root = str(Path(__file__).parent.parent.parent)
 sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, "src"))
 
+from tests._env_utils import telemetry_safe_env  # noqa: E402
+
 from harness.runtime.dispatcher import OrchestratorDispatcher
 from harness.init.discovery_engine import query_llm
 from harness.init.minting_engine import mint_workspace
@@ -80,15 +82,8 @@ def mint_harness(project_path: str, project_name: str, model: str = None):
     # Use absolute path for boilerplate to be robust to execution directory
     boilerplate_dir = str(Path(project_root) / "src" / "harness" / "templates" / "boilerplate")
     
-    # Create minimal docs/domain/CONTEXT.md if it doesn't exist
-    context_dir = project_path / "docs" / "domain"
-    context_dir.mkdir(parents=True, exist_ok=True)
-    context_file = context_dir / "CONTEXT.md"
-    if not context_file.exists():
-        context_file.write_text("# Project Context\n\n## Purpose\nSandbox Test\n\n## Ubiquitous Language\nNone\n\n## Strict Invariants\nNone\n")
-
     # Mock domain content for SME synthesis
-    domain_content = "Proposed Agent Name: @domain-sme\nDomain Invariants:\nNone\nUbiquitous Language:\nNone\n- [x] orchestrator-plugin (local)"
+    domain_content = "Proposed Agent Name: @domain-sme\nDomain Invariants:\nNone\n- [x] orchestrator-plugin (local)"
     
     from harness.adapters import get_adapter
     from harness.init.minting_engine import copy_runtime_modules
@@ -295,7 +290,8 @@ class MockHost:
         """Run a hook via subprocess to simulate real Claude Code behavior."""
         hook_name = self.HOOK_ALIASES.get(hook_module, hook_module)
         hook_path = self.plugin_dir / "hooks" / f"{hook_name}.py"
-        env = os.environ.copy()
+        # Telemetry-safe: sandbox prompts must never export real Langfuse traces.
+        env = telemetry_safe_env()
         env["CLAUDE_PLUGIN_ROOT"] = str(self.plugin_dir)
         env["CLAUDE_PROJECT_DIR"] = str(self.workspace_root)
         

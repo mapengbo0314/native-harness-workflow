@@ -120,7 +120,15 @@ class TestGeminiFieldValues:
         assert self.p.plugin_dir_name is None
 
     def test_event_mappings(self):
-        assert self.p.event_mappings == {"PreCompact": "PreCompress", "PostToolUse": "AfterTool"}
+        # Full Claude->Gemini event-name remap. Gemini CLI's taxonomy is
+        # BeforeAgent (prompt submit) / BeforeTool / AfterTool / PreCompress —
+        # it has no UserPromptSubmit / PreToolUse / PostToolUse / PreCompact.
+        assert self.p.event_mappings == {
+            "UserPromptSubmit": "BeforeAgent",
+            "PreToolUse": "BeforeTool",
+            "PostToolUse": "AfterTool",
+            "PreCompact": "PreCompress",
+        }
 
     def test_rules_pointer_files(self):
         assert self.p.rules_pointer_files == ["GEMINI.md"]
@@ -288,15 +296,55 @@ class TestConvenienceAccessors:
     # --- codex ---
 
     def test_codex_skill_invocation(self):
+        # Codex invokes skills as $skill-name (the "Activate skill" phrasing is fictional).
         p = load_profile("codex")
-        assert p.skill_invocation("baz") == "Activate skill baz"
+        assert p.skill_invocation("baz") == "$baz"
 
     def test_codex_subagent_text_call_without_skill(self):
+        # Codex subagents are .codex/agents/*.toml + explicit spawn (no "Hand off" token).
         p = load_profile("codex")
-        assert p.subagent_text_call("agent-x") == "Hand off to agent-x"
+        assert p.subagent_text_call("agent-x") == "spawn .codex/agents/agent-x.toml"
 
     def test_codex_subagent_text_call_with_skill(self):
         p = load_profile("codex")
         assert p.subagent_text_call("agent-x", skill="diagnose") == (
-            "Hand off to agent-x — invoke skill diagnose first"
+            "spawn .codex/agents/agent-x.toml — run skill $diagnose first"
         )
+
+
+# ---------------------------------------------------------------------------
+# Deployed domain-root (relative to project root)
+# ---------------------------------------------------------------------------
+
+class TestDomainRootRel:
+    """The deployed root holding domain/ + src/ for the domain MCP, relative
+    to the project root.
+
+    - plugin platforms (claude): <config_dir>/<plugin_dir_name>
+    - embedded platforms (gemini/cursor/codex/generic): <config_dir>
+    """
+
+    def test_claude_uses_plugin_subdir(self):
+        assert load_profile("claude").domain_root_rel() == ".claude/harness-wf-plugin"
+
+    def test_gemini_uses_config_dir(self):
+        assert load_profile("gemini").domain_root_rel() == ".gemini"
+
+    def test_cursor_uses_config_dir(self):
+        assert load_profile("cursor").domain_root_rel() == ".cursor"
+
+    def test_codex_uses_config_dir(self):
+        assert load_profile("codex").domain_root_rel() == ".codex"
+
+    def test_generic_uses_config_dir(self):
+        assert load_profile("generic").domain_root_rel() == ".agents"
+
+
+class TestLoadProfileCaching:
+    def test_repeated_loads_return_cached_instance(self):
+        # Adapters call load_profile in nearly every getter; the profile JSON
+        # must be read and validated once per (platform, path), not per call.
+        assert load_profile("claude") is load_profile("claude")
+
+    def test_cache_is_per_platform(self):
+        assert load_profile("claude") is not load_profile("gemini")

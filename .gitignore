@@ -1,4 +1,5 @@
 /reference-photos
+/tmp_workspace_check
 
 # Auto-generated outputs and pipelines
 local_index_output/
@@ -59,3 +60,6 @@ temp_pdf_copy.pdf
 .gemini/state/
 .claude/logs/
 .claude/state/
+
+# cdxgen SBOM scratch output (transient; frameworks are distilled into domain.json)
+bom.json

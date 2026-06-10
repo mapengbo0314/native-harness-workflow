@@ -85,7 +85,19 @@ class RuntimeAdapter:
         Behavior is byte-identical to the canonical adapter for the minted
         platform.  Platform-specific logic (generalist remap, CTA string) is
         read from the profile rather than hard-coded.
+
+        Codex and Gemini are append-only special cases: their prompt hooks
+        (Codex ``UserPromptSubmit`` / Gemini ``BeforeAgent``) can only *inject*
+        context via ``hookSpecificOutput.additionalContext`` and CANNOT rewrite
+        the prompt, so their output carries ONLY valid fields and the routing +
+        context are folded into ``additionalContext``.
         """
+        if self._platform in ("codex", "gemini"):
+            return self._format_append_only_hook_response(
+                routing_decision, context_extension, hook_event_name
+            )
+        if self._platform == "cursor":
+            return self._format_cursor_hook_response()
         branch = routing_decision.get("classification")
         target_skill = routing_decision.get("target_skill")
         target_agent = routing_decision.get("target_agent")
@@ -140,6 +152,92 @@ class RuntimeAdapter:
                 "modifiedPrompt": modified_prompt,
             },
         }
+
+    # ------------------------------------------------------------------
+    # Append-only hook response (codex / gemini: no prompt rewrite)
+    # ------------------------------------------------------------------
+
+    def _format_append_only_hook_response(
+        self,
+        routing_decision: dict,
+        context_extension: str,
+        hook_event_name: str,
+    ) -> dict:
+        """Append-only hook output for Codex (``UserPromptSubmit``) and Gemini
+        (``BeforeAgent``).
+
+        Both platforms' prompt hooks can only *inject* context (via
+        ``hookSpecificOutput.additionalContext``) — they cannot rewrite the
+        prompt. Codex additionally rejects unknown fields (``deny_unknown_fields``)
+        and Gemini's ``additionalContext`` is documented as "text appended to the
+        prompt for this turn", so for both we emit ONLY append-only-valid fields.
+        The routing decision that prompt-rewriting platforms prepend is re-expressed
+        as an injected instruction and concatenated with the SYSTEM STATE block.
+
+        ``hook_event_name`` is passed through unchanged: Codex reuses Claude's
+        event names verbatim, and Gemini's actual event name (``BeforeAgent``) is
+        already remapped by the hooks.json install step, so the runtime hook is
+        invoked with — and must echo back — the correct event name.
+        """
+        branch = routing_decision.get("classification")
+        target_skill = routing_decision.get("target_skill")
+        target_agent = routing_decision.get("target_agent")
+        agent_invokes_skill = routing_decision.get("agent_invokes_skill", False)
+
+        directive = ""
+        if target_skill and target_agent:
+            agent_name = target_agent.lstrip("@")
+            skill_ref = self.format_skill_invocation(target_skill)
+            agent_ref = self.get_subagent_text_call(
+                agent_name, target_skill if agent_invokes_skill else None
+            )
+            directive = (
+                f"HARNESS DISPATCH: invoke {skill_ref} as your first action, "
+                f"then {agent_ref}. Do not answer directly. "
+            )
+        elif target_agent:
+            agent_name = target_agent.lstrip("@")
+            description = (
+                f"Branch {branch}: Answer this question. Read-only — do not modify files."
+            )
+            cta = self._profile.hook_agent_only_cta
+            directive = (
+                f"HARNESS DISPATCH: {self.format_subagent_invocation(agent_name, description)}. "
+                f"{cta} Do not answer directly. "
+            )
+
+        additional_context = directive + (context_extension or "")
+
+        return {
+            "continue": True,
+            "hookSpecificOutput": {
+                "hookEventName": hook_event_name,
+                "additionalContext": additional_context,
+            },
+        }
+
+    # ------------------------------------------------------------------
+    # Cursor-specific hook response (no per-turn routing — rules + subagents)
+    # ------------------------------------------------------------------
+
+    def _format_cursor_hook_response(self) -> dict:
+        """Cursor hook output (honest, no per-turn routing).
+
+        Cursor's ``beforeSubmitPrompt`` hook can only return
+        ``{continue, user_message}`` — it **cannot inject context or rewrite the
+        prompt** (an open Cursor feature request). There is no per-turn channel
+        for the SYSTEM STATE block or forced routing, so per-turn routing is OFF
+        for Cursor (accepted product decision): the harness is delivered through
+        Cursor-native mechanisms instead — rules files (``AGENTS.md`` /
+        ``.cursor/rules``), native subagents (``.cursor/agents/*.md``), and MCP
+        (``domain_ops``).
+
+        Emitting the routing schema (``modifiedPrompt`` / ``target_agent`` /
+        ``hookSpecificOutput``) would be dishonest — Cursor ignores those fields
+        entirely. So we return only the Cursor-valid ``{continue: true}`` and let
+        the prompt proceed unmodified.
+        """
+        return {"continue": True}
 
 
 _KNOWN_PLATFORMS = frozenset({"claude", "gemini", "codex", "cursor", "generic"})

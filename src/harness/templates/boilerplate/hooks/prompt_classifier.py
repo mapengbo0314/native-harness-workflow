@@ -54,6 +54,34 @@ def fallback_classify(prompt):
     else:
         return "E"
 
+def _load_business(branch):
+    """Load the compiled business digest from domain.json — but only on the
+    branches where build_context will inject it (UserPromptSubmit is a hot
+    path; every other prompt skips the manifest I/O). Best-effort; never
+    breaks the hook."""
+    try:
+        from context_builder import _BUSINESS_BRANCHES
+    except Exception:
+        _BUSINESS_BRANCHES = ("B", "C")
+    if branch not in _BUSINESS_BRANCHES:
+        return {}
+    try:
+        from model import OpsManifest  # deployed flat in the plugin
+        _dj = os.environ.get("DOMAIN_JSON_PATH")
+        if _dj:
+            _djp = Path(_dj)
+        else:
+            try:
+                from hook_common import resolve_plugin_root
+                _djp = resolve_plugin_root() / "domain" / "domain.json"
+            except Exception:
+                _djp = Path.cwd() / "domain.json"
+        if _djp.exists():
+            return OpsManifest.load(_djp).business
+    except Exception as e:
+        print(f"DEBUG: business load failed: {e}", file=sys.stderr)
+    return {}
+
 # capture_output=False: main() ends in sys.exit(0) (returns None); the default
 # auto-capture would overwrite the span output we set via complete_prompt_span.
 @observe(name="user_prompt", capture_output=False)
@@ -157,6 +185,10 @@ def main():
         except Exception as e:
             print(f"DEBUG: Failed to save campaign state: {e}", file=sys.stderr)
 
+        # Load the compiled business digest (small) so build_context can push it
+        # on planning/question branches. Skips the I/O on every other branch.
+        business = _load_business(branch)
+
         try:
             from context_builder import build_context
             system_state = build_context(
@@ -165,7 +197,8 @@ def main():
                 auth_msg=auth_msg,
                 branch=branch,
                 missing_documents=artifacts_missing,
-                manifest_state=manifest_state
+                manifest_state=manifest_state,
+                business=business
             )
         except Exception as e:
             print(f"DEBUG: context_builder failed: {e}", file=sys.stderr)
@@ -193,18 +226,18 @@ def main():
             )
         except Exception as e:
             print(f"DEBUG: Adapter formatting failed: {e}", file=sys.stderr)
+            # Honest, universally-valid degraded response: inject the system
+            # state via the one field every platform honours (additionalContext)
+            # and let the prompt proceed. We deliberately do NOT emit the
+            # invented routing fields (modifiedPrompt/target_agent/...) — codex
+            # rejects unknown fields (deny_unknown_fields) and cursor/gemini
+            # ignore them, so on the crash path they'd only do harm.
             output = {
-                "classification": branch,
-                "modifiedPrompt": prompt + system_state,
-                "system_prompt_extension": system_state,
-                "target_agent": target_agent,
+                "continue": True,
                 "hookSpecificOutput": {
                     "hookEventName": hook_event_name,
                     "additionalContext": system_state,
-                    "systemPromptExtension": system_state,
-                    "modifiedPrompt": prompt + system_state,
-                    "target_agent": target_agent
-                }
+                },
             }
 
         langfuse_instrumentation.complete_prompt_span(

@@ -49,6 +49,7 @@ from pathlib import Path
 
 import pytest
 
+from tests._env_utils import telemetry_safe_env
 from tests.e2e._mint_helpers import mint_platform
 
 # ---------------------------------------------------------------------------
@@ -58,7 +59,14 @@ from tests.e2e._mint_helpers import mint_platform
 _PLUGIN_ROOT_ENV_VAR: dict[str, str] = {
     "claude": "CLAUDE_PLUGIN_ROOT",
     "gemini": "GEMINI_PLUGIN_ROOT",
+    "codex": "CODEX_PLUGIN_ROOT",
+    "cursor": "CURSOR_PLUGIN_ROOT",
 }
+
+# Platforms whose hook is append-only (can inject context but not rewrite the
+# prompt): output is {continue, hookSpecificOutput{hookEventName,
+# additionalContext}}.
+_APPEND_ONLY = ("gemini", "codex")
 
 
 @pytest.fixture(scope="session")
@@ -73,17 +81,32 @@ def _gemini_exec_root(tmp_path_factory) -> Path:
     return mint_platform(tmp, "gemini")
 
 
+@pytest.fixture(scope="session")
+def _codex_exec_root(tmp_path_factory) -> Path:
+    tmp = tmp_path_factory.mktemp("exec_contract_codex")
+    return mint_platform(tmp, "codex")
+
+
+@pytest.fixture(scope="session")
+def _cursor_exec_root(tmp_path_factory) -> Path:
+    tmp = tmp_path_factory.mktemp("exec_contract_cursor")
+    return mint_platform(tmp, "cursor")
+
+
 @pytest.fixture(
-    params=["claude", "gemini"],
+    params=["claude", "gemini", "codex", "cursor"],
     scope="session",
 )
 def exec_plugin_root(
-    request, _claude_exec_root, _gemini_exec_root
+    request, _claude_exec_root, _gemini_exec_root, _codex_exec_root, _cursor_exec_root
 ) -> tuple[str, Path]:
     """Yields (platform, plugin_root) for parametrized execution tests."""
-    if request.param == "claude":
-        return "claude", _claude_exec_root
-    return "gemini", _gemini_exec_root
+    return request.param, {
+        "claude": _claude_exec_root,
+        "gemini": _gemini_exec_root,
+        "codex": _codex_exec_root,
+        "cursor": _cursor_exec_root,
+    }[request.param]
 
 
 # ---------------------------------------------------------------------------
@@ -170,12 +193,11 @@ def _run_hook(
     The appropriate <PLATFORM>_PLUGIN_ROOT env var is exported so that
     hook_common.resolve_plugin_root() works correctly.
     """
-    import os
-
-    env = os.environ.copy()
+    # Telemetry-safe: disables langfuse (both flag generations) AND strips the
+    # inherited credentials so the hook subprocess cannot export traces.
+    env = telemetry_safe_env()
     env[_PLUGIN_ROOT_ENV_VAR[platform]] = str(plugin_root)
-    # Disable langfuse/API calls so prompt_classifier stays headless
-    env["LANGFUSE_ENABLED"] = "false"
+    # Disable API calls so prompt_classifier stays headless
     env["ANTHROPIC_API_KEY"] = ""
     env["GEMINI_API_KEY"] = ""
     env["HARNESS_MOCK_LLM"] = "1"
@@ -287,10 +309,11 @@ class TestPromptClassifierContract:
     UserPromptSubmit / BeforeAgent hook.
 
     Input:  {"prompt": "<text>", "hookEventName": "<event>"}
-    Output: JSON object with keys:
-            - "classification" (branch letter A–E)
-            - "modifiedPrompt" (string)
-            - "hookSpecificOutput" (object)
+    Output (claude): {classification, modifiedPrompt, hookSpecificOutput, ...}
+    Output (gemini): append-only — BeforeAgent cannot rewrite the prompt, so the
+            output is {continue, hookSpecificOutput{hookEventName,
+            additionalContext}} (no classification / modifiedPrompt). The routing
+            decision + SYSTEM STATE are folded into additionalContext.
     Exit:   0
     """
 
@@ -303,9 +326,17 @@ class TestPromptClassifierContract:
         "prompt": "explain how the login feature works",
         "hook_event_name": "BeforeAgent",
     }
+    _CURSOR_EVENT = {
+        "prompt": "explain how the login feature works",
+        "hookEventName": "beforeSubmitPrompt",
+    }
 
     def _event(self, platform: str) -> dict:
-        return self._CLAUDE_EVENT if platform == "claude" else self._GEMINI_EVENT
+        if platform in ("claude", "codex"):  # codex reuses Claude's event names
+            return self._CLAUDE_EVENT
+        if platform == "cursor":
+            return self._CURSOR_EVENT
+        return self._GEMINI_EVENT
 
     def test_exit_code_zero(self, exec_plugin_root: tuple[str, Path]) -> None:
         platform, root = exec_plugin_root
@@ -323,8 +354,15 @@ class TestPromptClassifierContract:
         _assert_valid_json_stdout(result, f"{platform} prompt_classifier")
 
     def test_stdout_has_classification(self, exec_plugin_root: tuple[str, Path]) -> None:
-        """Output must contain 'classification' key with a letter branch A–E."""
+        """Output must contain 'classification' key with a letter branch A–E.
+
+        Gemini is append-only (BeforeAgent): it emits no top-level classification
+        field — the routing is folded into additionalContext — so this is a
+        claude-only contract.
+        """
         platform, root = exec_plugin_root
+        if platform != "claude":
+            pytest.skip(f"{platform}: append-only/no-route output carries no top-level 'classification'")
         interpreter, script = _resolve_hook_command(root, platform, "prompt_classifier.py")
         result = _run_hook(root, platform, script, interpreter, self._event(platform))
         output = _assert_valid_json_stdout(result, f"{platform} prompt_classifier")
@@ -338,8 +376,14 @@ class TestPromptClassifierContract:
         )
 
     def test_stdout_has_modified_prompt(self, exec_plugin_root: tuple[str, Path]) -> None:
-        """Output must contain 'modifiedPrompt' key."""
+        """Output must contain 'modifiedPrompt' key.
+
+        Gemini's BeforeAgent cannot rewrite the prompt, so it must NOT emit
+        'modifiedPrompt' — claude-only contract.
+        """
         platform, root = exec_plugin_root
+        if platform != "claude":
+            pytest.skip(f"{platform}: append-only/no-route output must not emit 'modifiedPrompt'")
         interpreter, script = _resolve_hook_command(root, platform, "prompt_classifier.py")
         result = _run_hook(root, platform, script, interpreter, self._event(platform))
         output = _assert_valid_json_stdout(result, f"{platform} prompt_classifier")
@@ -348,9 +392,49 @@ class TestPromptClassifierContract:
             f"Got: {output}"
         )
 
+    def test_append_only_shape(self, exec_plugin_root: tuple[str, Path]) -> None:
+        """Append-only platforms (gemini/codex) must emit no classification /
+        modifiedPrompt, only {continue, hookSpecificOutput{hookEventName,
+        additionalContext}}, and the original prompt is NOT echoed back."""
+        platform, root = exec_plugin_root
+        if platform not in _APPEND_ONLY:
+            pytest.skip("append-only shape contract (gemini/codex)")
+        interpreter, script = _resolve_hook_command(root, platform, "prompt_classifier.py")
+        event = self._event(platform)
+        result = _run_hook(root, platform, script, interpreter, event)
+        output = _assert_valid_json_stdout(result, f"{platform} prompt_classifier")
+        assert "classification" not in output
+        assert "modifiedPrompt" not in output
+        assert set(output).issubset(
+            {"continue", "systemMessage", "decision", "reason", "hookSpecificOutput"}
+        )
+        hso = output["hookSpecificOutput"]
+        assert set(hso).issubset({"hookEventName", "additionalContext"})
+        assert event["prompt"] not in hso.get("additionalContext", "")
+
+    def test_cursor_minimal_shape(self, exec_plugin_root: tuple[str, Path]) -> None:
+        """Cursor's beforeSubmitPrompt cannot inject context or route, so the
+        hook must emit ONLY Cursor-valid fields ({continue, user_message}) — no
+        classification / modifiedPrompt / hookSpecificOutput, and the prompt is
+        not echoed back."""
+        platform, root = exec_plugin_root
+        if platform != "cursor":
+            pytest.skip("cursor-only minimal-shape contract")
+        interpreter, script = _resolve_hook_command(root, platform, "prompt_classifier.py")
+        event = self._event(platform)
+        result = _run_hook(root, platform, script, interpreter, event)
+        output = _assert_valid_json_stdout(result, f"{platform} prompt_classifier")
+        assert output.get("continue") is True
+        assert "classification" not in output
+        assert "modifiedPrompt" not in output
+        assert "hookSpecificOutput" not in output
+        assert set(output).issubset({"continue", "user_message"})
+
     def test_stdout_has_hook_specific_output(self, exec_plugin_root: tuple[str, Path]) -> None:
         """Output must contain 'hookSpecificOutput' object."""
         platform, root = exec_plugin_root
+        if platform == "cursor":
+            pytest.skip("cursor emits only {continue: true} (no hookSpecificOutput)")
         interpreter, script = _resolve_hook_command(root, platform, "prompt_classifier.py")
         result = _run_hook(root, platform, script, interpreter, self._event(platform))
         output = _assert_valid_json_stdout(result, f"{platform} prompt_classifier")
@@ -375,6 +459,8 @@ class TestPromptClassifierContract:
         the directive never reached the model and skills never fired.
         """
         platform, root = exec_plugin_root
+        if platform == "cursor":
+            pytest.skip("cursor emits only {continue: true} (no additionalContext)")
         interpreter, script = _resolve_hook_command(root, platform, "prompt_classifier.py")
         event = self._event(platform)
         result = _run_hook(root, platform, script, interpreter, event)
@@ -382,9 +468,16 @@ class TestPromptClassifierContract:
         hso = output["hookSpecificOutput"]
         assert "additionalContext" in hso, (
             f"{platform} prompt_classifier: hookSpecificOutput missing 'additionalContext' "
-            f"— Claude would inject nothing.\nGot: {hso}"
+            f"— the model would receive nothing.\nGot: {hso}"
         )
-        # Structural invariant: additionalContext = systemPromptExtension + prompt-suffix.
+        if platform in _APPEND_ONLY:
+            # Append-only (gemini/codex): additionalContext carries the routing
+            # directive + SYSTEM STATE, but never the rewritten prompt
+            # (modifiedPrompt does not exist on an append-only response).
+            assert "modifiedPrompt" not in output
+            assert event.get("prompt", "") not in hso["additionalContext"]
+            return
+        # Claude structural invariant: additionalContext = systemPromptExtension + prompt-suffix.
         prompt = event.get("prompt", "")
         modified = output.get("modifiedPrompt", "")
         appended = modified[len(prompt):] if modified.startswith(prompt) else ""
@@ -398,8 +491,14 @@ class TestPromptClassifierContract:
     def test_prompt_is_preserved_in_modified_prompt(
         self, exec_plugin_root: tuple[str, Path]
     ) -> None:
-        """The original prompt text must be a prefix/substring of modifiedPrompt."""
+        """The original prompt text must be a prefix/substring of modifiedPrompt.
+
+        Claude-only: Gemini's BeforeAgent cannot rewrite the prompt (append-only),
+        so there is no modifiedPrompt to preserve the prompt in.
+        """
         platform, root = exec_plugin_root
+        if platform != "claude":
+            pytest.skip(f"{platform}: append-only/no-route output has no modifiedPrompt")
         interpreter, script = _resolve_hook_command(root, platform, "prompt_classifier.py")
         event = self._event(platform)
         result = _run_hook(root, platform, script, interpreter, event)
@@ -472,6 +571,8 @@ class TestPreToolUseContract:
     def test_deny_dangerous_rm_exit_code(self, exec_plugin_root: tuple[str, Path]) -> None:
         """Dangerous rm -rf / → exit 2 (Claude) or exit 0 with deny JSON (Gemini)."""
         platform, root = exec_plugin_root
+        if platform in ("codex", "cursor"):
+            pytest.skip(f"{platform}: pre_tool_use security-hook deny contract not yet verified (separate pass)")
         interpreter, script = _resolve_hook_command(root, platform, "pre_tool_use.py")
         result = _run_hook(root, platform, script, interpreter, self._dangerous_rm_event(platform))
         if platform == "claude":
@@ -506,6 +607,8 @@ class TestPreToolUseContract:
     def test_deny_env_access_exit_code(self, exec_plugin_root: tuple[str, Path]) -> None:
         """.env file access → exit 2 (Claude) or exit 0 with deny JSON (Gemini)."""
         platform, root = exec_plugin_root
+        if platform in ("codex", "cursor"):
+            pytest.skip(f"{platform}: pre_tool_use security-hook deny contract not yet verified (separate pass)")
         interpreter, script = _resolve_hook_command(root, platform, "pre_tool_use.py")
         result = _run_hook(root, platform, script, interpreter, self._env_access_event(platform))
         if platform == "claude":

@@ -147,64 +147,182 @@ class TestFormatHookResponse:
         assert out["modifiedPrompt"] == PROMPT
 
     # Gemini ----------------------------------------------------------------
+    # Gemini's prompt hook is BeforeAgent (there is NO UserPromptSubmit on
+    # Gemini CLI). BeforeAgent is append-only: it injects via
+    # hookSpecificOutput.additionalContext ("text appended to the prompt for
+    # this turn") and CANNOT rewrite the prompt. So — like Codex — Gemini's
+    # hook output must carry ONLY append-only-valid fields and fold the routing
+    # decision + SYSTEM STATE into additionalContext. (Refs: geminicli.com
+    # /docs/hooks/reference, /docs/hooks/.)
 
-    def test_gemini_skill_and_agent(self):
+    # Gemini-valid top-level keys (BeforeAgent schema).
+    _GEMINI_ALLOWED_TOP = {"continue", "systemMessage", "decision", "reason",
+                           "hookSpecificOutput"}
+    _GEMINI_ALLOWED_HSO = {"hookEventName", "additionalContext"}
+    # Invented fields Gemini's BeforeAgent ignores (no prompt rewrite).
+    _GEMINI_FORBIDDEN = {"classification", "modifiedPrompt",
+                         "system_prompt_extension", "systemPromptExtension",
+                         "target_agent", "target_skill"}
+
+    def test_gemini_emits_only_valid_fields(self):
         out = self._adapter("gemini").format_hook_response(
             PROMPT, SKILL_AGENT_DECISION, CONTEXT_EXT, HOOK_EVENT
         )
-        mp = out["modifiedPrompt"]
-        assert "activate_skill(" in mp
-        assert "@debugger" in mp
-        assert "Skill(" not in mp
-        assert "Task(" not in mp
+        assert set(out).issubset(self._GEMINI_ALLOWED_TOP), (
+            f"gemini emitted unknown top-level fields: "
+            f"{set(out) - self._GEMINI_ALLOWED_TOP}"
+        )
+        for forbidden in self._GEMINI_FORBIDDEN:
+            assert forbidden not in out, f"gemini must not emit top-level {forbidden!r}"
+        hso = out["hookSpecificOutput"]
+        assert set(hso).issubset(self._GEMINI_ALLOWED_HSO), (
+            f"gemini emitted unknown hookSpecificOutput fields: "
+            f"{set(hso) - self._GEMINI_ALLOWED_HSO}"
+        )
+        assert hso["hookEventName"] == HOOK_EVENT
+        assert "continue" in out
+
+    def test_gemini_folds_routing_and_context_into_additional_context(self):
+        out = self._adapter("gemini").format_hook_response(
+            PROMPT, SKILL_AGENT_DECISION, CONTEXT_EXT, HOOK_EVENT
+        )
+        ac = out["hookSpecificOutput"]["additionalContext"]
+        assert "activate_skill(" in ac
+        assert "@debugger" in ac
+        assert CONTEXT_EXT in ac
+        # BeforeAgent cannot rewrite the prompt: it is not echoed back.
+        assert PROMPT not in ac
 
     def test_gemini_agent_only(self):
         out = self._adapter("gemini").format_hook_response(
             PROMPT, AGENT_ONLY_DECISION, CONTEXT_EXT, HOOK_EVENT
         )
-        mp = out["modifiedPrompt"]
-        assert "@generalist" in mp
-        assert "activate_skill(" not in mp
+        ac = out["hookSpecificOutput"]["additionalContext"]
+        assert "@generalist" in ac
+        assert "activate_skill(" not in ac
 
     def test_gemini_no_target_passthrough(self):
         out = self._adapter("gemini").format_hook_response(
-            PROMPT, NO_TARGET_DECISION, "", HOOK_EVENT
+            PROMPT, NO_TARGET_DECISION, CONTEXT_EXT, HOOK_EVENT
         )
-        assert out["modifiedPrompt"] == PROMPT
+        ac = out["hookSpecificOutput"]["additionalContext"]
+        assert ac == CONTEXT_EXT
+        assert out["continue"] is True
 
     # Codex -----------------------------------------------------------------
+    # Codex enforces deny_unknown_fields and cannot rewrite the prompt. Its
+    # hook output must carry ONLY Codex-valid fields, and the routing decision
+    # + context must be folded into hookSpecificOutput.additionalContext.
 
-    def test_codex_uses_handoff_syntax(self):
+    # Codex-valid top-level keys (per .claude/docs/platform-support.md).
+    _CODEX_ALLOWED_TOP = {"continue", "systemMessage", "decision", "reason",
+                          "hookSpecificOutput"}
+    _CODEX_ALLOWED_HSO = {"hookEventName", "additionalContext"}
+    # Invented fields the harness used to emit that Codex rejects/ignores.
+    _CODEX_FORBIDDEN = {"classification", "modifiedPrompt",
+                        "system_prompt_extension", "systemPromptExtension",
+                        "target_agent", "target_skill"}
+
+    def test_codex_emits_only_valid_fields(self):
         out = self._adapter("codex").format_hook_response(
             PROMPT, SKILL_AGENT_DECISION, CONTEXT_EXT, HOOK_EVENT
         )
-        mp = out["modifiedPrompt"]
-        assert "Hand off to" in mp
-        assert "Skill(" not in mp
-        assert "Task(" not in mp
+        # No unknown top-level fields.
+        assert set(out).issubset(self._CODEX_ALLOWED_TOP), (
+            f"codex emitted unknown top-level fields: {set(out) - self._CODEX_ALLOWED_TOP}"
+        )
+        for forbidden in self._CODEX_FORBIDDEN:
+            assert forbidden not in out, f"codex must not emit top-level {forbidden!r}"
+        # hookSpecificOutput restricted to {hookEventName, additionalContext}.
+        hso = out["hookSpecificOutput"]
+        assert set(hso).issubset(self._CODEX_ALLOWED_HSO), (
+            f"codex emitted unknown hookSpecificOutput fields: "
+            f"{set(hso) - self._CODEX_ALLOWED_HSO}"
+        )
+        assert hso["hookEventName"] == HOOK_EVENT
+        assert "continue" in out
+
+    def test_codex_folds_routing_and_context_into_additional_context(self):
+        out = self._adapter("codex").format_hook_response(
+            PROMPT, SKILL_AGENT_DECISION, CONTEXT_EXT, HOOK_EVENT
+        )
+        ac = out["hookSpecificOutput"]["additionalContext"]
+        # The routing target and the context extension both live in additionalContext.
+        assert "debugger" in ac
+        assert CONTEXT_EXT in ac
+        # Codex cannot rewrite the prompt: the original prompt is NOT echoed back.
+        assert PROMPT not in ac
 
     def test_codex_no_target_passthrough(self):
         out = self._adapter("codex").format_hook_response(
             PROMPT, NO_TARGET_DECISION, CONTEXT_EXT, HOOK_EVENT
         )
-        assert out["modifiedPrompt"] == PROMPT
+        # With no routing target, additionalContext is just the context extension.
+        ac = out["hookSpecificOutput"]["additionalContext"]
+        assert ac == CONTEXT_EXT
+        assert out["continue"] is True
+
+    def test_codex_skill_invocation_uses_dollar_token(self):
+        out = self._adapter("codex").format_hook_response(
+            PROMPT, SKILL_AGENT_DECISION, CONTEXT_EXT, HOOK_EVENT
+        )
+        ac = out["hookSpecificOutput"]["additionalContext"]
+        # Skills are invoked $skill-name on Codex; the fictional "Activate skill"
+        # phrasing must be gone.
+        assert "$harness-systematic-debugging" in ac
+        assert "Activate skill" not in ac
+
+    def test_codex_no_fictional_handoff_token(self):
+        out = self._adapter("codex").format_hook_response(
+            PROMPT, AGENT_ONLY_DECISION, CONTEXT_EXT, HOOK_EVENT
+        )
+        ac = out["hookSpecificOutput"]["additionalContext"]
+        # The fictional "Hand off to {agent}" convention does not exist on Codex.
+        assert "Hand off to" not in ac
 
     # Cursor ----------------------------------------------------------------
+    # Cursor's beforeSubmitPrompt can only return {continue, user_message}; it
+    # cannot inject context or rewrite the prompt. Per-turn routing is OFF for
+    # Cursor (accepted product decision) — the harness ships via rules files +
+    # native subagents + MCP instead. So the hook output must carry ONLY
+    # Cursor-valid fields and must NOT emit the invented routing schema.
 
-    def test_cursor_agent_only(self):
+    # Cursor-valid top-level keys (per .claude/docs/platform-support.md).
+    _CURSOR_ALLOWED_TOP = {"continue", "user_message"}
+    # Invented fields the harness used to emit that Cursor ignores entirely.
+    _CURSOR_FORBIDDEN = {"classification", "modifiedPrompt",
+                         "system_prompt_extension", "systemPromptExtension",
+                         "target_agent", "target_skill", "hookSpecificOutput"}
+
+    def test_cursor_emits_only_valid_fields(self):
+        out = self._adapter("cursor").format_hook_response(
+            PROMPT, SKILL_AGENT_DECISION, CONTEXT_EXT, HOOK_EVENT
+        )
+        assert set(out).issubset(self._CURSOR_ALLOWED_TOP), (
+            f"cursor emitted unknown top-level fields: "
+            f"{set(out) - self._CURSOR_ALLOWED_TOP}"
+        )
+        for forbidden in self._CURSOR_FORBIDDEN:
+            assert forbidden not in out, f"cursor must not emit top-level {forbidden!r}"
+        assert out["continue"] is True
+
+    def test_cursor_does_not_rewrite_prompt_or_route(self):
         decision = {**AGENT_ONLY_DECISION, "target_agent": "@planner"}
         out = self._adapter("cursor").format_hook_response(
-            PROMPT, decision, "", HOOK_EVENT
+            PROMPT, decision, CONTEXT_EXT, HOOK_EVENT
         )
-        mp = out["modifiedPrompt"]
-        assert "@planner" in mp
-        assert "HARNESS DISPATCH" in mp
+        # Cursor cannot rewrite the prompt nor inject a routing directive.
+        assert "modifiedPrompt" not in out
+        assert "hookSpecificOutput" not in out
+        # If a user_message is surfaced it must not carry a fake dispatch.
+        assert "HARNESS DISPATCH" not in out.get("user_message", "")
 
-    def test_cursor_no_target_passthrough(self):
+    def test_cursor_no_target_continues(self):
         out = self._adapter("cursor").format_hook_response(
             PROMPT, NO_TARGET_DECISION, CONTEXT_EXT, HOOK_EVENT
         )
-        assert out["modifiedPrompt"] == PROMPT
+        assert out["continue"] is True
+        assert "modifiedPrompt" not in out
 
     # Generic ---------------------------------------------------------------
 
@@ -218,8 +336,18 @@ class TestFormatHookResponse:
         assert "HARNESS DISPATCH" in mp
 
     # Shared output shape ---------------------------------------------------
+    # Codex, cursor and gemini are excluded: they have distinct, schema-restricted
+    # outputs. Codex and gemini are append-only (BeforeAgent / UserPromptSubmit
+    # inject via additionalContext and cannot rewrite the prompt); cursor's
+    # beforeSubmitPrompt only honours {continue, user_message} and cannot
+    # route/rewrite. Their shapes are asserted by the platform-specific tests
+    # above.
 
-    @pytest.mark.parametrize("platform", PLATFORMS)
+    _CLAUDE_SHAPE_PLATFORMS = [
+        p for p in PLATFORMS if p not in ("codex", "cursor", "gemini")
+    ]
+
+    @pytest.mark.parametrize("platform", _CLAUDE_SHAPE_PLATFORMS)
     def test_output_always_has_required_keys(self, platform):
         out = self._adapter(platform).format_hook_response(
             PROMPT, SKILL_AGENT_DECISION, CONTEXT_EXT, HOOK_EVENT
@@ -232,12 +360,100 @@ class TestFormatHookResponse:
         assert "systemPromptExtension" in hso
         assert "modifiedPrompt" in hso
 
-    @pytest.mark.parametrize("platform", PLATFORMS)
+    @pytest.mark.parametrize("platform", _CLAUDE_SHAPE_PLATFORMS)
     def test_classification_preserved(self, platform):
         out = self._adapter(platform).format_hook_response(
             PROMPT, SKILL_AGENT_DECISION, CONTEXT_EXT, HOOK_EVENT
         )
         assert out["classification"] == "A"
+
+
+# ---------------------------------------------------------------------------
+# 2b. Codex profile-data corrections (platform_profiles.json codex block)
+# ---------------------------------------------------------------------------
+
+class TestCodexProfileData:
+    def _profile(self):
+        from harness.adapters.profile import load_profile
+        return load_profile("codex")
+
+    def test_rules_pointer_is_agents_md(self):
+        # Codex reads AGENTS.md; CODEX.md is fictional.
+        assert self._profile().rules_pointer_files == ["AGENTS.md"]
+
+    def test_tool_mappings_map_to_codex_tools(self):
+        tm = self._profile().tool_mappings
+        # Codex has shell (command exec) + apply_patch (file edits).
+        # Match the key style used by other profiles (with and without "- ").
+        assert tm.get("run_shell_command") == "shell"
+        assert tm.get("Bash") == "shell"
+        assert tm.get("replace") == "apply_patch"
+        assert tm.get("write_file") == "apply_patch"
+        assert tm.get("Edit") == "apply_patch"
+        assert tm.get("Write") == "apply_patch"
+        # No mapping should point at a Claude-only tool name.
+        assert "Read" not in tm.values()
+        assert "Grep" not in tm.values()
+
+    def test_skill_invocation_uses_dollar_token(self):
+        prof = self._profile()
+        rendered = prof.skill_invocation("my-skill")
+        assert rendered == "$my-skill"
+        assert "Activate skill" not in rendered
+
+    def test_subagent_invocation_has_no_fictional_handoff(self):
+        prof = self._profile()
+        assert "Hand off to" not in prof.subagent_invocation_tpl
+        assert "Hand off to" not in prof.subagent_text_call_without_skill
+        assert "Hand off to" not in prof.subagent_text_call_with_skill
+
+
+# ---------------------------------------------------------------------------
+# 2c. Cursor profile-data corrections (platform_profiles.json cursor block)
+# ---------------------------------------------------------------------------
+
+class TestCursorProfileData:
+    def _profile(self):
+        from harness.adapters.profile import load_profile
+        return load_profile("cursor")
+
+    def test_rules_pointer_is_agents_md(self):
+        # .cursorrules is deprecated; the copilot file is a foreign convention.
+        # AGENTS.md is cross-vendor and Cursor reads it.
+        assert self._profile().rules_pointer_files == ["AGENTS.md"]
+
+    def test_subagent_invocation_uses_slash_not_at(self):
+        # In Cursor, @ = file/context mentions (NOT agents); /agent is correct.
+        prof = self._profile()
+        assert prof.subagent_invocation("planner", "do x") == "/planner do x"
+        assert prof.subagent_text_call("planner") == "/planner"
+        assert prof.subagent_text_call("planner", skill="diagnose") == (
+            "/planner — invoke skill /diagnose first"
+        )
+        # No stray @-agent mentions survive.
+        assert "@" not in prof.subagent_invocation_tpl
+        assert "@" not in prof.subagent_text_call_without_skill
+        assert "@" not in prof.subagent_text_call_with_skill
+
+    def test_skill_invocation_uses_slash_token(self):
+        prof = self._profile()
+        rendered = prof.skill_invocation("my-skill")
+        assert rendered == "/my-skill"
+        assert "Use " not in rendered
+
+    def test_tool_mappings_map_to_cursor_tools(self):
+        tm = self._profile().tool_mappings
+        # Cursor exposes edit_file, run_terminal_cmd, grep, read_file.
+        assert tm.get("replace") == "edit_file"
+        assert tm.get("write_file") == "edit_file"
+        assert tm.get("run_shell_command") == "run_terminal_cmd"
+        assert tm.get("grep_search") == "grep"
+        assert tm.get("read_file") == "read_file"
+        # Cursor has no glob; closest is grep / codebase_search.
+        assert tm.get("glob") == "grep"
+        # No mapping should point at a Claude-only tool name.
+        for claude_only in ("Read", "Grep", "Edit", "Write", "Bash", "Glob"):
+            assert claude_only not in tm.values()
 
 
 # ---------------------------------------------------------------------------
