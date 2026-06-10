@@ -2,6 +2,9 @@
 
 *Status: APPROVED — Sections 0–3 HITL-approved; revised per Section 4 adversarial findings (C1–C4, M1–M6, m1–m4); amended per Section 5 second-round review (R1–R5)*
 *Date: 2026-06-10 · Foundation: PR #36 (domain.json + domain_ops MCP)*
+*ECC source pin: all ported content (F3 packs, F2 council/GAN preamble text) is fetched
+from `affaan-m/ECC@c888d2b73f26d605ff6c172b433d4cad2200206f` (main, 2026-06-10) via
+`gh api` — no local clone; ported files carry this SHA in a provenance header.*
 
 ---
 
