@@ -1,0 +1,63 @@
+# ECC Feature Port — Progress
+
+*Design: [2026-06-10-ecc-feature-port-design.md](2026-06-10-ecc-feature-port-design.md)
+(revised per Section 4 adversarial review — C1–C4, M1–M6, m1–m4 folded in)*
+*Phases are dependency-ordered and independently shippable. TDD mandatory throughout.*
+
+## Phase 0 — Feature-Toggle Substrate
+- [ ] Failing test: `feature_enabled` returns True with no features file (`tests/hooks/test_feature_toggles.py`)
+- [ ] Implement `load_features()` + `feature_enabled()` in `hooks/hook_common.py`
+- [ ] Failing test: disabled key returns False; implement dotted-path traversal
+- [ ] Failing test: `features.json` classified `customizable` + 3-way merge conflict case (`tests/unit/test_update_classification.py`); implement in `update/classification.py`
+- [ ] Failing test (m3): `features.json` survives render_pass1 + deep-merge re-mint; keys avoid codex tool-mapping vocabulary (`tests/unit/test_smart_merge.py`)
+- [ ] Failing test: tool-plane loader parity (`tests/unit/test_features_loader.py`); implement `src/harness/init/features.py`
+- [ ] Author `templates/boilerplate/features.json` template + add five new keys to `harness_features_tree.md`
+- [ ] Full suite green; commit
+
+## Phase 1 — F3 Stack-Aware Rules Packs
+- [ ] Failing test: language alias map (`Go`→`golang`, cdxgen framework names ignored) (`tests/unit/test_rules_packs.py`); implement `src/harness/init/lang_aliases.py`
+- [ ] Failing test: Python-only repo gets `common`+`python` only; toggle off ⇒ no packs
+- [ ] Implement pack-pruning function; install into `.claude/rules/harness/` (namespaced)
+- [ ] Failing test: pruning + namespacing in mint flow (`tests/unit/test_minting_engine.py`); wire into `mint_workspace` (+ persona inlining on non-Claude platforms)
+- [ ] Failing test (C4): pruned packs never re-proposed by update (`tests/unit/test_update_updater.py`); persist stack filter in manifest `render_context` + teach `enumerate_source_producers`/`compute_verdicts`
+- [ ] Failing test: `domain-refresh` re-syncs packs; implement in `init/cli.py`
+- [ ] Author pack content with `paths` frontmatter (lazy-load) — `common/` (≤6 KB, un-scoped), `python/`, `typescript/`, `golang/`
+- [ ] Update `tests/integration/test_template_integrity.py`; suite green; commit
+
+## Phase 2 — F5 Session Memory
+- [ ] Failing test: write→read round-trip (`tests/hooks/test_session_memory.py`)
+- [ ] Implement `hooks/session_memory_save.py` — Stop-event (per-response, idempotent) write to `state/session_memory_<session>.json`
+- [ ] Failing test (M6): two concurrent sessions don't clobber; per-session file naming
+- [ ] Failing test: caps (≤8 KB, ≤6 entries, 220-char summaries) + 30-day retention; implement helpers in `hook_common.py`
+- [ ] Failing test: SessionStart digest injection (merge-at-read); implement `hooks/session_start.py` with `HARNESS_SESSION_CONTEXT=off` opt-out
+- [ ] Failing test: wiring (`tests/integration/test_claude_plugin_contract.py`); register Stop/PreCompact/SessionStart in `hooks.json` + `adapters/claude.py` (gemini only after event verification — M4)
+- [ ] Failing test: toggle-off ⇒ no-op; wire `services.session_memory` gate
+- [ ] Suite green; commit
+
+## Phase 3 — F1 Continuous Learning
+- [ ] Failing test (C2): `HARNESS_INTERNAL_LLM_CALL=1` short-circuits hook; lockfile exclusion (`tests/hooks/test_session_end_learning.py`)
+- [ ] Implement guards in new `hooks/session_end.py` (SessionEnd event — C1, not Stop)
+- [ ] Failing test: transcript→SKILL.md shape, slug/confidence/tag, out-of-repo store path `~/.local/share/harness-wf/projects/<hash>/learned/` (`tests/unit/test_skill_extraction.py`, LLM mocked)
+- [ ] Implement `scripts/extract_skills.py`
+- [ ] Failing test: dedup + min-session threshold (≥10 turns) + fail-open on LLM error/timeout
+- [ ] Wire detached spawn behind `hooks.session_end.learning_extraction` gate; register SessionEnd in `hooks.json`
+- [ ] Failing test: SessionStart injects ≤6 learned summaries; edit `hooks/session_start.py`
+- [ ] Author `skills/continuous-learning/SKILL.md` (`/learn`); register in `skills.json`
+- [ ] Suite green; commit
+
+## Phase 4 — F4 Search-First Gate
+- [ ] Failing test: Branch B + no `research_done` ⇒ gate line in SYSTEM STATE (`tests/unit/test_context_builder.py`)
+- [ ] Implement gate line in `runtime/context_builder.py` (m1 — NOT prompt_classifier; + its inline fallback)
+- [ ] Failing test (M1): first Branch-B source write blocked without flag; allowed with flag; no TDD-gate interference (`tests/hooks/test_search_first_gate.py`, `tests/unit/test_pre_tool_use_tdd.py`)
+- [ ] Implement enforcement in `hooks/pre_tool_use.py` behind `pipeline.dispatcher.gates.search_first`
+- [ ] Failing test: toggle off ⇒ passthrough; wire toggle
+- [ ] Author `skills/search-first/SKILL.md` with Adopt/Extend/Compose/Build matrix; register in `skills.json`
+- [ ] Suite green; commit
+
+## Phase 5 — F2 Adversary Pipeline
+- [ ] Failing test: staleness checker — report exists + newer than design doc; toggle-off ⇒ pass (`tests/unit/test_adversary_pipeline.py`)
+- [ ] Implement `scripts/check_risk_report.py` (no dispatcher gate — C3: insertion point doesn't exist)
+- [ ] Author `skills/adversary-pipeline/SKILL.md` (Attacker→Defender→Auditor, fresh general-purpose dispatches, council role-lens + GAN prompt-defense preamble); re-scope `agents/adversary.md` as Auditor
+- [ ] Add skill-text gate to `harness-brainstorming-plans` + `harness-requesting-code-review` SKILL.md behind `pipeline.dispatcher.gates.adversary_exit`
+- [ ] Register skill; update `tests/integration/test_claude_plugin_contract.py`
+- [ ] Suite green; commit
