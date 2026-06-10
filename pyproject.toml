@@ -37,7 +37,8 @@ include = ["harness*"]
 "harness" = ["templates/boilerplate/**/*", "templates/boilerplate/**/.*", "adapters/*.json"]
 
 [tool.pytest.ini_options]
-norecursedirs = ["tests/fixtures", "benchmark/fixtures", "scripts"]
+# NB: setting norecursedirs replaces pytest's defaults, so re-list them (.* covers .claude/.venv)
+norecursedirs = [".*", "*.egg", "build", "dist", "node_modules", "venv", "tests/fixtures", "benchmark/fixtures", "benchmark/tasks", "scripts"]
 filterwarnings = [
     "error::SyntaxWarning",
 ]

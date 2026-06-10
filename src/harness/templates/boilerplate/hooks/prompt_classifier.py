@@ -54,6 +54,34 @@ def fallback_classify(prompt):
     else:
         return "E"
 
+def _load_business(branch):
+    """Load the compiled business digest from domain.json — but only on the
+    branches where build_context will inject it (UserPromptSubmit is a hot
+    path; every other prompt skips the manifest I/O). Best-effort; never
+    breaks the hook."""
+    try:
+        from context_builder import _BUSINESS_BRANCHES
+    except Exception:
+        _BUSINESS_BRANCHES = ("B", "C")
+    if branch not in _BUSINESS_BRANCHES:
+        return {}
+    try:
+        from model import OpsManifest  # deployed flat in the plugin
+        _dj = os.environ.get("DOMAIN_JSON_PATH")
+        if _dj:
+            _djp = Path(_dj)
+        else:
+            try:
+                from hook_common import resolve_plugin_root
+                _djp = resolve_plugin_root() / "domain" / "domain.json"
+            except Exception:
+                _djp = Path.cwd() / "domain.json"
+        if _djp.exists():
+            return OpsManifest.load(_djp).business
+    except Exception as e:
+        print(f"DEBUG: business load failed: {e}", file=sys.stderr)
+    return {}
+
 # capture_output=False: main() ends in sys.exit(0) (returns None); the default
 # auto-capture would overwrite the span output we set via complete_prompt_span.
 @observe(name="user_prompt", capture_output=False)
@@ -158,24 +186,8 @@ def main():
             print(f"DEBUG: Failed to save campaign state: {e}", file=sys.stderr)
 
         # Load the compiled business digest (small) so build_context can push it
-        # on planning/question branches. Best-effort; never breaks the hook.
-        business = {}
-        try:
-            from model import OpsManifest  # deployed flat in the plugin
-            _dj = os.environ.get("DOMAIN_JSON_PATH")
-            if _dj:
-                _djp = Path(_dj)
-            else:
-                try:
-                    from hook_common import resolve_plugin_root
-                    _djp = resolve_plugin_root() / "domain" / "domain.json"
-                except Exception:
-                    _djp = Path.cwd() / "domain.json"
-            if _djp.exists():
-                business = OpsManifest.load(_djp).business
-        except Exception as e:
-            print(f"DEBUG: business load failed: {e}", file=sys.stderr)
-            business = {}
+        # on planning/question branches. Skips the I/O on every other branch.
+        business = _load_business(branch)
 
         try:
             from context_builder import build_context

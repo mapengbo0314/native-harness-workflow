@@ -143,6 +143,10 @@ def run_domain_compile(
         except (json.JSONDecodeError, OSError):
             data = {}
     data.setdefault("schema_version", 1)
+    if not business and data.get("business"):
+        # A failed/unparseable compile must not wipe a previously compiled digest.
+        output_fn(f"Compile produced no business fields — kept the existing business section in {mp}")
+        return mp
     data["business"] = business
     mp.parent.mkdir(parents=True, exist_ok=True)
     mp.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")

@@ -338,3 +338,13 @@ class TestDomainRootRel:
 
     def test_generic_uses_config_dir(self):
         assert load_profile("generic").domain_root_rel() == ".agents"
+
+
+class TestLoadProfileCaching:
+    def test_repeated_loads_return_cached_instance(self):
+        # Adapters call load_profile in nearly every getter; the profile JSON
+        # must be read and validated once per (platform, path), not per call.
+        assert load_profile("claude") is load_profile("claude")
+
+    def test_cache_is_per_platform(self):
+        assert load_profile("claude") is not load_profile("gemini")

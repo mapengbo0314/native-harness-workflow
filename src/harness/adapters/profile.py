@@ -17,6 +17,7 @@ Usage:
 
 from __future__ import annotations
 
+import functools
 import json
 import dataclasses
 from pathlib import Path
@@ -140,6 +141,9 @@ def load_profile(
     """
     Load and validate the profile for *platform* from platform_profiles.json.
 
+    Cached per (platform, path): adapters call this from nearly every getter,
+    so the JSON is read and validated once per process, not per call.
+
     Args:
         platform: Platform key (e.g. "claude", "gemini", "codex", "cursor", "generic").
         _profiles_path: Override the JSON path (for testing with synthetic data).
@@ -152,7 +156,11 @@ def load_profile(
         ProfileError: If a required key is absent from the platform's entry.
     """
     profiles_path = _profiles_path if _profiles_path is not None else _DEFAULT_PROFILES_PATH
+    return _load_profile_cached(platform, str(profiles_path))
 
+
+@functools.lru_cache(maxsize=None)
+def _load_profile_cached(platform: str, profiles_path: str) -> PlatformProfile:
     with open(profiles_path, encoding="utf-8") as fh:
         data: dict = json.load(fh)
 

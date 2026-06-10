@@ -81,3 +81,19 @@ def test_run_domain_compile_creates_manifest_if_absent(tmp_path):
     comp.run_domain_compile(tmp_path, manifest_path=mp, reference_dir=ref,
                             query_llm_fn=lambda _p: '{"direction": "X"}', output_fn=lambda *_: None)
     assert OpsManifest.load(mp).business == {"direction": "X"}
+
+
+def test_run_domain_compile_failed_compile_preserves_existing_business(tmp_path):
+    """An unparseable LLM response (compile_business -> {}) must not wipe a
+    previously compiled business section."""
+    ref = tmp_path / "ref"
+    _seed_docs(ref)
+    mp = tmp_path / "domain.json"
+    existing = {"direction": "Win SMB invoicing", "priorities": ["integrity"]}
+    mp.write_text(json.dumps({"schema_version": 1, "business": existing}))
+    msgs = []
+    comp.run_domain_compile(tmp_path, manifest_path=mp, reference_dir=ref,
+                            query_llm_fn=lambda _p: "sorry, no json here",
+                            output_fn=msgs.append)
+    assert OpsManifest.load(mp).business == existing
+    assert any("kept" in m.lower() or "preserv" in m.lower() for m in msgs)

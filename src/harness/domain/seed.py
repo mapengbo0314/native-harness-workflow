@@ -69,14 +69,13 @@ def _first_h1(text: str) -> str:
     return m.group(1).strip() if m else ""
 
 
-def suggest_references(project_path, platform: Optional[str] = None) -> dict:
+def suggest_references(project_path) -> dict:
     """Pre-suggest references from conventional docs (path → first H1). Docs
     without an H1 are skipped. Humans curate from here."""
     pp = Path(project_path)
     refs: dict = {}
-    candidates = list(_REFERENCE_CANDIDATES)
 
-    for rel in candidates:
+    for rel in _REFERENCE_CANDIDATES:
         p = pp / rel
         if not p.exists():
             continue
@@ -146,7 +145,7 @@ def run_domain_init(
         return mp
 
     stack = detect_stack_fn(pp)
-    references = suggest_references(pp, platform=platform)
+    references = suggest_references(pp)
     mp.parent.mkdir(parents=True, exist_ok=True)
     mp.write_text(json.dumps(build_scaffold(stack, references), indent=2) + "\n", encoding="utf-8")
     output_fn(f"Scaffolded {mp}. Fill the slots; add docs to {ref_dir}, then run domain-compile.")

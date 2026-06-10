@@ -85,14 +85,14 @@ def _github_repo_slug(project_path, *, run: Callable = _run) -> Optional[str]:
 def _extension_languages(project_path) -> list[str]:
     """Offline fallback: count source files by extension → languages, desc."""
     counts: Counter = Counter()
-    for p in Path(project_path).rglob("*"):
-        if not p.is_file():
-            continue
-        if any(part in _SKIP_DIRS for part in p.parts):
-            continue
-        lang = _EXT_LANG.get(p.suffix.lower())
-        if lang:
-            counts[lang] += 1
+    # os.walk with in-place pruning so skipped trees (node_modules, .venv, …)
+    # are never entered — rglob would enumerate them fully before filtering.
+    for _dirpath, dirnames, filenames in os.walk(project_path):
+        dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS]
+        for name in filenames:
+            lang = _EXT_LANG.get(Path(name).suffix.lower())
+            if lang:
+                counts[lang] += 1
     return [lang for lang, _ in counts.most_common()]
 
 
