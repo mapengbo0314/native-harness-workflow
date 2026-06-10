@@ -1,7 +1,8 @@
 # ECC Feature Port — Progress
 
 *Design: [2026-06-10-ecc-feature-port-design.md](2026-06-10-ecc-feature-port-design.md)
-(revised per Section 4 adversarial review — C1–C4, M1–M6, m1–m4 folded in)*
+(revised per Section 4 adversarial review — C1–C4, M1–M6, m1–m4; amended per Section 5
+second-round review — R1–R5)*
 *Phases are dependency-ordered and independently shippable. TDD mandatory throughout.*
 
 ## Phase 0 — Feature-Toggle Substrate (two-file: operator YAML → compiled JSON)
@@ -9,6 +10,7 @@
 - [ ] Implement `load_features()` + `feature_enabled()` in `hooks/hook_common.py` (reads compiled JSON)
 - [ ] Failing test: disabled key returns False; implement dotted-path traversal
 - [ ] Failing test: YAML→JSON compile parity (`tests/unit/test_features_loader.py`); implement `compile_features` in `src/harness/init/features.py`
+- [ ] Failing test (R3): unknown key warns, wrong type fails, enabled feature with disabled dependency fails compile (named dependency in message); implement schema + dependency table in `compile_features`
 - [ ] Failing test: `harness-wf features sync` subcommand + auto-sync on init/refresh (`tests/unit/test_cli_features_sync.py`); implement in `init/cli.py`
 - [ ] Failing test: staleness warning when YAML newer than JSON; implement mtime guard in `hooks/prompt_classifier.py`
 - [ ] Failing test: `features.yaml` ⇒ `customizable`, `features.json` ⇒ `generated` (`tests/unit/test_update_classification.py`); implement in `update/classification.py`
@@ -22,15 +24,18 @@
 - [ ] Implement pack-pruning function; install into `.claude/rules/harness/` (namespaced)
 - [ ] Failing test: pruning + namespacing in mint flow (`tests/unit/test_minting_engine.py`); wire into `mint_workspace` (+ persona inlining on non-Claude platforms)
 - [ ] Failing test (C4): pruned packs never re-proposed by update (`tests/unit/test_update_updater.py`); persist stack filter in manifest `render_context` + teach `enumerate_source_producers`/`compute_verdicts`
+- [ ] Failing test (R1): `.claude/rules/harness/` is a generated mirror — pack content updates in the template tree reach the deployed mirror on `harness-wf update`; operator edits inside the mirror overwritten; record install target in `manifest.py` `render_context` + regenerate step in `updater.py`
 - [ ] Failing test: `domain-refresh` re-syncs packs; implement in `init/cli.py`
 - [ ] Author pack content with `paths` frontmatter (lazy-load) — `common/` (≤6 KB, un-scoped), `python/`, `typescript/`, `golang/`
 - [ ] Update `tests/integration/test_template_integrity.py`; suite green; commit
 
 ## Phase 2 — F5 Session Memory
-- [ ] Failing test: write→read round-trip (`tests/hooks/test_session_memory.py`)
+- [ ] Failing test (R4): write→read round-trip with entry schema `{schema_version, ts, session_id, kind, summary ≤220, refs[]}` (`tests/hooks/test_session_memory.py`)
 - [ ] Implement `hooks/session_memory_save.py` — Stop-event (per-response, idempotent) write to `state/session_memory_<session>.json`
 - [ ] Failing test (M6): two concurrent sessions don't clobber; per-session file naming
+- [ ] Failing test (R4): deterministic merge — recency-first, dedup on `(kind, normalized-summary)`, byte-identical digest on re-read; unknown schema_version skipped not crashed; implement in `hook_common.py`
 - [ ] Failing test: caps (≤8 KB, ≤6 entries, 220-char summaries) + 30-day retention; implement helpers in `hook_common.py`
+- [ ] Failing test (R2): phase keys (`phase`, `phase_entered_at`, `phase_exit_artifact`) round-trip; implement `set_phase`/`get_phase`/`clear_phase` in `hook_common.py`
 - [ ] Failing test: SessionStart digest injection (merge-at-read); implement `hooks/session_start.py` with `HARNESS_SESSION_CONTEXT=off` opt-out
 - [ ] Failing test: wiring (`tests/integration/test_claude_plugin_contract.py`); register Stop/PreCompact/SessionStart in `hooks.json` + `adapters/claude.py` (gemini only after event verification — M4)
 - [ ] Failing test: toggle-off ⇒ no-op; wire `services.session_memory` gate
@@ -50,8 +55,9 @@
 ## Phase 4 — F4 Search-First Gate (+ proportionality guards)
 - [ ] Failing test: Branch B + no `research_done` ⇒ gate line in SYSTEM STATE (`tests/unit/test_context_builder.py`)
 - [ ] Implement gate line in `runtime/context_builder.py` (m1 — NOT prompt_classifier; + its inline fallback)
-- [ ] Failing test (M1): first Branch-B source write blocked without flag; allowed with flag; no TDD-gate interference (`tests/hooks/test_search_first_gate.py`, `tests/unit/test_pre_tool_use_tdd.py`)
-- [ ] Implement enforcement in `hooks/pre_tool_use.py` behind `pipeline.dispatcher.gates.search_first`
+- [ ] Failing test (M1, R2): source write blocked while persisted `phase=planning` without flag; allowed with flag; classification flip mid-phase does NOT drop the gate; no persisted phase ⇒ passthrough; no TDD-gate interference (`tests/hooks/test_search_first_gate.py`, `tests/unit/test_pre_tool_use_tdd.py`)
+- [ ] Implement enforcement in `hooks/pre_tool_use.py` via `get_phase` (NOT per-prompt branch) behind `pipeline.dispatcher.gates.search_first`
+- [ ] Failing test (R2): brainstorming skill sets `phase=planning` + `phase_entered_at` on entry, clears with `phase_exit_artifact` on sign-off; implement in `skills/harness-brainstorming-plans/SKILL.md` + contract test
 - [ ] Failing test: ambiguous implement-style prompts ⇒ Branch D, clear design work ⇒ B (`tests/unit/test_dispatcher.py`, `tests/unit/test_fallback_classify.py`)
 - [ ] Implement bias-to-D rule in `classify_intent` prompt (`runtime/dispatcher.py:149`) + `prompt_classifier` fallback; D pre-flight asks 1–2 clarifying questions instead of escalating to B
 - [ ] Failing test: toggle off ⇒ passthrough; waiver path sets `research_done`; wire toggle
@@ -61,11 +67,12 @@
 ## Phase 5 — F2 Adversary Pipeline (tiered + budgeted)
 - [ ] Failing test: staleness checker — report exists + newer than design doc; toggle-off ⇒ pass (`tests/unit/test_adversary_pipeline.py`)
 - [ ] Implement `scripts/check_risk_report.py` (no dispatcher gate — C3: insertion point doesn't exist)
-- [ ] Author `skills/adversary-pipeline/SKILL.md` — Tier 1: inline council-style role lenses (default, no subagents); Tier 2: Attacker→Defender→Auditor general-purpose dispatches with **hard budgets in the dispatch prompt** (≤30 tool calls, ≤12 files, smaller model for Attacker/Defender, degrade-gracefully clause); council role-lens + GAN prompt-defense preamble; re-scope `agents/adversary.md` as Auditor
+- [ ] Failing test (R5): budget sidecar `state/budget_<session>.json` — counter increments per tool call, block past limit with summarize-and-finish message, no sidecar ⇒ passthrough, corrupt sidecar ⇒ fail-open, per-session isolation (`tests/hooks/test_dispatch_budget.py`)
+- [ ] Implement budget backstop in `hooks/pre_tool_use.py` (R5 — same deterministic layer as TDD/F4 gates)
+- [ ] Author `skills/adversary-pipeline/SKILL.md` — Tier 1: inline council-style role lenses (default, no subagents); Tier 2: Attacker→Defender→Auditor general-purpose dispatches, **skill writes the budget sidecar before each dispatch (R5)** (≤30 tool calls, ≤12 files, smaller model for Attacker/Defender, degrade-gracefully clause as steering before the enforced wall); council role-lens + GAN prompt-defense preamble; re-scope `agents/adversary.md` as Auditor
 - [ ] Add skill-text gate to `harness-brainstorming-plans` + `harness-requesting-code-review` SKILL.md behind `pipeline.dispatcher.gates.adversary_exit`
 - [ ] Register skill; update `tests/integration/test_claude_plugin_contract.py`
 - [ ] Suite green; commit
 
 ## Deferred follow-ups (need own design docs — see "Follow-ups" in design doc)
-- [ ] Sticky phase state machine on F5's store ("Phase 6" candidate): persist `phase`/`phase_entered_at`/`phase_exit_artifact`; classifier checks exit conditions instead of re-classifying every prompt
-- [ ] While building Phases 2/4: reserve those state keys so the future state machine can consume them
+- [ ] Sticky phase state machine, remaining half ("Phase 6" candidate): exit-condition *detection* (artifact-based phase completion) + shrinking the classifier's role. (Amended per R2: the persistence half — phase keys, helpers, brainstorming-skill set/clear — is now in scope, in Phases 2/4 above.)

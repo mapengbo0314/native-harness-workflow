@@ -1,6 +1,6 @@
 # ECC Feature Port — Five Capabilities on the domain.json Spine
 
-*Status: APPROVED — Sections 0–3 HITL-approved; revised per Section 4 adversarial findings (C1–C4, M1–M6, m1–m4)*
+*Status: APPROVED — Sections 0–3 HITL-approved; revised per Section 4 adversarial findings (C1–C4, M1–M6, m1–m4); amended per Section 5 second-round review (R1–R5)*
 *Date: 2026-06-10 · Foundation: PR #36 (domain.json + domain_ops MCP)*
 
 ---
@@ -60,6 +60,16 @@ avoid colliding with user rules — ECC pattern). Revisions per Section 4:
 - **Per-platform consumption matrix:** Claude auto-loads `.claude/rules/` (verified);
   gemini/codex/cursor/generic get packs inlined into agent personas via the existing
   `@../rules/` include mechanism at mint — no auto-load assumed (M3).
+- **Ownership: the installed dir is a generated mirror (R1).** The C4 fix alone stops
+  *re-delivery of pruned packs* but never answers who delivers *updates to installed
+  packs* — `.claude/rules/harness/` sits outside the plugin dir, and the manifest walks
+  `plugin_dir` only, so pack content shipped in harness v2 would never reach a v1 repo.
+  Resolution: source of truth stays in `templates/boilerplate/rules/packs/` (in-manifest,
+  normal producers); the deployed `.claude/rules/harness/` dir is recorded in the
+  manifest's `render_context` as an **install target** and *regenerated* (re-prune +
+  re-copy) on every `init` / `update` / `domain-refresh` — never 3-way merged, never
+  operator-edited (user rules live beside the namespace, not inside it). Same model as
+  `features.json`: generated, recompiled, ownership question dissolves.
 
 ### Phase 2 — F5 Session Memory (the state store)
 **Corrected lifecycle semantics (C1):** `Stop` fires after *every response*, not at
@@ -72,6 +82,18 @@ session end. So the digest write happens on `Stop` but is **cheap and idempotent
   numbers): ≤ 8 KB total, ≤ 6 entries injected, ≤ 220 chars per entry summary,
   30-day retention**, plus an opt-out env (`HARNESS_SESSION_CONTEXT=off`).
 - A `PreCompact` save mirrors ECC's pattern so context survives compression.
+- **Entry schema, versioned from day one (R4):** "merged into a digest" is
+  unimplementable without a format. Each entry is
+  `{schema_version, ts, session_id, kind: decision|blocker|pattern|phase,
+  summary (≤220 chars), refs[]}`. Merge-at-read is **deterministic** — recency-first
+  ordering, dedup on `(kind, normalized-summary)`, fixed tie-break on `(ts, session_id)`
+  — so two reads of the same store produce byte-identical digests and the idempotent
+  `Stop` write stays genuinely idempotent. `schema_version` lets Phase 3 and the phase
+  keys evolve the format without migrations.
+- **Sticky-phase keys ship here (R2):** `phase`, `phase_entered_at`,
+  `phase_exit_artifact` are first-class store keys (the `kind: phase` entry), written
+  by skills entering/exiting planning or TDD execution. Phase 4's gate is their first
+  consumer; the deferred state machine (follow-up #1) is the second.
 - **Platform support matrix (M4):** Claude — full support at launch. gemini —
   `Stop`/`SessionStart` need new `event_mappings` entries; ship only after verifying
   Gemini CLI equivalents exist. codex/cursor/generic — no hook runtime today; F5/F1
@@ -103,8 +125,16 @@ deployed plane instead:
 1. **Steering layer:** `context_builder.py` (which assembles the SYSTEM STATE block)
    surfaces gate status on every Branch-B prompt.
 2. **Enforcement layer:** `pre_tool_use.py` — the codebase's only deterministic block
-   point (same mechanism as the TDD gate) — blocks the first source-file write in
-   Branch B until `research_done` is set.
+   point (same mechanism as the TDD gate) — blocks the first source-file write until
+   `research_done` is set, keyed to **persisted phase, not per-prompt branch
+   classification (R2)**. The classifier observably flips branches mid-workflow
+   (B → E → C during this very design session), so a gate keyed to the current
+   classification fires spuriously on misrouted prompts and evaporates when a planning
+   session flips out of B — a deterministic gate on a nondeterministic predicate is not
+   enforcement. Instead: entering planning (the brainstorming skill's first act) sets
+   `phase=planning` in the session store (Phase 2's R2 keys); the gate holds while
+   `phase=planning` until `research_done` is set or the phase exits; no persisted
+   phase ⇒ passthrough. The classifier's branch output stays advisory.
 The `search-first` skill performs the research and sets the flag, and adopts ECC's
 **Adopt / Extend / Compose / Build decision matrix** (the highest-value part of ECC's
 version — it prevents writing code at all when adoption wins).
@@ -131,10 +161,18 @@ pipeline on every design is too slow/expensive (observed: ~24 min, ~194k tokens,
   current agent applies Attacker/Defender/Auditor role lenses *inline*, no subagents
   (ECC's `council` pattern: cheap, minutes, catches reasoning flaws).
 - **Tier 2 (opt-in, multi-subsystem designs):** the three sequenced agent passes —
-  **Attacker → Defender → Auditor** — each with a **hard budget written into the
-  dispatch prompt**: max tool calls (default 30), max files read (default 12), model
-  tier (Attacker/Defender on a smaller model; Auditor synthesis on the big one), and a
-  "summarize what you have and stop when the budget hits" degrade-gracefully clause.
+  **Attacker → Defender → Auditor** — each with a budget: max tool calls (default 30),
+  max files read (default 12), model tier (Attacker/Defender on a smaller model;
+  Auditor synthesis on the big one), and a "summarize what you have and stop when the
+  budget hits" degrade-gracefully clause.
+- **Budget enforcement is deterministic, not requested (R5):** a budget in a dispatch
+  prompt is a directive the agent may ignore — the observed 194k-token run is exactly
+  an agent not self-limiting. Before each Tier-2 dispatch the skill writes a **budget
+  sidecar** `state/budget_<session>.json` (max tool calls, max file reads, counters);
+  `pre_tool_use.py` increments the counters and **hard-blocks** past the limit with a
+  "summarize what you have and finish" message (exit 2) — the same deterministic layer
+  as the TDD and F4 gates. No sidecar ⇒ passthrough (zero cost to normal sessions);
+  the prompt clause remains as graceful steering before the wall.
 Revisions per Section 4:
 - **Honest provenance:** no such pipeline exists in ECC (verified) — this is a *novel*
   design, borrowing ECC's `council` role-lens table and the GAN agents' prompt-defense
@@ -172,6 +210,16 @@ configuration tree in `harness_features_tree.md`. Mechanics:
   e.g. `features("pipeline.dispatcher.gates.search_first")`.
 - **Semantics:** missing keys default to **enabled** (fail-open) so existing deployed
   repos keep working untouched; disabling a gate makes it advisory-silent, not broken.
+- **Schema + dependency validation at compile time (R3):** the features are not
+  independent — F1's extraction and F4's `research_done` both live in F5's store, and
+  F2 Tier 2 requires agent dispatch. `compile_features` validates the YAML against a
+  declared schema (unknown keys warn, wrong types fail the sync) and a **dependency
+  table** — `pipeline.dispatcher.gates.search_first → services.session_memory`,
+  `hooks.session_end.learning_extraction → services.session_memory` — and **fails
+  `features sync` with an explicit message** when an enabled feature's dependency is
+  off (no silent auto-degrade; the operator is present at compile time and can fix
+  it). Read-time fail-open is unchanged — validation happens where PyYAML and a human
+  exist, enforcement of nothing happens in the stdlib loaders.
 - **New keys this design adds to the tree:**
   - `rules_packs.enabled` + `rules_packs.languages.<lang>` — F3 (init-time)
   - `services.session_memory.enabled` — F5 (Stop/SessionStart persistence)
@@ -195,6 +243,7 @@ TDD-tested, toggleable via `features.json`, and accounted for in the update plan
 4. General-purpose agent dispatches for the adversary pipeline (plugin agents are inert here)
 5. Two-file toggles: operator `features.yaml` (`customizable`) compiled by `harness-wf features sync` to `features.json` (`generated`); mtime staleness guard; fail-open defaults; one loader per plane
 6. Learned skills stored out-of-repo (`~/.local/share/harness-wf/projects/<hash>/`); rules packs `paths`-scoped and namespaced; every cap has a number (8 KB digest, ≤6 injected, 220-char summaries, 30-day retention, ≥10-turn extraction threshold)
+7. Second-round amendments (R1–R5): installed packs are a generated-mirror **install target** recorded in `render_context`; sticky-phase keys (`phase`/`phase_entered_at`/`phase_exit_artifact`) pulled forward from the deferred state machine into Phases 2/4 and the F4 gate keyed to persisted phase; toggle schema + dependency validation at compile; versioned memory entry schema with deterministic merge; Tier-2 budgets enforced by a `pre_tool_use` budget sidecar, not prompt text
 
 ---
 
@@ -263,6 +312,25 @@ never runs subagent adversaries — its `council` is single-context.
 `hooks/`).** Rejected: those paths don't exist. Real homes are
 `src/harness/runtime/dispatcher.py` and `src/harness/templates/boilerplate/hooks/`.
 
+**Extending the manifest walk to absorb out-of-plugin files (R1 alternative).**
+Rejected: teaching `write_manifest` to walk arbitrary external paths generalizes the
+exact failure mode C4 found (phantom sources, `removed-upstream` bricks). The
+install-target/generated-mirror model keeps the manifest walking `plugin_dir` only and
+adds one narrow, declarative concept instead.
+
+**Gating F4 on per-prompt branch classification (R2 alternative).** Rejected: the
+classifier demonstrably flips branches mid-workflow, so the deterministic
+`pre_tool_use` block would key off a nondeterministic predicate — spurious blocks on
+misrouted prompts, silent gate evaporation mid-planning. Persisted `phase` in the
+session store is the stable predicate; this pulls the persistence half of the deferred
+state machine forward and leaves only exit-condition detection deferred.
+
+**Advisory-only Tier-2 budgets (R5 alternative).** Rejected (HITL, 2026-06-10): prompt
+directives demonstrably don't self-limit (the 194k-token run *was* the advisory model
+failing). The budget sidecar + `pre_tool_use` counter reuses the codebase's one proven
+enforcement layer at the cost of a small mechanism; advisory wording stays only as
+graceful steering before the hard wall.
+
 ---
 
 ## Section 3 — Detailed Implementation ✅ approved (revised per Section 4)
@@ -282,14 +350,14 @@ which the stdlib-only deployed hooks read. A mtime staleness guard in
 | File | Action | Rationale |
 |---|---|---|
 | `src/harness/templates/boilerplate/features.yaml` | create | **Operator toggle surface** minted into targets; commented, mirrors `harness_features_tree.md` nesting, all keys `true`. |
-| `src/harness/init/features.py` | create | Tool-plane loader + **YAML→JSON compiler** (`compile_features`) used by the `features sync` command and init-time decisions (Phase 1 pack filtering). |
+| `src/harness/init/features.py` | create | Tool-plane loader + **YAML→JSON compiler** (`compile_features`) used by the `features sync` command and init-time decisions (Phase 1 pack filtering). **Validates at compile (R3):** declared key schema (unknown keys warn, wrong types fail) + dependency table (`gates.search_first → services.session_memory`, `learning_extraction → services.session_memory`); unmet dependency ⇒ sync fails with explicit message. |
 | `src/harness/init/cli.py` | edit | New **`harness-wf features sync`** subcommand; auto-sync during `init` / `update` / `domain-refresh`. Compiles `features.yaml` → `features.json`. |
 | `src/harness/templates/boilerplate/hooks/hook_common.py` | edit | Add `load_features(state_root)` + `feature_enabled("dotted.path", default=True)` reading the **compiled JSON** — the single deployed-plane lookup all hooks/gates use. Missing file/key ⇒ enabled (fail-open). |
 | `src/harness/templates/boilerplate/hooks/prompt_classifier.py` | edit | **Staleness guard:** mtime compare (stdlib); inject one-line warning when `features.yaml` newer than `features.json`. |
 | `src/harness/update/classification.py` | edit | `features.yaml` ⇒ **`customizable`** (3-way merge preserves toggles, delivers new keys); `features.json` ⇒ **`generated`** (recompiled, never merged) (M2). |
 | `harness_features_tree.md` | edit | Add the five new keys (`rules_packs.*`, `services.session_memory`, `hooks.session_end.learning_extraction`, `pipeline.dispatcher.gates.search_first`, `pipeline.dispatcher.gates.adversary_exit`). |
 | `tests/hooks/test_feature_toggles.py` | create | TDD: dotted lookup, fail-open defaults, malformed-file tolerance, staleness warning. |
-| `tests/unit/test_features_loader.py` | create | TDD: YAML→JSON compile correctness (nesting, comments stripped, key parity), tool-plane/deployed loader parity. |
+| `tests/unit/test_features_loader.py` | create | TDD: YAML→JSON compile correctness (nesting, comments stripped, key parity), tool-plane/deployed loader parity. **R3:** unknown key warns, wrong type fails, enabled-feature-with-disabled-dependency fails compile with named dependency. |
 | `tests/unit/test_cli_features_sync.py` | create | TDD: `features sync` subcommand; auto-sync on init/refresh. |
 | `tests/unit/test_update_classification.py` | edit | TDD: `features.yaml` ⇒ `customizable`, `features.json` ⇒ `generated`; 3-way merge conflict case on the YAML. |
 | `tests/unit/test_smart_merge.py` | edit | TDD (m3): both files survive `render_pass1` + re-mint; toggle key names avoid codex tool-mapping vocabulary (`Read`/`Write`/etc.). |
@@ -297,10 +365,12 @@ which the stdlib-only deployed hooks read. A mtime staleness guard in
 Tasks: (1) failing test: `feature_enabled` returns True with no file → (2) implement
 loader in `hook_common.py` → (3) failing test: disabled key returns False → (4) dotted
 traversal → (5) failing compile test (YAML→JSON parity) → (6) `compile_features` in
-`init/features.py` → (7) failing CLI test → (8) `features sync` subcommand + auto-sync
-→ (9) failing staleness test → (10) mtime guard in `prompt_classifier` → (11) failing
-classification tests → (12) classification entries → (13) write `features.yaml`
-template + tree-doc keys → (14) full suite green, commit.
+`init/features.py` → (7) failing schema + dependency-validation tests (R3) → (8)
+schema + dependency table in `compile_features` → (9) failing CLI test → (10)
+`features sync` subcommand + auto-sync → (11) failing staleness test → (12) mtime
+guard in `prompt_classifier` → (13) failing classification tests → (14) classification
+entries → (15) write `features.yaml` template + tree-doc keys → (16) full suite green,
+commit.
 
 ### Phase 1 — F3 Stack-Aware Rules Packs
 
@@ -311,38 +381,43 @@ template + tree-doc keys → (14) full suite green, commit.
 | `src/harness/init/minting_engine.py` | edit | In `mint_workspace`: after boilerplate copy, prune `rules/packs/` to `common` + stack languages, installing into `.claude/rules/harness/` (namespaced); inline packs into agent personas via `@../rules/` includes on non-Claude platforms (M3). |
 | `src/harness/init/lang_aliases.py` | create | Language-aware alias map (m2): Linguist `Go`/`TypeScript` → pack dirs `golang/`/`typescript/`; ignores cdxgen framework names mixed into `stack`. |
 | `src/harness/init/cli.py` | edit | `domain-refresh` path re-runs pack sync so a stack change re-selects packs. |
-| `src/harness/update/manifest.py` | edit | Persist the stack filter in `render_context` (C4) so the update plane knows what was pruned. |
-| `src/harness/update/classification.py` + `src/harness/update/updater.py` | edit | `enumerate_source_producers`/`compute_verdicts` respect the persisted stack filter — pruned packs are never re-proposed as `new-file` (C4). |
+| `src/harness/update/manifest.py` | edit | Persist the stack filter in `render_context` (C4) **and record `.claude/rules/harness/` as an install target** (R1): path + producing pack set, so the update plane owns the mirror without walking outside `plugin_dir`. |
+| `src/harness/update/classification.py` + `src/harness/update/updater.py` | edit | `enumerate_source_producers`/`compute_verdicts` respect the persisted stack filter — pruned packs are never re-proposed as `new-file` (C4). **`updater` regenerates the install-target mirror** (re-prune + re-copy from template packs, never 3-way merged) on every update, so pack content updates reach deployed repos (R1). |
 | `tests/unit/test_rules_packs.py` | create | TDD: Python-only repo gets `common`+`python`, not `golang`; alias mapping; `paths` frontmatter present; toggle off ⇒ no packs. |
 | `tests/unit/test_minting_engine.py` | edit | TDD: pack pruning + namespacing integrated into mint flow. |
-| `tests/unit/test_update_updater.py` | edit | TDD (C4): pruned packs not re-delivered by `harness-wf update`. |
+| `tests/unit/test_update_updater.py` | edit | TDD (C4): pruned packs not re-delivered by `harness-wf update`. TDD (R1): updated pack content in the template tree DOES reach the deployed mirror on update; operator edits inside `.claude/rules/harness/` are overwritten (generated semantics, documented). |
 | `tests/integration/test_template_integrity.py` | edit | Packs ship intact in the template tree. |
 
 Tasks: (1) failing alias-map test → (2) `lang_aliases.py` → (3) failing pack-selection
 test → (4) pruning function → (5) failing mint integration test → (6) wire into
 `mint_workspace` → (7) failing update-plane test (pruned pack not re-proposed) → (8)
-persist stack filter + verdict logic → (9) failing refresh test → (10) CLI re-sync →
-(11) author pack content with `paths` frontmatter (content review) → (12) suite green,
-commit.
+persist stack filter + verdict logic → (9) failing install-target tests (R1: mirror
+regenerated on update, pack content updates delivered, operator edits overwritten) →
+(10) install-target record in `manifest.py` + regenerate step in `updater.py` → (11)
+failing refresh test → (12) CLI re-sync → (13) author pack content with `paths`
+frontmatter (content review) → (14) suite green, commit.
 
 ### Phase 2 — F5 Session Memory
 
 | File | Action | Rationale |
 |---|---|---|
-| `src/harness/templates/boilerplate/hooks/session_memory_save.py` | create | `Stop`-event hook (fires **per response** — C1): cheap idempotent overwrite of **this session's own file** `state/session_memory_<session>.json` (M6 — no shared-file races). Also wired to `PreCompact` so context survives compression. |
+| `src/harness/templates/boilerplate/hooks/session_memory_save.py` | create | `Stop`-event hook (fires **per response** — C1): cheap idempotent overwrite of **this session's own file** `state/session_memory_<session>.json` (M6 — no shared-file races). Also wired to `PreCompact` so context survives compression. Entries follow the **R4 schema**: `{schema_version, ts, session_id, kind: decision\|blocker\|pattern\|phase, summary ≤220, refs[]}`. |
 | `src/harness/templates/boilerplate/hooks/session_start.py` | create | `SessionStart`-event hook: merge per-session files into a digest at read time; inject with hard caps — **≤ 8 KB, ≤ 6 entries, ≤ 220 chars/summary, 30-day retention**; honor `HARNESS_SESSION_CONTEXT=off`. |
-| `src/harness/templates/boilerplate/hooks/hook_common.py` | edit | Shared digest-cap, retention-prune, and store-path helpers (one home, both hooks use them). |
+| `src/harness/templates/boilerplate/hooks/hook_common.py` | edit | Shared digest-cap, retention-prune, and store-path helpers (one home, both hooks use them). **Deterministic merge (R4):** recency-first, dedup on `(kind, normalized-summary)`, tie-break `(ts, session_id)` — byte-identical digest on re-read. **Phase-key helpers (R2):** `set_phase`/`get_phase`/`clear_phase` over `phase`, `phase_entered_at`, `phase_exit_artifact`. |
 | `src/harness/templates/boilerplate/hooks/hooks.json` | edit | Register `Stop`/`PreCompact` → `session_memory_save.py`, `SessionStart` → `session_start.py`. |
 | `src/harness/adapters/claude.py` + `src/harness/adapters/platform_profiles.json` | edit | Claude wiring is full support. Gemini: add `Stop`/`SessionStart` to `event_mappings` **only after verifying Gemini CLI equivalents exist**; codex/cursor/generic have no hook runtime — documented Claude-first matrix (M4). |
-| `tests/hooks/test_session_memory.py` | create | TDD: write→read round-trip, per-session isolation (two concurrent sessions don't clobber), cap + retention enforcement, corrupt-store tolerance, opt-out env, toggle-off ⇒ no-op. |
+| `tests/hooks/test_session_memory.py` | create | TDD: write→read round-trip, per-session isolation (two concurrent sessions don't clobber), cap + retention enforcement, corrupt-store tolerance, opt-out env, toggle-off ⇒ no-op. **R4:** schema_version present in every entry, deterministic digest (two reads ⇒ byte-identical), unknown-schema-version entries skipped not crashed. **R2:** phase keys round-trip via the helpers. |
 | `tests/integration/test_claude_plugin_contract.py` | edit | New hooks present + wired in minted plugin. |
 
-Tasks: (1) failing round-trip test → (2) `session_memory_save.py` minimal write → (3)
-failing concurrent-session isolation test → (4) per-session file naming → (5) failing
-cap/retention test → (6) cap logic in `hook_common` → (7) failing injection test → (8)
-`session_start.py` merge-at-read → (9) failing wiring test → (10) `hooks.json` +
-adapter mapping (Claude; gemini pending verification) → (11) opt-out + toggle-off tests
-+ gates → (12) suite green, commit.
+Tasks: (1) failing schema round-trip test (R4) → (2) `session_memory_save.py` minimal
+write with schema'd entries → (3) failing concurrent-session isolation test → (4)
+per-session file naming → (5) failing deterministic-merge test (R4: byte-identical
+re-read) → (6) merge + dedup in `hook_common` → (7) failing cap/retention test → (8)
+cap logic in `hook_common` → (9) failing phase-key tests (R2) → (10)
+`set_phase`/`get_phase`/`clear_phase` helpers → (11) failing injection test → (12)
+`session_start.py` merge-at-read → (13) failing wiring test → (14) `hooks.json` +
+adapter mapping (Claude; gemini pending verification) → (15) opt-out + toggle-off
+tests + gates → (16) suite green, commit.
 
 ### Phase 3 — F1 Continuous Learning
 
@@ -370,36 +445,45 @@ register → (12) suite green, commit.
 |---|---|---|
 | `src/harness/runtime/context_builder.py` | edit | **The SYSTEM STATE block is assembled here** (m1 — not in `prompt_classifier.py`): add the gate-status line for Branch B when `research_done` is unset. Steering layer. Dispatcher untouched — it stays routing-only (M5). |
 | `src/harness/templates/boilerplate/hooks/prompt_classifier.py` | edit | Only its inline fallback SYSTEM STATE needs the same line (m1). |
-| `src/harness/templates/boilerplate/hooks/pre_tool_use.py` | edit | **Enforcement layer (M1):** block the first source-file write in Branch B until `research_done` is set — same deterministic mechanism as the existing TDD gate, gated by `pipeline.dispatcher.gates.search_first`. |
+| `src/harness/templates/boilerplate/hooks/pre_tool_use.py` | edit | **Enforcement layer (M1, R2):** block the first source-file write **while persisted `phase=planning`** (read via Phase 2's `get_phase` — NOT per-prompt branch classification, which flips mid-workflow) until `research_done` is set — same deterministic mechanism as the existing TDD gate, gated by `pipeline.dispatcher.gates.search_first`. No persisted phase ⇒ passthrough. |
+| `src/harness/templates/boilerplate/skills/harness-brainstorming-plans/SKILL.md` | edit | **Phase producer (R2):** first act on entry sets `phase=planning` + `phase_entered_at` in the session store; sign-off/hand-off clears it (recording `phase_exit_artifact` = the design doc path). This is the minimal pulled-forward slice of follow-up #1. |
 | `src/harness/templates/boilerplate/skills/search-first/SKILL.md` | create | Structured research workflow. **Step 1 = proportionality check / waiver hatch:** known approach or well-trodden ground ⇒ one-line waiver, set `research_done`, exit. Otherwise: enumerate unknowns → research → ECC's **Adopt / Extend / Compose / Build** matrix → cited findings doc → set `research_done`. |
 | `src/harness/runtime/dispatcher.py` | edit | **Bias-to-D rule in the `classify_intent` prompt** (`:149`): uncertain B-vs-D ⇒ D; B reserved for genuinely open design work. (Prompt text only — routing logic untouched.) |
 | `src/harness/templates/boilerplate/hooks/prompt_classifier.py` | edit | Same bias-to-D rule in the fallback heuristics; D pre-flight guidance: missing context ⇒ ask the user 1–2 clarifying questions, never escalate to B. |
 | `src/harness/templates/boilerplate/skills.json` | edit | Register the skill. |
 | `tests/unit/test_context_builder.py` | edit | TDD: Branch B + no flag ⇒ gate line in SYSTEM STATE; flag set or toggle off ⇒ no line. |
 | `tests/unit/test_dispatcher.py` + `tests/unit/test_fallback_classify.py` | edit | TDD: ambiguous implement-style prompts classify D, not B; clear design-work prompts still classify B. |
-| `tests/unit/test_pre_tool_use_tdd.py` / `tests/hooks/test_search_first_gate.py` | edit / create | TDD: source write blocked in Branch B without flag; allowed with flag; toggle off ⇒ passthrough; waiver path sets flag; no interference with the TDD gate. |
+| `tests/unit/test_pre_tool_use_tdd.py` / `tests/hooks/test_search_first_gate.py` | edit / create | TDD: source write blocked while `phase=planning` without flag; allowed with flag; **classification flip mid-phase does NOT drop the gate; no persisted phase ⇒ passthrough (R2)**; toggle off ⇒ passthrough; waiver path sets flag; no interference with the TDD gate. |
 
 Tasks: (1) failing context-builder test → (2) gate line → (3) failing pre_tool_use
-block test → (4) enforcement check → (5) failing bias-to-D classification tests →
-(6) classifier prompt + fallback edits → (7) failing toggle-off + TDD-coexistence +
-waiver tests → (8) toggle wiring → (9) author SKILL.md (waiver step +
-adopt/extend/compose/build) + register → (10) suite green, commit.
+block test keyed to persisted phase (R2: includes classification-flip and no-phase
+cases) → (4) enforcement check via `get_phase` → (5) failing phase-producer test
+(brainstorming skill sets/clears phase) → (6) phase set/clear in skill text +
+contract test → (7) failing bias-to-D classification tests → (8) classifier prompt +
+fallback edits → (9) failing toggle-off + TDD-coexistence + waiver tests → (10)
+toggle wiring → (11) author SKILL.md (waiver step + adopt/extend/compose/build) +
+register → (12) suite green, commit.
 
 ### Phase 5 — F2 Adversary Pipeline
 
 | File | Action | Rationale |
 |---|---|---|
-| `src/harness/templates/boilerplate/skills/adversary-pipeline/SKILL.md` | create | **Tiered:** Tier 1 (default) = inline council-style role-lens review, no subagents. Tier 2 (opt-in) = three sequenced passes — Attacker → Defender → Auditor — each a **fresh general-purpose dispatch** with explicit "verify real files/state before asserting" instructions AND **hard budgets in the dispatch prompt** (≤30 tool calls, ≤12 files, smaller model for Attacker/Defender, degrade-gracefully clause). Borrows ECC council's role-lens table + GAN agents' prompt-defense preamble (this pipeline is novel, not an ECC port). Auditor writes `docs/adversary/YYYY-MM-DD-<topic>-risk-report.md`. |
+| `src/harness/templates/boilerplate/skills/adversary-pipeline/SKILL.md` | create | **Tiered:** Tier 1 (default) = inline council-style role-lens review, no subagents. Tier 2 (opt-in) = three sequenced passes — Attacker → Defender → Auditor — each a **fresh general-purpose dispatch** with explicit "verify real files/state before asserting" instructions and budgets (≤30 tool calls, ≤12 files, smaller model for Attacker/Defender, degrade-gracefully clause). **Before each dispatch the skill writes the budget sidecar (R5)** so the limits are enforced, not requested. Borrows ECC council's role-lens table + GAN agents' prompt-defense preamble (this pipeline is novel, not an ECC port). Auditor writes `docs/adversary/YYYY-MM-DD-<topic>-risk-report.md`. |
+| `src/harness/templates/boilerplate/hooks/pre_tool_use.py` | edit | **Budget backstop (R5):** when `state/budget_<session>.json` exists, count tool calls / file reads against its limits; past the limit ⇒ block (exit 2) with "budget reached — summarize what you have and finish." No sidecar ⇒ passthrough (zero cost to normal sessions). Stale sidecars pruned by the Phase 2 retention helper. |
 | `src/harness/templates/boilerplate/scripts/check_risk_report.py` | create | Staleness helper invoked by skill text: risk report exists and is newer than the design doc (mtime compare). No dispatcher involvement — the `@reviewer` dispatch point doesn't exist there (C3). |
 | `src/harness/templates/boilerplate/skills/harness-brainstorming-plans/SKILL.md` + `.../harness-requesting-code-review/SKILL.md` | edit | **Skill-text gate (C3):** before sign-off/hand-off, when `pipeline.dispatcher.gates.adversary_exit` is on, require a fresh risk report via `check_risk_report.py`. Advisory semantics, accepted in writing. |
 | `src/harness/templates/boilerplate/agents/adversary.md` | edit | Re-scope persona as the Auditor role description referenced by the pipeline (not a standalone single pass). |
 | `src/harness/templates/boilerplate/skills.json` | edit | Register the skill. |
 | `tests/unit/test_adversary_pipeline.py` | create | TDD: report path/naming, staleness comparison vs design doc mtime, toggle-off ⇒ checker reports pass. |
+| `tests/hooks/test_dispatch_budget.py` | create | TDD (R5): counter increments per tool call; block past limit with summarize-and-finish message; no sidecar ⇒ passthrough; corrupt sidecar ⇒ fail-open passthrough; per-session isolation (one session's budget never throttles another). |
 | `tests/integration/test_claude_plugin_contract.py` | edit | New skill present in minted plugin; gate text present in the two edited skills. |
 
 Tasks: (1) failing staleness-checker test → (2) `check_risk_report.py` → (3) failing
-toggle-off test → (4) toggle wiring → (5) author pipeline SKILL.md + persona edit →
-(6) add gate text to the two skills + contract test → (7) suite green, commit.
+budget-backstop tests (R5: increment, block, no-sidecar passthrough, fail-open) →
+(4) sidecar counting + block in `pre_tool_use.py` → (5) failing toggle-off test →
+(6) toggle wiring → (7) author pipeline SKILL.md (writes sidecar before each Tier-2
+dispatch) + persona edit → (8) add gate text to the two skills + contract test →
+(9) suite green, commit.
 
 ### Cross-phase invariants
 - After every phase: `python3 -m pytest` and `python3 -m pytest tests/integration`
@@ -414,6 +498,10 @@ toggle-off test → (4) toggle wiring → (5) author pipeline SKILL.md + persona
   F5/F1 Claude-first (gemini pending event verification; codex/cursor/generic no hook
   runtime).
 - Each phase ends with a version-stamped commit; phases are independently revertible.
+- **Dependency edges added by R1/R2 (Section 5):** Phase 1's update-plane work
+  implements the install-target mechanism specced here (no further design needed);
+  Phase 4's gate consumes Phase 2's phase keys — Phase 4 cannot start before Phase 2's
+  R2 helpers land. Phase ordering F3→F5→F1→F4→F2 already satisfies both.
 
 ---
 
@@ -434,6 +522,12 @@ above where applicable, deferred where noted.
    detection. Out of scope for this design — needs its own HITL pass — but Phases 2/4
    should be built with this consumer in mind (state keys: `phase`, `phase_entered_at`,
    `phase_exit_artifact`).
+   **Amended per R2 (Section 5):** the *persistence half* is no longer deferred — the
+   three state keys, the `set_phase`/`get_phase`/`clear_phase` helpers (Phase 2), and
+   the brainstorming skill setting/clearing `phase` (Phase 4) ship in this design,
+   because F4's deterministic gate cannot key off per-prompt classification. What
+   remains deferred to Phase 6: exit-condition *detection* (artifact-based phase
+   completion) and shrinking the classifier's role.
 
 2. **Subagent usage guardrails (adopted into Phase 5).** Observed one unbudgeted
    review agent consume ~194k tokens / 97 tool calls / 24 min. All agent dispatches
@@ -746,3 +840,70 @@ everything the harness currently injects. Both need numbers in Section 3, not ad
 7. Add a platform-support matrix for F5/F1 (Claude: yes; gemini: pending event-mapping
    verification; codex/cursor/generic: no hook runtime today) instead of "other adapters
    if event names differ" (M4).
+
+---
+
+## Section 5 — Second-Round Review Amendments (R1–R5)
+
+*External review received 2026-06-10, after the Section 4 revisions were folded in.
+Verdict: "Mostly yes… I would not implement it unchanged. The rules-pack update
+ownership and Branch-B state tracking are architectural blockers. Toggle
+schema/dependencies, memory data format, and Tier-2 budget enforcement also need
+specification." All five resolved below and folded into Sections 1–3 inline (tagged
+R1–R5); budget enforcement choice HITL-approved 2026-06-10.*
+
+### R1 — Rules-pack update ownership (blocker) → generated-mirror install target
+
+The post-C4 design still contradicted itself: packs install to
+`.claude/rules/harness/` (outside the plugin dir), the manifest walks `plugin_dir`
+only, and the C4 fix only stopped re-delivery of *pruned* packs — nobody owned
+*updates to installed* packs. **Resolution:** the installed dir is a **generated
+mirror** of the in-manifest template packs, recorded in `render_context` as an
+**install target**, regenerated (re-prune + re-copy, never 3-way merged, never
+operator-edited) on every `init` / `update` / `domain-refresh`. Rejected alternative:
+extending the manifest walk to external paths (generalizes the C4 failure mode).
+Folded into: Phase 1 narrative + table (`manifest.py`, `updater.py`,
+`test_update_updater.py`).
+
+### R2 — Branch-B state tracking (blocker) → sticky-phase persistence pulled forward
+
+F4's deterministic gate was keyed to "Branch B," a per-prompt classification that
+observably flips mid-workflow — spurious blocks and silent gate evaporation.
+**Resolution:** partially un-defer follow-up #1. Phase 2 ships the
+`phase`/`phase_entered_at`/`phase_exit_artifact` keys + helpers in the session store;
+Phase 4 keys the `pre_tool_use` block off **persisted `phase=planning`** (set/cleared
+by the brainstorming skill) and treats classification as advisory. Only
+exit-condition detection remains deferred to Phase 6. Folded into: Phase 2 + Phase 4
+narratives and tables, follow-up #1.
+
+### R3 — Toggle schema/dependencies → compile-time validation
+
+Features depend on each other (F1 and F4 both consume F5's store) but `features.yaml`
+had no schema and no dependency model — disabling `services.session_memory` silently
+broke an enabled `gates.search_first`. **Resolution:** `compile_features` validates a
+declared key schema (unknown keys warn, wrong types fail) and a dependency table
+(`gates.search_first → services.session_memory`,
+`learning_extraction → services.session_memory`); unmet dependency **fails
+`features sync`** with an explicit message — no silent auto-degrade. Read-time
+fail-open unchanged. Folded into: cross-cutting toggles section, Phase 0 table.
+
+### R4 — Memory data format → versioned entry schema + deterministic merge
+
+Caps had numbers but entries had no shape and "merged at read time" had no algorithm.
+**Resolution:** entry schema
+`{schema_version, ts, session_id, kind: decision|blocker|pattern|phase,
+summary ≤220, refs[]}`; deterministic merge (recency-first, dedup on
+`(kind, normalized-summary)`, tie-break `(ts, session_id)`) producing byte-identical
+digests on re-read; unknown `schema_version` skipped, not crashed. Folded into:
+Phase 2 narrative and table.
+
+### R5 — Tier-2 budget enforcement → pre_tool_use budget sidecar (HITL choice)
+
+"Hard budgets written into the dispatch prompt" were directives an agent may ignore —
+the observed 194k-token run was the advisory model failing. **Resolution (chosen over
+advisory-accepted-in-writing):** the skill writes `state/budget_<session>.json` before
+each Tier-2 dispatch; `pre_tool_use` counts tool calls / file reads and hard-blocks
+past the limit ("summarize what you have and finish", exit 2) — the same deterministic
+layer as the TDD and F4 gates. No sidecar ⇒ passthrough; corrupt sidecar ⇒ fail-open.
+The prompt clause stays as graceful steering before the wall. Folded into: Phase 5
+narrative, table (`pre_tool_use.py`, `test_dispatch_budget.py`), tasks.
