@@ -49,3 +49,49 @@ def capped_text(value: str, max_chars: int) -> str:
     if len(value) <= max_chars:
         return value
     return value[:max_chars - 3] + "..."
+
+
+# ---------------------------------------------------------------------------
+# Feature-toggle helpers (Phase 0 – ECC port)
+# Stdlib only; reads compiled features.json (never features.yaml).
+# Fail-open semantics everywhere: missing file / corrupt JSON / missing key /
+# traversal through a non-dict all return True (enabled).
+# ---------------------------------------------------------------------------
+
+def load_features(plugin_root) -> dict:
+    """Read <plugin_root>/features.json and return a dict.
+
+    Missing or corrupt file → returns {}.
+    """
+    try:
+        features_path = Path(plugin_root) / "features.json"
+        return json.loads(features_path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def feature_enabled(dotted_path: str, plugin_root, default: bool = True) -> bool:
+    """Traverse *dotted_path* in features.json and return a bool.
+
+    Semantics (fail-open):
+      - Missing file, corrupt JSON, missing key, traversal through non-dict → True
+      - Boolean leaf → its value
+      - Dict node → value of its "enabled" key if present, else True
+    """
+    data = load_features(plugin_root)
+    node = data
+    for part in dotted_path.split("."):
+        if not isinstance(node, dict):
+            return True  # can't traverse — fail open
+        if part not in node:
+            return True  # missing key — fail open
+        node = node[part]
+
+    if isinstance(node, bool):
+        return node
+    if isinstance(node, dict):
+        enabled = node.get("enabled", True)
+        if isinstance(enabled, bool):
+            return enabled
+        return True  # non-bool "enabled" value — fail open
+    return True  # unexpected leaf type — fail open

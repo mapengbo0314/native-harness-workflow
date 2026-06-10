@@ -80,6 +80,7 @@ from pathlib import Path
 from harness.adapters import get_adapter
 from harness.domain.seed import run_domain_init, run_domain_refresh, _platform_paths
 from harness.domain.compiler import run_domain_compile
+from harness.init.features import compile_features
 
 def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
     required = [
@@ -230,9 +231,33 @@ def _write_update_metadata(
     print("[HARNESS] Update ownership manifest stamped.")
 
 
+def run_features_sync(project_path: str) -> None:
+    """Compile ``features.yaml`` -> ``features.json`` for the given plugin root.
+
+    Exposed as ``harness-wf features sync --project-path <path>``.
+    """
+    plugin_root = Path(project_path)
+    result = compile_features(plugin_root)
+    if result is not None:
+        print(f"[HARNESS] features.json compiled -> {result}")
+    else:
+        print(f"[HARNESS] No features.yaml found at {plugin_root}; nothing to compile.")
+
+
+def run_domain_refresh_with_sync(
+    project_path: str,
+    *,
+    platform: str = None,
+) -> None:
+    """Run domain-refresh then sync features.yaml -> features.json."""
+    run_domain_refresh(project_path, platform=platform)
+    compile_features(Path(project_path))
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Initialize or update a Harness agent workspace.")
-    parser.add_argument("command", choices=["init", "update", "domain-init", "domain-refresh", "domain-compile"], help="Command to run")
+    parser.add_argument("command", choices=["init", "update", "domain-init", "domain-refresh", "domain-compile", "features"], help="Command to run")
+    parser.add_argument("subcommand", nargs="?", help="Subcommand (e.g. 'sync' for features)")
     parser.add_argument("--project-path", required=True, help="Path to the repository")
     parser.add_argument("--bundle", help="Path to an existing CodeGraph bundle (.codegraph directory)")
     parser.add_argument("--check", action="store_true", help="(update) Dry-run: report stale/edited/conflicting files, write nothing")
@@ -456,7 +481,17 @@ def main():
         return
 
     if args.command == "domain-refresh":
-        run_domain_refresh(args.project_path, platform=_domain_platform)
+        run_domain_refresh_with_sync(args.project_path, platform=_domain_platform)
+        langfuse_context.flush()
+        return
+
+    if args.command == "features":
+        sub = getattr(args, "subcommand", None)
+        if sub == "sync":
+            run_features_sync(args.project_path)
+        else:
+            print(f"[HARNESS] Unknown features subcommand: {sub!r}. Use 'sync'.")
+            sys.exit(1)
         langfuse_context.flush()
         return
 
