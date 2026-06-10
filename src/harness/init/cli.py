@@ -19,15 +19,20 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Disable the Langfuse SDK when no credentials are present so it never tries
-# to export spans and produce 401 noise.  Credentials can be supplied as either:
+# to export spans and produce auth-warning noise.  Credentials can be supplied
+# as either:
 #   - HARNESS_GLOBAL_INGESTION_BASE64 (OTEL Authorization header, base64 pk:sk)
 #   - LANGFUSE_PUBLIC_KEY + LANGFUSE_SECRET_KEY  (Python SDK direct)
-_has_langfuse_creds = (
-    os.environ.get("HARNESS_GLOBAL_INGESTION_BASE64")
-    or (os.environ.get("LANGFUSE_SECRET_KEY") and os.environ.get("LANGFUSE_PUBLIC_KEY"))
-)
-if not _has_langfuse_creds:
-    os.environ.setdefault("LANGFUSE_ENABLED", "false")
+def _disable_langfuse_unless_configured(environ=os.environ) -> None:
+    has_creds = (
+        environ.get("HARNESS_GLOBAL_INGESTION_BASE64")
+        or (environ.get("LANGFUSE_SECRET_KEY") and environ.get("LANGFUSE_PUBLIC_KEY"))
+    )
+    if not has_creds:
+        environ.setdefault("LANGFUSE_ENABLED", "false")          # harness compat gate (langfuse_compat.py)
+        environ.setdefault("LANGFUSE_TRACING_ENABLED", "false")  # langfuse v3+/v4 SDK kill-switch
+
+_disable_langfuse_unless_configured()
 
 from langfuse import observe
 from harness.runtime.langfuse_compat import langfuse_context
@@ -46,6 +51,21 @@ def _post_mint_domain_init(project_path, platform: str, *, run_init=None):
     return run_init(project_path, platform=platform)
 
 
+def _domain_next_steps(platform: str) -> str:
+    """Post-init guidance for the project-ops manifest: where to drop product
+    docs and how to compile them into domain.json. Paths come from the same
+    rule the scaffold used (seed._platform_paths)."""
+    _, reference_rel = _platform_paths(platform)
+    return (
+        "   The project-ops manifest (domain.json) was scaffolded with your detected stack.\n"
+        "   Two steps to finish it:\n"
+        f"   a) Drop your product docs (PRD, direction, business goals) into {reference_rel}/\n"
+        f"   b) Run: harness-wf domain-compile --project-path . --platform {platform}\n"
+        "      This distills them into domain.json's `business` section, which agents\n"
+        "      pull via the `domain` MCP tool (domain_ops). Re-run it whenever the docs change."
+    )
+
+
 def _platform_name(platform_choice: str) -> str:
     return {
         "1": "gemini",
@@ -58,7 +78,7 @@ def _platform_name(platform_choice: str) -> str:
 
 from pathlib import Path
 from harness.adapters import get_adapter
-from harness.domain.seed import run_domain_init, run_domain_refresh, _DEFAULT_MANIFEST_REL, _DEFAULT_REFERENCE_REL
+from harness.domain.seed import run_domain_init, run_domain_refresh, _platform_paths
 from harness.domain.compiler import run_domain_compile
 
 def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
@@ -442,15 +462,10 @@ def main():
 
     if args.command == "domain-compile":
         proj = Path(args.project_path)
-        if _domain_platform:
-            from harness.adapters.profile import load_profile as _lp
-            _p = _lp(_domain_platform)
-            _root = _p.domain_root_rel()
-            manifest_path = proj / _root / "domain" / "domain.json"
-            reference_dir = proj / _p.config_dir / "docs" / "reference"
-        else:
-            manifest_path = proj / _DEFAULT_MANIFEST_REL
-            reference_dir = proj / _DEFAULT_REFERENCE_REL
+        # Same path-resolution rule as domain-init/refresh (seed._platform_paths).
+        manifest_rel, reference_rel = _platform_paths(_domain_platform)
+        manifest_path = proj / manifest_rel
+        reference_dir = proj / reference_rel
         run_domain_compile(
             proj,
             manifest_path=manifest_path,
@@ -731,8 +746,10 @@ def main():
     # Scaffold the project-ops manifest + reference docs dir (best-effort).
     # Thread the active platform so the manifest lands under the right config
     # dir (.claude/harness-wf-plugin for claude, .gemini/.cursor/.codex else).
+    domain_scaffolded = False
     try:
         _post_mint_domain_init(args.project_path, adapter.get_platform_name())
+        domain_scaffolded = True
     except Exception as e:
         print(f"[HARNESS] Warning: domain scaffold skipped: {e}")
 
@@ -751,7 +768,15 @@ def main():
     print(f"\n\n{counter}. [ACTION REQUIRED] Context Automation:")
     print("   - Run npx -y @colbymchenry/codegraph init --index in the root of your project.")
     counter += 1
-        
+
+    if domain_scaffolded:
+        print(f"\n{counter}. [ACTION REQUIRED] Project-Ops Manifest:")
+        try:
+            print(_domain_next_steps(adapter.get_platform_name()))
+        except Exception:
+            print("   Drop product docs into your platform's docs/reference dir, then run harness-wf domain-compile.")
+        counter += 1
+
     print(f"\n{'='*60}\n")
     langfuse_context.flush()
 

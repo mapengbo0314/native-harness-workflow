@@ -116,3 +116,16 @@ def test_post_mint_domain_init_is_platform_aware(monkeypatch, tmp_path):
     assert captured["project_path"] == str(tmp_path)
     # platform threaded through so seed.py resolves the .gemini location
     assert captured["kwargs"].get("platform") == "gemini"
+
+
+def test_domain_next_steps_points_at_platform_reference_dir():
+    msg = cli._domain_next_steps("claude")
+    assert ".claude/docs/reference" in msg
+    assert "harness-wf domain-compile" in msg
+    assert "--platform claude" in msg
+
+
+def test_domain_next_steps_for_embedded_platform():
+    msg = cli._domain_next_steps("gemini")
+    assert ".gemini/docs/reference" in msg
+    assert "--platform gemini" in msg
