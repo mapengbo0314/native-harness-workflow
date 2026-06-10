@@ -61,7 +61,7 @@ second-round review — R1–R5)*
 - [ ] Failing test: ambiguous implement-style prompts ⇒ Branch D, clear design work ⇒ B (`tests/unit/test_dispatcher.py`, `tests/unit/test_fallback_classify.py`)
 - [ ] Implement bias-to-D rule in `classify_intent` prompt (`runtime/dispatcher.py:149`) + `prompt_classifier` fallback; D pre-flight asks 1–2 clarifying questions instead of escalating to B
 - [ ] Failing test: toggle off ⇒ passthrough; waiver path sets `research_done`; wire toggle
-- [ ] Author `skills/search-first/SKILL.md` — step 1 proportionality waiver, then Adopt/Extend/Compose/Build matrix; register in `skills.json`
+- [ ] Author `skills/search-first/SKILL.md` — step 1 proportionality waiver, then Adopt/Extend/Compose/Build matrix, then **post-research depth checkpoint** (HITL `AskUserQuestion`: quick implementation w/ findings attached + clear `phase`, vs full planning pipeline; matrix outcome = recommended default); register in `skills.json` + contract test for checkpoint text
 - [ ] Suite green; commit
 
 ## Phase 5 — F2 Adversary Pipeline (tiered + budgeted)
@@ -74,5 +74,6 @@ second-round review — R1–R5)*
 - [ ] Register skill; update `tests/integration/test_claude_plugin_contract.py`
 - [ ] Suite green; commit
 
-## Deferred follow-ups (need own design docs — see "Follow-ups" in design doc)
-- [ ] Sticky phase state machine, remaining half ("Phase 6" candidate): exit-condition *detection* (artifact-based phase completion) + shrinking the classifier's role. (Amended per R2: the persistence half — phase keys, helpers, brainstorming-skill set/clear — is now in scope, in Phases 2/4 above.)
+## Phase 6 — Sticky Phase State Machine ⚠️ DEFERRED (outline in design doc Section 3; needs own HITL design pass — do NOT implement from the outline)
+- [ ] Run its own design pass (Sections 0–4) covering: artifact-based exit-condition detection (the C3 gap), classifier shrink ("still in phase?" instead of re-classification), misroute suppression + user override, stale-phase reaping
+- Persistence half already in scope per R2: phase keys + helpers (Phase 2), brainstorming-skill set/clear (Phase 4)

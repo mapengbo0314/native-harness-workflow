@@ -151,6 +151,16 @@ already-decided implementations through a research pipeline:
   check — if the user already knows the approach or the ground is well-trodden,
   record a one-line research waiver, set `research_done`, and exit (~30 seconds,
   no web research).
+- **Post-research depth checkpoint (HITL):** once the research pass completes and the
+  Adopt/Extend/Compose/Build matrix has an outcome, the skill asks the user via
+  `AskUserQuestion`: proceed with **quick implementation** (hand off to direct TDD
+  execution with the research findings attached — Branch D semantics, no design doc)
+  or the **full planning pipeline** (design doc Sections 0–3, adversary review,
+  sign-off gates). The matrix outcome sets the recommended default — Adopt/Extend
+  usually ⇒ quick, Compose/Build ⇒ full planning. This makes proportionality a *user
+  decision at the moment the evidence exists*, rather than only a classifier guess at
+  routing time; the bias-to-D rule and the waiver hatch remain the cheap exits before
+  research ever starts.
 
 ### Phase 5 — F2 Adversary Pipeline (multi-agent, tiered + budgeted)
 A stress-test skill against a design doc, writing a prioritized risk report to
@@ -447,7 +457,7 @@ register → (12) suite green, commit.
 | `src/harness/templates/boilerplate/hooks/prompt_classifier.py` | edit | Only its inline fallback SYSTEM STATE needs the same line (m1). |
 | `src/harness/templates/boilerplate/hooks/pre_tool_use.py` | edit | **Enforcement layer (M1, R2):** block the first source-file write **while persisted `phase=planning`** (read via Phase 2's `get_phase` — NOT per-prompt branch classification, which flips mid-workflow) until `research_done` is set — same deterministic mechanism as the existing TDD gate, gated by `pipeline.dispatcher.gates.search_first`. No persisted phase ⇒ passthrough. |
 | `src/harness/templates/boilerplate/skills/harness-brainstorming-plans/SKILL.md` | edit | **Phase producer (R2):** first act on entry sets `phase=planning` + `phase_entered_at` in the session store; sign-off/hand-off clears it (recording `phase_exit_artifact` = the design doc path). This is the minimal pulled-forward slice of follow-up #1. |
-| `src/harness/templates/boilerplate/skills/search-first/SKILL.md` | create | Structured research workflow. **Step 1 = proportionality check / waiver hatch:** known approach or well-trodden ground ⇒ one-line waiver, set `research_done`, exit. Otherwise: enumerate unknowns → research → ECC's **Adopt / Extend / Compose / Build** matrix → cited findings doc → set `research_done`. |
+| `src/harness/templates/boilerplate/skills/search-first/SKILL.md` | create | Structured research workflow. **Step 1 = proportionality check / waiver hatch:** known approach or well-trodden ground ⇒ one-line waiver, set `research_done`, exit. Otherwise: enumerate unknowns → research → ECC's **Adopt / Extend / Compose / Build** matrix → cited findings doc → set `research_done` → **depth checkpoint (HITL):** `AskUserQuestion` — quick implementation (direct TDD, findings attached, clear `phase`) vs full planning pipeline (continue to design doc); matrix outcome sets the recommended default. |
 | `src/harness/runtime/dispatcher.py` | edit | **Bias-to-D rule in the `classify_intent` prompt** (`:149`): uncertain B-vs-D ⇒ D; B reserved for genuinely open design work. (Prompt text only — routing logic untouched.) |
 | `src/harness/templates/boilerplate/hooks/prompt_classifier.py` | edit | Same bias-to-D rule in the fallback heuristics; D pre-flight guidance: missing context ⇒ ask the user 1–2 clarifying questions, never escalate to B. |
 | `src/harness/templates/boilerplate/skills.json` | edit | Register the skill. |
@@ -461,8 +471,9 @@ cases) → (4) enforcement check via `get_phase` → (5) failing phase-producer 
 (brainstorming skill sets/clears phase) → (6) phase set/clear in skill text +
 contract test → (7) failing bias-to-D classification tests → (8) classifier prompt +
 fallback edits → (9) failing toggle-off + TDD-coexistence + waiver tests → (10)
-toggle wiring → (11) author SKILL.md (waiver step + adopt/extend/compose/build) +
-register → (12) suite green, commit.
+toggle wiring → (11) author SKILL.md (waiver step + adopt/extend/compose/build +
+post-research depth checkpoint; quick path clears `phase` so the gate releases) +
+register + contract test for checkpoint text → (12) suite green, commit.
 
 ### Phase 5 — F2 Adversary Pipeline
 
@@ -484,6 +495,29 @@ budget-backstop tests (R5: increment, block, no-sidecar passthrough, fail-open) 
 (6) toggle wiring → (7) author pipeline SKILL.md (writes sidecar before each Tier-2
 dispatch) + persona edit → (8) add gate text to the two skills + contract test →
 (9) suite green, commit.
+
+### Phase 6 — Sticky Phase State Machine ⚠️ DEFERRED — outline only, not approved scope
+
+*Status: NOT part of this design's approved scope. Needs its own HITL design pass
+(Sections 0–4) before any implementation. Recorded here so the dependency surface is
+visible; do not implement from this outline.*
+
+What this design already ships (the persistence half, per R2): the
+`phase`/`phase_entered_at`/`phase_exit_artifact` keys + helpers (Phase 2), the
+brainstorming skill setting/clearing `phase` (Phase 4), and the F4 gate as the first
+consumer. What Phase 6 would add on top:
+
+| Concern | Sketch |
+|---|---|
+| **Exit-condition detection** | Artifact-based phase completion — the gap Section 4 C3 identified: e.g. `phase=planning` exits when a design doc exists with all sections approved + (if `gates.adversary_exit` on) a fresh risk report; `phase=tdd-execution` exits on suite-green + commit. Detection lives in the deployed plane (`prompt_classifier`/`context_builder` reading artifacts), never the dispatcher. |
+| **Classifier shrink** | While a persisted phase is active, the classifier's job collapses to "still in phase? did an exit condition fire?" instead of full re-classification — eliminating the observed B → E → C mid-workflow flips at the source rather than just gating around them (F4's R2 keying is the workaround until then). |
+| **Misroute repair** | A dispatch directive issued mid-skill (observed during this design session) should be suppressed when it contradicts the active phase; an explicit user override (`/phase exit`-style escape) must always win. |
+| **Stale-phase hygiene** | `phase_entered_at` + the Phase 2 retention helpers reap abandoned phases (e.g. > 7 days) so a crashed session can't leave a permanent gate. |
+
+Open questions for its design pass: which artifacts constitute "complete" per phase;
+whether exit detection is advisory (SYSTEM STATE line) or enforcing (`pre_tool_use`);
+interaction with multiple concurrent sessions holding different phases; whether Branch
+D/TDD execution gets its own phase or stays unphased.
 
 ### Cross-phase invariants
 - After every phase: `python3 -m pytest` and `python3 -m pytest tests/integration`
@@ -527,7 +561,9 @@ above where applicable, deferred where noted.
    the brainstorming skill setting/clearing `phase` (Phase 4) ship in this design,
    because F4's deterministic gate cannot key off per-prompt classification. What
    remains deferred to Phase 6: exit-condition *detection* (artifact-based phase
-   completion) and shrinking the classifier's role.
+   completion) and shrinking the classifier's role. An outline of the deferred half
+   is recorded as Section 3 "Phase 6" (marked deferred — outline only, needs its own
+   HITL design pass).
 
 2. **Subagent usage guardrails (adopted into Phase 5).** Observed one unbudgeted
    review agent consume ~194k tokens / 97 tool calls / 24 min. All agent dispatches
