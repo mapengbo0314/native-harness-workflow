@@ -15,6 +15,8 @@ project_root = str(Path(__file__).parent.parent.parent)
 sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, "src"))
 
+from tests._env_utils import telemetry_safe_env  # noqa: E402
+
 from harness.runtime.dispatcher import OrchestratorDispatcher
 from harness.init.discovery_engine import query_llm
 from harness.init.minting_engine import mint_workspace
@@ -288,7 +290,8 @@ class MockHost:
         """Run a hook via subprocess to simulate real Claude Code behavior."""
         hook_name = self.HOOK_ALIASES.get(hook_module, hook_module)
         hook_path = self.plugin_dir / "hooks" / f"{hook_name}.py"
-        env = os.environ.copy()
+        # Telemetry-safe: sandbox prompts must never export real Langfuse traces.
+        env = telemetry_safe_env()
         env["CLAUDE_PLUGIN_ROOT"] = str(self.plugin_dir)
         env["CLAUDE_PROJECT_DIR"] = str(self.workspace_root)
         

@@ -49,6 +49,7 @@ from pathlib import Path
 
 import pytest
 
+from tests._env_utils import telemetry_safe_env
 from tests.e2e._mint_helpers import mint_platform
 
 # ---------------------------------------------------------------------------
@@ -192,12 +193,11 @@ def _run_hook(
     The appropriate <PLATFORM>_PLUGIN_ROOT env var is exported so that
     hook_common.resolve_plugin_root() works correctly.
     """
-    import os
-
-    env = os.environ.copy()
+    # Telemetry-safe: disables langfuse (both flag generations) AND strips the
+    # inherited credentials so the hook subprocess cannot export traces.
+    env = telemetry_safe_env()
     env[_PLUGIN_ROOT_ENV_VAR[platform]] = str(plugin_root)
-    # Disable langfuse/API calls so prompt_classifier stays headless
-    env["LANGFUSE_ENABLED"] = "false"
+    # Disable API calls so prompt_classifier stays headless
     env["ANTHROPIC_API_KEY"] = ""
     env["GEMINI_API_KEY"] = ""
     env["HARNESS_MOCK_LLM"] = "1"
