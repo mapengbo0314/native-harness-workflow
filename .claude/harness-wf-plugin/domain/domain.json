@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "_comment": "Project-ops manifest. Fill environments/test/deploy/infra; run `harness-wf domain-compile` to populate `business`.",
+  "stack": ["Python"],
+  "environments": {
+    "local": "harness-wf init --project-path <target-repo>  (installed via `uv tool install`; mints the orchestrator plugin into a target project. NOT `uv run` from inside a target repo — its venv may hold a stale harness-wf shim)"
+  },
+  "test": {
+    "unit": "python3 -m pytest",
+    "integration": "python3 -m pytest tests/integration"
+  },
+  "deploy": {
+    "command": "bump version in pyproject.toml + CHANGELOG.md, then: git tag vX.Y.Z && git push --tags && uv build && uv publish",
+    "update-deployed": "uv tool upgrade harness-wf && harness-wf update --project-path ."
+  },
+  "infra": {},
+  "references": {
+    "docs/RELEASING.md": "Two-plane release/update contract (tool plane vs deployed plane)",
+    ".claude/docs/designs/2026-06-07-domain-ops-manifest-design.md": "This domain system's design + self-review",
+    ".claude/docs/reference/domain.schema.md": "domain.json schema reference"
+  },
+  "business": {}
+}
