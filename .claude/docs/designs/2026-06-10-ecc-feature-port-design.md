@@ -109,6 +109,19 @@ The `search-first` skill performs the research and sets the flag, and adopts ECC
 **Adopt / Extend / Compose / Build decision matrix** (the highest-value part of ECC's
 version — it prevents writing code at all when adoption wins).
 
+**Proportionality guards (post-review follow-up)** — the gate must not drag simple,
+already-decided implementations through a research pipeline:
+- **Bias-to-D intent classification:** the `classify_intent` prompt
+  (`src/harness/runtime/dispatcher.py:149`) and the `prompt_classifier` fallback
+  heuristics are updated: *when uncertain between Branch B (planning) and Branch D
+  (direct implementation), choose D*. Branch B is for genuinely open design work;
+  D's pre-flight handles missing context by asking the user 1–2 clarifying questions
+  (`AskUserQuestion`), never by escalating into the research pipeline.
+- **Waiver escape hatch:** step 1 of the `search-first` skill is a proportionality
+  check — if the user already knows the approach or the ground is well-trodden,
+  record a one-line research waiver, set `research_done`, and exit (~30 seconds,
+  no web research).
+
 ### Phase 5 — F2 Adversary Pipeline (multi-agent, tiered + budgeted)
 A stress-test skill against a design doc, writing a prioritized risk report to
 `docs/adversary/`. **Tiered (post-review follow-up):** running the deep multi-agent
@@ -140,12 +153,19 @@ Revisions per Section 4:
 Every one of the five features is independently toggleable, following the master
 configuration tree in `harness_features_tree.md`. Mechanics:
 
-- **Config file:** a `features.json` is minted into the target repo's plugin directory
-  from a tool-plane template (JSON, not YAML — deployed hooks are stdlib-only). It
-  mirrors the tree's nesting (`pipeline` / `wrappers` / `services` / `agents` /
-  `skills` / `hooks`). The update manifest classifies it **`customizable`** (M2 — the
-  real classification; "user-owned" doesn't exist): 3-way merge preserves operator
-  toggle edits while still delivering new toggle keys from later phases.
+- **Two-file toggle flow (operator YAML → compiled JSON):** the operator-facing file
+  is a minted **`features.yaml`** — readable, commented, mirrors the tree's nesting
+  (`pipeline` / `wrappers` / `services` / `agents` / `skills` / `hooks`). Deployed
+  hooks are stdlib-only and can't parse YAML, so a tool-plane compile step —
+  **`harness-wf features sync`** (also auto-run during `init` / `update` /
+  `domain-refresh`) — compiles it to **`features.json`**, the machine-read artifact
+  the loaders consume. Operators edit the YAML, never the JSON.
+- **Staleness guard:** the deployed `prompt_classifier` compares mtimes (stdlib) and
+  injects a one-line warning when `features.yaml` is newer than `features.json` —
+  a toggled-but-unsynced file is never silently ignored.
+- **Classification (M2):** `features.yaml` ⇒ **`customizable`** (3-way merge preserves
+  operator toggles while delivering new keys from later phases); `features.json` ⇒
+  **`generated`** (always recompiled, never hand-merged).
 - **Loader:** one shared `load_features()` helper in the deployed plane's
   `hook_common.py` (already the shared-utility home for hooks), plus a tool-plane
   twin in `src/harness/init/` for init-time decisions. Lookup is by dotted path,
@@ -158,8 +178,9 @@ configuration tree in `harness_features_tree.md`. Mechanics:
   - `hooks.session_end.learning_extraction` + `skills.continuous-learning` — F1
   - `pipeline.dispatcher.gates.search_first` + `skills.search-first` — F4
   - `pipeline.dispatcher.gates.adversary_exit` + `skills.adversary-pipeline` — F2
-- `harness_features_tree.md` remains the human-readable (YAML) source of truth for the
-  tree's shape; the minted `features.json` is the machine-read instance.
+- `harness_features_tree.md` (this repo) remains the master documentation of the
+  tree's shape; the minted per-repo `features.yaml` is the operator's toggle surface;
+  the compiled `features.json` is the machine-read instance.
 
 ### The closed loop
 `domain.json` stays the spine. F3 reads it at init; F5/F1 write session knowledge back
@@ -172,7 +193,7 @@ TDD-tested, toggleable via `features.json`, and accounted for in the update plan
 2. Digest write on `Stop` (idempotent), extraction on `SessionEnd`, `HARNESS_INTERNAL_LLM_CALL` guard + lockfile — fail-open throughout
 3. F4 gate = SYSTEM STATE steering (`context_builder.py`) + deterministic `pre_tool_use` block; F2 gate = skill-text requirement; dispatcher stays routing-only
 4. General-purpose agent dispatches for the adversary pipeline (plugin agents are inert here)
-5. `customizable`-classified `features.json` toggles, fail-open defaults, one loader per plane
+5. Two-file toggles: operator `features.yaml` (`customizable`) compiled by `harness-wf features sync` to `features.json` (`generated`); mtime staleness guard; fail-open defaults; one loader per plane
 6. Learned skills stored out-of-repo (`~/.local/share/harness-wf/projects/<hash>/`); rules packs `paths`-scoped and namespaced; every cap has a number (8 KB digest, ≤6 injected, 220-char summaries, 30-day retention, ≥10-turn extraction threshold)
 
 ---
@@ -250,30 +271,36 @@ Six phases (Phase 0 is the toggle substrate the user requested; Phases 1–5 map
 F3→F5→F1→F4→F2). Every phase is TDD: each task is one bite-sized action
 (failing test → minimal implementation → green → commit).
 
-The deployed toggle instance is `features.json` (not YAML) — deployed hooks are
-stdlib-only subprocesses and must not grow a PyYAML dependency.
-`harness_features_tree.md` (YAML) remains the human-readable source of truth for the
-tree's shape; the minted JSON mirrors it key-for-key.
+Toggles use the two-file flow: operators edit a minted `features.yaml`;
+`harness-wf features sync` (tool plane, has PyYAML) compiles it to `features.json`,
+which the stdlib-only deployed hooks read. A mtime staleness guard in
+`prompt_classifier` warns when the YAML is newer than the compiled JSON.
+`harness_features_tree.md` remains the master documentation of the tree's shape.
 
 ### Phase 0 — Feature-Toggle Substrate
 
 | File | Action | Rationale |
 |---|---|---|
-| `src/harness/templates/boilerplate/features.json` | create | Default toggle instance minted into targets; mirrors `harness_features_tree.md` nesting, all keys `true`. |
-| `src/harness/templates/boilerplate/hooks/hook_common.py` | edit | Add `load_features(state_root)` + `feature_enabled("dotted.path", default=True)` — the single deployed-plane lookup all hooks/gates use. Missing file/key ⇒ enabled (fail-open). |
-| `src/harness/init/features.py` | create | Tool-plane twin loader for init-time decisions (Phase 1 pack filtering). |
-| `src/harness/update/classification.py` | edit | Classify `features.json` **`customizable`** (M2 — the real classification): 3-way merge preserves operator toggles AND delivers new keys from later phases. |
+| `src/harness/templates/boilerplate/features.yaml` | create | **Operator toggle surface** minted into targets; commented, mirrors `harness_features_tree.md` nesting, all keys `true`. |
+| `src/harness/init/features.py` | create | Tool-plane loader + **YAML→JSON compiler** (`compile_features`) used by the `features sync` command and init-time decisions (Phase 1 pack filtering). |
+| `src/harness/init/cli.py` | edit | New **`harness-wf features sync`** subcommand; auto-sync during `init` / `update` / `domain-refresh`. Compiles `features.yaml` → `features.json`. |
+| `src/harness/templates/boilerplate/hooks/hook_common.py` | edit | Add `load_features(state_root)` + `feature_enabled("dotted.path", default=True)` reading the **compiled JSON** — the single deployed-plane lookup all hooks/gates use. Missing file/key ⇒ enabled (fail-open). |
+| `src/harness/templates/boilerplate/hooks/prompt_classifier.py` | edit | **Staleness guard:** mtime compare (stdlib); inject one-line warning when `features.yaml` newer than `features.json`. |
+| `src/harness/update/classification.py` | edit | `features.yaml` ⇒ **`customizable`** (3-way merge preserves toggles, delivers new keys); `features.json` ⇒ **`generated`** (recompiled, never merged) (M2). |
 | `harness_features_tree.md` | edit | Add the five new keys (`rules_packs.*`, `services.session_memory`, `hooks.session_end.learning_extraction`, `pipeline.dispatcher.gates.search_first`, `pipeline.dispatcher.gates.adversary_exit`). |
-| `tests/hooks/test_feature_toggles.py` | create | TDD: dotted lookup, fail-open defaults, malformed-file tolerance. |
-| `tests/unit/test_features_loader.py` | create | TDD: tool-plane loader parity with deployed loader. |
-| `tests/unit/test_update_classification.py` | edit | TDD: `features.json` classified `customizable`; 3-way merge conflict case covered. |
-| `tests/unit/test_smart_merge.py` | edit | TDD (m3): `features.json` survives `render_pass1` + deep-merge on re-mint; toggle key names avoid codex tool-mapping vocabulary (`Read`/`Write`/etc.). |
+| `tests/hooks/test_feature_toggles.py` | create | TDD: dotted lookup, fail-open defaults, malformed-file tolerance, staleness warning. |
+| `tests/unit/test_features_loader.py` | create | TDD: YAML→JSON compile correctness (nesting, comments stripped, key parity), tool-plane/deployed loader parity. |
+| `tests/unit/test_cli_features_sync.py` | create | TDD: `features sync` subcommand; auto-sync on init/refresh. |
+| `tests/unit/test_update_classification.py` | edit | TDD: `features.yaml` ⇒ `customizable`, `features.json` ⇒ `generated`; 3-way merge conflict case on the YAML. |
+| `tests/unit/test_smart_merge.py` | edit | TDD (m3): both files survive `render_pass1` + re-mint; toggle key names avoid codex tool-mapping vocabulary (`Read`/`Write`/etc.). |
 
 Tasks: (1) failing test: `feature_enabled` returns True with no file → (2) implement
 loader in `hook_common.py` → (3) failing test: disabled key returns False → (4) dotted
-traversal → (5) failing classification test → (6) classification entry → (7) failing
-tool-plane parity test → (8) `init/features.py` → (9) write `features.json` template +
-tree-doc keys → (10) full suite green, commit.
+traversal → (5) failing compile test (YAML→JSON parity) → (6) `compile_features` in
+`init/features.py` → (7) failing CLI test → (8) `features sync` subcommand + auto-sync
+→ (9) failing staleness test → (10) mtime guard in `prompt_classifier` → (11) failing
+classification tests → (12) classification entries → (13) write `features.yaml`
+template + tree-doc keys → (14) full suite green, commit.
 
 ### Phase 1 — F3 Stack-Aware Rules Packs
 
@@ -344,15 +371,19 @@ register → (12) suite green, commit.
 | `src/harness/runtime/context_builder.py` | edit | **The SYSTEM STATE block is assembled here** (m1 — not in `prompt_classifier.py`): add the gate-status line for Branch B when `research_done` is unset. Steering layer. Dispatcher untouched — it stays routing-only (M5). |
 | `src/harness/templates/boilerplate/hooks/prompt_classifier.py` | edit | Only its inline fallback SYSTEM STATE needs the same line (m1). |
 | `src/harness/templates/boilerplate/hooks/pre_tool_use.py` | edit | **Enforcement layer (M1):** block the first source-file write in Branch B until `research_done` is set — same deterministic mechanism as the existing TDD gate, gated by `pipeline.dispatcher.gates.search_first`. |
-| `src/harness/templates/boilerplate/skills/search-first/SKILL.md` | create | Structured research workflow with ECC's **Adopt / Extend / Compose / Build** decision matrix: enumerate unknowns → research → decide → write cited findings doc → set `research_done` in session state. |
+| `src/harness/templates/boilerplate/skills/search-first/SKILL.md` | create | Structured research workflow. **Step 1 = proportionality check / waiver hatch:** known approach or well-trodden ground ⇒ one-line waiver, set `research_done`, exit. Otherwise: enumerate unknowns → research → ECC's **Adopt / Extend / Compose / Build** matrix → cited findings doc → set `research_done`. |
+| `src/harness/runtime/dispatcher.py` | edit | **Bias-to-D rule in the `classify_intent` prompt** (`:149`): uncertain B-vs-D ⇒ D; B reserved for genuinely open design work. (Prompt text only — routing logic untouched.) |
+| `src/harness/templates/boilerplate/hooks/prompt_classifier.py` | edit | Same bias-to-D rule in the fallback heuristics; D pre-flight guidance: missing context ⇒ ask the user 1–2 clarifying questions, never escalate to B. |
 | `src/harness/templates/boilerplate/skills.json` | edit | Register the skill. |
 | `tests/unit/test_context_builder.py` | edit | TDD: Branch B + no flag ⇒ gate line in SYSTEM STATE; flag set or toggle off ⇒ no line. |
-| `tests/unit/test_pre_tool_use_tdd.py` / `tests/hooks/test_search_first_gate.py` | edit / create | TDD: source write blocked in Branch B without flag; allowed with flag; toggle off ⇒ passthrough; flag write by skill helper round-trips; no interference with the TDD gate. |
+| `tests/unit/test_dispatcher.py` + `tests/unit/test_fallback_classify.py` | edit | TDD: ambiguous implement-style prompts classify D, not B; clear design-work prompts still classify B. |
+| `tests/unit/test_pre_tool_use_tdd.py` / `tests/hooks/test_search_first_gate.py` | edit / create | TDD: source write blocked in Branch B without flag; allowed with flag; toggle off ⇒ passthrough; waiver path sets flag; no interference with the TDD gate. |
 
 Tasks: (1) failing context-builder test → (2) gate line → (3) failing pre_tool_use
-block test → (4) enforcement check → (5) failing toggle-off + TDD-coexistence tests →
-(6) toggle wiring → (7) author SKILL.md (adopt/extend/compose/build) + register →
-(8) suite green, commit.
+block test → (4) enforcement check → (5) failing bias-to-D classification tests →
+(6) classifier prompt + fallback edits → (7) failing toggle-off + TDD-coexistence +
+waiver tests → (8) toggle wiring → (9) author SKILL.md (waiver step +
+adopt/extend/compose/build) + register → (10) suite green, commit.
 
 ### Phase 5 — F2 Adversary Pipeline
 
@@ -418,6 +449,17 @@ above where applicable, deferred where noted.
    inside Branch B (F4 gates entry, F2 gates exit); F5/F1 are branch-agnostic
    lifecycle hooks; F3 is init-time. Branch topology is unchanged — but Branch B
    acquires entry/exit conditions, i.e. the embryo of follow-up #1's state machine.
+
+5. **Proportionality / bias-to-D (adopted into Phase 4).** Branch B's pipeline is for
+   large open design work; simple already-decided implementations must route to
+   Branch D, which asks clarifying questions instead of researching. Adopted as:
+   bias-to-D rule in the `classify_intent` prompt + fallback heuristics, and a
+   waiver escape hatch as step 1 of the search-first skill.
+
+6. **Operator toggle surface (adopted into Phase 0).** Toggling lives in a minted
+   per-repo `features.yaml` (human-edited), compiled to `features.json` by
+   `harness-wf features sync`, with a deployed mtime staleness warning. Previously
+   the design had operators editing the JSON directly.
 
 ---
 

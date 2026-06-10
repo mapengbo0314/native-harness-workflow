@@ -4,14 +4,16 @@
 (revised per Section 4 adversarial review — C1–C4, M1–M6, m1–m4 folded in)*
 *Phases are dependency-ordered and independently shippable. TDD mandatory throughout.*
 
-## Phase 0 — Feature-Toggle Substrate
+## Phase 0 — Feature-Toggle Substrate (two-file: operator YAML → compiled JSON)
 - [ ] Failing test: `feature_enabled` returns True with no features file (`tests/hooks/test_feature_toggles.py`)
-- [ ] Implement `load_features()` + `feature_enabled()` in `hooks/hook_common.py`
+- [ ] Implement `load_features()` + `feature_enabled()` in `hooks/hook_common.py` (reads compiled JSON)
 - [ ] Failing test: disabled key returns False; implement dotted-path traversal
-- [ ] Failing test: `features.json` classified `customizable` + 3-way merge conflict case (`tests/unit/test_update_classification.py`); implement in `update/classification.py`
-- [ ] Failing test (m3): `features.json` survives render_pass1 + deep-merge re-mint; keys avoid codex tool-mapping vocabulary (`tests/unit/test_smart_merge.py`)
-- [ ] Failing test: tool-plane loader parity (`tests/unit/test_features_loader.py`); implement `src/harness/init/features.py`
-- [ ] Author `templates/boilerplate/features.json` template + add five new keys to `harness_features_tree.md`
+- [ ] Failing test: YAML→JSON compile parity (`tests/unit/test_features_loader.py`); implement `compile_features` in `src/harness/init/features.py`
+- [ ] Failing test: `harness-wf features sync` subcommand + auto-sync on init/refresh (`tests/unit/test_cli_features_sync.py`); implement in `init/cli.py`
+- [ ] Failing test: staleness warning when YAML newer than JSON; implement mtime guard in `hooks/prompt_classifier.py`
+- [ ] Failing test: `features.yaml` ⇒ `customizable`, `features.json` ⇒ `generated` (`tests/unit/test_update_classification.py`); implement in `update/classification.py`
+- [ ] Failing test (m3): both files survive render_pass1 + deep-merge re-mint; keys avoid codex tool-mapping vocabulary (`tests/unit/test_smart_merge.py`)
+- [ ] Author `templates/boilerplate/features.yaml` template + add five new keys to `harness_features_tree.md`
 - [ ] Full suite green; commit
 
 ## Phase 1 — F3 Stack-Aware Rules Packs
@@ -45,13 +47,15 @@
 - [ ] Author `skills/continuous-learning/SKILL.md` (`/learn`); register in `skills.json`
 - [ ] Suite green; commit
 
-## Phase 4 — F4 Search-First Gate
+## Phase 4 — F4 Search-First Gate (+ proportionality guards)
 - [ ] Failing test: Branch B + no `research_done` ⇒ gate line in SYSTEM STATE (`tests/unit/test_context_builder.py`)
 - [ ] Implement gate line in `runtime/context_builder.py` (m1 — NOT prompt_classifier; + its inline fallback)
 - [ ] Failing test (M1): first Branch-B source write blocked without flag; allowed with flag; no TDD-gate interference (`tests/hooks/test_search_first_gate.py`, `tests/unit/test_pre_tool_use_tdd.py`)
 - [ ] Implement enforcement in `hooks/pre_tool_use.py` behind `pipeline.dispatcher.gates.search_first`
-- [ ] Failing test: toggle off ⇒ passthrough; wire toggle
-- [ ] Author `skills/search-first/SKILL.md` with Adopt/Extend/Compose/Build matrix; register in `skills.json`
+- [ ] Failing test: ambiguous implement-style prompts ⇒ Branch D, clear design work ⇒ B (`tests/unit/test_dispatcher.py`, `tests/unit/test_fallback_classify.py`)
+- [ ] Implement bias-to-D rule in `classify_intent` prompt (`runtime/dispatcher.py:149`) + `prompt_classifier` fallback; D pre-flight asks 1–2 clarifying questions instead of escalating to B
+- [ ] Failing test: toggle off ⇒ passthrough; waiver path sets `research_done`; wire toggle
+- [ ] Author `skills/search-first/SKILL.md` — step 1 proportionality waiver, then Adopt/Extend/Compose/Build matrix; register in `skills.json`
 - [ ] Suite green; commit
 
 ## Phase 5 — F2 Adversary Pipeline (tiered + budgeted)
