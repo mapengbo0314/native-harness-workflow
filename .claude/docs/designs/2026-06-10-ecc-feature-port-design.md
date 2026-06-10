@@ -109,9 +109,19 @@ The `search-first` skill performs the research and sets the flag, and adopts ECC
 **Adopt / Extend / Compose / Build decision matrix** (the highest-value part of ECC's
 version — it prevents writing code at all when adoption wins).
 
-### Phase 5 — F2 Adversary Pipeline (multi-agent)
-A stress-test skill running three sequenced passes — **Attacker → Defender → Auditor**
-— against a design doc, writing a prioritized risk report to `docs/adversary/`.
+### Phase 5 — F2 Adversary Pipeline (multi-agent, tiered + budgeted)
+A stress-test skill against a design doc, writing a prioritized risk report to
+`docs/adversary/`. **Tiered (post-review follow-up):** running the deep multi-agent
+pipeline on every design is too slow/expensive (observed: ~24 min, ~194k tokens,
+97 tool calls for one deep review).
+- **Tier 1 (default, every design):** council-style single-context review — the
+  current agent applies Attacker/Defender/Auditor role lenses *inline*, no subagents
+  (ECC's `council` pattern: cheap, minutes, catches reasoning flaws).
+- **Tier 2 (opt-in, multi-subsystem designs):** the three sequenced agent passes —
+  **Attacker → Defender → Auditor** — each with a **hard budget written into the
+  dispatch prompt**: max tool calls (default 30), max files read (default 12), model
+  tier (Attacker/Defender on a smaller model; Auditor synthesis on the big one), and a
+  "summarize what you have and stop when the budget hits" degrade-gracefully clause.
 Revisions per Section 4:
 - **Honest provenance:** no such pipeline exists in ECC (verified) — this is a *novel*
   design, borrowing ECC's `council` role-lens table and the GAN agents' prompt-defense
@@ -221,6 +231,12 @@ contamination.
 files in `.claude/rules/` auto-load into *every* session (~5.3k tokens at ECC sizing).
 Language packs carry `paths` frontmatter for lazy loading; only the small `common/`
 pack is un-scoped, under a size budget.
+
+**Deep multi-agent adversary review on every design.** Rejected after running one
+(2026-06-10: ~24 min, ~194k tokens, 97 tool calls). Unbudgeted subagents consume
+usage open-endedly. Replaced with the tiered model: inline council-style review by
+default; budgeted multi-agent passes only for multi-subsystem designs. ECC itself
+never runs subagent adversaries — its `council` is single-context.
 
 **The 1-pager's file layout (`src/harness/orchestrator/`, `src/harness/state/`, root
 `hooks/`).** Rejected: those paths don't exist. Real homes are
@@ -342,7 +358,7 @@ block test → (4) enforcement check → (5) failing toggle-off + TDD-coexistenc
 
 | File | Action | Rationale |
 |---|---|---|
-| `src/harness/templates/boilerplate/skills/adversary-pipeline/SKILL.md` | create | Three sequenced passes — Attacker → Defender → Auditor — each a **fresh general-purpose dispatch** with explicit "verify real files/state before asserting" instructions, borrowing ECC council's role-lens table + GAN agents' prompt-defense preamble (this pipeline is novel, not an ECC port). Auditor writes `docs/adversary/YYYY-MM-DD-<topic>-risk-report.md`. |
+| `src/harness/templates/boilerplate/skills/adversary-pipeline/SKILL.md` | create | **Tiered:** Tier 1 (default) = inline council-style role-lens review, no subagents. Tier 2 (opt-in) = three sequenced passes — Attacker → Defender → Auditor — each a **fresh general-purpose dispatch** with explicit "verify real files/state before asserting" instructions AND **hard budgets in the dispatch prompt** (≤30 tool calls, ≤12 files, smaller model for Attacker/Defender, degrade-gracefully clause). Borrows ECC council's role-lens table + GAN agents' prompt-defense preamble (this pipeline is novel, not an ECC port). Auditor writes `docs/adversary/YYYY-MM-DD-<topic>-risk-report.md`. |
 | `src/harness/templates/boilerplate/scripts/check_risk_report.py` | create | Staleness helper invoked by skill text: risk report exists and is newer than the design doc (mtime compare). No dispatcher involvement — the `@reviewer` dispatch point doesn't exist there (C3). |
 | `src/harness/templates/boilerplate/skills/harness-brainstorming-plans/SKILL.md` + `.../harness-requesting-code-review/SKILL.md` | edit | **Skill-text gate (C3):** before sign-off/hand-off, when `pipeline.dispatcher.gates.adversary_exit` is on, require a fresh risk report via `check_risk_report.py`. Advisory semantics, accepted in writing. |
 | `src/harness/templates/boilerplate/agents/adversary.md` | edit | Re-scope persona as the Auditor role description referenced by the pipeline (not a standalone single pass). |
@@ -367,6 +383,41 @@ toggle-off test → (4) toggle wiring → (5) author pipeline SKILL.md + persona
   F5/F1 Claude-first (gemini pending event verification; codex/cursor/generic no hook
   runtime).
 - Each phase ends with a version-stamped commit; phases are independently revertible.
+
+---
+
+## Follow-ups (post-review discussion, 2026-06-10)
+
+Captured from HITL discussion after the design was committed; folded into Phase 5
+above where applicable, deferred where noted.
+
+1. **Sticky phase state machine (deferred — candidate "Phase 6", separate design).**
+   The current dispatch model is stateless per-prompt re-classification: every prompt
+   re-derives branch/agent and injects a fresh dispatch suggestion, so mid-workflow
+   prompts get misrouted (observed repeatedly in the design session itself: B → E → C
+   flips mid-skill, and dispatch directives issued while a skill was already running).
+   The fix is a *sticky* phase: once planning (or TDD execution) starts, persist
+   `phase` in the session-state store (Phase 2's F5 substrate provides exactly this)
+   and shrink the classifier's job to "still in phase? / did an exit condition fire?".
+   This also completes what Section 4 C3 found missing: artifact-based phase-completion
+   detection. Out of scope for this design — needs its own HITL pass — but Phases 2/4
+   should be built with this consumer in mind (state keys: `phase`, `phase_entered_at`,
+   `phase_exit_artifact`).
+
+2. **Subagent usage guardrails (adopted into Phase 5).** Observed one unbudgeted
+   review agent consume ~194k tokens / 97 tool calls / 24 min. All agent dispatches
+   defined by this design now carry budgets in the dispatch prompt: max tool calls,
+   max files read, model tier, and a degrade-gracefully clause ("summarize what you
+   have and stop"). Long-running dispatches run backgrounded.
+
+3. **Tiered adversary review (adopted into Phase 5).** Tier 1 inline council-style
+   role lenses by default (ECC `council` pattern); Tier 2 budgeted multi-agent passes
+   only for designs spanning multiple subsystems.
+
+4. **Branching impact of the closed loop (clarified, no change).** The loop lives
+   inside Branch B (F4 gates entry, F2 gates exit); F5/F1 are branch-agnostic
+   lifecycle hooks; F3 is init-time. Branch topology is unchanged — but Branch B
+   acquires entry/exit conditions, i.e. the embryo of follow-up #1's state machine.
 
 ---
 

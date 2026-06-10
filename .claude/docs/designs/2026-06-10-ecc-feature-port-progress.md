@@ -54,10 +54,14 @@
 - [ ] Author `skills/search-first/SKILL.md` with Adopt/Extend/Compose/Build matrix; register in `skills.json`
 - [ ] Suite green; commit
 
-## Phase 5 — F2 Adversary Pipeline
+## Phase 5 — F2 Adversary Pipeline (tiered + budgeted)
 - [ ] Failing test: staleness checker — report exists + newer than design doc; toggle-off ⇒ pass (`tests/unit/test_adversary_pipeline.py`)
 - [ ] Implement `scripts/check_risk_report.py` (no dispatcher gate — C3: insertion point doesn't exist)
-- [ ] Author `skills/adversary-pipeline/SKILL.md` (Attacker→Defender→Auditor, fresh general-purpose dispatches, council role-lens + GAN prompt-defense preamble); re-scope `agents/adversary.md` as Auditor
+- [ ] Author `skills/adversary-pipeline/SKILL.md` — Tier 1: inline council-style role lenses (default, no subagents); Tier 2: Attacker→Defender→Auditor general-purpose dispatches with **hard budgets in the dispatch prompt** (≤30 tool calls, ≤12 files, smaller model for Attacker/Defender, degrade-gracefully clause); council role-lens + GAN prompt-defense preamble; re-scope `agents/adversary.md` as Auditor
 - [ ] Add skill-text gate to `harness-brainstorming-plans` + `harness-requesting-code-review` SKILL.md behind `pipeline.dispatcher.gates.adversary_exit`
 - [ ] Register skill; update `tests/integration/test_claude_plugin_contract.py`
 - [ ] Suite green; commit
+
+## Deferred follow-ups (need own design docs — see "Follow-ups" in design doc)
+- [ ] Sticky phase state machine on F5's store ("Phase 6" candidate): persist `phase`/`phase_entered_at`/`phase_exit_artifact`; classifier checks exit conditions instead of re-classifying every prompt
+- [ ] While building Phases 2/4: reserve those state keys so the future state machine can consume them
