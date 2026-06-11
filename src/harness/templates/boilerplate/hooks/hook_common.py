@@ -166,7 +166,7 @@ def feature_enabled(dotted_path: str, plugin_root, default: bool = True) -> bool
 #    "kind": "decision"|"blocker"|"pattern"|"phase", "summary": str, "refs": [str]}
 # ---------------------------------------------------------------------------
 
-_VALID_KINDS = {"decision", "blocker", "pattern", "phase"}
+_VALID_KINDS = {"decision", "blocker", "pattern", "phase", "research"}
 _SUMMARY_MAX = 220
 _MAX_ENTRIES_DIGEST = 6
 _DIGEST_MAX_BYTES = 8 * 1024
@@ -299,6 +299,39 @@ def clear_phase(plugin_root, session_id: str, exit_artifact=None) -> None:
         _save_session(plugin_root, session_id, data)
     except Exception:
         pass
+
+
+def set_research_done(plugin_root, session_id: str, note: str = None) -> None:
+    """Record that the search-first research pass (or its proportionality
+    waiver) completed for this session (F4).  Top-level session-store key,
+    mirroring the phase keys (R2)."""
+    try:
+        now = datetime.now(timezone.utc).isoformat()
+        data = _load_session(plugin_root, session_id)
+        data["research_done"] = {"ts": now, "note": note}
+        data.setdefault("entries", []).append(
+            {
+                "schema_version": 1,
+                "ts": now,
+                "session_id": session_id,
+                "kind": "research",
+                "summary": capped_text(note or "Search-first research recorded", _SUMMARY_MAX),
+                "refs": [],
+            }
+        )
+        _save_session(plugin_root, session_id, data)
+    except Exception:
+        pass
+
+
+def get_research_done(plugin_root, session_id: str) -> bool:
+    """True when research_done has been recorded for this session.
+    Corrupt/missing session files read as unset."""
+    try:
+        data = _load_session(plugin_root, session_id)
+        return bool(data.get("research_done"))
+    except Exception:
+        return False
 
 
 # ---------------------------------------------------------------------------

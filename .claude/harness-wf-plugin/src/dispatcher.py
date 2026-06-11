@@ -86,9 +86,9 @@ class OrchestratorDispatcher:
 
     BRANCHES = {
         "A": "Bug Fix / Diagnosis (stack trace, error, broken, bug, why is X failing)",
-        "B": "Feature Request & Architectural Planning (build, create, implement, add feature, new)",
+        "B": "Open-Ended Design & Architectural Planning (design, architecture, plan, brainstorm — genuinely open solution space)",
         "C": "Codebase Questioning & Knowledge Retrieval (how does, where is, what is, explain, why does)",
-        "D": "Code Edit / TDD Required (any code change: rename, refactor, new function, fix, update)",
+        "D": "Code Edit / TDD Required (concrete scoped changes: implement, add, create, rename, refactor, fix, update)",
         "E": "No Technical Intent (conversational, greetings, vague messages with zero actionable intent)",
     }
 
@@ -167,6 +167,12 @@ Classify the following user prompt into exactly one routing branch.
 
 Choose a single letter from this list:
 {branch_menu}
+
+Disambiguation rule (proportionality): when uncertain between B and D, choose D.
+B is reserved for genuinely open design or architecture work where the solution
+space is unexplored. Concrete, scoped implementation requests ("implement X",
+"add Y to Z") are D even when non-trivial — D's pre-flight asks the user 1-2
+clarifying questions when context is missing; it never escalates to B for that.
 
 User Prompt: "{prompt}"
 

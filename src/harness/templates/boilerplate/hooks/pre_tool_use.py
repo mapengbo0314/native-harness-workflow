@@ -88,6 +88,43 @@ def _check_tdd(tool_name: str, tool_input: dict, session_id: str, state_root: Pa
 
 
 # ---------------------------------------------------------------------------
+# Search-First gate (F4 — enforcement layer, M1/R2)
+# ---------------------------------------------------------------------------
+
+def _check_search_first(tool_name: str, tool_input: dict, session_id: str, plugin_root):
+    """Return a block message if a source write happens while the persisted
+    session phase is ``planning`` and research_done is unset, else None.
+
+    Keyed to the PERSISTED phase from the session store (R2) — never to the
+    per-prompt branch classification, which observably flips mid-workflow.
+    No persisted phase ⇒ passthrough.  Toggle off ⇒ passthrough.  Fail-open
+    on any error: enforcement must never break normal tool use.
+    """
+    try:
+        if _is_source_write(tool_name, tool_input) is None:
+            return None
+        from hook_common import feature_enabled, get_phase, get_research_done
+        if not feature_enabled("pipeline.dispatcher.gates.search_first", plugin_root):
+            return None
+        phase = get_phase(plugin_root, session_id)
+        if not isinstance(phase, dict) or phase.get("phase") != "planning":
+            return None
+        if get_research_done(plugin_root, session_id):
+            return None
+        return (
+            "Search-First gate: the session is in the planning phase and no research "
+            "has been recorded.\n"
+            "  1. Run the search-first skill — research existing solutions "
+            "(Adopt / Extend / Compose / Build) before writing source code.\n"
+            "  2. If the approach is already decided or well-trodden, record its "
+            "one-line proportionality waiver instead (sets research_done).\n"
+            "  3. Exiting the planning phase (design sign-off) also releases this gate."
+        )
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
 
 def is_dangerous_rm_command(command):
     """
@@ -179,6 +216,21 @@ def main():
                 print("BLOCKED: Dangerous rm command detected and prevented", file=sys.stderr)
                 if is_gemini:
                     print(json.dumps({"decision": "deny", "reason": "Dangerous rm command detected and prevented"}))
+                    sys.exit(0)
+                else:
+                    sys.exit(2)
+
+        # Search-First gate (F4) — block source writes while persisted
+        # phase=planning until research_done is set (R2: persisted phase,
+        # never per-prompt branch classification)
+        if _HOOK_COMMON_AVAILABLE:
+            session_id = get_session_id()
+            state_root = resolve_plugin_root()
+            sf_block = _check_search_first(tool_name, tool_input, session_id, state_root)
+            if sf_block:
+                print(f"BLOCKED: {sf_block}", file=sys.stderr)
+                if is_gemini:
+                    print(json.dumps({"decision": "deny", "reason": sf_block}))
                     sys.exit(0)
                 else:
                     sys.exit(2)

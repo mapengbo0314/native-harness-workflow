@@ -61,15 +61,17 @@ Phase 3 has passed `harness-subagent-driven-development` workflow (Spec Complian
 
 ## Phase 4 — F4 Search-First Gate (+ proportionality guards)
 
-- [ ] Failing test: Branch B + no `research_done` ⇒ gate line in SYSTEM STATE (`tests/unit/test_context_builder.py`)
-- [ ] Implement gate line in `runtime/context_builder.py` (m1 — NOT prompt_classifier; + its inline fallback)
-- [ ] Failing test (M1, R2): source write blocked while persisted `phase=planning` without flag; allowed with flag; classification flip mid-phase does NOT drop the gate; no persisted phase ⇒ passthrough; no TDD-gate interference (`tests/hooks/test_search_first_gate.py`, `tests/unit/test_pre_tool_use_tdd.py`)
-- [ ] Implement enforcement in `hooks/pre_tool_use.py` via `get_phase` (NOT per-prompt branch) behind `pipeline.dispatcher.gates.search_first`
-- [ ] Failing test (R2): brainstorming skill sets `phase=planning` + `phase_entered_at` on entry, clears with `phase_exit_artifact` on sign-off; implement in `skills/harness-brainstorming-plans/SKILL.md` + contract test
-- [ ] Failing test: ambiguous implement-style prompts ⇒ Branch D, clear design work ⇒ B (`tests/unit/test_dispatcher.py`, `tests/unit/test_fallback_classify.py`)
-- [ ] Implement bias-to-D rule in `classify_intent` prompt (`runtime/dispatcher.py:149`) + `prompt_classifier` fallback; D pre-flight asks 1–2 clarifying questions instead of escalating to B
-- [ ] Failing test: toggle off ⇒ passthrough; waiver path sets `research_done`; wire toggle
-- [ ] Author `skills/search-first/SKILL.md` — step 1 proportionality waiver, then Adopt/Extend/Compose/Build matrix, then **post-research depth checkpoint** (HITL `AskUserQuestion`: quick implementation w/ findings attached + clear `phase`, vs full planning pipeline; matrix outcome = recommended default); register in `skills.json` + contract test for checkpoint text
+- [x] Failing test: Branch B + no `research_done` ⇒ gate line in SYSTEM STATE (`tests/unit/test_context_builder.py`)
+- [x] Implement gate line in `runtime/context_builder.py` (m1 — NOT prompt_classifier; + its inline fallback) — `search_first_pending` kwarg, default off for legacy callers; classifier threads it via branch-scoped `_search_first_pending` (hot-path: non-B skips session I/O); inline fallback carries the same line (`tests/unit/test_prompt_classifier_search_gate.py`)
+- [x] Failing test (M1, R2): source write blocked while persisted `phase=planning` without flag; allowed with flag; classification flip mid-phase does NOT drop the gate; no persisted phase ⇒ passthrough; no TDD-gate interference (`tests/hooks/test_search_first_gate.py`, `tests/unit/test_pre_tool_use_tdd.py`)
+- [x] Implement enforcement in `hooks/pre_tool_use.py` via `get_phase` (NOT per-prompt branch) behind `pipeline.dispatcher.gates.search_first` — `_check_search_first`, fail-open, runs before the TDD check; e2e exit-2 + gemini deny-JSON covered
+- [x] Failing test (R2): brainstorming skill sets `phase=planning` + `phase_entered_at` on entry, clears with `phase_exit_artifact` on sign-off; implement in `skills/harness-brainstorming-plans/SKILL.md` + contract test — phase mutations via new `scripts/session_phase.py` (set-phase/clear-phase/set-research-done CLI; skills are markdown and need a deterministic invocable — small addition beyond the design's file list); `research_done` helpers + `research` entry kind in `hook_common.py`
+- [x] Failing test: ambiguous implement-style prompts ⇒ Branch D, clear design work ⇒ B (`tests/unit/test_dispatcher.py`, `tests/unit/test_fallback_classify.py`) — re-categorised the implement-style prompts that previously asserted B
+- [x] Implement bias-to-D rule in `classify_intent` prompt (`runtime/dispatcher.py`) + `prompt_classifier` fallback; D pre-flight asks 1–2 clarifying questions instead of escalating to B — BRANCHES menu descriptions updated too (B no longer claims implement-verbs)
+- [x] Failing test: toggle off ⇒ passthrough; waiver path sets `research_done`; wire toggle — covered in `test_search_first_gate.py` (toggle-off predicate + steering) and the live-gate release loop via the script
+- [x] Author `skills/search-first/SKILL.md` — step 1 proportionality waiver, then Adopt/Extend/Compose/Build matrix, then **post-research depth checkpoint** (HITL `AskUserQuestion`: quick implementation w/ findings attached + clear `phase`, vs full planning pipeline; matrix outcome = recommended default); register in `skills.json` + contract test for checkpoint text
+
+Phase 4 suite: 1218 passed / 34 skipped / 3 xfailed (+43 tests). Phase 4 is **complete**.
 
 ## Phase 5 — F2 Adversary Pipeline (tiered + budgeted)
 

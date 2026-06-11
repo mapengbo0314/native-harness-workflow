@@ -111,3 +111,62 @@ def test_business_render_is_capped():
     )
     # the business block must be bounded (cap 600 + a little framing), not 10k.
     assert len(result) < 1200
+
+
+# ---------------------------------------------------------------------------
+# Phase 4 (F4): Search-First gate line — steering layer
+# ---------------------------------------------------------------------------
+
+def test_branch_b_with_gate_pending_shows_gate_line():
+    """Branch B + research not recorded ⇒ the SYSTEM STATE block carries the
+    search-first gate status line (steering layer; enforcement is in
+    pre_tool_use)."""
+    result = build_context(
+        phase="3 (Planning)",
+        target_agent="@planner",
+        auth_msg="Authorized",
+        branch="B",
+        missing_documents=[],
+        search_first_pending=True,
+    )
+    assert "Search-First Gate: research_done NOT set" in result
+    assert "search-first" in result
+
+
+def test_branch_b_without_gate_flag_has_no_gate_line():
+    """research recorded (or toggle off) ⇒ caller passes False ⇒ no line."""
+    result = build_context(
+        phase="3 (Planning)",
+        target_agent="@planner",
+        auth_msg="Authorized",
+        branch="B",
+        missing_documents=[],
+        search_first_pending=False,
+    )
+    assert "Search-First Gate" not in result
+
+
+def test_non_b_branch_never_shows_gate_line():
+    """The gate line is a Branch-B pre-condition only."""
+    for branch in ("A", "C", "D", "E"):
+        result = build_context(
+            phase="4 (Execution)",
+            target_agent="@implementer",
+            auth_msg="Authorized",
+            branch=branch,
+            missing_documents=[],
+            search_first_pending=True,
+        )
+        assert "Search-First Gate" not in result, f"branch {branch} must not carry the gate line"
+
+
+def test_gate_line_default_off_for_legacy_callers():
+    """Callers that don't pass the kwarg (legacy) get no gate line."""
+    result = build_context(
+        phase="3 (Planning)",
+        target_agent="@planner",
+        auth_msg="Authorized",
+        branch="B",
+        missing_documents=[],
+    )
+    assert "Search-First Gate" not in result

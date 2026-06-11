@@ -11,6 +11,14 @@ If you were dispatched as a subagent to execute a specific task, skip this skill
 
 Help turn ideas into fully formed, deterministic designs and implementation plans through a strict 5-part Human-in-the-Loop (HITL) process.
 
+**First act — persist the planning phase (R2):** before anything else, run:
+
+```bash
+python3 "$CLAUDE_PLUGIN_ROOT/scripts/session_phase.py" set-phase planning
+```
+
+This records `phase=planning` in the session store. The search-first gate holds source writes while this phase is active until research is recorded — run the `search-first` skill (or its proportionality waiver) as part of the design work below.
+
 Start by understanding the current project context using the `codegraph` MCP server. Once you understand the project, you MUST guide the user through the following 5-part design process.
 
 <HARD-GATE>
@@ -72,6 +80,11 @@ Once all 5 parts are completed and approved by the user, compile the final deter
 - Save the final document to `<!--$HARNESS_DIR$-->/docs/designs/YYYY-MM-DD-<topic>-design.md` (or the user's preferred spec location).
 - Initialize a corresponding `<!--$HARNESS_DIR$-->/docs/designs/YYYY-MM-DD-<topic>-progress.md` file with the extracted tasks.
 - Commit the design document to git.
+- **Exit the planning phase (R2):** the design sign-off clears the persisted phase, recording the design doc as the exit artifact (this releases the search-first gate):
+
+```bash
+python3 "$CLAUDE_PLUGIN_ROOT/scripts/session_phase.py" clear-phase --artifact "<!--$HARNESS_DIR$-->/docs/designs/YYYY-MM-DD-<topic>-design.md"
+```
 
 **Self-Review:**
 Before finalizing, review the document:

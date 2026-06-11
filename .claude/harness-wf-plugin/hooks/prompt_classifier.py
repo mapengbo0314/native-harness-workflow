@@ -51,14 +51,35 @@ def fallback_classify(prompt):
     p = prompt.lower()
     if any(k in p for k in ["broken", "bug", "error", "fix", "stack trace", "failing", "exception", "traceback", "crash"]):
         return "A"
-    elif any(k in p for k in ["build", "design", "architecture", "feature", "add", "create", "write", "set up"]) or re.search(r"\b(?:implement|plan)\b", p):
+    # Bias-to-D (F4 proportionality): B is reserved for genuinely open design
+    # work.  Implement-style verbs without design language fall through to D —
+    # D's pre-flight asks 1-2 clarifying questions when context is missing
+    # instead of escalating into the research/planning pipeline.
+    elif any(k in p for k in ["design", "architecture", "brainstorm", "spec out", "roadmap"]) or re.search(r"\bplan\b", p):
         return "B"
-    elif any(k in p for k in ["how", "where", "explain", "what does", "walk me through", "which file", "which"]):
+    elif any(k in p for k in ["how", "where", "explain", "what does", "walk me through", "which file"]):
         return "C"
-    elif any(k in p for k in ["typo", "change color", "minor update", "fix the", "rename"]):
+    elif any(k in p for k in ["typo", "change color", "minor update", "fix the", "rename", "refactor", "add", "create", "write", "build", "set up", "update"]) or re.search(r"\bimplement\b", p):
         return "D"
     else:
         return "E"
+
+def _search_first_pending(branch, plugin_root, session_id):
+    """F4 steering predicate: True only on Branch B when the search-first
+    toggle is on and research_done is unset for this session.  Branch-scoped
+    so every non-B prompt skips the session-store I/O (hot path).  Fail-open:
+    any error reads as not-pending — the line only steers; enforcement lives
+    in pre_tool_use keyed to the persisted phase (R2)."""
+    if branch != "B":
+        return False
+    try:
+        from hook_common import feature_enabled, get_research_done
+        if not feature_enabled("pipeline.dispatcher.gates.search_first", plugin_root):
+            return False
+        return not get_research_done(plugin_root, session_id)
+    except Exception:
+        return False
+
 
 def _load_business(branch):
     """Load the compiled business digest from domain.json — but only on the
@@ -195,6 +216,13 @@ def main():
         # on planning/question branches. Skips the I/O on every other branch.
         business = _load_business(branch)
 
+        # F4 steering: gate-status flag for Branch B (skips I/O on other branches).
+        try:
+            from hook_common import get_session_id as _gsid
+            sf_pending = _search_first_pending(branch, plugin_root, _gsid())
+        except Exception:
+            sf_pending = False
+
         try:
             from context_builder import build_context
             system_state = build_context(
@@ -204,7 +232,8 @@ def main():
                 branch=branch,
                 missing_documents=artifacts_missing,
                 manifest_state=manifest_state,
-                business=business
+                business=business,
+                search_first_pending=sf_pending
             )
         except Exception as e:
             print(f"DEBUG: context_builder failed: {e}", file=sys.stderr)
@@ -214,6 +243,11 @@ def main():
                 if manifest_state and branch == "B":
                     system_state += f"Proposed Designs: {', '.join(manifest_state.get('designs_found', [])) or 'None'}\n"
                     system_state += f"In-Progress Designs: {', '.join(manifest_state.get('progress_found', [])) or 'None'}\n"
+                if sf_pending and branch == "B":
+                    system_state += (
+                        "Search-First Gate: research_done NOT set — run the search-first skill "
+                        "(or record its proportionality waiver) before source edits.\n"
+                    )
                 system_state += "====================\n"
 
         # Append staleness warning when features.yaml is out-of-sync (fail-open).
