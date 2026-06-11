@@ -20,15 +20,15 @@ second-round review — R1–R5)*
 - [ ] Carry-over → Phase 1: `harness-wf update` path does not recompile features.json post-apply (staleness warning covers advisorily); fold into updater work
 
 ## Phase 1 — F3 Stack-Aware Rules Packs
-- [ ] Failing test: language alias map (`Go`→`golang`, cdxgen framework names ignored) (`tests/unit/test_rules_packs.py`); implement `src/harness/init/lang_aliases.py`
-- [ ] Failing test: Python-only repo gets `common`+`python` only; toggle off ⇒ no packs
-- [ ] Implement pack-pruning function; install into `.claude/rules/harness/` (namespaced)
-- [ ] Failing test: pruning + namespacing in mint flow (`tests/unit/test_minting_engine.py`); wire into `mint_workspace` (+ persona inlining on non-Claude platforms)
-- [ ] Failing test (C4): pruned packs never re-proposed by update (`tests/unit/test_update_updater.py`); persist stack filter in manifest `render_context` + teach `enumerate_source_producers`/`compute_verdicts`
-- [ ] Failing test (R1): `.claude/rules/harness/` is a generated mirror — pack content updates in the template tree reach the deployed mirror on `harness-wf update`; operator edits inside the mirror overwritten; record install target in `manifest.py` `render_context` + regenerate step in `updater.py`
-- [ ] Failing test: `domain-refresh` re-syncs packs; implement in `init/cli.py`
-- [ ] Author pack content with `paths` frontmatter (lazy-load) — `common/` (≤6 KB, un-scoped), `python/`, `typescript/`, `golang/`
-- [ ] Update `tests/integration/test_template_integrity.py`; suite green; commit
+- [x] Failing test: language alias map (`Go`→`golang`, cdxgen framework names ignored) (`tests/unit/test_rules_packs.py`); implement `src/harness/init/lang_aliases.py` — 2382f42
+- [x] Failing test: Python-only repo gets `common`+`python` only; toggle off ⇒ no packs — 2382f42
+- [x] Implement pack-pruning function; install into `.claude/rules/harness/` (namespaced; stale-install prune scoped to known pack dirs, user content spared) — 2382f42 + fixes 55a93a1
+- [x] Failing test: pruning + namespacing in mint flow; wire into `mint_workspace` + re-mint + refresh — wiring commit + d82ca8e integrity tests (persona inlining on non-Claude platforms → Task 1c with content)
+- [x] Failing test (C4): pruned packs never re-proposed by update (`tests/unit/test_update_updater.py`); stack filter persisted in `render_context.rules_packs`, `plan_update` filters producers; empty/unknown selection fails open — 1b commits + b905c26
+- [x] Failing test (R1): `.claude/rules/harness/` is a generated mirror — `_post_apply_hooks` regenerates mirror + recompiles features.json after `apply_update` (behavioral test: new content delivered, operator edits inside mirror overwritten) — 1b commits
+- [x] Failing test: `domain-refresh` re-syncs packs AND rewrites the manifest's `rules_packs` filter (stale-filter gap closed); implement in `init/cli.py` (`_compute_rules_packs_rc` single source) — 1b commits
+- [x] Author pack content with `paths` frontmatter (lazy-load) — curated from ECC@c888d2b: `common/` 4.3KB un-scoped (3 files), `python/` 3.8KB, `typescript/` 4.1KB, `golang/` 2.7KB; provenance headers; non-Claude persona inlining w/ marker idempotency + orphan healing — 1c commits
+- [x] Update `tests/integration/test_template_integrity.py` (size budgets, frontmatter, provenance, no placeholders); suite green (1124/34/3); Phase 1 complete — two-stage reviewed, approved
 
 ## Phase 2 — F5 Session Memory
 - [ ] Failing test (R4): write→read round-trip with entry schema `{schema_version, ts, session_id, kind, summary ≤220, refs[]}` (`tests/hooks/test_session_memory.py`)
