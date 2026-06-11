@@ -53,11 +53,11 @@ You MUST write the design document interactively with the user, one section at a
 - **Content:** Enumerate every file to be changed/created and the rationale. Ensuring TDD test files are also considered.
 - **Action for Results:** Invoke `ask_user` to present Part 4. Review and correct based on user feedback.
 
-### Part 5: Adversarial Review (Optional)
+### Part 5: Adversarial Review
 
-- **Prompt:** "Final step: Would you like me to invoke the `adversary` agent to review our design? It will rigorously review the design for flaws, edge cases, and missing requirements. Note: This may cost some extra tokens."
-- **Content:** If the user agrees, use the `invoke_agent` tool (or your platform's subagent syntax) to send the `adversary` agent the path to the saved design document. Instruct the `adversary` agent to append its notes to the bottom of the design doc (it must NOT edit the core design).
-- **Action for Results:** Invoke `ask_user` to present Part 5 and ask if they want the adversarial review. Proceed based on user feedback.
+- **Prompt:** "Final step: run the `adversary-pipeline` skill against the design. Tier 1 (default) applies Attacker/Defender/Auditor role lenses inline — minutes, no subagents. Tier 2 (opt-in, multi-subsystem designs) runs budget-enforced agent passes."
+- **Content:** Run the `adversary-pipeline` skill on the saved design doc. It writes the prioritized risk report to `docs/adversary/YYYY-MM-DD-<topic>-risk-report.md` — the artifact the sign-off gate below verifies. The report must NOT edit the core design; design amendments happen as revisions with the findings cited.
+- **Action for Results:** Invoke `ask_user` to present the risk report verdict (and, when the design spans multiple subsystems, whether to escalate to Tier 2). Proceed based on user feedback.
 
 ## File Structure & Granularity (High Standards)
 
@@ -80,6 +80,12 @@ Once all 5 parts are completed and approved by the user, compile the final deter
 - Save the final document to `<!--$HARNESS_DIR$-->/docs/designs/YYYY-MM-DD-<topic>-design.md` (or the user's preferred spec location).
 - Initialize a corresponding `<!--$HARNESS_DIR$-->/docs/designs/YYYY-MM-DD-<topic>-progress.md` file with the extracted tasks.
 - Commit the design document to git.
+- **Adversary exit gate (F2, C3 — advisory semantics, accepted in writing):** when `pipeline.dispatcher.gates.adversary_exit` is on, sign-off requires a risk report newer than the design doc. Verify deterministically before clearing the phase — if it fails, run the `adversary-pipeline` skill first:
+
+```bash
+python3 "$CLAUDE_PLUGIN_ROOT/scripts/check_risk_report.py" "<!--$HARNESS_DIR$-->/docs/designs/YYYY-MM-DD-<topic>-design.md"
+```
+
 - **Exit the planning phase (R2):** the design sign-off clears the persisted phase, recording the design doc as the exit artifact (this releases the search-first gate):
 
 ```bash

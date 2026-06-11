@@ -155,3 +155,92 @@ class TestTopicExtraction:
         _write_report(reports, "2026-06-11-widget-sync-risk-report.md", newer_than=design)
         p = _run(plugin_root, str(design), "--reports-dir", str(reports))
         assert p.returncode == 0, p.stderr
+
+
+# ---------------------------------------------------------------------------
+# Contract: adversary-pipeline skill content + registration
+# ---------------------------------------------------------------------------
+
+BOILERPLATE = Path(__file__).parent.parent.parent / "src/harness/templates/boilerplate"
+PIPELINE_SKILL = BOILERPLATE / "skills" / "adversary-pipeline" / "SKILL.md"
+SKILLS_JSON = BOILERPLATE / "skills.json"
+ADVERSARY_AGENT = BOILERPLATE / "agents" / "adversary.md"
+BRAINSTORM_SKILL = BOILERPLATE / "skills" / "harness-brainstorming-plans" / "SKILL.md"
+REVIEW_SKILL = BOILERPLATE / "skills" / "harness-requesting-code-review" / "SKILL.md"
+
+
+class TestAdversaryPipelineSkillContract:
+    def test_skill_exists_and_registered(self):
+        assert PIPELINE_SKILL.exists(), "adversary-pipeline SKILL.md must be authored"
+        skills = json.loads(SKILLS_JSON.read_text(encoding="utf-8"))["skills"]
+        assert "adversary-pipeline" in skills
+        assert skills["adversary-pipeline"]["path"] == "adversary-pipeline/SKILL.md"
+
+    def test_tier1_is_default_inline_council(self):
+        text = PIPELINE_SKILL.read_text(encoding="utf-8")
+        assert "Tier 1" in text and "Tier 2" in text
+        assert "council" in text.lower()
+        for lens in ("Attacker", "Defender", "Auditor"):
+            assert lens in text, f"role lens {lens} must be in the skill"
+        assert "inline" in text.lower(), "Tier 1 must be inline (no subagents)"
+
+    def test_tier2_dispatches_general_purpose_not_plugin_adversary(self):
+        text = PIPELINE_SKILL.read_text(encoding="utf-8")
+        assert "general-purpose" in text
+        assert "orchestrator-plugin:adversary" not in text, (
+            "Tier 2 must dispatch fresh general-purpose agents, never the "
+            "inert plugin adversary agent"
+        )
+        assert "verify" in text.lower() and "real" in text.lower(), (
+            "dispatches must carry verify-real-state instructions"
+        )
+
+    def test_tier2_writes_budget_sidecar_before_each_dispatch(self):
+        """R5: the budget is enforced, not requested — the skill writes the
+        sidecar before each dispatch so pre_tool_use can hard-stop."""
+        text = PIPELINE_SKILL.read_text(encoding="utf-8")
+        assert "budget_" in text, "skill must write the state/budget_<session>.json sidecar"
+        assert "before" in text.lower() and "dispatch" in text.lower()
+        assert "30" in text and "12" in text, "default budgets (30 tool calls / 12 files)"
+        assert "summarize" in text.lower(), "degrade-gracefully steering clause"
+
+    def test_risk_report_output_path(self):
+        text = PIPELINE_SKILL.read_text(encoding="utf-8")
+        assert "docs/adversary/" in text
+        assert "-risk-report.md" in text
+
+    def test_prompt_defense_preamble_present(self):
+        text = PIPELINE_SKILL.read_text(encoding="utf-8")
+        assert "prompt" in text.lower() and "defense" in text.lower()
+
+
+class TestAuditorPersonaRescope:
+    def test_adversary_agent_rescoped_as_auditor(self):
+        text = ADVERSARY_AGENT.read_text(encoding="utf-8")
+        assert "Auditor" in text, (
+            "agents/adversary.md must be re-scoped as the Auditor role the "
+            "pipeline references"
+        )
+        assert "adversary-pipeline" in text
+
+
+class TestAdversaryExitGateText:
+    """C3: the exit gate lives in skill text (advisory semantics, accepted in
+    writing) — both sign-off skills must invoke the staleness checker when
+    pipeline.dispatcher.gates.adversary_exit is on."""
+
+    def test_brainstorming_skill_gate_text(self):
+        text = BRAINSTORM_SKILL.read_text(encoding="utf-8")
+        assert "check_risk_report.py" in text
+        assert "adversary_exit" in text
+
+    def test_review_skill_gate_text(self):
+        text = REVIEW_SKILL.read_text(encoding="utf-8")
+        assert "check_risk_report.py" in text
+        assert "adversary_exit" in text
+
+    def test_brainstorming_part5_uses_pipeline_not_inert_agent(self):
+        """Part 5 must route through the tiered adversary-pipeline skill, not
+        a bare dispatch of the inert plugin adversary agent."""
+        text = BRAINSTORM_SKILL.read_text(encoding="utf-8")
+        assert "adversary-pipeline" in text

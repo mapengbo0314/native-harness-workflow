@@ -139,6 +139,18 @@ def test_claude_plugin_contract():
                 "session_memory_save" in cmd for cmd in precompact_commands
             ), "session_memory_save.py must be registered for PreCompact"
 
+        # Phase 5 (ECC F2): adversary pipeline artifacts must ship in the plugin
+        assert (plugin_dir / "skills" / "adversary-pipeline" / "SKILL.md").exists(), \
+            "adversary-pipeline skill must be minted"
+        assert (plugin_dir / "scripts" / "check_risk_report.py").exists(), \
+            "check_risk_report.py staleness checker must be minted"
+        minted_skills = json.loads((plugin_dir / "skills.json").read_text())["skills"]
+        assert "adversary-pipeline" in minted_skills
+        for skill_name in ("harness-brainstorming-plans", "harness-requesting-code-review"):
+            gate_text = (plugin_dir / "skills" / skill_name / "SKILL.md").read_text()
+            assert "check_risk_report.py" in gate_text, \
+                f"{skill_name} must carry the adversary exit gate text"
+
         marketplace_path = plugin_dir.parent / ".claude-plugin" / "marketplace.json"
         assert marketplace_path.exists(), "local marketplace manifest should exist next to harness-wf-plugin"
         with open(marketplace_path) as f:

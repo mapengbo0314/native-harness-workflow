@@ -49,6 +49,21 @@ Use Task tool with `general-purpose` type, fill template at `code-reviewer.md`
 - Note Minor issues for later
 - Push back if reviewer is wrong (with reasoning)
 
+## Adversary Exit Gate (design-backed work)
+
+When the work under review implements a design doc and
+`pipeline.dispatcher.gates.adversary_exit` is on, sign-off additionally
+requires a risk report newer than the design doc (F2, C3 — advisory
+semantics, accepted in writing). Verify deterministically:
+
+```bash
+python3 "$CLAUDE_PLUGIN_ROOT/scripts/check_risk_report.py" <design-doc-path>
+```
+
+If it fails (missing or stale), run the `adversary-pipeline` skill against
+the design doc before declaring the work ready for merge. Work without a
+design doc is not subject to this gate.
+
 ## Example
 
 ```
