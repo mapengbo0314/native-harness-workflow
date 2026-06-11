@@ -955,3 +955,93 @@ class TestInstallRulesPacksReturnsMatchedPacks:
             assert call_kwargs.kwargs.get("matched_lang_packs") == sentinel_set, (
                 "re-inline must use the set returned by install_rules_packs, not recompute"
             )
+
+
+class TestUnknownStackFailOpen:
+    """On a fresh mint domain.json does not exist yet (the domain seed runs
+    post-mint).  An UNKNOWN stack must not permanently prune language packs
+    from the deployed plugin — the post-seed sync needs them to still be
+    there.  A KNOWN stack that matches nothing is an explicit empty selection
+    and still prunes (e.g. a pure-Rust repo)."""
+
+    def test_unknown_stack_keeps_language_packs_in_plugin(self, tmp_path):
+        from harness.init.minting_engine import install_rules_packs
+
+        bp = _make_boilerplate(tmp_path)
+        project = tmp_path / "project"
+        project.mkdir()
+        # No domain.json — stack unknown.
+
+        target = tmp_path / "target_plugin"
+        target.mkdir()
+        shutil.copytree(bp / "rules" / "packs", target / "rules" / "packs")
+
+        sel = install_rules_packs(
+            project_path=project,
+            deployed_plugin_path=target,
+            packs_root=target / "rules" / "packs",
+            features={},
+        )
+
+        assert sel == set()
+        # Language packs survive in the deployed plugin for the post-seed sync.
+        assert (target / "rules" / "packs" / "python").exists(), "python pack must NOT be pruned on unknown stack"
+        assert (target / "rules" / "packs" / "golang").exists(), "golang pack must NOT be pruned on unknown stack"
+        # Mirror still gets common only.
+        install_root = project / ".claude" / "rules" / "harness"
+        assert (install_root / "common").exists()
+        assert not (install_root / "python").exists()
+
+    def test_known_stack_no_match_still_prunes(self, tmp_path):
+        from harness.init.minting_engine import install_rules_packs
+
+        bp = _make_boilerplate(tmp_path)
+        project = tmp_path / "project"
+        project.mkdir()
+        _write_domain_json(project, ["Rust"])  # known stack, no shipped pack
+
+        target = tmp_path / "target_plugin"
+        target.mkdir()
+        shutil.copytree(bp / "rules" / "packs", target / "rules" / "packs")
+
+        install_rules_packs(
+            project_path=project,
+            deployed_plugin_path=target,
+            packs_root=target / "rules" / "packs",
+            features={},
+        )
+
+        assert not (target / "rules" / "packs" / "python").exists(), "explicit empty selection must prune"
+        assert (target / "rules" / "packs" / "common").exists(), "common always kept"
+
+
+def test_post_mint_domain_init_resyncs_packs_for_claude(tmp_path):
+    """After the post-mint domain seed writes domain.json, the init flow must
+    re-run pack selection so the freshly-known stack is reflected in the
+    deployed packs and mirror (the mint-time install ran with stack unknown)."""
+    from unittest.mock import patch
+    from harness.init.cli import _post_mint_domain_init
+
+    with (
+        patch("harness.init.cli.run_domain_init") as mock_seed,
+        patch("harness.init.cli.sync_rules_packs") as mock_sync,
+    ):
+        _post_mint_domain_init(str(tmp_path), "claude")
+
+    mock_seed.assert_called_once()
+    mock_sync.assert_called_once()
+
+
+def test_post_mint_domain_init_no_pack_sync_for_gemini(tmp_path):
+    """sync_rules_packs assumes the claude plugin layout; non-claude platforms
+    handle packs via persona inlining at mint time instead."""
+    from unittest.mock import patch
+    from harness.init.cli import _post_mint_domain_init
+
+    with (
+        patch("harness.init.cli.run_domain_init"),
+        patch("harness.init.cli.sync_rules_packs") as mock_sync,
+    ):
+        _post_mint_domain_init(str(tmp_path), "gemini")
+
+    mock_sync.assert_not_called()

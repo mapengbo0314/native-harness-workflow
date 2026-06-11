@@ -1,5 +1,8 @@
 {
   "skills": {
+    "continuous-learning": {
+      "path": "continuous-learning/SKILL.md"
+    },
     "diagnose": {
       "path": "diagnose/SKILL.md"
     },
@@ -44,6 +47,9 @@
     },
     "verification-before-completion": {
       "path": "verification-before-completion/SKILL.md"
+    },
+    "harness-capture-scenario": {
+      "path": "harness-capture-scenario/SKILL.md"
     }
   }
 }

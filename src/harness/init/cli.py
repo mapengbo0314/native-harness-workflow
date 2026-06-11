@@ -48,7 +48,18 @@ def _post_mint_domain_init(project_path, platform: str, *, run_init=None):
     config dir (e.g. .gemini/domain/domain.json for a gemini mint)."""
     if run_init is None:
         run_init = run_domain_init  # resolved lazily (imported below in this module)
-    return run_init(project_path, platform=platform)
+    result = run_init(project_path, platform=platform)
+    # The mint-time pack install ran with the stack unknown (fail-open: no
+    # prune).  Now that the seed has written domain.json, re-run selection so
+    # the deployed packs and mirror reflect the detected stack.  Claude only:
+    # sync_rules_packs assumes the claude plugin layout; non-claude platforms
+    # get pack content via persona inlining at mint time.
+    if platform == "claude":
+        try:
+            sync_rules_packs(str(project_path))
+        except Exception as exc:
+            print(f"[HARNESS] Warning: post-seed pack sync failed: {exc}")
+    return result
 
 
 def _domain_next_steps(platform: str) -> str:
@@ -362,7 +373,9 @@ def run_domain_refresh_with_sync(
     rewrite the manifest's render_context.rules_packs so the stack filter
     stays current after a domain-refresh."""
     run_domain_refresh(project_path, platform=platform)
-    plugin_root = Path(project_path)
+    # Deployed plugin dir is always <project>/.claude/harness-wf-plugin — the
+    # features.yaml and rules/packs live there, not at the project root.
+    plugin_root = Path(project_path) / ".claude" / "harness-wf-plugin"
     try:
         result = compile_features(plugin_root)
     except FeaturesValidationError as exc:

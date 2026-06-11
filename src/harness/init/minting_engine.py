@@ -646,6 +646,13 @@ def install_rules_packs(
 
     stack = _read_domain_stack(project_path)
 
+    # Unknown stack (domain.json missing or empty — e.g. a fresh mint where the
+    # domain seed runs post-mint) must fail open: never prune language packs,
+    # or the post-seed re-sync has nothing left to select from.  A known stack
+    # that matches nothing is an explicit empty selection and prunes normally.
+    # Mirrors the `selected: None` fail-open semantics of _compute_rules_packs_rc.
+    stack_unknown = not stack
+
     # Resolve which packs match the stack, then further filter by per-language flags
     from harness.init.lang_aliases import stack_to_packs
     matched_lang_packs = {
@@ -670,7 +677,7 @@ def install_rules_packs(
     # Prune stale language dirs from install_root: remove a child dir (or
     # symlink) only when its name IS in known_pack_dirs AND is not in
     # matched_lang_packs (and is not "common").
-    if install_root.exists():
+    if install_root.exists() and not stack_unknown:
         for child in list(install_root.iterdir()):
             if child.name == "common":
                 continue  # always keep
@@ -703,7 +710,7 @@ def install_rules_packs(
 
     # Prune unselected language dirs from the deployed plugin's packs tree
     # (common is always kept; language dirs not in matched_lang_packs are removed)
-    if packs_root.exists():
+    if packs_root.exists() and not stack_unknown:
         for child in list(packs_root.iterdir()):
             if child.name == "common":
                 continue  # always keep

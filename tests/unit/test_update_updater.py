@@ -426,3 +426,136 @@ def test_apply_update_calls_install_rules_packs_and_compile_features(tmp_path):
         )
         mock_irp.assert_called_once()
         mock_cf.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Post-apply re-injection of platform-only hook events (Claude Stop/SessionStart)
+# ---------------------------------------------------------------------------
+
+def test_post_apply_hooks_reinjects_claude_only_hook_events(tmp_path):
+    """An apply that rewrites hooks.json from the shared boilerplate drops the
+    Claude-only events (Stop, SessionStart) that mint injects via the adapter.
+    _post_apply_hooks must re-inject them on the claude platform."""
+    import json as _json
+
+    pkg = tmp_path / "pkg"
+    plug = tmp_path / "plug"
+    project = tmp_path / "project"
+    _mk(pkg, plug)
+    project.mkdir()
+
+    # hooks.json as freshly applied from boilerplate: SessionEnd present,
+    # Stop/SessionStart absent (they must never live in the shared template).
+    (plug / "hooks").mkdir()
+    (plug / "hooks" / "hooks.json").write_text(
+        _json.dumps({"hooks": {"SessionEnd": [{"hooks": [{"name": "learn", "type": "command", "command": "x"}]}]}}) + "\n"
+    )
+    write_manifest(plug, pkg, render_context={"platform": "claude"})
+
+    from harness.update.updater import _post_apply_hooks
+    _post_apply_hooks(plug, project)
+
+    data = _json.loads((plug / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+    hooks = data["hooks"]
+    assert "Stop" in hooks, "Stop must be re-injected post-apply on claude"
+    stop_cmds = [h["command"] for g in hooks["Stop"] for h in g["hooks"]]
+    assert any("session_memory_save" in c for c in stop_cmds)
+    assert "SessionStart" in hooks, "SessionStart must be re-injected post-apply on claude"
+    start_cmds = [h["command"] for g in hooks["SessionStart"] for h in g["hooks"]]
+    assert any("session_start" in c for c in start_cmds)
+    # Pre-existing events are untouched.
+    assert "SessionEnd" in hooks
+
+
+def test_post_apply_hooks_no_claude_injection_for_gemini(tmp_path):
+    """Non-claude platforms define no Stop/SessionStart equivalents — the
+    post-apply step must not inject them."""
+    import json as _json
+
+    pkg = tmp_path / "pkg"
+    plug = tmp_path / "plug"
+    project = tmp_path / "project"
+    _mk(pkg, plug)
+    project.mkdir()
+
+    (plug / "hooks").mkdir()
+    (plug / "hooks" / "hooks.json").write_text(_json.dumps({"hooks": {}}) + "\n")
+    write_manifest(plug, pkg, render_context={"platform": "gemini"})
+
+    from harness.update.updater import _post_apply_hooks
+    _post_apply_hooks(plug, project)
+
+    data = _json.loads((plug / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+    hooks = data.get("hooks", {})
+    assert "Stop" not in hooks
+    assert "SessionStart" not in hooks
+
+
+def test_apply_update_tolerates_emitted_features_json(tmp_path):
+    """features.json is emitted (compiled from features.yaml by _post_apply_hooks);
+    apply_update must skip it rather than abort with 'cannot reproduce'."""
+    import json as _json
+    from harness.update.updater import apply_update
+
+    pkg = tmp_path / "pkg"
+    plug = tmp_path / "plug"
+    harness_d = tmp_path / "harness"
+    project = tmp_path / "project"
+    _mk(pkg, plug)
+    harness_d.mkdir()
+    project.mkdir()
+
+    (pkg / "runtime" / "dispatcher.py").write_text("v1\n")
+    (plug / "src" / "dispatcher.py").write_text("v1\n")
+    (pkg.parent / "pyproject.toml").write_text('[project]\nversion = "1.0.0"\n')
+
+    # Deployed toggles surface: operator YAML + compiled JSON (manifest-owned).
+    (pkg / "templates" / "boilerplate" / "features.yaml").write_text("rules_packs:\n  enabled: true\n")
+    (plug / "features.yaml").write_text("rules_packs:\n  enabled: true\n")
+    (plug / "features.json").write_text('{"rules_packs": {"enabled": true}}\n')
+    write_manifest(plug, pkg, render_context={"platform": "claude"})
+
+    # Upstream change so the apply has something to commit.
+    (pkg / "runtime" / "dispatcher.py").write_text("v2\n")
+
+    apply_update(plug, pkg, harness_dir=harness_d, headless=True, project_root=project)
+
+    assert (plug / "src" / "dispatcher.py").read_text() == "v2\n"
+    # features.json survives (recompiled post-apply from features.yaml).
+    data = _json.loads((plug / "features.json").read_text(encoding="utf-8"))
+    assert data.get("rules_packs", {}).get("enabled") is True
+
+
+def test_migrate_b0_skips_rules_harness_mirror(tmp_path):
+    """<harness_dir>/rules/harness/ is the GENERATED pack mirror (Phase 1 R1),
+    not legacy B0 content. The migration must not move it into the plugin
+    (that loops: post-apply regenerates the mirror, the next update re-migrates
+    it as removed-upstream orphans) and must not delete it from harness_dir."""
+    from harness.update.updater import _migrate_b0_paths
+
+    pkg = tmp_path / "pkg"
+    plug = tmp_path / "plug"
+    harness_d = tmp_path / "harness"
+    _mk(pkg, plug)
+    harness_d.mkdir()
+
+    # Generated mirror content
+    mirror = harness_d / "rules" / "harness" / "python"
+    mirror.mkdir(parents=True)
+    (mirror / "coding-style.md").write_text("mirror content\n")
+
+    # Genuine legacy B0 file directly under rules/
+    (harness_d / "rules" / "legacy_mandate.md").write_text("legacy\n")
+
+    manifest = {"owned": {}}
+    _migrate_b0_paths(manifest, harness_d, plug, pkg, dry_run=False)
+
+    # Mirror is untouched: not migrated, not owned, still in harness_dir.
+    assert not (plug / "rules" / "harness").exists(), "mirror must not be migrated into plugin"
+    assert "rules/harness/python/coding-style.md" not in manifest["owned"]
+    assert (mirror / "coding-style.md").exists(), "mirror must survive in harness_dir"
+
+    # True B0 content still migrates.
+    assert (plug / "rules" / "legacy_mandate.md").exists()
+    assert "rules/legacy_mandate.md" in manifest["owned"]
+    assert not (harness_d / "rules" / "legacy_mandate.md").exists()

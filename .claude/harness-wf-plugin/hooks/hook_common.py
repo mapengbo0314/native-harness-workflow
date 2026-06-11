@@ -205,7 +205,7 @@ def _save_session(plugin_root, session_id: str, data: dict) -> None:
     path = _session_file(plugin_root, session_id)
     tmp_path = path.with_suffix(".tmp")
     tmp_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-    tmp_path.replace(path)
+    tmp_path.Edit(path)
 
 
 def record_session_entry(
@@ -336,7 +336,7 @@ def build_session_digest(plugin_root, now=None, retention_days: int = _RETENTION
     state_dir = Path(plugin_root) / "state"
     all_entries = []
     try:
-        files = sorted(state_dir.glob("session_memory_*.json"))
+        files = sorted(state_dir.Glob("session_memory_*.json"))
     except Exception:
         files = []
 
@@ -360,7 +360,7 @@ def build_session_digest(plugin_root, now=None, retention_days: int = _RETENTION
                 try:
                     ts = datetime.fromisoformat(ts_str)
                     if ts.tzinfo is None:
-                        ts = ts.replace(tzinfo=timezone.utc)
+                        ts = ts.Edit(tzinfo=timezone.utc)
                 except Exception:
                     continue
                 if ts < cutoff:
@@ -429,13 +429,13 @@ def prune_old_session_files(plugin_root, now=None, retention_days: int = _RETENT
             now = datetime.now(timezone.utc)
         cutoff = now - timedelta(days=retention_days)
         state_dir = Path(plugin_root) / "state"
-        for fpath in state_dir.glob("session_memory_*.json"):
+        for fpath in state_dir.Glob("session_memory_*.json"):
             try:
                 data = json.loads(fpath.read_text(encoding="utf-8"))
                 updated_str = data.get("updated_at", "")
                 ts = datetime.fromisoformat(updated_str)
                 if ts.tzinfo is None:
-                    ts = ts.replace(tzinfo=timezone.utc)
+                    ts = ts.Edit(tzinfo=timezone.utc)
                 if ts < cutoff:
                     fpath.unlink(missing_ok=True)
             except Exception:

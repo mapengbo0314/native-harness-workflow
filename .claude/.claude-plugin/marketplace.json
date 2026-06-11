@@ -10,7 +10,7 @@
       "name": "orchestrator-plugin",
       "source": "./harness-wf-plugin",
       "description": "Project-local orchestrator plugin for the generated harness",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "author": {
         "name": "E2G Harness"
       }

@@ -65,7 +65,7 @@ def test_domain_refresh_triggers_compile_features(tmp_path):
         from harness.init.cli import run_domain_refresh_with_sync
         run_domain_refresh_with_sync(str(tmp_path))
 
-    mock_cf.assert_called_once_with(Path(tmp_path))
+    mock_cf.assert_called_once_with(tmp_path / ".claude" / "harness-wf-plugin")
 
 
 # ---------------------------------------------------------------------------
@@ -144,3 +144,34 @@ def test_domain_refresh_prints_success_line(tmp_path, capsys):
     captured = capsys.readouterr()
     assert "features.json compiled" in captured.out
     assert str(fake_json_path) in captured.out
+
+
+# ---------------------------------------------------------------------------
+# domain-refresh must compile/sync against the DEPLOYED PLUGIN root, not the
+# project root (regression: plugin_root = Path(project_path) made both the
+# features compile and the pack re-sync silent no-ops on standard layouts)
+# ---------------------------------------------------------------------------
+
+
+def test_domain_refresh_uses_deployed_plugin_root(tmp_path):
+    """On a standard layout (<project>/.claude/harness-wf-plugin), the refresh
+    must compile the plugin's features.yaml and pass the plugin root to
+    sync_rules_packs — not the project root."""
+    plugin_root = tmp_path / ".claude" / "harness-wf-plugin"
+    domain_dir = plugin_root / "domain"
+    domain_dir.mkdir(parents=True)
+    (domain_dir / "domain.json").write_text('{"stack": ["Python"]}', encoding="utf-8")
+
+    with (
+        patch("harness.domain.seed.detect.detect_stack", return_value=["Python"]),
+        patch("harness.init.cli.compile_features", return_value=None) as mock_cf,
+        patch("harness.init.cli.sync_rules_packs") as mock_sync,
+    ):
+        from harness.init.cli import run_domain_refresh_with_sync
+        run_domain_refresh_with_sync(str(tmp_path))
+
+    mock_cf.assert_called_once_with(plugin_root)
+    _, kwargs = mock_sync.call_args
+    assert kwargs.get("plugin_root") == plugin_root, (
+        f"sync_rules_packs must receive the deployed plugin root, got {kwargs.get('plugin_root')!r}"
+    )

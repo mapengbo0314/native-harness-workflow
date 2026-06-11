@@ -277,3 +277,23 @@ def test_assemble_layout_relocates_agent_skills_rules_into_plugin(
     assert not (harness_tmp / "skills.json").exists(), (
         "skills.json must be removed from harness_tmp root after move"
     )
+
+
+def test_assemble_layout_moves_features_surface_into_plugin(tmp_path: Path) -> None:
+    """features.yaml (operator toggles) and features.json (compiled) are part of
+    the plugin payload — mint compiles them at the harness root, and they must
+    move into harness-wf-plugin/ or the deployed plugin ships without its
+    toggle surface (Phase 0 ECC port)."""
+    adapter = get_adapter("claude")
+    project = tmp_path / "myproject"
+    project.mkdir()
+    harness_tmp = _make_harness_tmp(project, ".claude")
+    (harness_tmp / "features.yaml").write_text("rules_packs:\n  enabled: true\n")
+    (harness_tmp / "features.json").write_text('{"rules_packs": {"enabled": true}}\n')
+
+    adapter.assemble_layout(project)
+
+    plugin_dir = project / ".harness_tmp" / "harness-wf-plugin"
+    assert (plugin_dir / "features.yaml").exists(), "features.yaml must move into the plugin"
+    assert (plugin_dir / "features.json").exists(), "features.json must move into the plugin"
+    assert not (harness_tmp / "features.yaml").exists(), "no stray features.yaml at harness root"

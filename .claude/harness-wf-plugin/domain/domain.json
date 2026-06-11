@@ -1,9 +1,37 @@
 {
   "schema_version": 1,
   "_comment": "Project-ops manifest. Fill environments/test/deploy/infra; run `harness-wf domain-compile` to populate `business`.",
-  "stack": ["Python"],
+  "stack": [
+    "Python",
+    "TypeScript",
+    "JavaScript",
+    "Shell",
+    "HTML",
+    "Dockerfile",
+    "express",
+    "react",
+    "react-dom",
+    "react-router-dom",
+    "react-router",
+    "react-is",
+    "react-smooth",
+    "react-transition-group",
+    "react-refresh",
+    "aiohttp",
+    "langchain-protocol",
+    "langchain-core",
+    "numpy",
+    "grpcio",
+    "google-cloud-storage",
+    "google-cloud-resource-manager",
+    "google-cloud-core",
+    "google-cloud-bigquery",
+    "google-api-core",
+    "botocore",
+    "boto3"
+  ],
   "environments": {
-    "local": "harness-wf init --project-path <target-repo>  (installed via `uv tool install`; mints the orchestrator plugin into a target project. NOT `uv run` from inside a target repo — its venv may hold a stale harness-wf shim)"
+    "local": "harness-wf init --project-path <target-repo>  (installed via `uv tool install`; mints the orchestrator plugin into a target project. NOT `uv run` from inside a target repo \u2014 its venv may hold a stale harness-wf shim)"
   },
   "test": {
     "unit": "python3 -m pytest",

@@ -341,6 +341,22 @@ def _post_apply_hooks(plugin_dir: Path, project_root: Union[str, Path]) -> None:
     except Exception as exc:  # pragma: no cover — fail-open
         print(f"[HARNESS] Warning: post-update mirror regeneration failed: {exc}")
 
+    # 3. Re-inject platform-only hook events (Claude's Stop/SessionStart).
+    # The shared boilerplate hooks.json deliberately omits them (no equivalent
+    # on other platforms); mint injects them via the adapter, so an apply that
+    # rewrites hooks.json from the template would otherwise drop them.
+    try:
+        from harness.adapters import get_adapter
+
+        manifest = read_manifest(plugin_dir)
+        platform = manifest.get("render_context", {}).get("platform", "claude")
+        adapter = get_adapter(platform)
+        inject = getattr(adapter, "_inject_claude_only_hooks", None)
+        if inject is not None:
+            inject(plugin_dir / "hooks" / "hooks.json")
+    except Exception as exc:  # pragma: no cover — fail-open
+        print(f"[HARNESS] Warning: post-update hook-event injection failed: {exc}")
+
 
 def recover_journal(plugin_dir: Union[str, Path]) -> None:
     """Restore pre-update files if a previous journaled commit was interrupted."""
@@ -394,6 +410,11 @@ def _resolve_into_staging(
             if target.exists():
                 target.unlink()
             changed.add(v.relpath)
+            continue
+        if v.verdict == "emitted" and v.relpath == "features.json":
+            # Compiled from features.yaml — no template source to reproduce.
+            # _post_apply_hooks recompiles it after the commit; leave the
+            # staged copy untouched here.
             continue
 
         entry = owned.get(v.relpath)
@@ -619,9 +640,15 @@ def _migrate_b0_paths(manifest: dict, harness_dir: Path, plugin_dir: Path, packa
             
         dest_path = plugin_dir / b0_path
         
-        # Determine files to migrate
+        # Determine files to migrate.  <harness_dir>/rules/harness/ is the
+        # generated pack mirror (Phase 1 R1: install_rules_packs regenerates it
+        # post-apply) — never legacy B0 content, so it is exempt from migration.
         if src_path.is_dir():
-            rel_files = [p.relative_to(src_path) for p in src_path.rglob("*") if p.is_file()]
+            rel_files = [
+                p.relative_to(src_path) for p in src_path.rglob("*")
+                if p.is_file()
+                and not (b0_path == "rules" and p.relative_to(src_path).parts[:1] == ("harness",))
+            ]
         else:
             rel_files = [Path("")]
             
@@ -651,4 +678,15 @@ def _migrate_b0_paths(manifest: dict, harness_dir: Path, plugin_dir: Path, packa
                     
         if not dry_run and src_path.is_dir() and src_path.exists():
             import shutil
-            shutil.rmtree(str(src_path), ignore_errors=True)
+            if b0_path == "rules" and (src_path / "harness").is_dir():
+                # Spare the generated mirror; clean up only the migrated legacy
+                # content around it.
+                for child in list(src_path.iterdir()):
+                    if child.name == "harness":
+                        continue
+                    if child.is_dir():
+                        shutil.rmtree(str(child), ignore_errors=True)
+                    else:
+                        child.unlink(missing_ok=True)
+            else:
+                shutil.rmtree(str(src_path), ignore_errors=True)

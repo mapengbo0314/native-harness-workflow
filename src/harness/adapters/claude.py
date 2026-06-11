@@ -57,7 +57,7 @@ class ClaudeAdapter(PlatformAdapter):
 
         # Move payload directories into harness-wf-plugin
         payload_dirs = ["skills", "agents", "hooks", "scripts", "src", "rules"]
-        payload_files = ["pyproject.toml", "agent.json", "skills.json"]
+        payload_files = ["pyproject.toml", "agent.json", "skills.json", "features.yaml", "features.json"]
 
         for p_dir in payload_dirs:
             src_path = harness_dir / p_dir
