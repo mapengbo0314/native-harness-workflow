@@ -83,6 +83,9 @@ Draft implementation exists in the working tree and focused tests have passed lo
 
 
 ## Phase 2 Implementation Summary
-**Summary:** Implemented Phase 2 (F5 Session Memory) of the ECC feature port. The `hook_common.py` module now supports `record_session_entry`, deterministic digest building, and phase state helpers. New hooks `session_memory_save.py` and `session_start.py` handle saving and injecting memory context securely and performantly.
-**Verified:** All tests in `tests/hooks/test_session_memory.py`, `tests/e2e/test_mint_and_verify_matrix.py`, and `tests/integration/test_claude_plugin_contract.py` pass. Full test suite has 1152 passes.
-**NextSteps:** Awaiting Spec Compliance and Code Quality reviews by Verifier/Reviewer subagents to complete Phase 2.
+**Summary:** Addressed code reviewer feedback. Fixed the reference truncation bug in `build_session_digest` by joining all references. Fixed the corrupt file disk leak in `prune_old_session_files` by ensuring files that throw exceptions during timestamp parsing are pruned. Rewrote `test_digest_8kb_cap` to correctly trigger the 8KB limit by utilizing the uncapped `refs` array.
+**Verified:** `tests/hooks/test_session_memory.py` passes successfully, proving all fixes.
+**NextSteps:** Waiting for final sign-off from the reviewer.
+
+## Current Blockers
+*(None. Previous review feedback addressed.)*

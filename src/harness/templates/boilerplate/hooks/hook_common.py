@@ -403,7 +403,7 @@ def build_session_digest(plugin_root, now=None, retention_days: int = _RETENTION
         refs = e.get("refs", [])
         if not isinstance(refs, list):
             refs = []
-        ref_str = f" ({refs[0]})" if refs else ""
+        ref_str = f" ({', '.join(str(r) for r in refs)})" if refs else ""
         lines.append(f"- [{kind}] {summary}{ref_str}")
 
     block = "\n".join(lines) + "\n"
@@ -439,6 +439,6 @@ def prune_old_session_files(plugin_root, now=None, retention_days: int = _RETENT
                 if ts < cutoff:
                     fpath.unlink(missing_ok=True)
             except Exception:
-                pass
+                fpath.unlink(missing_ok=True)
     except Exception:
         pass

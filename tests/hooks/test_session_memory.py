@@ -291,16 +291,29 @@ def test_summary_truncation(hook_common, plugin_root):
 
 
 def test_digest_8kb_cap(hook_common, plugin_root):
-    # Write many entries with long summaries
+    # Write 6 entries, each with a 2KB ref, totaling ~12KB.
+    # The 8KB byte cap should truncate the output at a newline,
+    # leaving only some of the entries.
     for i in range(6):
         hook_common.record_session_entry(
             plugin_root,
             f"big{i}",
             "decision",
-            f"Decision {i}: " + "A" * 200,
+            f"Decision {i}",
+            refs=["A" * 2000]
         )
     digest = hook_common.build_session_digest(plugin_root)
-    assert len(digest.encode("utf-8")) <= 8 * 1024
+    digest_bytes = digest.encode("utf-8")
+
+    # Must be capped at 8KB
+    assert len(digest_bytes) <= 8 * 1024
+
+    # Should contain the newest entries but not the oldest one
+    assert "Decision 5" in digest
+    assert "Decision 0" not in digest
+
+    # We should have more than just the header to prove it didn't just fail
+    assert len(digest_bytes) > 2000
 
 
 # ---------------------------------------------------------------------------
