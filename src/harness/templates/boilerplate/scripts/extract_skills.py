@@ -36,7 +36,9 @@ def get_repo_hash(project_root: Path) -> str:
 
 
 def parse_frontmatter(content: str) -> dict:
-    """Parse YAML-like frontmatter from a markdown string."""
+    """Parse YAML-like frontmatter from a markdown string robustly.
+    Splits on the first colon, strips surrounding quotes, whitespace and comments.
+    """
     frontmatter = {}
     if content.startswith("---"):
         parts = content.split("---", 2)
@@ -46,7 +48,20 @@ def parse_frontmatter(content: str) -> dict:
                 if ":" in line:
                     k, v = line.split(":", 1)
                     k = k.strip()
+                    if k.startswith("'") and k.endswith("'"):
+                        k = k[1:-1].strip()
+                    if k.startswith('"') and k.endswith('"'):
+                        k = k[1:-1].strip()
+                    
                     v = v.strip()
+                    # Strip inline comments starting with #
+                    if "#" in v:
+                        v = v.split("#", 1)[0].strip()
+                    if v.startswith("'") and v.endswith("'"):
+                        v = v[1:-1].strip()
+                    if v.startswith('"') and v.endswith('"'):
+                        v = v[1:-1].strip()
+                    
                     # Parse simple lists or floats
                     if v.startswith("[") and v.endswith("]"):
                         try:
@@ -210,19 +225,32 @@ Transcript:
         skill_dir = learned_dir / slug
         skill_file = skill_dir / "SKILL.md"
 
-        # 9. Dedup check: Compare confidence against existing skill
+                # 9. Dedup check: Compare confidence against existing skill
         if skill_file.exists():
             try:
                 existing_content = skill_file.read_text(encoding="utf-8")
                 existing_fm = parse_frontmatter(existing_content)
-                existing_confidence = float(existing_fm.get("confidence") or 0.0)
+                try:
+                    conf_val = existing_fm.get("confidence", "0.0")
+                    if isinstance(conf_val, str):
+                        conf_val = conf_val.strip()
+                        if "#" in conf_val:
+                            conf_val = conf_val.split("#", 1)[0].strip()
+                        if conf_val.startswith("'") and conf_val.endswith("'"):
+                            conf_val = conf_val[1:-1].strip()
+                        if conf_val.startswith('"') and conf_val.endswith('"'):
+                            conf_val = conf_val[1:-1].strip()
+                    existing_confidence = float(conf_val)
+                except ValueError as e:
+                    print(f"[Continuous Learning] Warning: failed to parse confidence value {existing_fm.get('confidence')}: {e}", file=sys.stderr)
+                    existing_confidence = 0.0
                 if confidence <= existing_confidence:
                     print(f"[Continuous Learning] Kept existing skill '{slug}' with higher confidence {existing_confidence} >= {confidence}")
                     return
             except Exception as e:
                 print(f"[Continuous Learning] Error during dedup check: {e}")
 
-        # 10. Format and write SKILL.md
+# 10. Format and write SKILL.md
         skill_dir.mkdir(parents=True, exist_ok=True)
 
         skill_md = f"""---

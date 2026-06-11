@@ -483,7 +483,10 @@ def build_learned_skills_digest(plugin_root, input_json: dict = None) -> str:
                         for line in parts[1].splitlines():
                             if ":" in line:
                                 k, v = line.split(":", 1)
-                                k, v = k.strip(), v.strip()
+                                k = k.strip().strip('"').strip()
+                                v = v.strip().strip('"').strip()
+                                if "#" in v:
+                                    v = v.split("#", 1)[0].strip().strip('"').strip()
                                 fm[k] = v
 
                 name = fm.get("name") or skill_dir.name
@@ -492,8 +495,14 @@ def build_learned_skills_digest(plugin_root, input_json: dict = None) -> str:
                     desc = desc[:217] + "..."
 
                 try:
-                    conf = float(fm.get("confidence") or 0.0)
-                except ValueError:
+                    conf_val = fm.get("confidence", "0.0")
+                    if isinstance(conf_val, str):
+                        conf_val = conf_val.strip()
+                        if "#" in conf_val:
+                            conf_val = conf_val.split("#", 1)[0].strip().strip('"').strip()
+                    conf = float(conf_val)
+                except ValueError as e:
+                    print(f"Warning: failed to parse confidence value {fm.get('confidence')}: {e}", file=sys.stderr)
                     conf = 0.0
 
                 skills.append({

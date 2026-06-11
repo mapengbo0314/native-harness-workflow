@@ -218,3 +218,35 @@ def test_skill_extraction_dedup_behavior(plugin_root, temp_home, monkeypatch):
     assert "Low-confidence content" not in existing_skill_file.read_text(encoding="utf-8")
     assert not input_file_b.exists()
     assert not lockfile.exists()
+
+def test_robust_frontmatter_parsing_with_comments_and_quotes():
+    """Verify that frontmatter parsing handles trailing comments, surrounding quotes, and extra colons robustly."""
+    import extract_skills
+    
+    # Test case 1: Trailing comments on float/confidence and strings, extra colons in value
+    raw_md = """---
+name: "my-awesome-skill" # some comment
+description: "Use Postgres: dynamic indexing with EXPLAIN ANALYZE"
+confidence: 0.85 # high confidence score
+stack: ['postgres', 'sql'] # dev stack
+---
+Some content here"""
+    
+    fm = extract_skills.parse_frontmatter(raw_md)
+    assert fm.get("name") == "my-awesome-skill"
+    assert fm.get("description") == "Use Postgres: dynamic indexing with EXPLAIN ANALYZE"
+    assert fm.get("confidence") == 0.85
+    assert fm.get("stack") == ["postgres", "sql"]
+
+    # Test case 2: Single and double quote stripping and whitespaces
+    raw_md_quotes = """---
+'name': 'single-quoted-name'
+"description": "double-quoted-description"
+confidence: '0.75' # comment with single quotes
+---
+Some content here"""
+
+    fm_quotes = extract_skills.parse_frontmatter(raw_md_quotes)
+    assert fm_quotes.get("name") == "single-quoted-name"
+    assert fm_quotes.get("description") == "double-quoted-description"
+    assert fm_quotes.get("confidence") == 0.75

@@ -1,3 +1,9 @@
+import os
+import sys
+
+if os.environ.get("HARNESS_INTERNAL_LLM_CALL") == "1":
+    sys.exit(0)
+
 import sys
 import json
 import os

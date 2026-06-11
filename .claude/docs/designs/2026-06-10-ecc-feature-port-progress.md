@@ -93,6 +93,50 @@ Phase 3 has passed `harness-subagent-driven-development` workflow (Spec Complian
 
 ## Phase 3 Implementation Summary
 
+**Summary:** Implemented Phase 3 F1 Continuous Learning skill extraction and injection. Following an Adversary agent audit, fixed 6 critical vulnerabilities across prompt classification, lockfile state management, frontmatter parsing, and debugging log visibility:
+1. **Catastrophic Infinite Recursion Loop**: Added an early recursion check in  () and verified with integration tests.
+2. **Atomic Lockfile TOCTOU & Expirable Lockfile**: Implemented atomic lockfile creation in  with , and robust mtime (5 minutes) and PID liveness recovery checks ().
+3. **Dead PID Remediation**: Implemented  initialization, capturing and updating with the active background  after spawn.
+4. **Robust Frontmatter & Comment Parsing**: Developed a resilient frontmatter split/comment/quote-stripping parser in  and  that handles inline comments () and colons seamlessly.
+5. **Hook Failures Visibility**: Redirected background  stdout/stderr to  (or ) for debuggability.
+6. **Test Isolation**: Refactored the  test suite to use isolated temporary directories to prevent template state pollution.
+**Verified:** Successfully ran and passed all 1200+ tests, including specific newly-added cases for prompt recursion, stale lockfile recovery (mtime & dead PID), live PID locking, and robust comment/quote frontmatter parsing.
+**NextSteps:** Proceed to Phase 4.
+
+## Phase 4 — F4 Search-First Gate (+ proportionality guards)
+
+- [ ] Failing test: Branch B + no `research_done` ⇒ gate line in SYSTEM STATE (`tests/unit/test_context_builder.py`)
+- [ ] Implement gate line in `runtime/context_builder.py` (m1 — NOT prompt_classifier; + its inline fallback)
+- [ ] Failing test (M1, R2): source write blocked while persisted `phase=planning` without flag; allowed with flag; classification flip mid-phase does NOT drop the gate; no persisted phase ⇒ passthrough; no TDD-gate interference (`tests/hooks/test_search_first_gate.py`, `tests/unit/test_pre_tool_use_tdd.py`)
+- [ ] Implement enforcement in `hooks/pre_tool_use.py` via `get_phase` (NOT per-prompt branch) behind `pipeline.dispatcher.gates.search_first`
+- [ ] Failing test (R2): brainstorming skill sets `phase=planning` + `phase_entered_at` on entry, clears with `phase_exit_artifact` on sign-off; implement in `skills/harness-brainstorming-plans/SKILL.md` + contract test
+- [ ] Failing test: ambiguous implement-style prompts ⇒ Branch D, clear design work ⇒ B (`tests/unit/test_dispatcher.py`, `tests/unit/test_fallback_classify.py`)
+- [ ] Implement bias-to-D rule in `classify_intent` prompt (`runtime/dispatcher.py:149`) + `prompt_classifier` fallback; D pre-flight asks 1–2 clarifying questions instead of escalating to B
+- [ ] Failing test: toggle off ⇒ passthrough; waiver path sets `research_done`; wire toggle
+- [ ] Author `skills/search-first/SKILL.md` — step 1 proportionality waiver, then Adopt/Extend/Compose/Build matrix, then **post-research depth checkpoint** (HITL `AskUserQuestion`: quick implementation w/ findings attached + clear `phase`, vs full planning pipeline; matrix outcome = recommended default); register in `skills.json` + contract test for checkpoint text
+
+## Phase 5 — F2 Adversary Pipeline (tiered + budgeted)
+
+- [ ] Failing test: staleness checker — report exists + newer than design doc; toggle-off ⇒ pass (`tests/unit/test_adversary_pipeline.py`)
+- [ ] Implement `scripts/check_risk_report.py` (no dispatcher gate — C3: insertion point doesn't exist)
+- [ ] Failing test (R5): budget sidecar `state/budget_<session>.json` — counter increments per tool call, block past limit with summarize-and-finish message, no sidecar ⇒ passthrough, corrupt sidecar ⇒ fail-open, per-session isolation (`tests/hooks/test_dispatch_budget.py`)
+- [ ] Implement budget backstop in `hooks/pre_tool_use.py` (R5 — same deterministic layer as TDD/F4 gates)
+- [ ] Author `skills/adversary-pipeline/SKILL.md` — Tier 1: inline council-style role lenses (default, no subagents); Tier 2: Attacker→Defender→Auditor general-purpose dispatches, **skill writes the budget sidecar before each dispatch (R5)** (≤30 tool calls, ≤12 files, smaller model for Attacker/Defender, degrade-gracefully clause as steering before the enforced wall); council role-lens + GAN prompt-defense preamble; re-scope `agents/adversary.md` as Auditor
+- [ ] Add skill-text gate to `harness-brainstorming-plans` + `harness-requesting-code-review` SKILL.md behind `pipeline.dispatcher.gates.adversary_exit`
+- [ ] Register skill; update `tests/integration/test_claude_plugin_contract.py`
+
+## Phase 6 — Sticky Phase State Machine ⚠️ DEFERRED (outline in design doc Section 3; needs own HITL design pass — do NOT implement from the outline)
+
+- [ ] Run its own design pass (Sections 0–4) covering: artifact-based exit-condition detection (the C3 gap), classifier shrink ("still in phase?" instead of re-classification), misroute suppression + user override, stale-phase reaping
+- Persistence half already in scope per R2: phase keys + helpers (Phase 2), brainstorming-skill set/clear (Phase 4)
+
+## Phase 2 Implementation Summary
+
+**Summary:** Addressed code reviewer feedback. Fixed the reference truncation bug in `build_session_digest` by joining all references. Fixed the corrupt file disk leak in `prune_old_session_files` by ensuring files that throw exceptions during timestamp parsing are pruned. Rewrote `test_digest_8kb_cap` to correctly trigger the 8KB limit by utilizing the uncapped `refs` array.
+**Verified:** `tests/hooks/test_session_memory.py` passes successfully, proving all fixes. SDD workflow complete.
+
+## Phase 3 Implementation Summary
+
 **Summary:** Implemented Phase 3 F1 Continuous Learning skill extraction and injection. Added `tests/unit/test_skill_extraction.py` as a robust TDD test suite covering LLM-mocked skill parsing, out-of-repo directory routing (`~/.local/share/harness-wf/projects/<repo-hash>/learned/`), frontmatter validation (slug/confidence/stack/business), and confidence-based deduping. Developed the background script `src/harness/templates/boilerplate/scripts/extract_skills.py` to handle the LLM interaction, validation, out-of-repo storage, and try-finally cleanup (inputs and lockfiles). Updated `session_start.py` and `hook_common.py` to load and inject up to 6 of these high-confidence learned-skill summaries (220-char capped) into future sessions' `additionalContext`. Registered the `SessionEnd` event hook in the boilerplate `hooks.json` and authored the manual `/learn` skill `SKILL.md` (and registered in `skills.json`).
 **Verified:** Successfully ran and passed all 36 tests under `tests/hooks/test_session_end_learning.py`, `tests/unit/test_skill_extraction.py`, `tests/hooks/test_session_memory.py`, and validated `tests/integration/test_template_integrity.py` and `tests/integration/test_claude_plugin_contract.py`.
 **NextSteps:** Proceed to Phase 4.
