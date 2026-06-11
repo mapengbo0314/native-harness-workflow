@@ -8,6 +8,7 @@ import difflib
 from pathlib import Path
 from harness.init.plugin_generator import generate_orchestrator_plugin
 from harness.adapters import get_adapter
+from harness.init.features import compile_features
 # Single source of truth for the two-pass render. TemplateRenderer and
 # process_includes were relocated to render.py; re-imported here to preserve the
 # existing minting_engine.process_includes / .TemplateRenderer call sites.
@@ -134,6 +135,15 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
         sentinel_path.parent.mkdir(parents=True, exist_ok=True)
         sentinel_path.touch()
         print(f"[HARNESS] Created formatter sentinel at {sentinel_path}")
+
+        # Compile features.yaml -> features.json so a freshly minted repo is
+        # always self-consistent (Phase 0b ECC port).
+        try:
+            json_path = compile_features(target_path)
+            if json_path:
+                print(f"[HARNESS] features.json compiled at {json_path}")
+        except Exception as e:
+            print(f"[HARNESS] Warning: features compile failed: {e}")
 
     else:
         print("Error: Boilerplate directory not found.")
@@ -290,7 +300,13 @@ def perform_smart_merge(existing_path: Path, staged_path: Path):
                         new_content = merge_markdown(existing_content, staged_content)
                     elif file.endswith(('.json', '.yaml', '.yml')):
                         fmt = 'json' if file.endswith('.json') else 'yaml'
-                        new_content = merge_structured(existing_content, staged_content, format=fmt)
+                        # For operator-editable files (features.yaml, features.json),
+                        # existing operator values win over the incoming template
+                        # defaults so re-mint preserves deliberate toggles.
+                        if file in ('features.yaml', 'features.json'):
+                            new_content = merge_structured(staged_content, existing_content, format=fmt)
+                        else:
+                            new_content = merge_structured(existing_content, staged_content, format=fmt)
                     elif file.endswith(('.py', '.sh', '.js')):
                         new_content = handle_code_conflicts(existing_content, staged_content, str(rel_path))
                     else:

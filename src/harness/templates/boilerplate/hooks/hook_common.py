@@ -71,6 +71,31 @@ def load_features(plugin_root) -> dict:
         return {}
 
 
+def features_staleness_warning(plugin_root) -> "str | None":
+    """Return a one-line warning when features.yaml is newer than features.json.
+
+    Stdlib only; fail-open — any exception returns None (never crashes the hook).
+    """
+    try:
+        yaml_path = Path(plugin_root) / "features.yaml"
+        json_path = Path(plugin_root) / "features.json"
+        if not yaml_path.exists():
+            return None
+        if not json_path.exists():
+            return (
+                "⚠ features.yaml is newer than features.json"
+                " — run 'harness-wf features sync'"
+            )
+        if yaml_path.stat().st_mtime > json_path.stat().st_mtime:
+            return (
+                "⚠ features.yaml is newer than features.json"
+                " — run 'harness-wf features sync'"
+            )
+        return None
+    except Exception:
+        return None
+
+
 def feature_enabled(dotted_path: str, plugin_root, default: bool = True) -> bool:
     """Traverse *dotted_path* in features.json and return a bool.
 
@@ -79,6 +104,13 @@ def feature_enabled(dotted_path: str, plugin_root, default: bool = True) -> bool
       - Missing key, traversal through non-dict → *default*
       - Boolean leaf → its value
       - Dict node → value of its "enabled" key if present, else *default*
+
+    Intentional divergence from load_features: feature_enabled reads the JSON
+    inline (rather than delegating to load_features) so that the *default*
+    parameter is honoured on every failure branch independently.  load_features
+    always returns {} on any error, which would collapse all failure modes into
+    "missing key → default", hiding corrupt-JSON vs missing-file distinctions
+    from callers that care about the distinction.
     """
     features_path = Path(plugin_root) / "features.json"
     try:

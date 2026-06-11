@@ -154,3 +154,40 @@ def test_enumerate_source_producers_only_discovers_known_package_sources(tmp_pat
     assert producers["skills/known/SKILL.md"].cls == "customizable"
     assert "docs/user-note.md" not in producers
     assert "agents.json" not in producers
+
+
+# --- Phase 0b: feature toggle files classification --------------------------
+
+def test_features_yaml_is_customizable_template():
+    """features.yaml is an operator-editable template (customizable / template)."""
+    o = classify("features.yaml")
+    assert o is not None
+    assert o.cls == "customizable"
+    assert o.producer == "template"
+    assert o.source_rel == "templates/boilerplate/features.yaml"
+
+
+def test_features_json_is_emitted_generated():
+    """features.json is machine-generated with no single source template (emitted)."""
+    o = classify("features.json")
+    assert o is not None
+    assert o.cls == "generated"
+    assert o.producer == "emitted"
+    assert o.source_rel is None
+
+
+def test_enumerate_source_producers_discovers_features_yaml(tmp_path):
+    """enumerate_source_producers includes features.yaml when the template exists."""
+    package_root = tmp_path / "pkg"
+    (package_root / "templates" / "boilerplate").mkdir(parents=True)
+    (package_root / "templates" / "boilerplate" / "features.yaml").write_text(
+        "rules_packs:\n  enabled: true\n"
+    )
+
+    producers = enumerate_source_producers(package_root)
+
+    assert "features.yaml" in producers
+    o = producers["features.yaml"]
+    assert o.cls == "customizable"
+    assert o.producer == "template"
+    assert o.source_rel == "templates/boilerplate/features.yaml"

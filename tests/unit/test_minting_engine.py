@@ -78,3 +78,28 @@ def test_rules_pointer_domain_path_is_platform_neutral(tmp_path):
     )
     # Still references the manifest, just neutrally.
     assert "domain/domain.json" in text
+
+
+# ---------------------------------------------------------------------------
+# Phase 0b: mint_workspace calls compile_features after boilerplate copy
+# ---------------------------------------------------------------------------
+
+def test_mint_workspace_calls_compile_features(tmp_path):
+    """mint_workspace must call compile_features on the minted plugin dir."""
+    project_path = tmp_path / "project"
+    project_path.mkdir()
+    repo_root = Path(__file__).parent.parent.parent
+    boilerplate_dir = repo_root / "src" / "harness" / "templates" / "boilerplate"
+    target_dir = project_path / ".gemini"
+
+    with patch("harness.init.minting_engine.compile_features") as mock_cf:
+        mock_cf.return_value = target_dir / "features.json"
+        mint_workspace(
+            target_dir=str(target_dir),
+            selected_agents=[],
+            project_path=str(project_path),
+            platform_choice="1",  # gemini
+            boilerplate_dir=str(boilerplate_dir),
+        )
+
+    mock_cf.assert_called_once_with(Path(target_dir))

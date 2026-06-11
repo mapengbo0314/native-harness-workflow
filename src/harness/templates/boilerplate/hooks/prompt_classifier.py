@@ -209,6 +209,15 @@ def main():
                     system_state += f"Proposed Designs: {', '.join(manifest_state.get('designs_found', [])) or 'None'}\n"
                     system_state += f"In-Progress Designs: {', '.join(manifest_state.get('progress_found', [])) or 'None'}\n"
                 system_state += "====================\n"
+
+        # Append staleness warning when features.yaml is out-of-sync (fail-open).
+        try:
+            from hook_common import features_staleness_warning
+            _stale_warn = features_staleness_warning(plugin_root)
+            if _stale_warn:
+                system_state = (system_state or "") + "\n" + _stale_warn + "\n"
+        except Exception:
+            pass
             
         hook_event_name = input_data.get("hookEventName") or input_data.get("hook_event_name", "UserPromptSubmit")
         

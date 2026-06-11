@@ -172,3 +172,96 @@ def test_default_unchanged_for_explicit_bool_leaf(hook_common, plugin_root):
         )
         is False
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 0b: staleness guard (features_staleness_warning)
+# Tests load the pure function via the module-scoped hook_common fixture.
+# ---------------------------------------------------------------------------
+
+def test_staleness_warning_yaml_newer_than_json(hook_common, plugin_root):
+    """features.yaml newer than features.json -> warning string returned."""
+    import time
+    yaml_path = plugin_root / "features.yaml"
+    json_path = plugin_root / "features.json"
+    json_path.write_text("{}")
+    time.sleep(0.02)
+    yaml_path.write_text("rules_packs:\n  enabled: true\n")
+    warning = hook_common.features_staleness_warning(plugin_root)
+    assert warning is not None
+    assert "features.yaml" in warning
+    assert "features sync" in warning
+
+
+def test_staleness_no_warning_json_newer(hook_common, plugin_root):
+    """features.json newer than features.yaml -> None returned."""
+    import time
+    yaml_path = plugin_root / "features.yaml"
+    json_path = plugin_root / "features.json"
+    yaml_path.write_text("rules_packs:\n  enabled: true\n")
+    time.sleep(0.02)
+    json_path.write_text("{}")
+    assert hook_common.features_staleness_warning(plugin_root) is None
+
+
+def test_staleness_no_yaml_returns_none(hook_common, plugin_root):
+    """No features.yaml -> None (nothing to be stale)."""
+    assert hook_common.features_staleness_warning(plugin_root) is None
+
+
+def test_staleness_yaml_present_json_missing_returns_warning(hook_common, plugin_root):
+    """features.yaml exists but features.json absent -> warning."""
+    (plugin_root / "features.yaml").write_text("rules_packs:\n  enabled: true\n")
+    warning = hook_common.features_staleness_warning(plugin_root)
+    assert warning is not None
+    assert "features.yaml" in warning
+
+
+# ---------------------------------------------------------------------------
+# Phase 0b: compile_features accepts the package template (Task 4)
+# ---------------------------------------------------------------------------
+
+def test_template_features_yaml_compiles_and_all_keys_readable(plugin_root):
+    """The boilerplate features.yaml must compile without error and expose all
+    five design keys via feature_enabled (fail-open default=True is fine here
+    since all values in the template are true)."""
+    import importlib.util as _ilu
+    import shutil
+
+    # Locate the template
+    template = (
+        Path(__file__).parent.parent.parent
+        / "src/harness/templates/boilerplate/features.yaml"
+    )
+    assert template.exists(), f"Template not found: {template}"
+
+    # Copy template into plugin_root and compile
+    shutil.copy(template, plugin_root / "features.yaml")
+
+    from harness.init.features import compile_features, FeaturesValidationError
+    result = compile_features(plugin_root)
+    assert result is not None
+    assert (plugin_root / "features.json").exists()
+
+    # Load hook_common from the deployed plane and assert all design keys readable
+    spec = _ilu.spec_from_file_location(
+        "hook_common_template_test",
+        Path(__file__).parent.parent.parent
+        / "src/harness/templates/boilerplate/hooks/hook_common.py",
+    )
+    mod = _ilu.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    design_keys = [
+        "rules_packs.enabled",
+        "services.session_memory.enabled",
+        "hooks.session_end.learning_extraction",
+        "pipeline.dispatcher.gates.search_first",
+        "pipeline.dispatcher.gates.adversary_exit",
+        "skills.continuous-learning",
+        "skills.search-first",
+        "skills.adversary-pipeline",
+    ]
+    for key in design_keys:
+        val = mod.feature_enabled(key, plugin_root)
+        assert val is True, f"Expected True for {key!r}, got {val!r}"

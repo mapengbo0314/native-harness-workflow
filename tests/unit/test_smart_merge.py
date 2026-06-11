@@ -141,3 +141,91 @@ def test_merge_structured_plain_list_still_unions():
     new_json = '{"tags": ["b", "c"]}'
     merged = json.loads(merge_structured(old_json, new_json, format="json"))
     assert sorted(merged["tags"]) == ["a", "b", "c"]
+
+
+# ---------------------------------------------------------------------------
+# Phase 0b: features.yaml / features.json survive re-mint smart merge (M3)
+# ---------------------------------------------------------------------------
+
+def test_features_yaml_preserved_on_smart_merge(tmp_path, monkeypatch):
+    """Operator-toggled values in an existing deployed features.yaml must be
+    preserved when perform_smart_merge re-mints over the existing dir."""
+    from harness.init.minting_engine import perform_smart_merge
+
+    existing_dir = tmp_path / "existing"
+    staged_dir = tmp_path / "staged"
+    existing_dir.mkdir()
+    staged_dir.mkdir()
+
+    # Operator has disabled search_first in the deployed copy
+    existing_features = (
+        "pipeline:\n"
+        "  dispatcher:\n"
+        "    gates:\n"
+        "      search_first: false\n"
+        "      adversary_exit: true\n"
+    )
+    (existing_dir / "features.yaml").write_text(existing_features)
+
+    # Staged (new template) has both as true
+    staged_features = (
+        "pipeline:\n"
+        "  dispatcher:\n"
+        "    gates:\n"
+        "      search_first: true\n"
+        "      adversary_exit: true\n"
+    )
+    (staged_dir / "features.yaml").write_text(staged_features)
+
+    # features.json should also survive (just a JSON file — deep merged)
+    (existing_dir / "features.json").write_text('{"pipeline": {"dispatcher": {"gates": {"search_first": false}}}}')
+    (staged_dir / "features.json").write_text('{"pipeline": {"dispatcher": {"gates": {"search_first": true}}}}')
+
+    monkeypatch.setenv("HARNESS_HEADLESS", "1")
+    perform_smart_merge(existing_dir, staged_dir)
+
+    # features.yaml: operator override (search_first: false) must survive
+    merged_yaml = yaml.safe_load((staged_dir / "features.yaml").read_text())
+    assert merged_yaml["pipeline"]["dispatcher"]["gates"]["search_first"] is False, (
+        "Operator's search_first: false must be preserved through smart merge"
+    )
+    assert merged_yaml["pipeline"]["dispatcher"]["gates"]["adversary_exit"] is True
+
+    # features.json: operator's false must survive via deep merge
+    merged_json = json.loads((staged_dir / "features.json").read_text())
+    assert merged_json["pipeline"]["dispatcher"]["gates"]["search_first"] is False
+
+
+def test_known_keys_disjoint_from_codex_tool_mapping(tmp_path):
+    """No KNOWN_KEYS flattened leaf path must collide with codex tool_mapping keys.
+
+    The codex adapter maps tool names (Read, Write, Bash, etc.) — if a feature
+    key ever matched one of those names the YAML parser could misinterpret the
+    toggle surface during template rendering.
+    """
+    import json as _json
+    from pathlib import Path as _Path
+    from harness.init.features import KNOWN_KEYS
+
+    profiles_path = (
+        _Path(__file__).parent.parent.parent
+        / "src/harness/adapters/platform_profiles.json"
+    )
+    profiles = _json.loads(profiles_path.read_text(encoding="utf-8"))
+    codex_tool_keys = set(profiles.get("codex", {}).get("tool_mappings", {}).keys())
+
+    def _flatten(node, prefix=""):
+        parts = set()
+        if isinstance(node, dict):
+            for k, v in node.items():
+                sub = f"{prefix}.{k}" if prefix else k
+                parts.add(k)          # segment
+                parts.add(sub)        # dotted path
+                parts.update(_flatten(v, sub))
+        return parts
+
+    known_segments = _flatten(KNOWN_KEYS)
+    collision = known_segments & codex_tool_keys
+    assert not collision, (
+        f"KNOWN_KEYS segments collide with codex tool_mapping keys: {collision}"
+    )

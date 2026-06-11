@@ -97,6 +97,35 @@ features:
       enabled: true
     meta-learning:
       enabled: true
+    # ECC-ported skill toggles (Phase 0 feature-toggle surface)
+    continuous-learning: true  # Persist learnings across sessions
+    search-first: true         # Enforce search gate before implementation
+    adversary-pipeline: true   # Enable adversary review pass in pipeline
+
+  # ---------------------------------------------------------
+  # 5b. ECC-Ported Feature Toggles (Phase 0 — operator YAML surface)
+  #     Operators edit features.yaml then run `harness-wf features sync`.
+  #     The compiled features.json is machine-read; never hand-edit it.
+  # ---------------------------------------------------------
+  rules_packs:
+    enabled: true          # Enable language-specific rule packs
+    languages:             # Per-language bool leaves freely allowed here
+      # python: true
+      # typescript: true
+
+  services:
+    session_memory:
+      enabled: true        # Persist session context across prompts
+
+  hooks:
+    session_end:
+      learning_extraction: true  # Extract + store learnings at session end
+
+  pipeline:
+    dispatcher:
+      gates:
+        search_first: true    # Require search step before implementation dispatch
+        adversary_exit: true  # Enable adversary exit gate in pipeline
 
   # ---------------------------------------------------------
   # 6. Specific Hook Listeners (The physical triggers)
