@@ -75,13 +75,17 @@ Phase 4 suite: 1218 passed / 34 skipped / 3 xfailed (+43 tests). Phase 4 is **co
 
 ## Phase 5 — F2 Adversary Pipeline (tiered + budgeted)
 
-- [ ] Failing test: staleness checker — report exists + newer than design doc; toggle-off ⇒ pass (`tests/unit/test_adversary_pipeline.py`)
-- [ ] Implement `scripts/check_risk_report.py` (no dispatcher gate — C3: insertion point doesn't exist)
-- [ ] Failing test (R5): budget sidecar `state/budget_<session>.json` — counter increments per tool call, block past limit with summarize-and-finish message, no sidecar ⇒ passthrough, corrupt sidecar ⇒ fail-open, per-session isolation (`tests/hooks/test_dispatch_budget.py`)
-- [ ] Implement budget backstop in `hooks/pre_tool_use.py` (R5 — same deterministic layer as TDD/F4 gates)
-- [ ] Author `skills/adversary-pipeline/SKILL.md` — Tier 1: inline council-style role lenses (default, no subagents); Tier 2: Attacker→Defender→Auditor general-purpose dispatches, **skill writes the budget sidecar before each dispatch (R5)** (≤30 tool calls, ≤12 files, smaller model for Attacker/Defender, degrade-gracefully clause as steering before the enforced wall); council role-lens + GAN prompt-defense preamble; re-scope `agents/adversary.md` as Auditor
-- [ ] Add skill-text gate to `harness-brainstorming-plans` + `harness-requesting-code-review` SKILL.md behind `pipeline.dispatcher.gates.adversary_exit`
-- [ ] Register skill; update `tests/integration/test_claude_plugin_contract.py`
+- [x] Failing test: staleness checker — report exists + newer than design doc; toggle-off ⇒ pass (`tests/unit/test_adversary_pipeline.py`) — 97c7d9a; topic matching is date-prefix tolerant, newest-report-wins, bad-input exit 2
+- [x] Implement `scripts/check_risk_report.py` (no dispatcher gate — C3: insertion point doesn't exist) — 97c7d9a
+- [x] Failing test (R5): budget sidecar `state/budget_<session>.json` — counter increments per tool call, block past limit with summarize-and-finish message, no sidecar ⇒ passthrough, corrupt sidecar ⇒ fail-open, per-session isolation (`tests/hooks/test_dispatch_budget.py`) — 793b092 (16 tests, incl. e2e exit-2 + gemini deny-JSON)
+- [x] Implement budget backstop in `hooks/pre_tool_use.py` (R5 — same deterministic layer as TDD/F4 gates) — 793b092; spec gap closed: `prune_old_session_files` now also reaps stale `budget_*.json` by mtime (design said "pruned by the Phase 2 retention helper" but the helper only globbed `session_memory_*`)
+- [x] Author `skills/adversary-pipeline/SKILL.md` — Tier 1: inline council-style role lenses (default, no subagents); Tier 2: Attacker→Defender→Auditor general-purpose dispatches, **skill writes the budget sidecar before each dispatch (R5)** (≤30 tool calls, ≤12 files, smaller model for Attacker/Defender, degrade-gracefully clause as steering before the enforced wall); council role-lens + GAN prompt-defense preamble; re-scope `agents/adversary.md` as Auditor — dfd4eb7; sidecar armed/disarmed via `hook_common.get_session_id()` so writer and enforcer resolve identically
+- [x] Add skill-text gate to `harness-brainstorming-plans` + `harness-requesting-code-review` SKILL.md behind `pipeline.dispatcher.gates.adversary_exit` — dfd4eb7; brainstorming Part 5 re-routed through the pipeline (was: bare dispatch of the inert plugin adversary agent)
+- [x] Register skill; update `tests/integration/test_claude_plugin_contract.py` — dfd4eb7 (minted-plugin assertions: skill + script present, gate text in both sign-off skills)
+
+Phase 5 suite: 1252 passed / 34 skipped / 3 xfailed (+34 tests). Phase 5 is **complete**.
+
+Pre-Phase-5 housekeeping (same session): two stale `tests/hooks` classifier contract tests still asserted pre-Phase-4 fallback behavior (`implement ⇒ B`) against the live deployed plugin — aligned with bias-to-D (4f5ddd6).
 
 ## Phase 6 — Sticky Phase State Machine ⚠️ DEFERRED (outline in design doc Section 3; needs own HITL design pass — do NOT implement from the outline)
 
