@@ -472,6 +472,150 @@ def _deep_merge_logic(base, update):
         return update
 
 
+# ---------------------------------------------------------------------------
+# Phase 1a (ECC feature port): rules-pack selection and namespaced install
+# ---------------------------------------------------------------------------
+
+def select_rules_packs(stack: list[str], packs_root: Path) -> list[Path]:
+    """Return pack dirs to deploy: always ``common/`` plus stack-matched language dirs.
+
+    Parameters
+    ----------
+    stack:
+        Language display-name strings from ``domain.json`` (e.g. ``["Python", "Go"]``).
+    packs_root:
+        Absolute path to the ``rules/packs/`` directory (either in the boilerplate
+        source tree or in the deployed plugin).
+
+    Returns
+    -------
+    list[Path]
+        Directories that exist under *packs_root* and should be deployed, starting
+        with ``common/``.  Missing dirs (e.g. ``javascript/`` not yet authored) are
+        silently skipped.
+    """
+    from harness.init.lang_aliases import stack_to_packs
+
+    selected: list[Path] = []
+    common_dir = packs_root / "common"
+    if common_dir.exists():
+        selected.append(common_dir)
+
+    for pack_name in stack_to_packs(stack):
+        pack_dir = packs_root / pack_name
+        if pack_dir.exists():
+            selected.append(pack_dir)
+
+    return selected
+
+
+def _read_domain_stack(project_path: Path) -> list[str]:
+    """Read the ``stack`` list from the project's deployed domain.json.
+
+    Searches ``<project>/.claude/harness-wf-plugin/domain/domain.json``.
+    Returns an empty list if the file is missing or ``stack`` is absent.
+    """
+    domain_json = project_path / ".claude" / "harness-wf-plugin" / "domain" / "domain.json"
+    if not domain_json.exists():
+        return []
+    try:
+        data = json.loads(domain_json.read_text(encoding="utf-8"))
+        stack = data.get("stack", [])
+        return stack if isinstance(stack, list) else []
+    except Exception:
+        return []
+
+
+def _features_rules_packs_enabled(features: dict) -> bool:
+    """Return True if rules_packs is enabled (default: True when absent)."""
+    rp = features.get("rules_packs")
+    if rp is None:
+        return True
+    if isinstance(rp, bool):
+        return rp
+    if isinstance(rp, dict):
+        return rp.get("enabled", True)
+    return True
+
+
+def _features_language_enabled(features: dict, lang_pack_name: str) -> bool:
+    """Return True if a specific language pack is enabled (default: True when absent)."""
+    rp = features.get("rules_packs", {})
+    if not isinstance(rp, dict):
+        return True
+    langs = rp.get("languages", {})
+    if not isinstance(langs, dict):
+        return True
+    val = langs.get(lang_pack_name)
+    if val is None:
+        return True
+    return bool(val)
+
+
+def install_rules_packs(
+    project_path: Path,
+    deployed_plugin_path: Path,
+    packs_root: Path,
+    features: dict,
+) -> None:
+    """Install selected pack dirs into ``<project>/.claude/rules/harness/`` and prune.
+
+    Parameters
+    ----------
+    project_path:
+        The user's project root (where ``.claude/rules/harness/`` will be written).
+    deployed_plugin_path:
+        The root of the deployed plugin directory (used only for pruning the
+        ``rules/packs/`` subtree so the plugin only carries matched packs).
+    packs_root:
+        The ``rules/packs/`` directory inside *deployed_plugin_path* (already copied
+        from boilerplate).  All language subdirs not selected will be removed from here.
+    features:
+        Parsed features dict (may be empty — all features default-enabled when absent).
+    """
+    if not _features_rules_packs_enabled(features):
+        # Prune entire packs tree from the deployed plugin and skip install
+        if packs_root.exists():
+            shutil.rmtree(packs_root)
+        return
+
+    stack = _read_domain_stack(project_path)
+
+    # Resolve which packs match the stack, then further filter by per-language flags
+    from harness.init.lang_aliases import stack_to_packs
+    matched_lang_packs = {
+        p for p in stack_to_packs(stack)
+        if _features_language_enabled(features, p)
+    }
+
+    # Install target: <project>/.claude/rules/harness/
+    install_root = project_path / ".claude" / "rules" / "harness"
+
+    # Always install common (if it exists in packs_root)
+    common_dir = packs_root / "common"
+    if common_dir.exists():
+        dest_common = install_root / "common"
+        dest_common.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(common_dir, dest_common, dirs_exist_ok=True)
+
+    # Install matched language packs
+    for lang_name in matched_lang_packs:
+        lang_dir = packs_root / lang_name
+        if lang_dir.exists():
+            dest_lang = install_root / lang_name
+            dest_lang.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(lang_dir, dest_lang, dirs_exist_ok=True)
+
+    # Prune unselected language dirs from the deployed plugin's packs tree
+    # (common is always kept; language dirs not in matched_lang_packs are removed)
+    if packs_root.exists():
+        for child in list(packs_root.iterdir()):
+            if child.name == "common":
+                continue  # always keep
+            if child.is_dir() and child.name not in matched_lang_packs:
+                shutil.rmtree(child)
+
+
 def copy_runtime_modules(target_dir: Path, platform_id: str = "generic") -> None:
     """Copies runtime modules into the generated plugin's src/ directory.
 

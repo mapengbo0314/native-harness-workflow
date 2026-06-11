@@ -253,6 +253,47 @@ def run_features_sync(project_path: str) -> None:
     _print_features_result(result, plugin_root)
 
 
+def sync_rules_packs(project_path: str, *, plugin_root: Optional[Path] = None) -> None:
+    """Re-run pack selection and install for the project.
+
+    Called by ``run_domain_refresh_with_sync`` so that a stack change (detected
+    during domain-refresh) is reflected in the deployed packs.
+
+    Parameters
+    ----------
+    project_path:
+        The user's project root (where ``.claude/`` lives).
+    plugin_root:
+        Optional explicit plugin root; defaults to
+        ``<project>/.claude/harness-wf-plugin``.
+    """
+    from harness.init.minting_engine import install_rules_packs
+    import json as _json
+
+    project = Path(project_path)
+    resolved_plugin_root = plugin_root or (project / ".claude" / "harness-wf-plugin")
+
+    # Read compiled features (best-effort; default-enabled when absent)
+    features: dict = {}
+    features_json = resolved_plugin_root / "features.json"
+    if features_json.exists():
+        try:
+            features = _json.loads(features_json.read_text(encoding="utf-8"))
+        except Exception:
+            features = {}
+
+    packs_root = resolved_plugin_root / "rules" / "packs"
+    if not packs_root.exists():
+        return  # nothing to sync; packs not shipped in this deploy
+
+    install_rules_packs(
+        project_path=project,
+        deployed_plugin_path=resolved_plugin_root,
+        packs_root=packs_root,
+        features=features,
+    )
+
+
 def run_domain_refresh_with_sync(
     project_path: str,
     *,
@@ -267,6 +308,7 @@ def run_domain_refresh_with_sync(
         print(f"[HARNESS] ERROR: {exc}")
         sys.exit(1)
     _print_features_result(result, plugin_root)
+    sync_rules_packs(project_path)
 
 
 def parse_args():
