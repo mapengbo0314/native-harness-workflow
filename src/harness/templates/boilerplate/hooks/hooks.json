@@ -19,6 +19,12 @@
             "type": "command",
             "command": "python3 \"${HARNESS_PLUGIN_ROOT}/hooks/notify_compression.py\"",
             "description": "Alerts the user that context is being compressed so they can run /clear"
+          },
+          {
+            "name": "session-memory-save-precompact",
+            "type": "command",
+            "command": "python3 \"${HARNESS_PLUGIN_ROOT}/hooks/session_memory_save.py\"",
+            "description": "Heartbeat: persists session memory state before context compaction"
           }
         ]
       }

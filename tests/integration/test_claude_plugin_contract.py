@@ -106,6 +106,39 @@ def test_claude_plugin_contract():
             assert "UserPromptSubmit" in hooks
             assert "prompt_classifier" in hooks["UserPromptSubmit"][0]["hooks"][0]["command"]
 
+            # Phase 2 (ECC): session memory hooks must be registered
+            assert "Stop" in hooks, "Stop event must be registered for session_memory_save"
+            assert "SessionStart" in hooks, "SessionStart event must be registered for session_start"
+            stop_commands = [
+                h["command"]
+                for g in hooks["Stop"]
+                for h in g["hooks"]
+                if h.get("type") == "command"
+            ]
+            assert any(
+                "session_memory_save" in cmd for cmd in stop_commands
+            ), "session_memory_save.py must be registered for Stop"
+            start_commands = [
+                h["command"]
+                for g in hooks["SessionStart"]
+                for h in g["hooks"]
+                if h.get("type") == "command"
+            ]
+            assert any(
+                "session_start" in cmd for cmd in start_commands
+            ), "session_start.py must be registered for SessionStart"
+            # PreCompact must also wire session_memory_save
+            assert "PreCompact" in hooks
+            precompact_commands = [
+                h["command"]
+                for g in hooks["PreCompact"]
+                for h in g["hooks"]
+                if h.get("type") == "command"
+            ]
+            assert any(
+                "session_memory_save" in cmd for cmd in precompact_commands
+            ), "session_memory_save.py must be registered for PreCompact"
+
         marketplace_path = plugin_dir.parent / ".claude-plugin" / "marketplace.json"
         assert marketplace_path.exists(), "local marketplace manifest should exist next to harness-wf-plugin"
         with open(marketplace_path) as f:

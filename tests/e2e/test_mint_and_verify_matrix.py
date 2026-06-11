@@ -109,7 +109,11 @@ _HOOK_ENV_VAR: dict[str, str] = {
 # all four Claude keys to BeforeAgent/BeforeTool/AfterTool/PreCompress.
 # (Gemini deep-research pass, June 2026 — see .claude/docs/platform-support.md.)
 _EXPECTED_HOOK_EVENTS: dict[str, set[str]] = {
-    "claude": {"UserPromptSubmit", "PreCompact", "PreToolUse", "PostToolUse"},
+    "claude": {
+        "UserPromptSubmit", "PreCompact", "PreToolUse", "PostToolUse",
+        # Phase 2 (ECC): session memory hooks
+        "Stop", "SessionStart",
+    },
     "gemini": {"BeforeAgent", "BeforeTool", "AfterTool", "PreCompress"},
 }
 

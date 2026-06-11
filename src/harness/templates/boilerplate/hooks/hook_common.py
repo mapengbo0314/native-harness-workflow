@@ -1,8 +1,10 @@
 import json
 import os
+import re
 import tempfile
 import sys
 import shutil
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from contextlib import contextmanager
 
@@ -140,3 +142,303 @@ def feature_enabled(dotted_path: str, plugin_root, default: bool = True) -> bool
             return enabled
         return default  # non-bool "enabled" value — honour default
     return default  # unexpected leaf type — honour default
+
+
+# ---------------------------------------------------------------------------
+# Session Memory (Phase 2 – ECC port)
+# ---------------------------------------------------------------------------
+# Design decision: phase keys are stored both as a dedicated top-level key
+# for fast latest-state reads and as versioned ``kind:"phase"`` entries for
+# deterministic digest/audit behavior under the common entry schema.
+#
+# Per-session state file:  <plugin_root>/state/session_memory_<session>.json
+# Schema:
+#   {
+#     "schema_version": 1,
+#     "session_id": str,
+#     "updated_at": iso8601,
+#     "entries": [<entry>, ...],
+#     "phase": {"phase": str, "phase_entered_at": iso8601, "phase_exit_artifact": str|None}
+#              | null
+#   }
+# Entry schema:
+#   {"schema_version": 1, "ts": iso8601, "session_id": str,
+#    "kind": "decision"|"blocker"|"pattern"|"phase", "summary": str, "refs": [str]}
+# ---------------------------------------------------------------------------
+
+_VALID_KINDS = {"decision", "blocker", "pattern", "phase"}
+_SUMMARY_MAX = 220
+_MAX_ENTRIES_DIGEST = 6
+_DIGEST_MAX_BYTES = 8 * 1024
+_RETENTION_DAYS = 30
+
+
+def _session_file(plugin_root, session_id: str) -> Path:
+    session_id = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(session_id or "default"))
+    session_id = session_id.strip("._") or "default"
+    state_dir = Path(plugin_root) / "state"
+    state_dir.mkdir(exist_ok=True)
+    return state_dir / f"session_memory_{session_id}.json"
+
+
+def _load_session(plugin_root, session_id: str) -> dict:
+    """Load the session file; return a fresh skeleton on any error."""
+    path = _session_file(plugin_root, session_id)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict) or data.get("schema_version") != 1:
+            raise ValueError("bad schema")
+        return data
+    except Exception:
+        return {
+            "schema_version": 1,
+            "session_id": session_id,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "entries": [],
+            "phase": None,
+        }
+
+
+def _save_session(plugin_root, session_id: str, data: dict) -> None:
+    """Atomically write the session file."""
+    data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    path = _session_file(plugin_root, session_id)
+    tmp_path = path.with_suffix(".tmp")
+    tmp_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    tmp_path.replace(path)
+
+
+def record_session_entry(
+    plugin_root,
+    session_id: str,
+    kind: str,
+    summary: str,
+    refs=None,
+) -> None:
+    """Append a validated, capped entry to the session store.
+
+    Fail-open: any exception is swallowed.
+    """
+    try:
+        if kind not in _VALID_KINDS:
+            raise ValueError(f"invalid kind: {kind!r}")
+        if refs is None:
+            refs = []
+        entry = {
+            "schema_version": 1,
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "session_id": session_id,
+            "kind": kind,
+            "summary": capped_text(summary, _SUMMARY_MAX),
+            "refs": [str(r) for r in refs],
+        }
+        data = _load_session(plugin_root, session_id)
+        data["entries"].append(entry)
+        _save_session(plugin_root, session_id, data)
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# Phase key helpers (R2)
+# ---------------------------------------------------------------------------
+
+def set_phase(plugin_root, session_id: str, phase: str, exit_artifact=None) -> None:
+    """Record the current phase in the session file (top-level key)."""
+    try:
+        now = datetime.now(timezone.utc).isoformat()
+        data = _load_session(plugin_root, session_id)
+        data["phase"] = {
+            "phase": phase,
+            "phase_entered_at": now,
+            "phase_exit_artifact": exit_artifact,
+        }
+        data.setdefault("entries", []).append(
+            {
+                "schema_version": 1,
+                "ts": now,
+                "session_id": session_id,
+                "kind": "phase",
+                "summary": capped_text(f"Entered phase: {phase}", _SUMMARY_MAX),
+                "refs": [str(exit_artifact)] if exit_artifact else [],
+            }
+        )
+        _save_session(plugin_root, session_id, data)
+    except Exception:
+        pass
+
+
+def get_phase(plugin_root, session_id: str):
+    """Return the phase dict or None."""
+    try:
+        data = _load_session(plugin_root, session_id)
+        return data.get("phase") or None
+    except Exception:
+        return None
+
+
+def clear_phase(plugin_root, session_id: str, exit_artifact=None) -> None:
+    """Clear the phase key and append a phase-exit entry when possible."""
+    try:
+        now = datetime.now(timezone.utc).isoformat()
+        data = _load_session(plugin_root, session_id)
+        previous = data.get("phase") if isinstance(data.get("phase"), dict) else {}
+        previous_phase = previous.get("phase") or "unknown"
+        summary = f"Exited phase: {previous_phase}"
+        data["phase"] = None
+        data.setdefault("entries", []).append(
+            {
+                "schema_version": 1,
+                "ts": now,
+                "session_id": session_id,
+                "kind": "phase",
+                "summary": capped_text(summary, _SUMMARY_MAX),
+                "refs": [str(exit_artifact)] if exit_artifact else [],
+            }
+        )
+        _save_session(plugin_root, session_id, data)
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# Deterministic digest (R4)
+# ---------------------------------------------------------------------------
+
+def _normalize_summary(s: str) -> str:
+    """Lowercase + collapse whitespace for dedup."""
+    return re.sub(r"\s+", " ", s.strip().lower())
+
+
+def build_session_digest(plugin_root, now=None, retention_days: int = _RETENTION_DAYS) -> str:
+    """Merge, filter, dedup, cap and format entries from all session files.
+
+    Parameters
+    ----------
+    plugin_root : path-like
+        Plugin root containing state/session_memory_*.json files.
+    now : datetime | None
+        Injection point for testing.  Defaults to UTC now.
+    retention_days : int
+        Drop entries older than this many days.  Default 30.
+
+    Returns
+    -------
+    str
+        A ``## Session Memory`` markdown block, or empty string when there
+        are no qualifying entries.  Output is byte-identical across calls on
+        the same store state.
+    """
+    if now is None:
+        now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=retention_days)
+
+    state_dir = Path(plugin_root) / "state"
+    all_entries = []
+    try:
+        files = sorted(state_dir.glob("session_memory_*.json"))
+    except Exception:
+        files = []
+
+    for fpath in files:
+        try:
+            data = json.loads(fpath.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                continue
+            if data.get("schema_version") != 1:
+                continue
+            entries = data.get("entries", [])
+            if not isinstance(entries, list):
+                continue
+            for e in entries:
+                if not isinstance(e, dict):
+                    continue
+                # schema_version check per entry
+                if e.get("schema_version") != 1:
+                    continue
+                ts_str = e.get("ts", "")
+                try:
+                    ts = datetime.fromisoformat(ts_str)
+                    if ts.tzinfo is None:
+                        ts = ts.replace(tzinfo=timezone.utc)
+                except Exception:
+                    continue
+                if ts < cutoff:
+                    continue
+                all_entries.append((ts, e))
+        except Exception:
+            continue
+
+    # Sort recency-first
+    all_entries.sort(key=lambda x: (x[0], x[1].get("session_id", "")), reverse=True)
+
+    # Dedup on (kind, normalized summary) — keep first (most-recent) occurrence
+    seen = set()
+    deduped = []
+    for ts, e in all_entries:
+        kind = e.get("kind", "")
+        if kind not in _VALID_KINDS:
+            continue
+        if not isinstance(e.get("summary"), str):
+            continue
+        norm = _normalize_summary(e.get("summary", ""))
+        if not norm:
+            continue
+        key = (kind, norm)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(e)
+
+    # Cap entry count
+    deduped = deduped[:_MAX_ENTRIES_DIGEST]
+
+    if not deduped:
+        return ""
+
+    lines = ["## Session Memory"]
+    for e in deduped:
+        kind = e.get("kind", "")
+        summary = capped_text(e.get("summary", ""), _SUMMARY_MAX)
+        refs = e.get("refs", [])
+        if not isinstance(refs, list):
+            refs = []
+        ref_str = f" ({refs[0]})" if refs else ""
+        lines.append(f"- [{kind}] {summary}{ref_str}")
+
+    block = "\n".join(lines) + "\n"
+
+    # Enforce total digest size cap
+    if len(block.encode("utf-8")) > _DIGEST_MAX_BYTES:
+        block = block.encode("utf-8")[:_DIGEST_MAX_BYTES].decode("utf-8", errors="ignore")
+        # Truncate at last newline to avoid cutting a line mid-character
+        last_nl = block.rfind("\n")
+        if last_nl > 0:
+            block = block[:last_nl + 1]
+
+    return block
+
+
+def prune_old_session_files(plugin_root, now=None, retention_days: int = _RETENTION_DAYS) -> None:
+    """Delete session_memory_*.json files whose updated_at is older than retention_days.
+
+    Fail-open.
+    """
+    try:
+        if now is None:
+            now = datetime.now(timezone.utc)
+        cutoff = now - timedelta(days=retention_days)
+        state_dir = Path(plugin_root) / "state"
+        for fpath in state_dir.glob("session_memory_*.json"):
+            try:
+                data = json.loads(fpath.read_text(encoding="utf-8"))
+                updated_str = data.get("updated_at", "")
+                ts = datetime.fromisoformat(updated_str)
+                if ts.tzinfo is None:
+                    ts = ts.replace(tzinfo=timezone.utc)
+                if ts < cutoff:
+                    fpath.unlink(missing_ok=True)
+            except Exception:
+                pass
+    except Exception:
+        pass

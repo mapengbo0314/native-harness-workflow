@@ -19,6 +19,12 @@
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/notify_compression.py\"",
             "description": "Alerts the user that context is being compressed so they can run /clear"
+          },
+          {
+            "name": "session-memory-save-precompact",
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/session_memory_save.py\"",
+            "description": "Heartbeat: persists session memory state before context compaction"
           }
         ]
       }
@@ -45,6 +51,30 @@
             "name": "post-tool-use-linting",
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/post_tool_use.py\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "name": "session-memory-save-stop",
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/session_memory_save.py\"",
+            "description": "Heartbeat: persists session memory state after each assistant response"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "name": "session-memory-inject",
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/session_start.py\"",
+            "description": "Injects a digest of prior session memory entries as additional context"
           }
         ]
       }
