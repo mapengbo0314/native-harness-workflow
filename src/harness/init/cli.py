@@ -813,13 +813,35 @@ def main():
         # Re-compile features.yaml -> features.json after the smart merge so the
         # JSON always reflects the merged YAML (never a stale pre-merge artifact).
         _compile_root = final_plugin_dir if final_plugin_dir else target_harness_dir
+        _recompiled_features: dict = {}
         try:
             from harness.init.features import compile_features as _compile_features
             _json_path = _compile_features(_compile_root)
             if _json_path:
                 print(f"[HARNESS] features.json recompiled at {_json_path}")
+                try:
+                    import json as _json_mod
+                    _recompiled_features = _json_mod.loads(Path(_json_path).read_text(encoding="utf-8"))
+                except Exception:
+                    _recompiled_features = {}
         except Exception as _e:
             print(f"[HARNESS] Warning: features recompile failed: {_e}")
+
+        # Re-sync rules packs after the re-mint so the deployed packs match the
+        # (possibly updated) features.yaml toggle state (Phase 1a ECC port).
+        try:
+            from harness.init.minting_engine import install_rules_packs as _install_rp
+            _packs_root = _compile_root / "rules" / "packs"
+            if _packs_root.exists():
+                _install_rp(
+                    project_path=Path(args.project_path),
+                    deployed_plugin_path=_compile_root,
+                    packs_root=_packs_root,
+                    features=_recompiled_features,
+                )
+                print(f"[HARNESS] Rules packs re-synced.")
+        except Exception as _e:
+            print(f"[HARNESS] Warning: rules packs re-sync failed: {_e}")
 
         try:
             run_embedded_setup(

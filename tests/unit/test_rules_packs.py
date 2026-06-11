@@ -305,6 +305,44 @@ class TestMintWorkspacePackInstall:
 
 
 # ---------------------------------------------------------------------------
+# 3b. mint_workspace calls install_rules_packs once with correct args
+# ---------------------------------------------------------------------------
+
+
+def test_mint_workspace_calls_install_rules_packs(tmp_path):
+    """mint_workspace must call install_rules_packs once after compile_features."""
+    repo_root = Path(__file__).parent.parent.parent
+    boilerplate_dir = repo_root / "src" / "harness" / "templates" / "boilerplate"
+    project_path = tmp_path / "project"
+    project_path.mkdir()
+    target_dir = project_path / ".gemini"
+
+    with (
+        patch("harness.init.minting_engine.compile_features") as mock_cf,
+        patch("harness.init.minting_engine.install_rules_packs") as mock_irp,
+    ):
+        mock_cf.return_value = target_dir / "features.json"
+        mock_irp.return_value = None
+
+        from harness.init.minting_engine import mint_workspace
+        mint_workspace(
+            target_dir=str(target_dir),
+            selected_agents=[],
+            project_path=str(project_path),
+            platform_choice="1",  # gemini
+            boilerplate_dir=str(boilerplate_dir),
+        )
+
+    mock_irp.assert_called_once()
+    # Verify it was called with project_path as a Path
+    call_kwargs = mock_irp.call_args
+    assert call_kwargs is not None, "install_rules_packs was never called"
+    # project_path should be the project dir
+    passed_project = call_kwargs.kwargs.get("project_path") or call_kwargs.args[0]
+    assert Path(passed_project) == project_path
+
+
+# ---------------------------------------------------------------------------
 # 4. domain-refresh re-triggers pack sync
 # ---------------------------------------------------------------------------
 

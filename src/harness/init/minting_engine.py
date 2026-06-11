@@ -138,12 +138,34 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
 
         # Compile features.yaml -> features.json so a freshly minted repo is
         # always self-consistent (Phase 0b ECC port).
+        _compiled_features: dict = {}
         try:
             json_path = compile_features(target_path)
             if json_path:
                 print(f"[HARNESS] features.json compiled at {json_path}")
+                try:
+                    import json as _json
+                    _compiled_features = _json.loads(Path(json_path).read_text(encoding="utf-8"))
+                except Exception:
+                    _compiled_features = {}
         except Exception as e:
             print(f"[HARNESS] Warning: features compile failed: {e}")
+
+        # Install rules packs: deploy matching stack packs into <project>/.claude/rules/harness/
+        # and prune unselected packs from the deployed plugin tree (Phase 1a ECC port).
+        # Must run AFTER compile_features so the toggle state is available.
+        try:
+            packs_root = target_path / "rules" / "packs"
+            if packs_root.exists():
+                install_rules_packs(
+                    project_path=Path(project_path),
+                    deployed_plugin_path=target_path,
+                    packs_root=packs_root,
+                    features=_compiled_features,
+                )
+                print(f"[HARNESS] Rules packs installed.")
+        except Exception as e:
+            print(f"[HARNESS] Warning: rules packs install failed: {e}")
 
     else:
         print("Error: Boilerplate directory not found.")
