@@ -49,6 +49,7 @@ def main() -> None:
             feature_enabled,
             build_session_digest,
             prune_old_session_files,
+            build_learned_skills_digest,
         )
 
         plugin_root = resolve_plugin_root()
@@ -59,8 +60,17 @@ def main() -> None:
         # Prune stale session files (retention enforcement)
         prune_old_session_files(plugin_root)
 
-        # Build the digest from all surviving session files
-        digest = build_session_digest(plugin_root)
+        # Build the digest from all surviving session files and learned skills
+        digest_session_mem = build_session_digest(plugin_root)
+        digest_learned_skills = build_learned_skills_digest(plugin_root, input_data)
+
+        digest_parts = []
+        if digest_session_mem:
+            digest_parts.append(digest_session_mem)
+        if digest_learned_skills:
+            digest_parts.append(digest_learned_skills)
+
+        digest = "\n".join(digest_parts).strip()
 
         if digest:
             output = {

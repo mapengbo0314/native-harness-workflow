@@ -442,3 +442,79 @@ def prune_old_session_files(plugin_root, now=None, retention_days: int = _RETENT
                 fpath.unlink(missing_ok=True)
     except Exception:
         pass
+
+
+def build_learned_skills_digest(plugin_root, input_json: dict = None) -> str:
+    """Load, sort, and format up to 6 learned skills from the out-of-repo store.
+
+    Fail-open: returns empty string on any failure.
+    """
+    try:
+        project_root = resolve_project_root(input_json)
+
+        # Check environment override for isolated testing
+        home_override = os.environ.get("HARNESS_HOME_OVERRIDE")
+        if home_override:
+            home_dir = Path(home_override).resolve()
+        else:
+            home_dir = Path.home().resolve()
+
+        import hashlib
+        repo_hash = hashlib.sha256(str(project_root.resolve()).encode("utf-8")).hexdigest()[:16]
+        learned_dir = home_dir / ".local" / "share" / "harness-wf" / "projects" / repo_hash / "learned"
+
+        if not learned_dir.exists():
+            return ""
+
+        skills = []
+        for skill_dir in learned_dir.iterdir():
+            if not skill_dir.is_dir():
+                continue
+            skill_file = skill_dir / "SKILL.md"
+            if not skill_file.exists():
+                continue
+
+            try:
+                content = skill_file.read_text(encoding="utf-8")
+                fm = {}
+                if content.startswith("---"):
+                    parts = content.split("---", 2)
+                    if len(parts) >= 3:
+                        for line in parts[1].splitlines():
+                            if ":" in line:
+                                k, v = line.split(":", 1)
+                                k, v = k.strip(), v.strip()
+                                fm[k] = v
+
+                name = fm.get("name") or skill_dir.name
+                desc = fm.get("description") or "Learned codebase skill."
+                if len(desc) > 220:
+                    desc = desc[:217] + "..."
+
+                try:
+                    conf = float(fm.get("confidence") or 0.0)
+                except ValueError:
+                    conf = 0.0
+
+                skills.append({
+                    "name": name,
+                    "description": desc,
+                    "confidence": conf,
+                })
+            except Exception:
+                continue
+
+        if not skills:
+            return ""
+
+        # Sort by confidence descending, then name ascending
+        skills.sort(key=lambda s: (-s["confidence"], s["name"]))
+        skills = skills[:6]
+
+        lines = ["## Learned Skills"]
+        for s in skills:
+            lines.append(f"- [{s['name']}] {s['description']} (Confidence: {s['confidence']:.2f})")
+
+        return "\n".join(lines) + "\n"
+    except Exception:
+        return ""

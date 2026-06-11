@@ -1,11 +1,12 @@
 # ECC Feature Port — Progress
 
-*Design: [2026-06-10-ecc-feature-port-design.md](2026-06-10-ecc-feature-port-design.md)
+_Design: [2026-06-10-ecc-feature-port-design.md](2026-06-10-ecc-feature-port-design.md)
 (revised per Section 4 adversarial review — C1–C4, M1–M6, m1–m4; amended per Section 5
-second-round review — R1–R5)*
-*Phases are dependency-ordered and independently shippable. TDD mandatory throughout.*
+second-round review — R1–R5)_
+_Phases are dependency-ordered and independently shippable. TDD mandatory throughout._
 
 ## Phase 0 — Feature-Toggle Substrate (two-file: operator YAML → compiled JSON)
+
 - [x] Failing test: `feature_enabled` returns True with no features file (`tests/hooks/test_feature_toggles.py`) — fc5c9d9
 - [x] Implement `load_features()` + `feature_enabled()` in `hooks/hook_common.py` (reads compiled JSON) — fc5c9d9, default-param fix 57deba5
 - [x] Failing test: disabled key returns False; implement dotted-path traversal — fc5c9d9
@@ -20,6 +21,7 @@ second-round review — R1–R5)*
 - [ ] Carry-over → Phase 1: `harness-wf update` path does not recompile features.json post-apply (staleness warning covers advisorily); fold into updater work
 
 ## Phase 1 — F3 Stack-Aware Rules Packs
+
 - [x] Failing test: language alias map (`Go`→`golang`, cdxgen framework names ignored) (`tests/unit/test_rules_packs.py`); implement `src/harness/init/lang_aliases.py` — 2382f42
 - [x] Failing test: Python-only repo gets `common`+`python` only; toggle off ⇒ no packs — 2382f42
 - [x] Implement pack-pruning function; install into `.claude/rules/harness/` (namespaced; stale-install prune scoped to known pack dirs, user content spared) — 2382f42 + fixes 55a93a1
@@ -31,6 +33,7 @@ second-round review — R1–R5)*
 - [x] Update `tests/integration/test_template_integrity.py` (size budgets, frontmatter, provenance, no placeholders); suite green (1124/34/3); Phase 1 complete — two-stage reviewed, approved
 
 ## Phase 2 — F5 Session Memory
+
 - [x] Failing test (R4): write→read round-trip with entry schema `{schema_version, ts, session_id, kind, summary ≤220, refs[]}` (`tests/hooks/test_session_memory.py`)
 - [x] Implement `hooks/session_memory_save.py` — Stop-event (per-response, idempotent) write to `state/session_memory_<session>.json`
 - [x] Failing test (M6): two concurrent sessions don't clobber; per-session file naming
@@ -41,19 +44,23 @@ second-round review — R1–R5)*
 - [x] Failing test: wiring (`tests/integration/test_claude_plugin_contract.py`); register Stop/PreCompact/SessionStart in `hooks.json` + `adapters/claude.py` (gemini only after event verification — M4)
 - [x] Failing test: toggle-off ⇒ no-op; wire `services.session_memory` gate
 
-Draft implementation exists in the working tree and focused tests have passed locally, but Phase 2 is **not complete** until it goes through `harness-subagent-driven-development`: implementer pass, spec compliance review, code quality review, and final verification.
+Phase 2 has passed `harness-subagent-driven-development` workflow (Spec Compliance: ✅ Compliant, Code Quality: ✅ Approved). Phase 2 is **complete**.
 
 ## Phase 3 — F1 Continuous Learning
-- [ ] Failing test (C2): `HARNESS_INTERNAL_LLM_CALL=1` short-circuits hook; lockfile exclusion (`tests/hooks/test_session_end_learning.py`)
-- [ ] Implement guards in new `hooks/session_end.py` (SessionEnd event — C1, not Stop)
-- [ ] Failing test: transcript→SKILL.md shape, slug/confidence/tag, out-of-repo store path `~/.local/share/harness-wf/projects/<hash>/learned/` (`tests/unit/test_skill_extraction.py`, LLM mocked)
-- [ ] Implement `scripts/extract_skills.py`
-- [ ] Failing test: dedup + min-session threshold (≥10 turns) + fail-open on LLM error/timeout
-- [ ] Wire detached spawn behind `hooks.session_end.learning_extraction` gate; register SessionEnd in `hooks.json`
-- [ ] Failing test: SessionStart injects ≤6 learned summaries; edit `hooks/session_start.py`
-- [ ] Author `skills/continuous-learning/SKILL.md` (`/learn`); register in `skills.json`
+
+- [x] Failing test (C2): `HARNESS_INTERNAL_LLM_CALL=1` short-circuits hook; lockfile exclusion (`tests/hooks/test_session_end_learning.py`)
+- [x] Implement guards in new `hooks/session_end.py` (SessionEnd event — C1, not Stop)
+- [x] Failing test: transcript→SKILL.md shape, slug/confidence/tag, out-of-repo store path `~/.local/share/harness-wf/projects/<hash>/learned/` (`tests/unit/test_skill_extraction.py`, LLM mocked)
+- [x] Implement `scripts/extract_skills.py`
+- [x] Failing test: dedup + min-session threshold (≥10 turns) + fail-open on LLM error/timeout
+- [x] Wire detached spawn behind `hooks.session_end.learning_extraction` gate; register SessionEnd in `hooks.json`
+- [x] Failing test: SessionStart injects ≤6 learned summaries; edit `hooks/session_start.py`
+- [x] Author `skills/continuous-learning/SKILL.md` (`/learn`); register in `skills.json`
+
+Phase 3 has passed `harness-subagent-driven-development` workflow (Spec Compliance: ✅ Compliant, Code Quality: ✅ Approved). Phase 3 is **complete**.
 
 ## Phase 4 — F4 Search-First Gate (+ proportionality guards)
+
 - [ ] Failing test: Branch B + no `research_done` ⇒ gate line in SYSTEM STATE (`tests/unit/test_context_builder.py`)
 - [ ] Implement gate line in `runtime/context_builder.py` (m1 — NOT prompt_classifier; + its inline fallback)
 - [ ] Failing test (M1, R2): source write blocked while persisted `phase=planning` without flag; allowed with flag; classification flip mid-phase does NOT drop the gate; no persisted phase ⇒ passthrough; no TDD-gate interference (`tests/hooks/test_search_first_gate.py`, `tests/unit/test_pre_tool_use_tdd.py`)
@@ -65,6 +72,7 @@ Draft implementation exists in the working tree and focused tests have passed lo
 - [ ] Author `skills/search-first/SKILL.md` — step 1 proportionality waiver, then Adopt/Extend/Compose/Build matrix, then **post-research depth checkpoint** (HITL `AskUserQuestion`: quick implementation w/ findings attached + clear `phase`, vs full planning pipeline; matrix outcome = recommended default); register in `skills.json` + contract test for checkpoint text
 
 ## Phase 5 — F2 Adversary Pipeline (tiered + budgeted)
+
 - [ ] Failing test: staleness checker — report exists + newer than design doc; toggle-off ⇒ pass (`tests/unit/test_adversary_pipeline.py`)
 - [ ] Implement `scripts/check_risk_report.py` (no dispatcher gate — C3: insertion point doesn't exist)
 - [ ] Failing test (R5): budget sidecar `state/budget_<session>.json` — counter increments per tool call, block past limit with summarize-and-finish message, no sidecar ⇒ passthrough, corrupt sidecar ⇒ fail-open, per-session isolation (`tests/hooks/test_dispatch_budget.py`)
@@ -74,14 +82,21 @@ Draft implementation exists in the working tree and focused tests have passed lo
 - [ ] Register skill; update `tests/integration/test_claude_plugin_contract.py`
 
 ## Phase 6 — Sticky Phase State Machine ⚠️ DEFERRED (outline in design doc Section 3; needs own HITL design pass — do NOT implement from the outline)
+
 - [ ] Run its own design pass (Sections 0–4) covering: artifact-based exit-condition detection (the C3 gap), classifier shrink ("still in phase?" instead of re-classification), misroute suppression + user override, stale-phase reaping
 - Persistence half already in scope per R2: phase keys + helpers (Phase 2), brainstorming-skill set/clear (Phase 4)
 
-
 ## Phase 2 Implementation Summary
+
 **Summary:** Addressed code reviewer feedback. Fixed the reference truncation bug in `build_session_digest` by joining all references. Fixed the corrupt file disk leak in `prune_old_session_files` by ensuring files that throw exceptions during timestamp parsing are pruned. Rewrote `test_digest_8kb_cap` to correctly trigger the 8KB limit by utilizing the uncapped `refs` array.
-**Verified:** `tests/hooks/test_session_memory.py` passes successfully, proving all fixes.
-**NextSteps:** Waiting for final sign-off from the reviewer.
+**Verified:** `tests/hooks/test_session_memory.py` passes successfully, proving all fixes. SDD workflow complete.
+
+## Phase 3 Implementation Summary
+
+**Summary:** Implemented Phase 3 F1 Continuous Learning skill extraction and injection. Added `tests/unit/test_skill_extraction.py` as a robust TDD test suite covering LLM-mocked skill parsing, out-of-repo directory routing (`~/.local/share/harness-wf/projects/<repo-hash>/learned/`), frontmatter validation (slug/confidence/stack/business), and confidence-based deduping. Developed the background script `src/harness/templates/boilerplate/scripts/extract_skills.py` to handle the LLM interaction, validation, out-of-repo storage, and try-finally cleanup (inputs and lockfiles). Updated `session_start.py` and `hook_common.py` to load and inject up to 6 of these high-confidence learned-skill summaries (220-char capped) into future sessions' `additionalContext`. Registered the `SessionEnd` event hook in the boilerplate `hooks.json` and authored the manual `/learn` skill `SKILL.md` (and registered in `skills.json`).
+**Verified:** Successfully ran and passed all 36 tests under `tests/hooks/test_session_end_learning.py`, `tests/unit/test_skill_extraction.py`, `tests/hooks/test_session_memory.py`, and validated `tests/integration/test_template_integrity.py` and `tests/integration/test_claude_plugin_contract.py`.
+**NextSteps:** Proceed to Phase 4.
 
 ## Current Blockers
-*(None. Previous review feedback addressed.)*
+
+_(None. Previous review feedback addressed.)_

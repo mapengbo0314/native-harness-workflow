@@ -1,5 +1,18 @@
 {
   "hooks": {
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "continuous-learning-session-end",
+            "type": "command",
+            "command": "python3 \"${HARNESS_PLUGIN_ROOT}/hooks/session_end.py\"",
+            "description": "Continuous Learning: triggers skill extraction on session end"
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [

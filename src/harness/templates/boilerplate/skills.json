@@ -1,5 +1,8 @@
 {
   "skills": {
+    "continuous-learning": {
+      "path": "continuous-learning/SKILL.md"
+    },
     "diagnose": {
       "path": "diagnose/SKILL.md"
     },

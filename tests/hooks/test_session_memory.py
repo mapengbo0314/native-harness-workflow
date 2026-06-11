@@ -550,3 +550,69 @@ def test_start_hook_emits_nothing_when_no_entries(tmp_path):
     assert result.returncode == 0
     # Nothing to inject → no output
     assert result.stdout.strip() == ""
+
+
+def test_start_hook_injects_learned_skills(tmp_path):
+    plugin_root = tmp_path / "plugin"
+    (plugin_root / "state").mkdir(parents=True)
+
+    # We also mock the project/workspace root
+    workspace_root = tmp_path / "workspace"
+    workspace_root.mkdir()
+
+    # Setup out-of-repo storage under temp home
+    temp_home = tmp_path / "home"
+    temp_home.mkdir()
+
+    # Compute repo hash for workspace
+    import hashlib
+    repo_hash = hashlib.sha256(str(workspace_root.resolve()).encode("utf-8")).hexdigest()[:16]
+    learned_dir = temp_home / ".local/share/harness-wf/projects" / repo_hash / "learned"
+
+    # Write 3 learned skills with different confidence scores
+    skills_data = [
+        ("skill-a", "Description A", 0.85),
+        ("skill-b", "Description B", 0.90),
+        ("skill-c", "Description C with extremely long text " * 10, 0.40),
+    ]
+
+    for slug, desc, conf in skills_data:
+        sd = learned_dir / slug
+        sd.mkdir(parents=True)
+        (sd / "SKILL.md").write_text(
+            f"---\nname: {slug}\ndescription: {desc}\nconfidence: {conf}\n---\nBody",
+            encoding="utf-8"
+        )
+
+    # Write a features.json showing session_memory is enabled
+    (plugin_root / "features.json").write_text(
+        json.dumps({"services": {"session_memory": {"enabled": True}}})
+    )
+
+    # Run START_HOOK
+    result = subprocess.run(
+        [sys.executable, str(START_HOOK)],
+        input=json.dumps({"workspace_root": str(workspace_root)}),
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "CLAUDE_PLUGIN_ROOT": str(plugin_root),
+            "HARNESS_SESSION_CONTEXT": "",
+            "HARNESS_HOME_OVERRIDE": str(temp_home),
+        },
+    )
+
+    assert result.returncode == 0
+    output = json.loads(result.stdout)
+    assert "hookSpecificOutput" in output
+    hso = output["hookSpecificOutput"]
+    assert hso["hookEventName"] == "SessionStart"
+    context = hso["additionalContext"]
+
+    # Verify both digests present
+    assert "Learned Skills" in context
+    assert "[skill-b] Description B (Confidence: 0.90)" in context
+    assert "[skill-a] Description A (Confidence: 0.85)" in context
+    assert "[skill-c]" in context
+
