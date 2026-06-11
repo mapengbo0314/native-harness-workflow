@@ -522,3 +522,64 @@ class TestLanguageStringBoolGuard:
 
         install_root = project / ".claude" / "rules" / "harness"
         assert (install_root / "golang").exists(), "golang must be installed when flag is string 'false' (fail-open)"
+
+
+# ---------------------------------------------------------------------------
+# New: scope install_root prune to harness-managed pack names only
+# ---------------------------------------------------------------------------
+
+
+class TestPruneSpareUserDirs:
+    """install_root prune must not delete user-created dirs (e.g. team-conventions/).
+
+    Only children whose names are in known_pack_dirs (PACK_ALIASES values +
+    packs_root child names) should ever be removed.  Unknown dirs are left
+    intact as defense-in-depth.
+    """
+
+    def test_user_dir_survives_stale_pack_pruned(self, tmp_path):
+        """Create .claude/rules/harness/team-conventions/custom.md and a stale
+        golang/ dir; run install with stack=["Python"]; assert:
+        - team-conventions/ SURVIVES (not a known pack name)
+        - golang/ is REMOVED (known pack name, not in matched set)
+        - python/ and common/ are INSTALLED
+        """
+        from harness.init.minting_engine import install_rules_packs
+
+        bp = _make_boilerplate(tmp_path)
+        project = tmp_path / "project"
+        project.mkdir()
+        _write_domain_json(project, ["Python"])
+
+        target = tmp_path / "target_plugin"
+        target.mkdir()
+        shutil.copytree(bp / "rules" / "packs", target / "rules" / "packs")
+
+        # Pre-populate install_root with a user dir AND a stale harness-managed dir
+        install_root = project / ".claude" / "rules" / "harness"
+        user_dir = install_root / "team-conventions"
+        user_dir.mkdir(parents=True)
+        (user_dir / "custom.md").write_text("# Team conventions\n")
+
+        stale_dir = install_root / "golang"
+        stale_dir.mkdir(parents=True)
+        (stale_dir / "placeholder.md").write_text("stale golang content\n")
+
+        install_rules_packs(
+            project_path=project,
+            deployed_plugin_path=target,
+            packs_root=target / "rules" / "packs",
+            features={},
+        )
+
+        # User content must survive
+        assert (install_root / "team-conventions" / "custom.md").exists(), (
+            "team-conventions/custom.md must survive — it is not a harness-managed pack dir"
+        )
+        # Stale known pack dir must be pruned
+        assert not (install_root / "golang").exists(), (
+            "golang/ must be pruned — it is a known pack dir not in the matched set"
+        )
+        # Expected packs installed
+        assert (install_root / "python" / "placeholder.md").exists()
+        assert (install_root / "common" / "baseline.md").exists()

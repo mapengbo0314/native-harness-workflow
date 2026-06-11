@@ -619,12 +619,25 @@ def install_rules_packs(
     install_root = project_path / ".claude" / "rules" / "harness"
     install_root.mkdir(parents=True, exist_ok=True)
 
-    # Prune stale language dirs from install_root: remove any child dir (or symlink)
-    # whose name is neither "common" nor in matched_lang_packs.
+    # Build the set of harness-managed pack dir names: canonical values from
+    # PACK_ALIASES plus any dirs that currently exist in packs_root.  This
+    # namespace is the only one we are authorised to prune — unknown dirs
+    # (e.g. user-created "team-conventions/") are left intact as
+    # defense-in-depth.
+    from harness.init.lang_aliases import PACK_ALIASES
+    known_pack_dirs: set[str] = set(PACK_ALIASES.values())
+    if packs_root.exists():
+        known_pack_dirs |= {d.name for d in packs_root.iterdir() if d.is_dir()}
+
+    # Prune stale language dirs from install_root: remove a child dir (or
+    # symlink) only when its name IS in known_pack_dirs AND is not in
+    # matched_lang_packs (and is not "common").
     if install_root.exists():
         for child in list(install_root.iterdir()):
             if child.name == "common":
                 continue  # always keep
+            if child.name not in known_pack_dirs:
+                continue  # not harness-managed — spare it
             if child.name not in matched_lang_packs:
                 if child.is_symlink():
                     child.unlink()
