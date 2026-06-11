@@ -6,17 +6,18 @@ second-round review — R1–R5)*
 *Phases are dependency-ordered and independently shippable. TDD mandatory throughout.*
 
 ## Phase 0 — Feature-Toggle Substrate (two-file: operator YAML → compiled JSON)
-- [ ] Failing test: `feature_enabled` returns True with no features file (`tests/hooks/test_feature_toggles.py`)
-- [ ] Implement `load_features()` + `feature_enabled()` in `hooks/hook_common.py` (reads compiled JSON)
-- [ ] Failing test: disabled key returns False; implement dotted-path traversal
-- [ ] Failing test: YAML→JSON compile parity (`tests/unit/test_features_loader.py`); implement `compile_features` in `src/harness/init/features.py`
-- [ ] Failing test (R3): unknown key warns, wrong type fails, enabled feature with disabled dependency fails compile (named dependency in message); implement schema + dependency table in `compile_features`
-- [ ] Failing test: `harness-wf features sync` subcommand + auto-sync on init/refresh (`tests/unit/test_cli_features_sync.py`); implement in `init/cli.py`
-- [ ] Failing test: staleness warning when YAML newer than JSON; implement mtime guard in `hooks/prompt_classifier.py`
-- [ ] Failing test: `features.yaml` ⇒ `customizable`, `features.json` ⇒ `generated` (`tests/unit/test_update_classification.py`); implement in `update/classification.py`
-- [ ] Failing test (m3): both files survive render_pass1 + deep-merge re-mint; keys avoid codex tool-mapping vocabulary (`tests/unit/test_smart_merge.py`)
-- [ ] Author `templates/boilerplate/features.yaml` template + add five new keys to `harness_features_tree.md`
-- [ ] Full suite green; commit
+- [x] Failing test: `feature_enabled` returns True with no features file (`tests/hooks/test_feature_toggles.py`) — fc5c9d9
+- [x] Implement `load_features()` + `feature_enabled()` in `hooks/hook_common.py` (reads compiled JSON) — fc5c9d9, default-param fix 57deba5
+- [x] Failing test: disabled key returns False; implement dotted-path traversal — fc5c9d9
+- [x] Failing test: YAML→JSON compile parity (`tests/unit/test_features_loader.py`); implement `compile_features` in `src/harness/init/features.py` — fc5c9d9
+- [x] Failing test (R3): unknown key warns, wrong type fails, enabled feature with disabled dependency fails compile (named dependency in message); implement schema + dependency table in `compile_features` — fc5c9d9 (+ non-dict-root guard 57deba5)
+- [x] Failing test: `harness-wf features sync` subcommand + auto-sync on refresh (`tests/unit/test_cli_features_sync.py`); implement in `init/cli.py` — fc5c9d9/57deba5 (init/mint + update-path auto-sync → Task 0b)
+- [x] Failing test: staleness warning when YAML newer than JSON; implement mtime guard (fn in `hook_common.py`, injection in `prompt_classifier.py`) — bdf8c13, utime-pinned tests 06d078e
+- [x] Failing test: `features.yaml` ⇒ `customizable`, `features.json` ⇒ `generated`/emitted (`tests/unit/test_update_classification.py`); implement in `update/classification.py` — bdf8c13
+- [x] Failing test (m3): `features.yaml` survives re-mint with operator values winning; `features.json` regenerated post-merge (not merged) — bdf8c13/06d078e; keys disjoint from codex tool-mapping vocabulary (moved to `test_features_loader.py`)
+- [x] Author `templates/boilerplate/features.yaml` template + add new keys to `harness_features_tree.md` — bdf8c13
+- [x] Full suite green (1070 passed/34 skipped/3 xfailed); Phase 0 = fc5c9d9, 57deba5, bdf8c13, 06d078e — two-stage reviewed, approved
+- [ ] Carry-over → Phase 1: `harness-wf update` path does not recompile features.json post-apply (staleness warning covers advisorily); fold into updater work
 
 ## Phase 1 — F3 Stack-Aware Rules Packs
 - [ ] Failing test: language alias map (`Go`→`golang`, cdxgen framework names ignored) (`tests/unit/test_rules_packs.py`); implement `src/harness/init/lang_aliases.py`
