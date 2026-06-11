@@ -408,3 +408,117 @@ class TestTemplatePacks:
                 assert fm_match, f"{md_file} has malformed frontmatter"
                 fm_text = fm_match.group(1)
                 assert "paths:" in fm_text, f"{md_file} must have paths: in frontmatter"
+
+
+# ---------------------------------------------------------------------------
+# New behavioral tests (TDD — written before implementation)
+# ---------------------------------------------------------------------------
+
+
+class TestStaleDirPruneOnRefresh:
+    """Issue 1: stale language dirs in install_root must be pruned on re-install."""
+
+    def test_stale_lang_dir_removed_on_refresh(self, tmp_path):
+        """Install Python+Go, then re-install Python only — golang/ must be gone."""
+        from harness.init.minting_engine import install_rules_packs
+
+        bp = _make_boilerplate(tmp_path)
+        project = tmp_path / "project"
+        project.mkdir()
+        target = tmp_path / "target_plugin"
+        target.mkdir()
+        shutil.copytree(bp / "rules" / "packs", target / "rules" / "packs")
+
+        # First install: Python + Go
+        _write_domain_json(project, ["Python", "Go"])
+        install_rules_packs(
+            project_path=project,
+            deployed_plugin_path=target,
+            packs_root=target / "rules" / "packs",
+            features={},
+        )
+
+        install_root = project / ".claude" / "rules" / "harness"
+        assert (install_root / "golang").exists(), "golang must be present after first install"
+        assert (install_root / "python").exists(), "python must be present after first install"
+
+        # Rebuild packs_root so golang is available again (simulates a fresh plugin deploy)
+        shutil.rmtree(target / "rules" / "packs")
+        shutil.copytree(bp / "rules" / "packs", target / "rules" / "packs")
+
+        # Second install: Python only
+        _write_domain_json(project, ["Python"])
+        install_rules_packs(
+            project_path=project,
+            deployed_plugin_path=target,
+            packs_root=target / "rules" / "packs",
+            features={},
+        )
+
+        assert (install_root / "python").exists(), "python must remain after refresh"
+        assert (install_root / "common").exists(), "common must remain after refresh"
+        assert not (install_root / "golang").exists(), "golang must be pruned after refresh"
+
+
+class TestCleanRecopyRemovesStaleFiles:
+    """Issue 2: copytree must clean-recreate dest subdir so removed pack files disappear."""
+
+    def test_stale_file_removed_on_reinstall(self, tmp_path):
+        """Pre-create stale.md in install_root/python/, run install, assert it's gone."""
+        from harness.init.minting_engine import install_rules_packs
+
+        bp = _make_boilerplate(tmp_path)
+        project = tmp_path / "project"
+        project.mkdir()
+        target = tmp_path / "target_plugin"
+        target.mkdir()
+        shutil.copytree(bp / "rules" / "packs", target / "rules" / "packs")
+
+        _write_domain_json(project, ["Python"])
+
+        # Pre-create a stale file in the destination python dir
+        install_root = project / ".claude" / "rules" / "harness"
+        stale_file = install_root / "python" / "stale.md"
+        stale_file.parent.mkdir(parents=True, exist_ok=True)
+        stale_file.write_text("stale content\n")
+        assert stale_file.exists()
+
+        install_rules_packs(
+            project_path=project,
+            deployed_plugin_path=target,
+            packs_root=target / "rules" / "packs",
+            features={},
+        )
+
+        assert not stale_file.exists(), "stale.md must be removed by clean re-copy"
+        assert (install_root / "python" / "placeholder.md").exists(), "real pack files must be present"
+
+
+class TestLanguageStringBoolGuard:
+    """Issue 3: _features_language_enabled must treat non-bool values as enabled (fail-open)."""
+
+    def test_string_false_treated_as_enabled(self, tmp_path):
+        """languages: {golang: 'false'} (string) => golang still installed."""
+        from harness.init.minting_engine import install_rules_packs
+
+        bp = _make_boilerplate(tmp_path)
+        project = tmp_path / "project"
+        project.mkdir()
+        target = tmp_path / "target_plugin"
+        target.mkdir()
+        shutil.copytree(bp / "rules" / "packs", target / "rules" / "packs")
+
+        _write_domain_json(project, ["Go"])
+
+        # String "false" should NOT disable the pack (only bool False disables)
+        features = {"rules_packs": {"enabled": True, "languages": {"golang": "false"}}}
+
+        install_rules_packs(
+            project_path=project,
+            deployed_plugin_path=target,
+            packs_root=target / "rules" / "packs",
+            features=features,
+        )
+
+        install_root = project / ".claude" / "rules" / "harness"
+        assert (install_root / "golang").exists(), "golang must be installed when flag is string 'false' (fail-open)"

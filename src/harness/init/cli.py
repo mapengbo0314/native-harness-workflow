@@ -308,7 +308,9 @@ def run_domain_refresh_with_sync(
         print(f"[HARNESS] ERROR: {exc}")
         sys.exit(1)
     _print_features_result(result, plugin_root)
-    sync_rules_packs(project_path)
+    # Pass the same plugin_root that compile_features used so pack selection
+    # reads the features.json it just wrote, not a different deployed dir.
+    sync_rules_packs(project_path, plugin_root=plugin_root)
 
 
 def parse_args():

@@ -571,7 +571,11 @@ def _features_language_enabled(features: dict, lang_pack_name: str) -> bool:
     val = langs.get(lang_pack_name)
     if val is None:
         return True
-    return bool(val)
+    # Honor only literal booleans; non-bool values (e.g. strings) => fail-open,
+    # matching hook_common semantics.
+    if isinstance(val, bool):
+        return val
+    return True
 
 
 def install_rules_packs(
@@ -596,7 +600,8 @@ def install_rules_packs(
         Parsed features dict (may be empty — all features default-enabled when absent).
     """
     if not _features_rules_packs_enabled(features):
-        # Prune entire packs tree from the deployed plugin and skip install
+        # Prune entire packs tree from the deployed plugin and skip install.
+        # Intentionally removes common/ too — the feature is fully disabled.
         if packs_root.exists():
             shutil.rmtree(packs_root)
         return
@@ -612,21 +617,38 @@ def install_rules_packs(
 
     # Install target: <project>/.claude/rules/harness/
     install_root = project_path / ".claude" / "rules" / "harness"
+    install_root.mkdir(parents=True, exist_ok=True)
 
-    # Always install common (if it exists in packs_root)
+    # Prune stale language dirs from install_root: remove any child dir (or symlink)
+    # whose name is neither "common" nor in matched_lang_packs.
+    if install_root.exists():
+        for child in list(install_root.iterdir()):
+            if child.name == "common":
+                continue  # always keep
+            if child.name not in matched_lang_packs:
+                if child.is_symlink():
+                    child.unlink()
+                elif child.is_dir():
+                    shutil.rmtree(child)
+
+    # Always install common (if it exists in packs_root).
+    # Clean re-create to remove any files dropped from the pack source.
     common_dir = packs_root / "common"
     if common_dir.exists():
         dest_common = install_root / "common"
-        dest_common.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(common_dir, dest_common, dirs_exist_ok=True)
+        if dest_common.exists():
+            shutil.rmtree(dest_common)
+        shutil.copytree(common_dir, dest_common)
 
-    # Install matched language packs
+    # Install matched language packs.
+    # Clean re-create so files removed from the pack source don't linger.
     for lang_name in matched_lang_packs:
         lang_dir = packs_root / lang_name
         if lang_dir.exists():
             dest_lang = install_root / lang_name
-            dest_lang.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(lang_dir, dest_lang, dirs_exist_ok=True)
+            if dest_lang.exists():
+                shutil.rmtree(dest_lang)
+            shutil.copytree(lang_dir, dest_lang)
 
     # Prune unselected language dirs from the deployed plugin's packs tree
     # (common is always kept; language dirs not in matched_lang_packs are removed)
@@ -634,7 +656,9 @@ def install_rules_packs(
         for child in list(packs_root.iterdir()):
             if child.name == "common":
                 continue  # always keep
-            if child.is_dir() and child.name not in matched_lang_packs:
+            if child.is_symlink():
+                child.unlink()
+            elif child.is_dir() and child.name not in matched_lang_packs:
                 shutil.rmtree(child)
 
 
