@@ -112,9 +112,9 @@ _EXPECTED_HOOK_EVENTS: dict[str, set[str]] = {
     "claude": {
         "UserPromptSubmit", "PreCompact", "PreToolUse", "PostToolUse",
         # Phase 2 (ECC): session memory hooks
-        "Stop", "SessionStart",
+        "Stop", "SessionStart", "SessionEnd",
     },
-    "gemini": {"BeforeAgent", "BeforeTool", "AfterTool", "PreCompress"},
+    "gemini": {"BeforeAgent", "BeforeTool", "AfterTool", "PreCompress", "SessionEnd"},
 }
 
 # Minimum set of skill directories expected in skills/
