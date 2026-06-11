@@ -453,8 +453,11 @@ def build_session_digest(plugin_root, now=None, retention_days: int = _RETENTION
 
 
 def prune_old_session_files(plugin_root, now=None, retention_days: int = _RETENTION_DAYS) -> None:
-    """Delete session_memory_*.json files whose updated_at is older than retention_days.
+    """Delete per-session state files older than retention_days.
 
+    Covers session_memory_*.json (aged by their updated_at field) and
+    budget_*.json dispatch sidecars (no updated_at — aged by mtime; R5:
+    a crashed Tier-2 session must not leave a permanent budget file).
     Fail-open.
     """
     try:
@@ -473,6 +476,13 @@ def prune_old_session_files(plugin_root, now=None, retention_days: int = _RETENT
                     fpath.unlink(missing_ok=True)
             except Exception:
                 fpath.unlink(missing_ok=True)
+        for fpath in state_dir.glob("budget_*.json"):
+            try:
+                mtime = datetime.fromtimestamp(fpath.stat().st_mtime, tz=timezone.utc)
+                if mtime < cutoff:
+                    fpath.unlink(missing_ok=True)
+            except Exception:
+                pass
     except Exception:
         pass
 

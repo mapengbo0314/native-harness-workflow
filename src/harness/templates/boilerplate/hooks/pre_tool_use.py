@@ -125,6 +125,54 @@ def _check_search_first(tool_name: str, tool_input: dict, session_id: str, plugi
 
 
 # ---------------------------------------------------------------------------
+# Dispatch-budget backstop (F2 — R5)
+# ---------------------------------------------------------------------------
+
+_BUDGET_DEFAULT_MAX_TOOL_CALLS = 30
+_BUDGET_DEFAULT_MAX_FILE_READS = 12
+_READ_TOOLS = {"Read", "read_file"}
+
+
+def _budget_sidecar(session_id: str, state_root: Path) -> Path:
+    return state_root / "state" / f"budget_{session_id}.json"
+
+
+def _check_budget(tool_name: str, tool_input: dict, session_id: str, state_root: Path):
+    """Deterministic Tier-2 dispatch budget (R5): when a budget sidecar exists
+    for this session, count tool calls / file reads against its limits and
+    block past them with a summarize-and-finish message.
+
+    A budget in a dispatch prompt is a directive the agent may ignore — this
+    is the enforcement wall behind that steering.  No sidecar ⇒ passthrough
+    (zero cost to normal sessions).  Corrupt sidecar ⇒ fail-open passthrough.
+    """
+    try:
+        sidecar = _budget_sidecar(session_id, state_root)
+        if not sidecar.exists():
+            return None
+        data = json.loads(sidecar.read_text())
+        if not isinstance(data, dict):
+            return None
+        max_calls = data.get("max_tool_calls", _BUDGET_DEFAULT_MAX_TOOL_CALLS)
+        max_reads = data.get("max_file_reads", _BUDGET_DEFAULT_MAX_FILE_READS)
+        tool_calls = data.get("tool_calls", 0) + 1
+        file_reads = data.get("file_reads", 0) + (1 if tool_name in _READ_TOOLS else 0)
+        data.update({"tool_calls": tool_calls, "file_reads": file_reads})
+        sidecar.write_text(json.dumps(data))
+        if tool_calls > max_calls or (tool_name in _READ_TOOLS and file_reads > max_reads):
+            return (
+                f"Dispatch budget reached ({tool_calls - 1} tool calls / "
+                f"{file_reads - (1 if tool_name in _READ_TOOLS else 0)} file reads; "
+                f"limits {max_calls}/{max_reads}).\n"
+                "Summarize what you have found so far and finish — do not make "
+                "further tool calls."
+            )
+        return None
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
 
 def is_dangerous_rm_command(command):
     """
@@ -216,6 +264,20 @@ def main():
                 print("BLOCKED: Dangerous rm command detected and prevented", file=sys.stderr)
                 if is_gemini:
                     print(json.dumps({"decision": "deny", "reason": "Dangerous rm command detected and prevented"}))
+                    sys.exit(0)
+                else:
+                    sys.exit(2)
+
+        # Dispatch-budget backstop (F2/R5) — when a budget sidecar exists for
+        # this session, hard-stop past its limits with summarize-and-finish
+        if _HOOK_COMMON_AVAILABLE:
+            session_id = get_session_id()
+            state_root = resolve_plugin_root()
+            budget_block = _check_budget(tool_name, tool_input, session_id, state_root)
+            if budget_block:
+                print(f"BLOCKED: {budget_block}", file=sys.stderr)
+                if is_gemini:
+                    print(json.dumps({"decision": "deny", "reason": budget_block}))
                     sys.exit(0)
                 else:
                     sys.exit(2)
