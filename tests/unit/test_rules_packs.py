@@ -712,3 +712,72 @@ class TestPersonaInliningNonClaude:
         assert content.count("<!-- harness:rules-packs:start -->") == 1, (
             "harness:rules-packs:start marker must appear exactly once after two installs (idempotent)"
         )
+
+    def test_dynamically_generated_agent_gets_inlined_non_claude(self, tmp_path):
+        """Dynamically generated agent files (created after install_rules_packs) must also
+        receive the '## Stack Rules (auto-included)' section on non-Claude platforms.
+
+        Reproduces the sequencing bug: install_rules_packs inlines into existing agents,
+        but dynamic agents are written AFTER that call.  The fix is that mint_workspace
+        must call _inline_packs_into_personas again at the end, after all agents exist.
+
+        This test directly exercises the re-inline step: call install (agents_dir empty),
+        then add a new agent file, then call _inline_packs_into_personas, assert it gets
+        the section.
+        """
+        from harness.init.minting_engine import install_rules_packs, _inline_packs_into_personas
+
+        bp = _make_boilerplate(tmp_path)
+        project = tmp_path / "project"
+        project.mkdir()
+        _write_domain_json(project, ["Python"])
+
+        target = tmp_path / "target_plugin"
+        target.mkdir()
+        shutil.copytree(bp / "rules" / "packs", target / "rules" / "packs")
+
+        # agents_dir starts EMPTY — simulates that no static agents exist at install time
+        agents_dir = target / "agents"
+        agents_dir.mkdir()
+
+        install_rules_packs(
+            project_path=project,
+            deployed_plugin_path=target,
+            packs_root=target / "rules" / "packs",
+            features={},
+            platform="gemini",
+        )
+
+        # Verify: existing (empty) agents_dir was processed — no agents means nothing to inline yet
+        assert len(list(agents_dir.glob("*.md"))) == 0
+
+        # Now simulate dynamic agent generation: write a new agent file AFTER install
+        dynamic_agent = agents_dir / "dynamic-researcher.md"
+        dynamic_agent.write_text(
+            "---\nname: dynamic-researcher\n---\n# Dynamic Researcher\n\nDo research.\n"
+        )
+
+        # Without the fix, the dynamic agent would NOT have the inline section at this point.
+        content_before_reinline = dynamic_agent.read_text(encoding="utf-8")
+        assert "## Stack Rules (auto-included)" not in content_before_reinline, (
+            "precondition: dynamic agent must NOT have the section before re-inline"
+        )
+
+        # The fix: call _inline_packs_into_personas again after all agents are generated.
+        install_root = project / ".claude" / "rules" / "harness"
+        from harness.init.lang_aliases import stack_to_packs
+        matched_lang_packs = stack_to_packs(["Python"])
+        _inline_packs_into_personas(
+            install_root=install_root,
+            agents_dir=agents_dir,
+            matched_lang_packs=matched_lang_packs,
+        )
+
+        # After re-inline, the dynamic agent must have the section
+        content_after = dynamic_agent.read_text(encoding="utf-8")
+        assert "## Stack Rules (auto-included)" in content_after, (
+            "dynamic agent must have '## Stack Rules (auto-included)' after _inline_packs_into_personas re-run"
+        )
+        assert "<!-- harness:rules-packs:start -->" in content_after, (
+            "dynamic agent must have harness:rules-packs:start marker after re-inline"
+        )

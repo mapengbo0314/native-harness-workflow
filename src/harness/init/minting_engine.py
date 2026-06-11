@@ -297,6 +297,31 @@ tools:
         with open(agent_file_path, 'w') as f:
             f.write(final_content)
 
+    # Re-inline pack rules into dynamically generated agent personas (sequencing fix).
+    # install_rules_packs ran BEFORE the dynamic agent generation loop above, so newly
+    # created agent files missed the '## Stack Rules (auto-included)' section that
+    # static boilerplate agents receive.  Calling _inline_packs_into_personas again
+    # here (after all agents exist) is safe: the markers make it idempotent, so
+    # already-inlined static agents get their section replaced (same content), while
+    # dynamic agents receive it for the first time.
+    # Only applies to non-Claude platforms — Claude auto-loads .claude/rules/ natively.
+    if active_platform != "claude" and selected_agents and _features_rules_packs_enabled(_compiled_features):
+        try:
+            from harness.init.lang_aliases import stack_to_packs
+            _install_root = Path(project_path) / ".claude" / "rules" / "harness"
+            _stack = _read_domain_stack(Path(project_path))
+            _matched = {
+                p for p in stack_to_packs(_stack)
+                if _features_language_enabled(_compiled_features, p)
+            }
+            _inline_packs_into_personas(
+                install_root=_install_root,
+                agents_dir=target_path / "agents",
+                matched_lang_packs=_matched,
+            )
+        except Exception as _e:
+            print(f"[HARNESS] Warning: post-generation pack re-inline failed: {_e}")
+
     print(f"Successfully minted workspace at {target_dir}")
     print("\nNext Steps:")
     print("1. Activate your environment and Launch AI")
