@@ -41,8 +41,10 @@ class TestHookExecutionWithMockedDispatcher:
         assert hook_module.fallback_classify("fix the broken login") == "A"
         assert hook_module.fallback_classify("there's a stack trace in the error") == "A"
 
-        # Category B: implementations and design
-        assert hook_module.fallback_classify("implement the feature") == "B"
+        # Category D (bias-to-D, F4 proportionality): implement-style prompts
+        # route to direct implementation, not the Branch-B planning pipeline.
+        assert hook_module.fallback_classify("implement the feature") == "D"
+        # Category B: genuinely open design work
         assert hook_module.fallback_classify("design a new architecture") == "B"
 
         # Category C: explanations
