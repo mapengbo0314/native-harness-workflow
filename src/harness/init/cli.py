@@ -208,8 +208,18 @@ def _write_update_metadata(
     platform: str,
     harness_dir_name: str,
     selected_agents: list[dict],
+    rules_packs: Optional[dict] = None,
 ) -> None:
-    """Stamp update ownership metadata after the final plugin layout exists."""
+    """Stamp update ownership metadata after the final plugin layout exists.
+
+    Parameters
+    ----------
+    rules_packs:
+        Optional ``{"selected": [...], "enabled": bool}`` dict describing which
+        language packs were selected at mint time.  Persisted into
+        ``render_context`` so ``plan_update`` can filter pack producers on
+        subsequent updates (Phase 1b).
+    """
     if not plugin_dir or not plugin_dir.exists():
         return
 
@@ -217,15 +227,18 @@ def _write_update_metadata(
     from harness.update.manifest import write_base_sidecar, write_manifest
 
     package_root = Path(harness.__file__).parent
+    rc: dict = {
+        "platform": platform,
+        "harness_dir_name": harness_dir_name,
+        "selected_agents": selected_agents,
+        "project_name": plugin_dir.parent.parent.name,
+    }
+    if rules_packs is not None:
+        rc["rules_packs"] = rules_packs
     manifest = write_manifest(
         plugin_dir,
         package_root,
-        render_context={
-            "platform": platform,
-            "harness_dir_name": harness_dir_name,
-            "selected_agents": selected_agents,
-            "project_name": plugin_dir.parent.parent.name,
-        },
+        render_context=rc,
     )
     write_base_sidecar(plugin_dir, manifest)
     print("[HARNESS] Update ownership manifest stamped.")
@@ -472,6 +485,7 @@ def run_update(args) -> None:
                 headless=os.environ.get("HARNESS_HEADLESS") == "1",
                 force=args.force,
                 force_major=args.force_major,
+                project_root=project,
             )
         except (ConflictResolutionAborted, ConflictResolutionNeedsHuman, UpdateRequiresHuman) as exc:
             print(f"[HARNESS] update requires attention: {exc}")
@@ -859,11 +873,34 @@ def main():
             langfuse_context.flush()
             sys.exit(1)
 
+        # Compute rules_packs selection for manifest (Phase 1b: persist stack filter).
+        _rules_packs_rc: Optional[dict] = None
+        try:
+            from harness.init.minting_engine import (
+                _read_domain_stack as _rds,
+                _features_rules_packs_enabled as _rp_enabled,
+                _features_language_enabled as _lang_enabled,
+            )
+            from harness.init.lang_aliases import stack_to_packs as _s2p
+            _rp_on = _rp_enabled(_recompiled_features)
+            if _rp_on:
+                _stack = _rds(Path(args.project_path))
+                _matched = sorted(
+                    p for p in _s2p(_stack)
+                    if _lang_enabled(_recompiled_features, p)
+                )
+            else:
+                _matched = []
+            _rules_packs_rc = {"selected": _matched, "enabled": _rp_on}
+        except Exception as _rp_e:
+            print(f"[HARNESS] Warning: could not compute rules_packs for manifest: {_rp_e}")
+
         _write_update_metadata(
             final_plugin_dir,
             platform=adapter.get_platform_name(),
             harness_dir_name=harness_folder,
             selected_agents=selected_agents,
+            rules_packs=_rules_packs_rc,
         )
 
     finally:

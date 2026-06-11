@@ -110,3 +110,31 @@ def test_round_trip_read_manifest(fake_plugin, fake_package):
     loaded = read_manifest(fake_plugin)
     assert loaded["render_context"]["platform"] == "claude"
     assert "src/dispatcher.py" in loaded["owned"]
+
+
+# --- Phase 1b: stack filter persisted in render_context ---------------------
+
+def test_write_manifest_persists_rules_packs_filter(fake_plugin, fake_package):
+    """render_context with rules_packs carries selected packs + enabled flag through round-trip."""
+    rc = {
+        "platform": "claude",
+        "rules_packs": {"selected": ["python"], "enabled": True},
+    }
+    write_manifest(fake_plugin, fake_package, render_context=rc)
+    loaded = read_manifest(fake_plugin)
+    rp = loaded["render_context"]["rules_packs"]
+    assert rp["enabled"] is True
+    assert rp["selected"] == ["python"]
+
+
+def test_write_manifest_rules_packs_disabled(fake_plugin, fake_package):
+    """rules_packs.enabled=False survives round-trip with empty selected list."""
+    rc = {
+        "platform": "claude",
+        "rules_packs": {"selected": [], "enabled": False},
+    }
+    write_manifest(fake_plugin, fake_package, render_context=rc)
+    loaded = read_manifest(fake_plugin)
+    rp = loaded["render_context"]["rules_packs"]
+    assert rp["enabled"] is False
+    assert rp["selected"] == []

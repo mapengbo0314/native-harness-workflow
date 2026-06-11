@@ -216,3 +216,113 @@ def test_plan_update_owned_path_replaced_by_directory_requires_human(tmp_path):
 
     verdicts = {v.relpath: v.verdict for v in plan_update(plug, pkg)}
     assert verdicts["src/dispatcher.py"] == "requires-human"
+
+
+# ---------------------------------------------------------------------------
+# Phase 1b: verdicts respect the stack filter (C4 fix)
+# ---------------------------------------------------------------------------
+
+def _mk_with_packs(pkg: Path, plug: Path) -> None:
+    """Extend _mk with rules/packs layout for pack-filter tests."""
+    _mk(pkg, plug)
+    # Create upstream pack dirs in the package tree
+    (pkg / "templates" / "boilerplate" / "rules" / "packs" / "python").mkdir(parents=True)
+    (pkg / "templates" / "boilerplate" / "rules" / "packs" / "golang").mkdir(parents=True)
+    (pkg / "templates" / "boilerplate" / "rules" / "packs" / "common").mkdir(parents=True)
+    (pkg / "templates" / "boilerplate" / "rules" / "packs" / "python" / "python.md").write_text("# python rules\n")
+    (pkg / "templates" / "boilerplate" / "rules" / "packs" / "golang" / "golang.md").write_text("# golang rules\n")
+    (pkg / "templates" / "boilerplate" / "rules" / "packs" / "common" / "base.md").write_text("# common\n")
+
+
+def test_golang_pack_not_proposed_for_python_only_manifest(tmp_path):
+    """C4 fix: golang pack files are NOT new-file proposed when manifest says python-only."""
+    pkg = tmp_path / "pkg"
+    plug = tmp_path / "plug"
+    _mk_with_packs(pkg, plug)
+
+    # Mint with python-only filter in render_context
+    write_manifest(plug, pkg, render_context={
+        "platform": "claude",
+        "rules_packs": {"selected": ["python"], "enabled": True},
+    })
+
+    verdicts = {v.relpath: v.verdict for v in plan_update(plug, pkg)}
+    # golang pack file must NOT be proposed
+    assert "rules/packs/golang/golang.md" not in verdicts
+
+
+def test_python_pack_updated_content_still_delivered(tmp_path):
+    """Python pack files with new upstream content are still proposed when python is selected."""
+    pkg = tmp_path / "pkg"
+    plug = tmp_path / "plug"
+    _mk_with_packs(pkg, plug)
+
+    # Deploy python pack file and write manifest
+    (plug / "rules" / "packs" / "python").mkdir(parents=True)
+    (plug / "rules" / "packs" / "python" / "python.md").write_text("# python rules\n")
+    write_manifest(plug, pkg, render_context={
+        "platform": "claude",
+        "rules_packs": {"selected": ["python"], "enabled": True},
+    })
+
+    # Upstream python pack changes
+    (pkg / "templates" / "boilerplate" / "rules" / "packs" / "python" / "python.md").write_text("# python rules v2\n")
+
+    verdicts = {v.relpath: v.verdict for v in plan_update(plug, pkg)}
+    # python pack should be proposed (apply or new-file)
+    assert "rules/packs/python/python.md" in verdicts
+    assert verdicts["rules/packs/python/python.md"] in ("apply", "new-file")
+
+
+def test_pack_files_excluded_when_rules_packs_disabled(tmp_path):
+    """When rules_packs.enabled=False, NO pack files are proposed."""
+    pkg = tmp_path / "pkg"
+    plug = tmp_path / "plug"
+    _mk_with_packs(pkg, plug)
+
+    write_manifest(plug, pkg, render_context={
+        "platform": "claude",
+        "rules_packs": {"selected": [], "enabled": False},
+    })
+
+    verdicts = {v.relpath: v.verdict for v in plan_update(plug, pkg)}
+    pack_verdicts = {k: v for k, v in verdicts.items() if k.startswith("rules/packs/")}
+    assert len(pack_verdicts) == 0, f"Expected no pack verdicts, got: {pack_verdicts}"
+
+
+# ---------------------------------------------------------------------------
+# Phase 1b: mirror regeneration + features recompile on apply_update
+# ---------------------------------------------------------------------------
+
+def test_apply_update_calls_install_rules_packs_and_compile_features(tmp_path):
+    """After apply_update with a project_root, install_rules_packs and compile_features are called."""
+    import unittest.mock as mock
+    from harness.update.updater import apply_update
+
+    pkg = tmp_path / "pkg"
+    plug = tmp_path / "plug"
+    harness_d = tmp_path / "harness"
+    project = tmp_path / "project"
+    _mk(pkg, plug)
+    harness_d.mkdir()
+    project.mkdir()
+
+    (pkg / "runtime" / "dispatcher.py").write_text("v1\n")
+    (plug / "src" / "dispatcher.py").write_text("v1\n")
+    (pkg.parent / "pyproject.toml").write_text('[project]\nversion = "1.0.0"\n')
+    write_manifest(plug, pkg, render_context={"platform": "claude"})
+
+    # Make an upstream change so apply has something to do
+    (pkg / "runtime" / "dispatcher.py").write_text("v2\n")
+
+    with mock.patch("harness.update.updater.install_rules_packs") as mock_irp, \
+         mock.patch("harness.update.updater.compile_features") as mock_cf:
+        mock_cf.return_value = None
+        apply_update(
+            plug, pkg,
+            harness_dir=harness_d,
+            headless=True,
+            project_root=project,
+        )
+        mock_irp.assert_called_once()
+        mock_cf.assert_called_once()
