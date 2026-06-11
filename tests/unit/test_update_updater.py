@@ -274,6 +274,30 @@ def test_python_pack_updated_content_still_delivered(tmp_path):
     assert verdicts["rules/packs/python/python.md"] in ("apply", "new-file")
 
 
+def test_empty_selected_fails_open_like_null(tmp_path):
+    """Empty selected list (unknown stack at mint) must fail-open, not exclude everything.
+
+    A first mint without domain.json records selected=[] because the stack is
+    unknown.  That empty list must be treated the same as None (fail-open) so
+    the repo can still receive language packs on update.
+    """
+    pkg = tmp_path / "pkg"
+    plug = tmp_path / "plug"
+    _mk_with_packs(pkg, plug)
+
+    # Manifest written with empty selected — simulates first mint without domain.json
+    write_manifest(plug, pkg, render_context={
+        "platform": "claude",
+        "rules_packs": {"selected": [], "enabled": True},
+    })
+
+    verdicts = {v.relpath: v.verdict for v in plan_update(plug, pkg)}
+    # python pack MUST be proposed (fail-open: unknown stack ≠ no languages wanted)
+    assert "rules/packs/python/python.md" in verdicts, (
+        f"python pack not proposed with empty selected — got: {list(verdicts)}"
+    )
+
+
 def test_pack_files_excluded_when_rules_packs_disabled(tmp_path):
     """When rules_packs.enabled=False, NO pack files are proposed."""
     pkg = tmp_path / "pkg"

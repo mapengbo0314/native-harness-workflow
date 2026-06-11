@@ -199,8 +199,8 @@ def test_domain_refresh_rewrites_manifest_rules_packs_selection(tmp_path, monkey
     rc = manifest.get("render_context", {})
     rp = rc.get("rules_packs", {})
 
-    assert rp.get("selected") == ["golang", "python"], (
-        f"Expected ['golang', 'python'] but got {rp.get('selected')!r}"
+    assert set(rp.get("selected") or []) == {"golang", "python"}, (
+        f"Expected {{golang, python}} but got {rp.get('selected')!r}"
     )
     assert rp.get("enabled") is True
 

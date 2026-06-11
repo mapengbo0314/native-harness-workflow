@@ -334,16 +334,23 @@ def _compute_rules_packs_rc(project_path: Path, plugin_root: Path, features: dic
         rp_on = _features_rules_packs_enabled(features)
         if rp_on:
             stack = _read_domain_stack(project_path)
-            matched = sorted(
-                p for p in stack_to_packs(stack)
-                if _features_language_enabled(features, p)
-            )
+            if stack:
+                matched = sorted(
+                    p for p in stack_to_packs(stack)
+                    if _features_language_enabled(features, p)
+                )
+            else:
+                # Stack unknown (domain.json missing or has no stack key).
+                # Emit None so the update filter treats this as fail-open rather
+                # than "no languages wanted".  If the stack is known but matches
+                # nothing, [] is correct (explicit empty selection).
+                matched = None
         else:
             matched = []
         return {"selected": matched, "enabled": rp_on}
     except Exception as exc:
         print(f"[HARNESS] Warning: could not compute rules_packs for manifest: {exc}")
-        return {"selected": [], "enabled": True}
+        return {"selected": None, "enabled": True}
 
 
 def run_domain_refresh_with_sync(

@@ -61,6 +61,10 @@ def _is_pack_excluded(relpath: str, rules_packs: dict) -> bool:
     ``rules/packs/common/`` is always included.
     *rules_packs* is the ``render_context["rules_packs"]`` dict; if absent or
     empty the filter is a no-op (fail-open).
+
+    Invariant: pack content lives under rules/packs/<lang>/ — files directly
+    under rules/packs/ (no sub-directory) have an empty lang segment and would
+    never match any selection; they are passed through unchanged.
     """
     if not rules_packs:
         return False
@@ -75,8 +79,13 @@ def _is_pack_excluded(relpath: str, rules_packs: dict) -> bool:
     if lang_seg == "common":
         return False
     selected = rules_packs.get("selected", None)
-    if selected is None:
-        return False  # no selection recorded → fail-open
+    # None → no selection recorded → fail-open (unknown stack).
+    # [] → also treated as fail-open: an empty list is indistinguishable from
+    # "stack unknown at mint time" (e.g. first mint without domain.json), so
+    # silently excluding everything would be the worse failure mode (defense in
+    # depth).  A deliberate "exclude all" intent is expressed via enabled=False.
+    if not selected:
+        return False
     return lang_seg not in selected
 
 
