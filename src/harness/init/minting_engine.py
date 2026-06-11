@@ -154,16 +154,19 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
         # Install rules packs: deploy matching stack packs into <project>/.claude/rules/harness/
         # and prune unselected packs from the deployed plugin tree (Phase 1a ECC port).
         # Must run AFTER compile_features so the toggle state is available.
+        # The returned set is stored so the post-generation re-inline reuses it
+        # instead of recomputing (single-source principle — fix 2).
+        _installed_lang_packs: set[str] = set()
         try:
             packs_root = target_path / "rules" / "packs"
             if packs_root.exists():
-                install_rules_packs(
+                _installed_lang_packs = install_rules_packs(
                     project_path=Path(project_path),
                     deployed_plugin_path=target_path,
                     packs_root=packs_root,
                     features=_compiled_features,
                     platform=current_platform,
-                )
+                ) or set()
                 print(f"[HARNESS] Rules packs installed.")
         except Exception as e:
             print(f"[HARNESS] Warning: rules packs install failed: {e}")
@@ -305,19 +308,15 @@ tools:
     # already-inlined static agents get their section replaced (same content), while
     # dynamic agents receive it for the first time.
     # Only applies to non-Claude platforms — Claude auto-loads .claude/rules/ natively.
+    # Reuses _installed_lang_packs returned by install_rules_packs above (single-source
+    # principle — fix 2) instead of recomputing via _read_domain_stack/stack_to_packs.
     if active_platform != "claude" and selected_agents and _features_rules_packs_enabled(_compiled_features):
         try:
-            from harness.init.lang_aliases import stack_to_packs
             _install_root = Path(project_path) / ".claude" / "rules" / "harness"
-            _stack = _read_domain_stack(Path(project_path))
-            _matched = {
-                p for p in stack_to_packs(_stack)
-                if _features_language_enabled(_compiled_features, p)
-            }
             _inline_packs_into_personas(
                 install_root=_install_root,
                 agents_dir=target_path / "agents",
-                matched_lang_packs=_matched,
+                matched_lang_packs=_installed_lang_packs,
             )
         except Exception as _e:
             print(f"[HARNESS] Warning: post-generation pack re-inline failed: {_e}")
@@ -610,7 +609,7 @@ def install_rules_packs(
     packs_root: Path,
     features: dict,
     platform: str = "claude",
-) -> None:
+) -> set[str]:
     """Install selected pack dirs into ``<project>/.claude/rules/harness/`` and prune.
 
     Parameters
@@ -630,13 +629,20 @@ def install_rules_packs(
         Claude auto-loads ``.claude/rules/`` so no persona inlining is needed there.
         For all other platforms the selected pack content is inlined directly into
         each agent persona file so the LLM always receives the rules.
+
+    Returns
+    -------
+    set[str]
+        The set of matched language pack names (e.g. ``{"python"}``).  Empty set
+        when the feature is disabled.  Callers may reuse this set to avoid
+        recomputing pack selection (single-source principle).
     """
     if not _features_rules_packs_enabled(features):
         # Prune entire packs tree from the deployed plugin and skip install.
         # Intentionally removes common/ too — the feature is fully disabled.
         if packs_root.exists():
             shutil.rmtree(packs_root)
-        return
+        return set()
 
     stack = _read_domain_stack(project_path)
 
@@ -717,6 +723,8 @@ def install_rules_packs(
             matched_lang_packs=matched_lang_packs,
         )
 
+    return matched_lang_packs
+
 
 def _collect_pack_content(install_root: Path, matched_lang_packs: set[str]) -> str:
     """Collect all pack file contents (common + matched languages) into a single string.
@@ -784,11 +792,17 @@ def _inline_packs_into_personas(
         try:
             existing = persona_file.read_text(encoding="utf-8")
             if marker_start in existing:
-                # Replace existing inline block (idempotent on re-mint)
-                new_content = replacement_pattern.sub(
-                    f"{marker_start}\n{pack_content}\n{marker_end}",
-                    existing,
-                )
+                if marker_end in existing:
+                    # Replace existing complete inline block (idempotent on re-mint)
+                    new_content = replacement_pattern.sub(
+                        f"{marker_start}\n{pack_content}\n{marker_end}",
+                        existing,
+                    )
+                else:
+                    # Orphan start marker (crashed previous write): strip broken tail
+                    # from the orphan start to end-of-file, then append fresh block.
+                    orphan_idx = existing.index(marker_start)
+                    new_content = existing[:orphan_idx].rstrip("\n") + inline_block
             else:
                 # First time: append section
                 new_content = existing.rstrip("\n") + inline_block
