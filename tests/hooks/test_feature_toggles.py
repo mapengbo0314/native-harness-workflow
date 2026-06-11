@@ -119,3 +119,56 @@ def test_load_features_returns_dict(hook_common, plugin_root):
 
 def test_load_features_missing_file_returns_empty(hook_common, plugin_root):
     assert hook_common.load_features(plugin_root) == {}
+
+
+# ---------------------------------------------------------------------------
+# default= parameter is respected for every fail-open branch (Finding 1)
+# ---------------------------------------------------------------------------
+
+def test_default_false_missing_file(hook_common, plugin_root):
+    """Missing features.json with default=False must return False, not True."""
+    assert hook_common.feature_enabled("missing.key", plugin_root, default=False) is False
+
+
+def test_default_false_missing_key(hook_common, plugin_root):
+    """Key absent in existing features.json with default=False must return False."""
+    write_features(plugin_root, {"services": {}})
+    assert hook_common.feature_enabled("missing.key", plugin_root, default=False) is False
+
+
+def test_default_false_malformed_json(hook_common, plugin_root):
+    """Malformed JSON with default=False must return False."""
+    (plugin_root / "features.json").write_text("{not json!!")
+    assert hook_common.feature_enabled("anything", plugin_root, default=False) is False
+
+
+def test_default_false_non_dict_traversal(hook_common, plugin_root):
+    """Non-dict intermediate node with default=False must return False."""
+    write_features(plugin_root, {"pipeline": True})
+    assert (
+        hook_common.feature_enabled(
+            "pipeline.dispatcher.gates.search_first", plugin_root, default=False
+        )
+        is False
+    )
+
+
+def test_default_false_dict_node_without_enabled(hook_common, plugin_root):
+    """Dict node with no 'enabled' key and default=False must return False."""
+    write_features(plugin_root, {"services": {"session_memory": {"other": 1}}})
+    assert (
+        hook_common.feature_enabled("services.session_memory", plugin_root, default=False)
+        is False
+    )
+
+
+def test_default_unchanged_for_explicit_bool_leaf(hook_common, plugin_root):
+    """Explicit bool leaf must always win regardless of default."""
+    write_features(plugin_root, {"pipeline": {"dispatcher": {"gates": {"search_first": False}}}})
+    # Even with default=True, explicit False must be returned.
+    assert (
+        hook_common.feature_enabled(
+            "pipeline.dispatcher.gates.search_first", plugin_root, default=True
+        )
+        is False
+    )

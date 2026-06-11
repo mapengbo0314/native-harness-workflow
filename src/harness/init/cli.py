@@ -80,7 +80,7 @@ from pathlib import Path
 from harness.adapters import get_adapter
 from harness.domain.seed import run_domain_init, run_domain_refresh, _platform_paths
 from harness.domain.compiler import run_domain_compile
-from harness.init.features import compile_features
+from harness.init.features import compile_features, FeaturesValidationError
 
 def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
     required = [
@@ -231,27 +231,42 @@ def _write_update_metadata(
     print("[HARNESS] Update ownership manifest stamped.")
 
 
-def run_features_sync(project_path: str) -> None:
-    """Compile ``features.yaml`` -> ``features.json`` for the given plugin root.
-
-    Exposed as ``harness-wf features sync --project-path <path>``.
-    """
-    plugin_root = Path(project_path)
-    result = compile_features(plugin_root)
+def _print_features_result(result, plugin_root: Path) -> None:
+    """Print the standard features-sync outcome line."""
     if result is not None:
         print(f"[HARNESS] features.json compiled -> {result}")
     else:
         print(f"[HARNESS] No features.yaml found at {plugin_root}; nothing to compile.")
 
 
+def run_features_sync(project_path: str) -> None:
+    """Compile ``features.yaml`` -> ``features.json`` for the given plugin root.
+
+    Exposed as ``harness-wf features sync --project-path <path>``.
+    """
+    plugin_root = Path(project_path)
+    try:
+        result = compile_features(plugin_root)
+    except FeaturesValidationError as exc:
+        print(f"[HARNESS] ERROR: {exc}")
+        sys.exit(1)
+    _print_features_result(result, plugin_root)
+
+
 def run_domain_refresh_with_sync(
     project_path: str,
     *,
-    platform: str = None,
+    platform: Optional[str] = None,
 ) -> None:
     """Run domain-refresh then sync features.yaml -> features.json."""
     run_domain_refresh(project_path, platform=platform)
-    compile_features(Path(project_path))
+    plugin_root = Path(project_path)
+    try:
+        result = compile_features(plugin_root)
+    except FeaturesValidationError as exc:
+        print(f"[HARNESS] ERROR: {exc}")
+        sys.exit(1)
+    _print_features_result(result, plugin_root)
 
 
 def parse_args():

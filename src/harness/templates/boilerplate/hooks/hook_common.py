@@ -54,8 +54,9 @@ def capped_text(value: str, max_chars: int) -> str:
 # ---------------------------------------------------------------------------
 # Feature-toggle helpers (Phase 0 – ECC port)
 # Stdlib only; reads compiled features.json (never features.yaml).
-# Fail-open semantics everywhere: missing file / corrupt JSON / missing key /
-# traversal through a non-dict all return True (enabled).
+# Fail-open semantics by default (default=True): missing file / corrupt JSON /
+# missing key / traversal through a non-dict all return `default`.
+# Callers may pass default=False for fail-closed behaviour.
 # ---------------------------------------------------------------------------
 
 def load_features(plugin_root) -> dict:
@@ -73,25 +74,36 @@ def load_features(plugin_root) -> dict:
 def feature_enabled(dotted_path: str, plugin_root, default: bool = True) -> bool:
     """Traverse *dotted_path* in features.json and return a bool.
 
-    Semantics (fail-open):
-      - Missing file, corrupt JSON, missing key, traversal through non-dict → True
+    Semantics (fail-open by default, controlled by *default*):
+      - Missing file, corrupt JSON → *default*
+      - Missing key, traversal through non-dict → *default*
       - Boolean leaf → its value
-      - Dict node → value of its "enabled" key if present, else True
+      - Dict node → value of its "enabled" key if present, else *default*
     """
-    data = load_features(plugin_root)
+    features_path = Path(plugin_root) / "features.json"
+    try:
+        data = json.loads(features_path.read_text(encoding="utf-8"))
+    except Exception:
+        return default  # missing file or corrupt JSON — honour default
+
+    if not isinstance(data, dict):
+        return default
+
     node = data
     for part in dotted_path.split("."):
         if not isinstance(node, dict):
-            return True  # can't traverse — fail open
+            return default  # can't traverse — honour default
         if part not in node:
-            return True  # missing key — fail open
+            return default  # missing key — honour default
         node = node[part]
 
     if isinstance(node, bool):
         return node
     if isinstance(node, dict):
-        enabled = node.get("enabled", True)
+        enabled = node.get("enabled")
+        if enabled is None:
+            return default  # no "enabled" key — honour default
         if isinstance(enabled, bool):
             return enabled
-        return True  # non-bool "enabled" value — fail open
-    return True  # unexpected leaf type — fail open
+        return default  # non-bool "enabled" value — honour default
+    return default  # unexpected leaf type — honour default

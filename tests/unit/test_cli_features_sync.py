@@ -4,6 +4,8 @@ TDD — written BEFORE the subcommand exists in cli.py.
 Verifies:
   - `harness-wf features sync` calls compile_features on the resolved plugin root
   - domain-refresh also triggers compile_features
+  - FeaturesValidationError in either path prints [HARNESS] ERROR and exits 1
+  - run_domain_refresh_with_sync prints the same success line as run_features_sync
 """
 from __future__ import annotations
 
@@ -50,9 +52,10 @@ def test_features_sync_calls_compile_features(tmp_path):
 
 def test_domain_refresh_triggers_compile_features(tmp_path):
     """run_domain_refresh (via seed) must trigger a compile_features call."""
-    # Create a minimal domain.json so refresh doesn't bail early
-    (tmp_path / ".claude").mkdir(parents=True, exist_ok=True)
-    domain_json = tmp_path / ".claude" / "domain.json"
+    # domain.json lives at .claude/harness-wf-plugin/domain/domain.json (default platform)
+    domain_dir = tmp_path / ".claude" / "harness-wf-plugin" / "domain"
+    domain_dir.mkdir(parents=True, exist_ok=True)
+    domain_json = domain_dir / "domain.json"
     domain_json.write_text('{"stack": []}', encoding="utf-8")
 
     with (
@@ -63,3 +66,81 @@ def test_domain_refresh_triggers_compile_features(tmp_path):
         run_domain_refresh_with_sync(str(tmp_path))
 
     mock_cf.assert_called_once_with(Path(tmp_path))
+
+
+# ---------------------------------------------------------------------------
+# FeaturesValidationError -> exit code 1, no traceback (Finding 3)
+# ---------------------------------------------------------------------------
+
+
+def test_features_sync_validation_error_exits_1(tmp_path, capsys):
+    """Invalid features.yaml must produce exit code 1 and print [HARNESS] ERROR."""
+    from harness.init.cli import run_features_sync
+    from harness.init.features import FeaturesValidationError
+
+    with patch(
+        "harness.init.cli.compile_features",
+        side_effect=FeaturesValidationError("root must be a mapping"),
+    ):
+        with pytest.raises(SystemExit) as exc_info:
+            run_features_sync(str(tmp_path))
+
+    assert exc_info.value.code == 1
+    captured = capsys.readouterr()
+    assert "[HARNESS] ERROR:" in captured.out
+    assert "root must be a mapping" in captured.out
+    # No traceback in stdout
+    assert "Traceback" not in captured.out
+
+
+def test_domain_refresh_validation_error_exits_1(tmp_path, capsys):
+    """FeaturesValidationError during domain-refresh must also exit 1."""
+    # domain.json lives at .claude/harness-wf-plugin/domain/domain.json (default platform)
+    domain_dir = tmp_path / ".claude" / "harness-wf-plugin" / "domain"
+    domain_dir.mkdir(parents=True, exist_ok=True)
+    (domain_dir / "domain.json").write_text('{"stack": []}', encoding="utf-8")
+
+    from harness.init.features import FeaturesValidationError
+
+    with (
+        patch("harness.domain.seed.detect.detect_stack", return_value=[]),
+        patch(
+            "harness.init.cli.compile_features",
+            side_effect=FeaturesValidationError("bad yaml root"),
+        ),
+    ):
+        from harness.init.cli import run_domain_refresh_with_sync
+
+        with pytest.raises(SystemExit) as exc_info:
+            run_domain_refresh_with_sync(str(tmp_path))
+
+    assert exc_info.value.code == 1
+    captured = capsys.readouterr()
+    assert "[HARNESS] ERROR:" in captured.out
+    assert "bad yaml root" in captured.out
+    assert "Traceback" not in captured.out
+
+
+# ---------------------------------------------------------------------------
+# run_domain_refresh_with_sync prints success line (Finding 4)
+# ---------------------------------------------------------------------------
+
+
+def test_domain_refresh_prints_success_line(tmp_path, capsys):
+    """run_domain_refresh_with_sync must print the features.json compiled line on success."""
+    # domain.json lives at .claude/harness-wf-plugin/domain/domain.json (default platform)
+    domain_dir = tmp_path / ".claude" / "harness-wf-plugin" / "domain"
+    domain_dir.mkdir(parents=True, exist_ok=True)
+    (domain_dir / "domain.json").write_text('{"stack": []}', encoding="utf-8")
+    fake_json_path = tmp_path / "features.json"
+
+    with (
+        patch("harness.domain.seed.detect.detect_stack", return_value=[]),
+        patch("harness.init.cli.compile_features", return_value=fake_json_path),
+    ):
+        from harness.init.cli import run_domain_refresh_with_sync
+        run_domain_refresh_with_sync(str(tmp_path))
+
+    captured = capsys.readouterr()
+    assert "features.json compiled" in captured.out
+    assert str(fake_json_path) in captured.out

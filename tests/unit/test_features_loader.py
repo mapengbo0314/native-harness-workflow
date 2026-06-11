@@ -128,6 +128,18 @@ def test_wrong_type_raises_and_no_json(tmp_path):
     assert not (tmp_path / "features.json").exists()
 
 
+def test_non_dict_root_raises_validation_error(tmp_path):
+    """YAML root must be a mapping; a list root must raise FeaturesValidationError."""
+    write_yaml(tmp_path, "- item1\n- item2\n")
+    with pytest.raises(FeaturesValidationError, match="root must be a mapping"):
+        compile_features(tmp_path)
+    assert not (tmp_path / "features.json").exists()
+    # Also test with a scalar root
+    write_yaml(tmp_path, "just_a_string\n")
+    with pytest.raises(FeaturesValidationError, match="root must be a mapping"):
+        compile_features(tmp_path)
+
+
 # ---------------------------------------------------------------------------
 # Dependency validation
 # ---------------------------------------------------------------------------

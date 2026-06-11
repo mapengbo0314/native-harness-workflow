@@ -32,7 +32,7 @@ import yaml  # PyYAML — available in the tool plane
 #: KNOWN_KEYS declares the valid feature tree.  Leaves must be booleans in
 #: the YAML.  Dict nodes may have further sub-keys *or* be used as "enabled"
 #: flag objects (e.g. ``services.session_memory: {enabled: true}``).
-KNOWN_KEYS: dict = {
+KNOWN_KEYS: dict[str, Any] = {
     "rules_packs": {
         "enabled": bool,
         "languages": dict,  # per-language bool leaves freely allowed under here
@@ -181,15 +181,21 @@ def compile_features(plugin_root: Path) -> Optional[Path]:
     raw = yaml_path.read_text(encoding="utf-8")
     data = yaml.safe_load(raw) or {}
 
+    # --- Guard: root must be a mapping ---
+    if not isinstance(data, dict):
+        raise FeaturesValidationError(
+            f"features.yaml root must be a mapping, got {type(data).__name__!r}"
+        )
+
     # --- Validate schema ---
     _validate_tree(data, KNOWN_KEYS, "")
 
     # --- Validate dependencies ---
     _check_dependencies(data)
 
-    # --- Write JSON (sorted keys, 2-space indent) ---
+    # --- Write JSON (sorted keys, 2-space indent, trailing newline) ---
     json_path.write_text(
-        json.dumps(data, sort_keys=True, indent=2, ensure_ascii=False),
+        json.dumps(data, sort_keys=True, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
     return json_path
