@@ -307,12 +307,53 @@ def sync_rules_packs(project_path: str, *, plugin_root: Optional[Path] = None) -
     )
 
 
+def _compute_rules_packs_rc(project_path: Path, plugin_root: Path, features: dict) -> dict:
+    """Compute the ``{"selected": [...], "enabled": bool}`` dict for the manifest.
+
+    Reuses the same computation as the mint call site so the two are kept in
+    sync.  Fail-open: if anything goes wrong, returns the features-enabled flag
+    with an empty selection.
+
+    Parameters
+    ----------
+    project_path:
+        The user's project root (used to read domain.json for stack detection).
+    plugin_root:
+        Root of the deployed plugin (passed to minting_engine helpers).
+    features:
+        Parsed features dict (may be empty).
+    """
+    try:
+        from harness.init.minting_engine import (
+            _read_domain_stack,
+            _features_rules_packs_enabled,
+            _features_language_enabled,
+        )
+        from harness.init.lang_aliases import stack_to_packs
+
+        rp_on = _features_rules_packs_enabled(features)
+        if rp_on:
+            stack = _read_domain_stack(project_path)
+            matched = sorted(
+                p for p in stack_to_packs(stack)
+                if _features_language_enabled(features, p)
+            )
+        else:
+            matched = []
+        return {"selected": matched, "enabled": rp_on}
+    except Exception as exc:
+        print(f"[HARNESS] Warning: could not compute rules_packs for manifest: {exc}")
+        return {"selected": [], "enabled": True}
+
+
 def run_domain_refresh_with_sync(
     project_path: str,
     *,
     platform: Optional[str] = None,
 ) -> None:
-    """Run domain-refresh then sync features.yaml -> features.json."""
+    """Run domain-refresh then sync features.yaml -> features.json and
+    rewrite the manifest's render_context.rules_packs so the stack filter
+    stays current after a domain-refresh."""
     run_domain_refresh(project_path, platform=platform)
     plugin_root = Path(project_path)
     try:
@@ -324,6 +365,49 @@ def run_domain_refresh_with_sync(
     # Pass the same plugin_root that compile_features used so pack selection
     # reads the features.json it just wrote, not a different deployed dir.
     sync_rules_packs(project_path, plugin_root=plugin_root)
+
+    # Recompute and persist rules_packs selection into the manifest so
+    # plan_update's pack filter reflects the refreshed stack.  Fail-open.
+    try:
+        import json as _json
+        from harness.update.manifest import read_manifest, META_FILENAME, write_manifest as _wm
+        import harness as _harness
+
+        # Deployed plugin dir is always <project>/.claude/harness-wf-plugin
+        project = Path(project_path)
+        deployed_plugin = project / ".claude" / "harness-wf-plugin"
+        meta = deployed_plugin / META_FILENAME
+        if not meta.exists():
+            return  # no manifest to update
+
+        # Read features that sync_rules_packs just worked with
+        import json as _jmod
+        features: dict = {}
+        features_json = deployed_plugin / "features.json"
+        if features_json.exists():
+            try:
+                features = _jmod.loads(features_json.read_text(encoding="utf-8"))
+            except Exception:
+                features = {}
+
+        # Compute new selection from the refreshed stack
+        new_rp = _compute_rules_packs_rc(project, deployed_plugin, features)
+
+        # Read manifest, update only render_context.rules_packs, write back
+        existing = read_manifest(deployed_plugin)
+        rc = dict(existing.get("render_context", {}))
+        rc["rules_packs"] = new_rp
+
+        package_root = Path(_harness.__file__).parent
+        _wm(
+            deployed_plugin,
+            package_root,
+            render_context=rc,
+            harness_version=existing.get("harness_version"),
+        )
+        print(f"[HARNESS] Manifest rules_packs filter updated: selected={new_rp['selected']}")
+    except Exception as exc:
+        print(f"[HARNESS] Warning: manifest rules_packs refresh failed: {exc}")
 
 
 def parse_args():
@@ -874,26 +958,11 @@ def main():
             sys.exit(1)
 
         # Compute rules_packs selection for manifest (Phase 1b: persist stack filter).
-        _rules_packs_rc: Optional[dict] = None
-        try:
-            from harness.init.minting_engine import (
-                _read_domain_stack as _rds,
-                _features_rules_packs_enabled as _rp_enabled,
-                _features_language_enabled as _lang_enabled,
-            )
-            from harness.init.lang_aliases import stack_to_packs as _s2p
-            _rp_on = _rp_enabled(_recompiled_features)
-            if _rp_on:
-                _stack = _rds(Path(args.project_path))
-                _matched = sorted(
-                    p for p in _s2p(_stack)
-                    if _lang_enabled(_recompiled_features, p)
-                )
-            else:
-                _matched = []
-            _rules_packs_rc = {"selected": _matched, "enabled": _rp_on}
-        except Exception as _rp_e:
-            print(f"[HARNESS] Warning: could not compute rules_packs for manifest: {_rp_e}")
+        _rules_packs_rc: Optional[dict] = _compute_rules_packs_rc(
+            Path(args.project_path),
+            final_plugin_dir if final_plugin_dir else target_harness_dir,
+            _recompiled_features,
+        )
 
         _write_update_metadata(
             final_plugin_dir,

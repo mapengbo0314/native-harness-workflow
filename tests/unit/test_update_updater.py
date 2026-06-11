@@ -294,6 +294,82 @@ def test_pack_files_excluded_when_rules_packs_disabled(tmp_path):
 # Phase 1b: mirror regeneration + features recompile on apply_update
 # ---------------------------------------------------------------------------
 
+def _mk_pack_plugin(pkg: Path, plug: Path, project: Path) -> None:
+    """Set up a minimal project with a deployed plugin that has rules packs."""
+    _mk_with_packs(pkg, plug)
+
+    # Deploy the python pack into the plugin dir (simulates a previously-installed plugin)
+    (plug / "rules" / "packs" / "python").mkdir(parents=True)
+    (plug / "rules" / "packs" / "python" / "python.md").write_text("OLD python rules\n")
+
+    # Deploy common pack too (always present)
+    (plug / "rules" / "packs" / "common").mkdir(parents=True)
+    (plug / "rules" / "packs" / "common" / "base.md").write_text("# common\n")
+
+    # Simulate an existing mirror install with an OLD file plus an operator edit
+    mirror_dir = project / ".claude" / "rules" / "harness" / "python"
+    mirror_dir.mkdir(parents=True)
+    (mirror_dir / "python.md").write_text("OLD python rules\nOperator-added line\n")
+
+    # common mirror also pre-exists
+    common_mirror = project / ".claude" / "rules" / "harness" / "common"
+    common_mirror.mkdir(parents=True)
+    (common_mirror / "base.md").write_text("# common old\n")
+
+    # domain.json in the location install_rules_packs reads:
+    # <project>/.claude/harness-wf-plugin/domain/domain.json
+    domain_dir = project / ".claude" / "harness-wf-plugin" / "domain"
+    domain_dir.mkdir(parents=True)
+    (domain_dir / "domain.json").write_text('{"stack": ["Python"]}\n')
+
+    # features.json enabling rules_packs
+    (plug / "features.json").write_text('{"rules_packs": {"enabled": true}}\n')
+
+    # pyproject.toml
+    (pkg.parent / "pyproject.toml").write_text('[project]\nversion = "1.0.0"\n')
+
+
+def test_post_apply_hooks_regenerates_mirror_with_new_content(tmp_path):
+    """Real-FS: _post_apply_hooks regenerates the mirror from the NEW pack content.
+
+    The operator-edited line in the OLD mirror must be gone; the NEW upstream
+    content (from the package template) must be present; common/ must also be
+    installed.
+    """
+    pkg = tmp_path / "pkg"
+    plug = tmp_path / "plug"
+    project = tmp_path / "project"
+    _mk_pack_plugin(pkg, plug, project)
+
+    # Write manifest with python-only selection
+    write_manifest(plug, pkg, render_context={
+        "platform": "claude",
+        "rules_packs": {"selected": ["python"], "enabled": True},
+    })
+
+    # Simulate upstream NEW content in the package template
+    (pkg / "templates" / "boilerplate" / "rules" / "packs" / "python" / "python.md").write_text(
+        "NEW python rules v2\n"
+    )
+    # Also update the deployed plugin pack to reflect what an apply would do
+    (plug / "rules" / "packs" / "python" / "python.md").write_text("NEW python rules v2\n")
+
+    from harness.update.updater import _post_apply_hooks
+    _post_apply_hooks(plug, project)
+
+    mirror_file = project / ".claude" / "rules" / "harness" / "python" / "python.md"
+    assert mirror_file.exists(), "mirror file must be regenerated"
+    content = mirror_file.read_text(encoding="utf-8")
+    assert content == "NEW python rules v2\n", (
+        f"Mirror must have NEW content, got: {content!r}"
+    )
+    assert "Operator-added line" not in content, "Operator-added line must be erased"
+
+    # common/ must be present in the mirror
+    common_mirror = project / ".claude" / "rules" / "harness" / "common" / "base.md"
+    assert common_mirror.exists(), "common/ must be present in mirror"
+
+
 def test_apply_update_calls_install_rules_packs_and_compile_features(tmp_path):
     """After apply_update with a project_root, install_rules_packs and compile_features are called."""
     import unittest.mock as mock
