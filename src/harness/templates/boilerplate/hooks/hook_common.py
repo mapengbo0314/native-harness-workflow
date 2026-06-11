@@ -86,6 +86,7 @@ def features_staleness_warning(plugin_root) -> "str | None":
                 "⚠ features.yaml is newer than features.json"
                 " — run 'harness-wf features sync'"
             )
+        # Strict >: equal mtime means fresh (compile writes json after reading yaml).
         if yaml_path.stat().st_mtime > json_path.stat().st_mtime:
             return (
                 "⚠ features.yaml is newer than features.json"

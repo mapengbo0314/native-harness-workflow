@@ -243,3 +243,38 @@ def test_loader_parity_missing_key_fail_open(tmp_path, hook_common):
         "pipeline.dispatcher.gates.search_first", tmp_path
     )
     assert result is True
+
+
+def test_known_keys_disjoint_from_codex_tool_mapping(tmp_path):
+    """No KNOWN_KEYS flattened leaf path must collide with codex tool_mapping keys.
+
+    The codex adapter maps tool names (Read, Write, Bash, etc.) — if a feature
+    key ever matched one of those names the YAML parser could misinterpret the
+    toggle surface during template rendering.
+    """
+    import json as _json
+    from pathlib import Path as _Path
+    from harness.init.features import KNOWN_KEYS
+
+    profiles_path = (
+        _Path(__file__).parent.parent.parent
+        / "src/harness/adapters/platform_profiles.json"
+    )
+    profiles = _json.loads(profiles_path.read_text(encoding="utf-8"))
+    codex_tool_keys = set(profiles.get("codex", {}).get("tool_mappings", {}).keys())
+
+    def _flatten(node, prefix=""):
+        parts = set()
+        if isinstance(node, dict):
+            for k, v in node.items():
+                sub = f"{prefix}.{k}" if prefix else k
+                parts.add(k)          # segment
+                parts.add(sub)        # dotted path
+                parts.update(_flatten(v, sub))
+        return parts
+
+    known_segments = _flatten(KNOWN_KEYS)
+    collision = known_segments & codex_tool_keys
+    assert not collision, (
+        f"KNOWN_KEYS segments collide with codex tool_mapping keys: {collision}"
+    )

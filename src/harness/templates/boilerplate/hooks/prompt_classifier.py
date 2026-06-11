@@ -215,7 +215,7 @@ def main():
             from hook_common import features_staleness_warning
             _stale_warn = features_staleness_warning(plugin_root)
             if _stale_warn:
-                system_state = (system_state or "") + "\n" + _stale_warn + "\n"
+                system_state = (system_state.rstrip() + "\n" + _stale_warn + "\n") if system_state else (_stale_warn + "\n")
         except Exception:
             pass
             

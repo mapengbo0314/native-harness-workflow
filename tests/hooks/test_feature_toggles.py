@@ -181,12 +181,14 @@ def test_default_unchanged_for_explicit_bool_leaf(hook_common, plugin_root):
 
 def test_staleness_warning_yaml_newer_than_json(hook_common, plugin_root):
     """features.yaml newer than features.json -> warning string returned."""
-    import time
+    import os
     yaml_path = plugin_root / "features.yaml"
     json_path = plugin_root / "features.json"
     json_path.write_text("{}")
-    time.sleep(0.02)
     yaml_path.write_text("rules_packs:\n  enabled: true\n")
+    t = 1_000_000.0
+    os.utime(json_path, (t, t))
+    os.utime(yaml_path, (t + 10, t + 10))
     warning = hook_common.features_staleness_warning(plugin_root)
     assert warning is not None
     assert "features.yaml" in warning
@@ -195,12 +197,27 @@ def test_staleness_warning_yaml_newer_than_json(hook_common, plugin_root):
 
 def test_staleness_no_warning_json_newer(hook_common, plugin_root):
     """features.json newer than features.yaml -> None returned."""
-    import time
+    import os
     yaml_path = plugin_root / "features.yaml"
     json_path = plugin_root / "features.json"
     yaml_path.write_text("rules_packs:\n  enabled: true\n")
-    time.sleep(0.02)
     json_path.write_text("{}")
+    t = 1_000_000.0
+    os.utime(yaml_path, (t, t))
+    os.utime(json_path, (t + 10, t + 10))
+    assert hook_common.features_staleness_warning(plugin_root) is None
+
+
+def test_staleness_no_warning_mtime_equal(hook_common, plugin_root):
+    """features.yaml mtime == features.json mtime -> None (strict > means equal is fresh)."""
+    import os
+    yaml_path = plugin_root / "features.yaml"
+    json_path = plugin_root / "features.json"
+    yaml_path.write_text("rules_packs:\n  enabled: true\n")
+    json_path.write_text("{}")
+    t = 1_000_000.0
+    os.utime(yaml_path, (t, t))
+    os.utime(json_path, (t, t))
     assert hook_common.features_staleness_warning(plugin_root) is None
 
 

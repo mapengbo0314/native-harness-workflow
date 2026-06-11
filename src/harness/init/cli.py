@@ -768,6 +768,17 @@ def main():
         if final_plugin_dir:
             plugin_dir = str(final_plugin_dir)
 
+        # Re-compile features.yaml -> features.json after the smart merge so the
+        # JSON always reflects the merged YAML (never a stale pre-merge artifact).
+        _compile_root = final_plugin_dir if final_plugin_dir else target_harness_dir
+        try:
+            from harness.init.features import compile_features as _compile_features
+            _json_path = _compile_features(_compile_root)
+            if _json_path:
+                print(f"[HARNESS] features.json recompiled at {_json_path}")
+        except Exception as _e:
+            print(f"[HARNESS] Warning: features recompile failed: {_e}")
+
         try:
             run_embedded_setup(
                 Path(args.project_path),
