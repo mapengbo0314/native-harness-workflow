@@ -40,7 +40,6 @@ second-round review — R1–R5)*
 - [x] Failing test: SessionStart digest injection (merge-at-read); implement `hooks/session_start.py` with `HARNESS_SESSION_CONTEXT=off` opt-out
 - [x] Failing test: wiring (`tests/integration/test_claude_plugin_contract.py`); register Stop/PreCompact/SessionStart in `hooks.json` + `adapters/claude.py` (gemini only after event verification — M4)
 - [x] Failing test: toggle-off ⇒ no-op; wire `services.session_memory` gate
-- [x] Suite green; commit
 
 Draft implementation exists in the working tree and focused tests have passed locally, but Phase 2 is **not complete** until it goes through `harness-subagent-driven-development`: implementer pass, spec compliance review, code quality review, and final verification.
 
@@ -53,7 +52,6 @@ Draft implementation exists in the working tree and focused tests have passed lo
 - [ ] Wire detached spawn behind `hooks.session_end.learning_extraction` gate; register SessionEnd in `hooks.json`
 - [ ] Failing test: SessionStart injects ≤6 learned summaries; edit `hooks/session_start.py`
 - [ ] Author `skills/continuous-learning/SKILL.md` (`/learn`); register in `skills.json`
-- [x] Suite green; commit
 
 ## Phase 4 — F4 Search-First Gate (+ proportionality guards)
 - [ ] Failing test: Branch B + no `research_done` ⇒ gate line in SYSTEM STATE (`tests/unit/test_context_builder.py`)
@@ -65,7 +63,6 @@ Draft implementation exists in the working tree and focused tests have passed lo
 - [ ] Implement bias-to-D rule in `classify_intent` prompt (`runtime/dispatcher.py:149`) + `prompt_classifier` fallback; D pre-flight asks 1–2 clarifying questions instead of escalating to B
 - [ ] Failing test: toggle off ⇒ passthrough; waiver path sets `research_done`; wire toggle
 - [ ] Author `skills/search-first/SKILL.md` — step 1 proportionality waiver, then Adopt/Extend/Compose/Build matrix, then **post-research depth checkpoint** (HITL `AskUserQuestion`: quick implementation w/ findings attached + clear `phase`, vs full planning pipeline; matrix outcome = recommended default); register in `skills.json` + contract test for checkpoint text
-- [x] Suite green; commit
 
 ## Phase 5 — F2 Adversary Pipeline (tiered + budgeted)
 - [ ] Failing test: staleness checker — report exists + newer than design doc; toggle-off ⇒ pass (`tests/unit/test_adversary_pipeline.py`)
@@ -75,7 +72,6 @@ Draft implementation exists in the working tree and focused tests have passed lo
 - [ ] Author `skills/adversary-pipeline/SKILL.md` — Tier 1: inline council-style role lenses (default, no subagents); Tier 2: Attacker→Defender→Auditor general-purpose dispatches, **skill writes the budget sidecar before each dispatch (R5)** (≤30 tool calls, ≤12 files, smaller model for Attacker/Defender, degrade-gracefully clause as steering before the enforced wall); council role-lens + GAN prompt-defense preamble; re-scope `agents/adversary.md` as Auditor
 - [ ] Add skill-text gate to `harness-brainstorming-plans` + `harness-requesting-code-review` SKILL.md behind `pipeline.dispatcher.gates.adversary_exit`
 - [ ] Register skill; update `tests/integration/test_claude_plugin_contract.py`
-- [x] Suite green; commit
 
 ## Phase 6 — Sticky Phase State Machine ⚠️ DEFERRED (outline in design doc Section 3; needs own HITL design pass — do NOT implement from the outline)
 - [ ] Run its own design pass (Sections 0–4) covering: artifact-based exit-condition detection (the C3 gap), classifier shrink ("still in phase?" instead of re-classification), misroute suppression + user override, stale-phase reaping
