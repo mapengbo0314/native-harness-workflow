@@ -60,6 +60,56 @@ def test_rules_packs_common_mds_have_no_paths_frontmatter():
                     f"{md_file.relative_to(PACKS_DIR.parent)} (common) must NOT have a 'paths' key in frontmatter"
                 )
 
+
+# ---------------------------------------------------------------------------
+# Phase 1c additions: size budgets, provenance comments, no placeholders
+# ---------------------------------------------------------------------------
+
+COMMON_BUDGET_BYTES = 6 * 1024   # 6 KB total for common/
+LANG_BUDGET_BYTES   = 8 * 1024   # 8 KB total per language dir
+
+
+def test_common_pack_total_size_within_budget():
+    """common/ directory total size must be ≤6 KB."""
+    common_dir = PACKS_DIR / "common"
+    assert common_dir.is_dir()
+    total = sum(f.stat().st_size for f in common_dir.glob("*.md"))
+    assert total <= COMMON_BUDGET_BYTES, (
+        f"common/ pack total size {total}B exceeds {COMMON_BUDGET_BYTES}B budget"
+    )
+
+
+def test_language_pack_dirs_within_size_budget():
+    """Each language pack dir total size must be ≤8 KB."""
+    for lang in LANGUAGE_DIRS:
+        lang_dir = PACKS_DIR / lang
+        assert lang_dir.is_dir(), f"Expected language dir {lang_dir} to exist"
+        total = sum(f.stat().st_size for f in lang_dir.glob("*.md"))
+        assert total <= LANG_BUDGET_BYTES, (
+            f"{lang}/ pack total size {total}B exceeds {LANG_BUDGET_BYTES}B budget"
+        )
+
+
+def test_language_mds_have_provenance_comment():
+    """Every .md in python/typescript/golang must contain a provenance comment after frontmatter."""
+    for lang in LANGUAGE_DIRS:
+        lang_dir = PACKS_DIR / lang
+        for md_file in sorted(lang_dir.glob("*.md")):
+            content = md_file.read_text(encoding="utf-8")
+            assert "<!-- ported from affaan-m/ECC@c888d2b" in content, (
+                f"{md_file.relative_to(PACKS_DIR.parent)} must contain a provenance comment"
+            )
+
+
+def test_no_placeholder_md_in_pack_dirs():
+    """No placeholder.md should remain in any pack directory."""
+    for lang in LANGUAGE_DIRS:
+        lang_dir = PACKS_DIR / lang
+        placeholder = lang_dir / "placeholder.md"
+        assert not placeholder.exists(), (
+            f"placeholder.md must be removed from {lang}/ (Task 1c)"
+        )
+
 def test_no_dangling_references_in_generated_templates(temp_project):
     run_harness_init(temp_project, "1")
     

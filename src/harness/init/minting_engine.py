@@ -162,6 +162,7 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
                     deployed_plugin_path=target_path,
                     packs_root=packs_root,
                     features=_compiled_features,
+                    platform=current_platform,
                 )
                 print(f"[HARNESS] Rules packs installed.")
         except Exception as e:
@@ -583,6 +584,7 @@ def install_rules_packs(
     deployed_plugin_path: Path,
     packs_root: Path,
     features: dict,
+    platform: str = "claude",
 ) -> None:
     """Install selected pack dirs into ``<project>/.claude/rules/harness/`` and prune.
 
@@ -598,6 +600,11 @@ def install_rules_packs(
         from boilerplate).  All language subdirs not selected will be removed from here.
     features:
         Parsed features dict (may be empty — all features default-enabled when absent).
+    platform:
+        Normalised platform name (e.g. ``"gemini"``, ``"claude"``, ``"cursor"``).
+        Claude auto-loads ``.claude/rules/`` so no persona inlining is needed there.
+        For all other platforms the selected pack content is inlined directly into
+        each agent persona file so the LLM always receives the rules.
     """
     if not _features_rules_packs_enabled(features):
         # Prune entire packs tree from the deployed plugin and skip install.
@@ -673,6 +680,97 @@ def install_rules_packs(
                 child.unlink()
             elif child.is_dir() and child.name not in matched_lang_packs:
                 shutil.rmtree(child)
+
+    # Phase 1c: persona inlining for non-Claude platforms (design M3).
+    # Claude auto-loads .claude/rules/ — nothing needed there.
+    # For all other platforms, append pack content directly to each agent persona
+    # so the LLM always receives the rules regardless of platform support.
+    if platform != "claude":
+        _inline_packs_into_personas(
+            install_root=install_root,
+            agents_dir=deployed_plugin_path / "agents",
+            matched_lang_packs=matched_lang_packs,
+        )
+
+
+def _collect_pack_content(install_root: Path, matched_lang_packs: set[str]) -> str:
+    """Collect all pack file contents (common + matched languages) into a single string.
+
+    Strips YAML frontmatter from each file before concatenation so the inlined
+    section contains only the rule prose, not raw frontmatter blocks.
+    """
+    sections: list[str] = []
+    _fm_re = re.compile(r"^---\n.*?\n---\n?", re.DOTALL)
+
+    def _read_pack_dir(pack_dir: Path) -> None:
+        if not pack_dir.is_dir():
+            return
+        for md_file in sorted(pack_dir.glob("*.md")):
+            try:
+                raw = md_file.read_text(encoding="utf-8")
+                body = _fm_re.sub("", raw, count=1).strip()
+                if body:
+                    sections.append(body)
+            except Exception:
+                pass  # fail-open: skip unreadable files
+
+    _read_pack_dir(install_root / "common")
+    for lang_name in sorted(matched_lang_packs):
+        _read_pack_dir(install_root / lang_name)
+
+    return "\n\n---\n\n".join(sections)
+
+
+def _inline_packs_into_personas(
+    install_root: Path,
+    agents_dir: Path,
+    matched_lang_packs: set[str],
+) -> None:
+    """Append a ``## Stack Rules (auto-included)`` section to each agent persona file.
+
+    This is the non-Claude persona inlining mechanism (design M3).  Claude
+    auto-loads ``.claude/rules/`` natively; for all other platforms we inline
+    the content directly so the LLM always receives the rules.
+
+    Idempotent: if the marker is already present the section is replaced rather
+    than appended again.
+    """
+    if not agents_dir.is_dir():
+        return
+
+    pack_content = _collect_pack_content(install_root, matched_lang_packs)
+    if not pack_content:
+        return
+
+    marker_start = "<!-- harness:rules-packs:start -->"
+    marker_end   = "<!-- harness:rules-packs:end -->"
+    inline_block = (
+        f"\n\n## Stack Rules (auto-included)\n\n"
+        f"{marker_start}\n"
+        f"{pack_content}\n"
+        f"{marker_end}\n"
+    )
+    replacement_pattern = re.compile(
+        re.escape(marker_start) + r".*?" + re.escape(marker_end),
+        re.DOTALL,
+    )
+
+    for persona_file in sorted(agents_dir.glob("*.md")):
+        try:
+            existing = persona_file.read_text(encoding="utf-8")
+            if marker_start in existing:
+                # Replace existing inline block (idempotent on re-mint)
+                new_content = replacement_pattern.sub(
+                    f"{marker_start}\n{pack_content}\n{marker_end}",
+                    existing,
+                )
+            else:
+                # First time: append section
+                new_content = existing.rstrip("\n") + inline_block
+            if new_content != existing:
+                persona_file.write_text(new_content, encoding="utf-8")
+        except Exception:
+            pass  # fail-open: skip unwriteable files
 
 
 def copy_runtime_modules(target_dir: Path, platform_id: str = "generic") -> None:

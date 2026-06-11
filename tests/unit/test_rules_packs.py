@@ -583,3 +583,132 @@ class TestPruneSpareUserDirs:
         # Expected packs installed
         assert (install_root / "python" / "placeholder.md").exists()
         assert (install_root / "common" / "baseline.md").exists()
+
+
+# ---------------------------------------------------------------------------
+# Phase 1c: persona inlining for non-Claude platforms (design M3)
+# ---------------------------------------------------------------------------
+
+
+def _make_boilerplate_with_agents(tmp_path: Path) -> Path:
+    """Create a boilerplate dir with packs subtree AND an agents/ dir for inlining tests."""
+    bp = _make_boilerplate(tmp_path)
+    agents_dir = bp / "agents"
+    agents_dir.mkdir(exist_ok=True)
+    (agents_dir / "implementer.md").write_text(
+        "---\nname: implementer\n---\n# Implementer\n\nDo implementation work.\n"
+    )
+    (agents_dir / "reviewer.md").write_text(
+        "---\nname: reviewer\n---\n# Reviewer\n\nDo code review.\n"
+    )
+    return bp
+
+
+class TestPersonaInliningNonClaude:
+    """Phase 1c: non-Claude platforms get pack content inlined into agent personas."""
+
+    def test_gemini_platform_inlines_python_pack_into_personas(self, tmp_path):
+        """Minting with platform=gemini + Python stack → each agent persona contains python pack content."""
+        from harness.init.minting_engine import install_rules_packs
+
+        bp = _make_boilerplate_with_agents(tmp_path)
+        project = tmp_path / "project"
+        project.mkdir()
+        _write_domain_json(project, ["Python"])
+
+        # The deployed plugin is a copy of the boilerplate
+        target = tmp_path / "target_plugin"
+        target.mkdir()
+        shutil.copytree(bp / "rules" / "packs", target / "rules" / "packs")
+        shutil.copytree(bp / "agents", target / "agents")
+
+        install_rules_packs(
+            project_path=project,
+            deployed_plugin_path=target,
+            packs_root=target / "rules" / "packs",
+            features={},
+            platform="gemini",
+        )
+
+        # Each agent persona must contain the python pack content marker
+        for persona_name in ["implementer.md", "reviewer.md"]:
+            persona = target / "agents" / persona_name
+            assert persona.exists(), f"{persona_name} should exist"
+            content = persona.read_text(encoding="utf-8")
+            assert "## Stack Rules (auto-included)" in content, (
+                f"{persona_name}: expected '## Stack Rules (auto-included)' section for gemini"
+            )
+            assert "<!-- harness:rules-packs:start -->" in content, (
+                f"{persona_name}: expected rules-packs marker"
+            )
+            # Python pack content (placeholder text) must be present
+            assert "placeholder" in content or "# Python" in content or "**/*.py" not in content, (
+                f"{persona_name}: expected python pack content in persona"
+            )
+
+    def test_claude_platform_does_not_inline_personas(self, tmp_path):
+        """Minting with platform=claude → agent personas are NOT modified (Claude loads rules natively)."""
+        from harness.init.minting_engine import install_rules_packs
+
+        bp = _make_boilerplate_with_agents(tmp_path)
+        project = tmp_path / "project"
+        project.mkdir()
+        _write_domain_json(project, ["Python"])
+
+        target = tmp_path / "target_plugin"
+        target.mkdir()
+        shutil.copytree(bp / "rules" / "packs", target / "rules" / "packs")
+        shutil.copytree(bp / "agents", target / "agents")
+
+        original_content = (target / "agents" / "implementer.md").read_text(encoding="utf-8")
+
+        install_rules_packs(
+            project_path=project,
+            deployed_plugin_path=target,
+            packs_root=target / "rules" / "packs",
+            features={},
+            platform="claude",
+        )
+
+        after_content = (target / "agents" / "implementer.md").read_text(encoding="utf-8")
+        assert after_content == original_content, (
+            "claude platform must NOT modify agent persona files — Claude auto-loads .claude/rules/"
+        )
+
+    def test_inline_is_idempotent_on_re_mint(self, tmp_path):
+        """Running install_rules_packs twice on gemini → marker section appears exactly once."""
+        from harness.init.minting_engine import install_rules_packs
+
+        bp = _make_boilerplate_with_agents(tmp_path)
+        project = tmp_path / "project"
+        project.mkdir()
+        _write_domain_json(project, ["Python"])
+
+        target = tmp_path / "target_plugin"
+        target.mkdir()
+        shutil.copytree(bp / "rules" / "packs", target / "rules" / "packs")
+        shutil.copytree(bp / "agents", target / "agents")
+
+        kwargs = dict(
+            project_path=project,
+            deployed_plugin_path=target,
+            packs_root=target / "rules" / "packs",
+            features={},
+            platform="gemini",
+        )
+
+        # First install
+        install_rules_packs(**kwargs)
+        # Rebuild packs_root for second run (packs get pruned after first install)
+        shutil.rmtree(target / "rules" / "packs")
+        shutil.copytree(bp / "rules" / "packs", target / "rules" / "packs")
+
+        # Second install
+        install_rules_packs(**kwargs)
+
+        persona = target / "agents" / "implementer.md"
+        content = persona.read_text(encoding="utf-8")
+        # Marker must appear exactly once
+        assert content.count("<!-- harness:rules-packs:start -->") == 1, (
+            "harness:rules-packs:start marker must appear exactly once after two installs (idempotent)"
+        )
