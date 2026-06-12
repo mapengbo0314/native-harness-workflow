@@ -521,13 +521,17 @@ def prune_old_session_files(plugin_root, now=None, retention_days: int = _RETENT
                     fpath.unlink(missing_ok=True)
             except Exception:
                 fpath.unlink(missing_ok=True)
-        for fpath in state_dir.glob("budget_*.json"):
-            try:
-                mtime = datetime.fromtimestamp(fpath.stat().st_mtime, tz=timezone.utc)
-                if mtime < cutoff:
-                    fpath.unlink(missing_ok=True)
-            except Exception:
-                pass
+        # budget_* dispatch sidecars and tdd_* gate flags carry no updated_at
+        # — age them by mtime (Phase 6a: tdd_* joins retention so a recycled
+        # session id can't inherit a stale test_written flag).
+        for pattern in ("budget_*.json", "tdd_*.json"):
+            for fpath in state_dir.glob(pattern):
+                try:
+                    mtime = datetime.fromtimestamp(fpath.stat().st_mtime, tz=timezone.utc)
+                    if mtime < cutoff:
+                        fpath.unlink(missing_ok=True)
+                except Exception:
+                    pass
     except Exception:
         pass
 

@@ -203,3 +203,21 @@ class TestStaleSidecarPrune:
         f = _write_budget(plugin_root, "fresh")
         hook_common.prune_old_session_files(plugin_root)
         assert f.exists()
+
+    def test_old_tdd_sidecar_pruned(self, hook_common, plugin_root):
+        """Phase 6a Group 2: tdd_<session>.json joins retention — a recycled
+        session id must not inherit a stale test_written flag (TDD-gate
+        bypass), and state/ must not accumulate one file per session forever."""
+        import time
+        f = plugin_root / "state" / "tdd_old.json"
+        f.write_text(json.dumps({"test_written": True}))
+        ancient = time.time() - 60 * 60 * 24 * 40
+        os.utime(f, (ancient, ancient))
+        hook_common.prune_old_session_files(plugin_root)
+        assert not f.exists()
+
+    def test_recent_tdd_sidecar_kept(self, hook_common, plugin_root):
+        f = plugin_root / "state" / "tdd_fresh.json"
+        f.write_text(json.dumps({"test_written": True}))
+        hook_common.prune_old_session_files(plugin_root)
+        assert f.exists()
