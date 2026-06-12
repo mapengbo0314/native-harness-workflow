@@ -29,7 +29,7 @@ def _is_test_file(file_path: str) -> bool:
 
 def _is_source_write(tool_name: str, tool_input: dict):
     """Return file_path if this is a write to a non-test Python source file, else None."""
-    if tool_name not in {"Write", "Edit", "MultiEdit", "Write", "Edit"}:
+    if tool_name not in {"Write", "Edit", "MultiEdit", "write_file", "replace"}:
         return None
     file_path = tool_input.get("file_path", "")
     if not file_path or Path(file_path).suffix != ".py":
@@ -69,7 +69,7 @@ def _check_tdd(tool_name: str, tool_input: dict, session_id: str, state_root: Pa
     file_path = tool_input.get("file_path", "")
 
     # A test file write → mark RED phase started, always allow
-    if tool_name in {"Write", "Edit", "MultiEdit", "Write", "Edit"}:
+    if tool_name in {"Write", "Edit", "MultiEdit", "write_file", "replace"}:
         if file_path and _is_test_file(file_path):
             _mark_test_written(session_id, state_root)
             return None
@@ -130,7 +130,7 @@ def _check_search_first(tool_name: str, tool_input: dict, session_id: str, plugi
 
 _BUDGET_DEFAULT_MAX_TOOL_CALLS = 30
 _BUDGET_DEFAULT_MAX_FILE_READS = 12
-_READ_TOOLS = {"Read", "Read"}
+_READ_TOOLS = {"Read", "read_file"}
 
 
 def _budget_sidecar(session_id: str, state_root: Path) -> Path:
@@ -175,7 +175,7 @@ def _check_budget(tool_name: str, tool_input: dict, session_id: str, state_root:
         # mid-write must not corrupt the sidecar into fail-open.
         tmp = sidecar.with_suffix(".budget-tmp")
         tmp.write_text(json.dumps(data))
-        tmp.Edit(sidecar)
+        tmp.replace(sidecar)
         return None
     except Exception:
         return None
@@ -219,8 +219,8 @@ def is_env_file_access(tool_name, tool_input):
     Check if any tool is trying to access .env files containing sensitive data.
     Supports both Claude Code and Gemini CLI tool names.
     """
-    file_tools = ['Read', 'Edit', 'MultiEdit', 'Write', 'Read', 'Write', 'Edit']
-    bash_tools = ['Bash', 'Bash']
+    file_tools = ['Read', 'Edit', 'MultiEdit', 'Write', 'read_file', 'write_file', 'replace']
+    bash_tools = ['Bash', 'run_shell_command']
     
     if tool_name in file_tools:
         file_path = tool_input.get('file_path', '')
@@ -272,7 +272,7 @@ def main():
             print("Use .env.sample for template files instead", file=sys.stderr)
             _deny("Access to .env files containing sensitive data is prohibited", is_gemini)
 
-        if tool_name in ['Bash', 'Bash']:
+        if tool_name in ['Bash', 'run_shell_command']:
             command = tool_input.get('command', '')
             if is_dangerous_rm_command(command):
                 _deny("Dangerous rm command detected and prevented", is_gemini)

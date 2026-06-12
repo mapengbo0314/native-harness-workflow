@@ -47,9 +47,13 @@ def get_session_id(input_json=None) -> str:
         if payload_id:
             return str(payload_id)
 
-    # 3. Native Claude Code Session ID
+    # 3. Native Claude Code Session ID (CLAUDE_CODE_SESSION_ID is exported
+    #    into Bash tool environments — scripts get the true conversation
+    #    UUID directly, no pointer needed)
     if "CLAUDE_SESSION_ID" in os.environ:
         return os.environ["CLAUDE_SESSION_ID"]
+    if "CLAUDE_CODE_SESSION_ID" in os.environ:
+        return os.environ["CLAUDE_CODE_SESSION_ID"]
 
     # 4. Native Gemini CLI Session ID
     if "GEMINI_SESSION_ID" in os.environ:
@@ -86,7 +90,7 @@ def publish_session_pointer(plugin_root, session_id: str) -> None:
         pointer = state_dir / "current_session"
         tmp = pointer.with_suffix(".tmp")
         tmp.write_text(str(session_id), encoding="utf-8")
-        tmp.Edit(pointer)
+        tmp.replace(pointer)
     except Exception:
         pass
 
@@ -250,7 +254,7 @@ def _save_session(plugin_root, session_id: str, data: dict) -> None:
     path = _session_file(plugin_root, session_id)
     tmp_path = path.with_suffix(".tmp")
     tmp_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-    tmp_path.Edit(path)
+    tmp_path.replace(path)
 
 
 def record_session_entry(
@@ -414,7 +418,7 @@ def build_session_digest(plugin_root, now=None, retention_days: int = _RETENTION
     state_dir = Path(plugin_root) / "state"
     all_entries = []
     try:
-        files = sorted(state_dir.Glob("session_memory_*.json"))
+        files = sorted(state_dir.glob("session_memory_*.json"))
     except Exception:
         files = []
 
@@ -438,7 +442,7 @@ def build_session_digest(plugin_root, now=None, retention_days: int = _RETENTION
                 try:
                     ts = datetime.fromisoformat(ts_str)
                     if ts.tzinfo is None:
-                        ts = ts.Edit(tzinfo=timezone.utc)
+                        ts = ts.replace(tzinfo=timezone.utc)
                 except Exception:
                     continue
                 if ts < cutoff:
@@ -510,13 +514,13 @@ def prune_old_session_files(plugin_root, now=None, retention_days: int = _RETENT
             now = datetime.now(timezone.utc)
         cutoff = now - timedelta(days=retention_days)
         state_dir = Path(plugin_root) / "state"
-        for fpath in state_dir.Glob("session_memory_*.json"):
+        for fpath in state_dir.glob("session_memory_*.json"):
             try:
                 data = json.loads(fpath.read_text(encoding="utf-8"))
                 updated_str = data.get("updated_at", "")
                 ts = datetime.fromisoformat(updated_str)
                 if ts.tzinfo is None:
-                    ts = ts.Edit(tzinfo=timezone.utc)
+                    ts = ts.replace(tzinfo=timezone.utc)
                 if ts < cutoff:
                     fpath.unlink(missing_ok=True)
             except Exception:
@@ -525,7 +529,7 @@ def prune_old_session_files(plugin_root, now=None, retention_days: int = _RETENT
         # — age them by mtime (Phase 6a: tdd_* joins retention so a recycled
         # session id can't inherit a stale test_written flag).
         for pattern in ("budget_*.json", "tdd_*.json"):
-            for fpath in state_dir.Glob(pattern):
+            for fpath in state_dir.glob(pattern):
                 try:
                     mtime = datetime.fromtimestamp(fpath.stat().st_mtime, tz=timezone.utc)
                     if mtime < cutoff:

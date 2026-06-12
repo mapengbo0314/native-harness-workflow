@@ -41,7 +41,8 @@ _TDD mandatory throughout. Groups are dependency-ordered._
 
 ## Post-merge / live delivery
 
-- [ ] `harness-wf update` into this repo's live plugin
-- [ ] Manual smoke 1: log payload session id, `/clear`, log again — confirm it changes
+- [x] `harness-wf update` into this repo's live plugin — exposed + fixed a CRITICAL m3-class render bug (8a344b7): the update plane's tool-name mapping rewrote `.replace(` → `.Edit(` in deployed Python, silently breaking every atomic state write since the previous update; live .py files re-rendered with the fixed renderer, `update --check` converges
+- [x] Live smoke: hook payload id → pointer published → script (no flag/no env) reaches the SAME store; gate engages (exit 2) and script waiver releases it; scripts resolve the real conversation UUID via CLAUDE_CODE_SESSION_ID in Bash envs
+- [ ] Manual smoke 1 (user): log payload session id, `/clear`, log again — confirm it changes
 - [ ] Manual smoke 2 (risk-report M3): `arm-budget --max-tool-calls 2`, dispatch a trivial subagent, confirm its third call blocks
 - [x] Suite + integration green — 1358 passed / 34 skipped / 3 xfailed (+106) per `domain_ops("test")`

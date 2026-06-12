@@ -103,8 +103,8 @@
       "class": "generated",
       "producer": "template",
       "source_path": "templates/boilerplate/hooks/hook_common.py",
-      "source_hash": "40b58a9ed8a9daf6edf528a6ac75ee527f834ddf2e03ab8925f747229bb3350a",
-      "rendered_hash": "9db509a88136a466ca86dfae74e76320e241c871cb0a9c9822e0e977621bac78"
+      "source_hash": "5de294567d5a114d6c62ab0914d30cdb7eaf05cd17f544f1d82ddb08e90deace",
+      "rendered_hash": "5de294567d5a114d6c62ab0914d30cdb7eaf05cd17f544f1d82ddb08e90deace"
     },
     "hooks/hooks.json": {
       "class": "generated",

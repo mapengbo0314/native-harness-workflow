@@ -52,7 +52,7 @@ def _arm_budget(plugin_root: Path, session_id: str, max_tool_calls: int, max_fil
         "tool_calls": 0,
         "file_reads": 0,
     }), encoding="utf-8")
-    tmp.Edit(sidecar)
+    tmp.replace(sidecar)
     return sidecar
 
 
