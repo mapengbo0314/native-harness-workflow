@@ -155,18 +155,27 @@ def _check_budget(tool_name: str, tool_input: dict, session_id: str, state_root:
             return None
         max_calls = data.get("max_tool_calls", _BUDGET_DEFAULT_MAX_TOOL_CALLS)
         max_reads = data.get("max_file_reads", _BUDGET_DEFAULT_MAX_FILE_READS)
-        tool_calls = data.get("tool_calls", 0) + 1
-        file_reads = data.get("file_reads", 0) + (1 if tool_name in _READ_TOOLS else 0)
-        data.update({"tool_calls": tool_calls, "file_reads": file_reads})
-        sidecar.write_text(json.dumps(data))
-        if tool_calls > max_calls or (tool_name in _READ_TOOLS and file_reads > max_reads):
+        used_calls = data.get("tool_calls", 0)
+        used_reads = data.get("file_reads", 0)
+        is_read = tool_name in _READ_TOOLS
+        # Check BEFORE write (Phase 6a hardening): a rejected attempt is not
+        # persisted, so the effective budget is exactly the configured max.
+        if used_calls + 1 > max_calls or (is_read and used_reads + 1 > max_reads):
             return (
-                f"Dispatch budget reached ({tool_calls - 1} tool calls / "
-                f"{file_reads - (1 if tool_name in _READ_TOOLS else 0)} file reads; "
-                f"limits {max_calls}/{max_reads}).\n"
+                f"Dispatch budget reached ({used_calls} tool calls / "
+                f"{used_reads} file reads; limits {max_calls}/{max_reads}).\n"
                 "Summarize what you have found so far and finish — do not make "
                 "further tool calls."
             )
+        data.update({
+            "tool_calls": used_calls + 1,
+            "file_reads": used_reads + (1 if is_read else 0),
+        })
+        # Atomic write (same tmp+rename discipline as _save_session): a crash
+        # mid-write must not corrupt the sidecar into fail-open.
+        tmp = sidecar.with_suffix(".budget-tmp")
+        tmp.write_text(json.dumps(data))
+        tmp.replace(sidecar)
         return None
     except Exception:
         return None
@@ -276,12 +285,6 @@ def main():
             state_root = resolve_plugin_root()
             publish_session_pointer(state_root, session_id)
 
-            # Dispatch-budget backstop (F2/R5) — when a budget sidecar exists
-            # for this session, hard-stop past its limits
-            budget_block = _check_budget(tool_name, tool_input, session_id, state_root)
-            if budget_block:
-                _deny(budget_block, is_gemini)
-
             # Search-First gate (F4) — block source writes while persisted
             # phase=planning until research_done is set (R2: persisted phase,
             # never per-prompt branch classification)
@@ -293,6 +296,12 @@ def main():
             tdd_block = _check_tdd(tool_name, tool_input, session_id, state_root)
             if tdd_block:
                 _deny(tdd_block, is_gemini)
+
+            # Dispatch-budget backstop (F2/R5) — LAST in the chain (Phase 6a
+            # hardening): a call another gate rejects never consumes budget.
+            budget_block = _check_budget(tool_name, tool_input, session_id, state_root)
+            if budget_block:
+                _deny(budget_block, is_gemini)
 
         # Ensure log directory exists
         if not _HOOK_COMMON_AVAILABLE:

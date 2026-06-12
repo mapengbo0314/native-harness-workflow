@@ -16,6 +16,7 @@ Exit 2: bad input (design doc does not exist).
 from __future__ import annotations
 
 import argparse
+import glob
 import re
 import sys
 from pathlib import Path
@@ -43,8 +44,9 @@ def extract_topic(design_doc: Path) -> str:
 def find_fresh_report(design_doc: Path, reports_dir: Path) -> tuple[Path, str]:
     """Return (newest matching report or None, failure reason or '')."""
     topic = extract_topic(design_doc)
+    # glob.escape: a topic like 'auth[v2]' is a literal, not a char class.
     candidates = sorted(
-        reports_dir.glob(f"*{topic}-risk-report.md"),
+        reports_dir.glob(f"*{glob.escape(topic)}-risk-report.md"),
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )

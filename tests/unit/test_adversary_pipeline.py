@@ -144,6 +144,21 @@ class TestToggle:
         assert p.returncode == 1
 
 
+class TestGlobEscaping:
+    def test_bracketed_design_doc_name_matches(self, plugin_root, tmp_path):
+        """Phase 6a hardening (review finding #8): glob metacharacters in the
+        topic must be escaped — 'auth[v2]' is a literal, not a char class."""
+        designs = tmp_path / "docs" / "designs"
+        designs.mkdir(parents=True)
+        reports = tmp_path / "docs" / "adversary"
+        reports.mkdir(parents=True)
+        design = designs / "2026-06-11-auth[v2]-design.md"
+        design.write_text("# design\n")
+        _write_report(reports, "2026-06-11-auth[v2]-risk-report.md", newer_than=design)
+        p = _run(plugin_root, str(design), "--reports-dir", str(reports))
+        assert p.returncode == 0, p.stderr
+
+
 class TestTopicExtraction:
     def test_design_doc_without_date_prefix_still_matches(self, plugin_root, tmp_path):
         designs = tmp_path / "docs" / "designs"

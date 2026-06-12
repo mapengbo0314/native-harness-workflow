@@ -44,6 +44,7 @@ RUNTIME_FILE_MAP: dict[str, Optional[str]] = {
     "dispatcher.py":             "runtime/dispatcher.py",
     "llm_client.py":             "runtime/llm_client.py",
     "context_builder.py":        "runtime/context_builder.py",
+    "fallback_keywords.py":      "runtime/fallback_keywords.py",
     "langfuse_compat.py":        "runtime/langfuse_compat.py",
     "langfuse_instrumentation.py": "runtime/langfuse_instrumentation.py",
     "discovery_engine.py":       "init/discovery_engine.py",

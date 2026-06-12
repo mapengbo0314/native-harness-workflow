@@ -124,6 +124,34 @@ class TestBlocking:
         assert msg is not None
 
 
+class TestBlockedCallsDontConsume:
+    """Phase 6a hardening (review finding #5): check-before-write — a call
+    the wall rejects must not persist an increment, and a call another gate
+    rejects must not consume budget at all."""
+
+    def test_budget_blocked_call_not_persisted(self, pre_tool_use, plugin_root):
+        _write_budget(plugin_root, "s1", max_tool_calls=1)
+        assert pre_tool_use._check_budget("Bash", {"command": "a"}, "s1", plugin_root) is None
+        assert pre_tool_use._check_budget("Bash", {"command": "b"}, "s1", plugin_root) is not None
+        data = json.loads(_sidecar(plugin_root, "s1").read_text())
+        assert data["tool_calls"] == 1, "rejected attempt must not be persisted"
+
+    def test_no_tmp_residue_after_write(self, pre_tool_use, plugin_root):
+        _write_budget(plugin_root, "s1")
+        pre_tool_use._check_budget("Bash", {"command": "a"}, "s1", plugin_root)
+        assert not list((plugin_root / "state").glob("budget_*.tmp")), "atomic write must clean up"
+
+    def test_tdd_blocked_call_does_not_consume_budget(self, plugin_root):
+        """e2e: a source write rejected by the TDD gate never reaches the
+        budget counter (budget check runs after the workflow gates)."""
+        _write_budget(plugin_root, "e2e", max_tool_calls=10)
+        p = _run_hook(plugin_root, {"tool_name": "Edit", "tool_input": {"file_path": "src/foo.py"}})
+        assert p.returncode == 2
+        assert "TDD" in p.stderr
+        data = json.loads(_sidecar(plugin_root, "e2e").read_text())
+        assert data["tool_calls"] == 0, "TDD-blocked call must not consume budget"
+
+
 class TestSessionIsolation:
     def test_one_sessions_budget_never_throttles_another(self, pre_tool_use, plugin_root):
         _write_budget(plugin_root, "s1", max_tool_calls=0)

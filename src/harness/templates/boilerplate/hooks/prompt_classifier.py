@@ -47,19 +47,30 @@ except ImportError:
             return decorator
 
 def fallback_classify(prompt):
+    """Keyword fallback classification.
+
+    Phase 6a (review finding #1): prefers the SHARED table shipped in the
+    plugin's runtime slice (src/fallback_keywords.py) so this fallback can
+    never drift from the dispatcher fast-path.  The inline copy below is the
+    import-failure last resort only — tests/unit/test_fallback_parity.py pins
+    it against the shared table on a fixed corpus.
+    """
+    try:
+        from fallback_keywords import classify  # plugin src/ (slice-rewritten)
+        return classify(prompt)
+    except ImportError:
+        pass
     import re
     p = prompt.lower()
+    # Precedence contract (must mirror fallback_keywords.BRANCH_ORDER):
+    # A → B → C → D → E, first match wins; bias-to-D for implement verbs.
     if any(k in p for k in ["broken", "bug", "error", "fix", "stack trace", "failing", "exception", "traceback", "crash"]):
         return "A"
-    # Bias-to-D (F4 proportionality): B is reserved for genuinely open design
-    # work.  Implement-style verbs without design language fall through to D —
-    # D's pre-flight asks 1-2 clarifying questions when context is missing
-    # instead of escalating into the research/planning pipeline.
     elif any(k in p for k in ["design", "architecture", "brainstorm", "spec out", "roadmap"]) or re.search(r"\bplan\b", p):
         return "B"
-    elif any(k in p for k in ["how", "where", "explain", "what does", "walk me through", "which file"]):
+    elif any(k in p for k in ["how", "where", "explain", "what does", "walk me through", "which file", "which"]):
         return "C"
-    elif any(k in p for k in ["typo", "change color", "minor update", "fix the", "rename", "refactor", "add", "create", "write", "build", "set up", "update"]) or re.search(r"\bimplement\b", p):
+    elif any(k in p for k in ["typo", "change color", "minor update", "rename", "refactor", "add", "create", "write", "build", "set up", "update", "new"]) or re.search(r"\bimplement\b", p):
         return "D"
     else:
         return "E"

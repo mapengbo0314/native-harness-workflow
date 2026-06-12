@@ -60,6 +60,8 @@ class TestDedupeRuntimeSourceMap:
             "dispatcher.py",
             "llm_client.py",
             "context_builder.py",
+            # Phase 6a: shared keyword table consumed by both fallback planes
+            "fallback_keywords.py",
             "langfuse_compat.py",
             "langfuse_instrumentation.py",
             "discovery_engine.py",
