@@ -59,32 +59,17 @@ with "summarize and finish"). Default budgets: **30 tool calls, 12 file
 reads** per pass.
 
 ```bash
-# 1. BEFORE each dispatch — arm the budget wall:
-python3 - <<'EOF'
-import json, os, sys
-from pathlib import Path
-root = Path(os.environ["CLAUDE_PLUGIN_ROOT"])
-sys.path.insert(0, str(root / "hooks"))
-from hook_common import get_session_id
-f = root / "state" / f"budget_{get_session_id()}.json"
-f.parent.mkdir(parents=True, exist_ok=True)
-f.write_text(json.dumps({"max_tool_calls": 30, "max_file_reads": 12,
-                         "tool_calls": 0, "file_reads": 0}))
-print(f"[HARNESS] budget sidecar armed: {f}")
-EOF
+# 1. BEFORE each dispatch — arm the budget wall (pass the session id shown
+#    in the SYSTEM STATE block for precision; omit --session to use the
+#    hooks' pointer file):
+python3 "$CLAUDE_PLUGIN_ROOT/scripts/session_phase.py" arm-budget \
+  --session "<id from SYSTEM STATE>" --max-tool-calls 30 --max-file-reads 12
 
 # 2. Dispatch the pass (see prompt template below).
 
 # 3. AFTER the dispatch returns — disarm, so your own session is not throttled:
-python3 - <<'EOF'
-import os, sys
-from pathlib import Path
-root = Path(os.environ["CLAUDE_PLUGIN_ROOT"])
-sys.path.insert(0, str(root / "hooks"))
-from hook_common import get_session_id
-(root / "state" / f"budget_{get_session_id()}.json").unlink(missing_ok=True)
-print("[HARNESS] budget sidecar disarmed")
-EOF
+python3 "$CLAUDE_PLUGIN_ROOT/scripts/session_phase.py" disarm-budget \
+  --session "<id from SYSTEM STATE>"
 ```
 
 ### Dispatch prompt template (every pass)

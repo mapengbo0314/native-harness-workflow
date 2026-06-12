@@ -195,11 +195,15 @@ class TestAdversaryPipelineSkillContract:
             "dispatches must carry verify-real-state instructions"
         )
 
-    def test_tier2_writes_budget_sidecar_before_each_dispatch(self):
-        """R5: the budget is enforced, not requested — the skill writes the
-        sidecar before each dispatch so pre_tool_use can hard-stop."""
+    def test_tier2_arms_budget_sidecar_before_each_dispatch(self):
+        """R5 + Phase 6a: the budget is enforced, not requested — the skill
+        arms the sidecar via the deterministic session_phase.py CLI (no inline
+        python heredocs) before each dispatch so pre_tool_use can hard-stop."""
         text = PIPELINE_SKILL.read_text(encoding="utf-8")
-        assert "budget_" in text, "skill must write the state/budget_<session>.json sidecar"
+        assert "arm-budget" in text, "skill must arm via session_phase.py arm-budget"
+        assert "disarm-budget" in text, "skill must disarm after each dispatch"
+        assert "--session" in text, "skill must thread the session id explicitly"
+        assert "python3 - <<" not in text, "no inline python heredocs (Phase 6a)"
         assert "before" in text.lower() and "dispatch" in text.lower()
         assert "30" in text and "12" in text, "default budgets (30 tool calls / 12 files)"
         assert "summarize" in text.lower(), "degrade-gracefully steering clause"

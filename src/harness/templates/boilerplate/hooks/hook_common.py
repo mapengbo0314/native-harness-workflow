@@ -28,22 +28,67 @@ def resolve_plugin_root() -> Path:
         return Path(os.environ["CODEX_PLUGIN_ROOT"]).resolve()
     return Path(__file__).parent.parent.resolve()
 
-def get_session_id() -> str:
-    """Returns a platform-agnostic session identifier."""
+def get_session_id(input_json=None) -> str:
+    """Returns a platform-agnostic session identifier.
+
+    Resolution order (Phase 6a, risk-report M1): explicit override → hook
+    payload (platform truth — renewed per conversation, so /clear gets a
+    fresh store) → platform env → pointer file published by hooks (so
+    skill-invoked scripts share the hooks' store instead of an ephemeral
+    shell ppid) → ppid last resort.
+    """
     # 1. Explicit override for testing or manual injection
     if "HARNESS_SESSION_ID" in os.environ:
         return os.environ["HARNESS_SESSION_ID"]
-        
-    # 2. Native Claude Code Session ID
+
+    # 2. The hook's stdin payload — the platform's own session id
+    if isinstance(input_json, dict):
+        payload_id = input_json.get("session_id")
+        if payload_id:
+            return str(payload_id)
+
+    # 3. Native Claude Code Session ID
     if "CLAUDE_SESSION_ID" in os.environ:
         return os.environ["CLAUDE_SESSION_ID"]
-        
-    # 3. Native Gemini CLI Session ID
+
+    # 4. Native Gemini CLI Session ID
     if "GEMINI_SESSION_ID" in os.environ:
         return os.environ["GEMINI_SESSION_ID"]
-        
-    # 4. Fallback to Parent Process ID (reliable for persistent CLI runs)
+
+    # 5. Pointer file published by the hooks (state/current_session)
+    try:
+        pointer = resolve_plugin_root() / "state" / "current_session"
+        if pointer.is_file():
+            pointed = pointer.read_text(encoding="utf-8").strip()
+            if pointed:
+                return pointed
+    except Exception:
+        pass
+
+    # 6. Fallback to Parent Process ID (ephemeral for script subprocesses —
+    #    last resort only)
     return str(os.getppid())
+
+
+def publish_session_pointer(plugin_root, session_id: str) -> None:
+    """Atomically record the active session id at state/current_session so
+    non-hook processes (skill-invoked scripts) can resolve the same store.
+
+    Last-writer-wins across concurrent sessions in one checkout (documented;
+    the scripts' --session flag is the precise path).  Fail-open: never
+    breaks a hook.
+    """
+    try:
+        if not session_id:
+            return
+        state_dir = Path(plugin_root) / "state"
+        state_dir.mkdir(parents=True, exist_ok=True)
+        pointer = state_dir / "current_session"
+        tmp = pointer.with_suffix(".tmp")
+        tmp.write_text(str(session_id), encoding="utf-8")
+        tmp.replace(pointer)
+    except Exception:
+        pass
 
 def capped_text(value: str, max_chars: int) -> str:
     if not isinstance(value, str):

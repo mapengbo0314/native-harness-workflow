@@ -46,6 +46,8 @@ def main() -> None:
 
         from hook_common import (
             resolve_plugin_root,
+            get_session_id,
+            publish_session_pointer,
             feature_enabled,
             build_session_digest,
             prune_old_session_files,
@@ -53,6 +55,10 @@ def main() -> None:
         )
 
         plugin_root = resolve_plugin_root()
+
+        # Phase 6a: SessionStart is the first event of a conversation — the
+        # ideal place to publish the session pointer for skill scripts.
+        publish_session_pointer(plugin_root, get_session_id(input_data))
 
         if not feature_enabled("services.session_memory", plugin_root):
             sys.exit(0)

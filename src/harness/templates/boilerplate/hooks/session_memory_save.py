@@ -36,6 +36,7 @@ def main() -> None:
         from hook_common import (
             resolve_plugin_root,
             get_session_id,
+            publish_session_pointer,
             feature_enabled,
             _load_session,
             _save_session,
@@ -49,8 +50,9 @@ def main() -> None:
         if not feature_enabled("services.session_memory", plugin_root):
             sys.exit(0)
 
-        # Resolve session id: input json > env
-        session_id = input_data.get("session_id") or get_session_id()
+        # Resolve session id (Phase 6a M1 order: override > payload > env > pointer)
+        session_id = get_session_id(input_data)
+        publish_session_pointer(plugin_root, session_id)
 
         # Load (or initialise) the session file
         data = _load_session(plugin_root, session_id)

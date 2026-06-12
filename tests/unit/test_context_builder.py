@@ -170,3 +170,28 @@ def test_gate_line_default_off_for_legacy_callers():
         missing_documents=[],
     )
     assert "Search-First Gate" not in result
+
+
+def test_session_id_line_present_when_provided():
+    """Phase 6a: SYSTEM STATE carries the live session id so skills can pass
+    --session explicitly to session_phase.py."""
+    result = build_context(
+        phase="Planning/Execution",
+        target_agent="@planner",
+        auth_msg="ok",
+        branch="B",
+        missing_documents=[],
+        session_id="conv-123",
+    )
+    assert "Session: conv-123" in result
+
+
+def test_session_id_line_absent_when_not_provided():
+    result = build_context(
+        phase="Planning/Execution",
+        target_agent="@planner",
+        auth_msg="ok",
+        branch="B",
+        missing_documents=[],
+    )
+    assert "Session:" not in result

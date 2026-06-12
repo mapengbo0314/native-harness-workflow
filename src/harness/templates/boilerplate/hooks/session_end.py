@@ -58,7 +58,7 @@ def main() -> None:
         state_dir = plugin_root / "state"
         state_dir.mkdir(exist_ok=True)
         lockfile = state_dir / "learning.lock"
-        session_id = get_session_id()
+        session_id = get_session_id(input_data)
 
         acquired = False
         try:

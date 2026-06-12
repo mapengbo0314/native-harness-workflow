@@ -14,7 +14,7 @@ Help turn ideas into fully formed, deterministic designs and implementation plan
 **First act — persist the planning phase (R2):** before anything else, run:
 
 ```bash
-python3 "$CLAUDE_PLUGIN_ROOT/scripts/session_phase.py" set-phase planning
+python3 "$CLAUDE_PLUGIN_ROOT/scripts/session_phase.py" set-phase planning --session "<id from SYSTEM STATE>"
 ```
 
 This records `phase=planning` in the session store. The search-first gate holds source writes while this phase is active until research is recorded — run the `search-first` skill (or its proportionality waiver) as part of the design work below.
@@ -89,7 +89,7 @@ python3 "$CLAUDE_PLUGIN_ROOT/scripts/check_risk_report.py" "<!--$HARNESS_DIR$-->
 - **Exit the planning phase (R2):** the design sign-off clears the persisted phase, recording the design doc as the exit artifact (this releases the search-first gate):
 
 ```bash
-python3 "$CLAUDE_PLUGIN_ROOT/scripts/session_phase.py" clear-phase --artifact "<!--$HARNESS_DIR$-->/docs/designs/YYYY-MM-DD-<topic>-design.md"
+python3 "$CLAUDE_PLUGIN_ROOT/scripts/session_phase.py" clear-phase --session "<id from SYSTEM STATE>" --artifact "<!--$HARNESS_DIR$-->/docs/designs/YYYY-MM-DD-<topic>-design.md"
 ```
 
 **Self-Review:**
@@ -100,7 +100,7 @@ Before finalizing, review the document:
 3. **Internal consistency:** Do sections contradict each other?
 
 **Execution Handoff:**
-After saving the plan and completing the optional adversarial review, offer execution choice:
+After saving the plan and completing the adversarial review (required for sign-off while `pipeline.dispatcher.gates.adversary_exit` is on — see Part 5), offer execution choice:
 
 - **Subagent-Driven (recommended):** Dispatch a fresh subagent per task using `superpowers:harness-subagent-driven-development`.
 - **Inline Execution:** Execute tasks using `superpowers:harness-executing-plans`.
