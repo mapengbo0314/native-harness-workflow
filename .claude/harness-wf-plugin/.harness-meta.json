@@ -40,8 +40,8 @@
       "class": "customizable",
       "producer": "template",
       "source_path": "templates/boilerplate/agents/adversary.md",
-      "source_hash": "9b5dacdc5928fb230c3196a15bf290b385487d78ed52d42a79ea75b89fda63b1",
-      "rendered_hash": "769f9b99b6e8abd989b91e29b16e1262ab9e3ffb3d19567f9f8cb124bb5f2060"
+      "source_hash": "02746f9cb6b8e1dbe5ae5bcd2faf5376c1b7e0086458e1609c986a2171dadc91",
+      "rendered_hash": "067ffe46a0cb1f9e290019e0b82d1b84babf23051e16c6a57fe53469f4eb9bd6"
     },
     "agents/debugger.md": {
       "class": "customizable",
@@ -83,7 +83,7 @@
       "producer": "export",
       "source_path": null,
       "source_hash": null,
-      "rendered_hash": "f7bca62c280c5cd0c2f003c06d5689f5121c8f7b3ed73d3e7f6e8e61adbe3c03"
+      "rendered_hash": "2a14b3ff173b1275b72226f2a0457768d55f3ec77a5bf616f059ff82ff630aa0"
     },
     "features.json": {
       "class": "generated",
@@ -103,8 +103,8 @@
       "class": "generated",
       "producer": "template",
       "source_path": "templates/boilerplate/hooks/hook_common.py",
-      "source_hash": "ac28fb7bc0348a3842b4a5b05975b4369b871de3917cdfc55347fc452de0e95c",
-      "rendered_hash": "7cdf9bb5398ba93923bb006dfa8b10758fca9709db3f042a1680ed6bbec6fa91"
+      "source_hash": "40b58a9ed8a9daf6edf528a6ac75ee527f834ddf2e03ab8925f747229bb3350a",
+      "rendered_hash": "9db509a88136a466ca86dfae74e76320e241c871cb0a9c9822e0e977621bac78"
     },
     "hooks/hooks.json": {
       "class": "generated",
@@ -131,36 +131,36 @@
       "class": "generated",
       "producer": "template",
       "source_path": "templates/boilerplate/hooks/pre_tool_use.py",
-      "source_hash": "9b199f55954612e2ecb09b47c58cd2411f59c565f702f0de3e1a4d060f9ace6e",
-      "rendered_hash": "c18d8765a684f0a0dcc45a6a9b85c8318ba63ed8ac2ded0f5063123f392717c2"
+      "source_hash": "d34b4c45be33426c11a10fb3414a72498f43e443e67137bfdfca6b9771bf0db3",
+      "rendered_hash": "d18dcab67542b8cc856ab720fb4205f5067fef09e464cfe7211223ab5c2c74e6"
     },
     "hooks/prompt_classifier.py": {
       "class": "generated",
       "producer": "template",
       "source_path": "templates/boilerplate/hooks/prompt_classifier.py",
-      "source_hash": "d81b5ef3a39e266e6a6d0b1edbf29f02da563a139e5193f1d7d738f693f4b10d",
-      "rendered_hash": "d81b5ef3a39e266e6a6d0b1edbf29f02da563a139e5193f1d7d738f693f4b10d"
+      "source_hash": "b5188d098d5bfc7992d8b343a4b98ff79847601deeba8a9cc9100ff0ca70bd33",
+      "rendered_hash": "b5188d098d5bfc7992d8b343a4b98ff79847601deeba8a9cc9100ff0ca70bd33"
     },
     "hooks/session_end.py": {
       "class": "generated",
       "producer": "template",
       "source_path": "templates/boilerplate/hooks/session_end.py",
-      "source_hash": "5ca32c736c230353678d3ee6f9e094507a282d2a840d6ef0afcfe5f7cd0e1a15",
-      "rendered_hash": "5ca32c736c230353678d3ee6f9e094507a282d2a840d6ef0afcfe5f7cd0e1a15"
+      "source_hash": "842bcc582acbf94f6fafa8f7416135d1a439960014f1583d4749f99f94e698eb",
+      "rendered_hash": "842bcc582acbf94f6fafa8f7416135d1a439960014f1583d4749f99f94e698eb"
     },
     "hooks/session_memory_save.py": {
       "class": "generated",
       "producer": "template",
       "source_path": "templates/boilerplate/hooks/session_memory_save.py",
-      "source_hash": "2afae761de59101709c351e2b877720bd1fcb877033662823e5605ef7b61122d",
-      "rendered_hash": "2afae761de59101709c351e2b877720bd1fcb877033662823e5605ef7b61122d"
+      "source_hash": "ca8ac6bf853919082776d7f3f99954a685ea9c817153f6f0a198ce37db8387f0",
+      "rendered_hash": "ca8ac6bf853919082776d7f3f99954a685ea9c817153f6f0a198ce37db8387f0"
     },
     "hooks/session_start.py": {
       "class": "generated",
       "producer": "template",
       "source_path": "templates/boilerplate/hooks/session_start.py",
-      "source_hash": "30ade1613f8bf7fe1a941fa1954204a55cbf121e95731f7dfd06a9189cdaba29",
-      "rendered_hash": "30ade1613f8bf7fe1a941fa1954204a55cbf121e95731f7dfd06a9189cdaba29"
+      "source_hash": "549d1382d4aa2dc5423984db49313d6795ff2c991f0cf694fe7680ad62d4d993",
+      "rendered_hash": "549d1382d4aa2dc5423984db49313d6795ff2c991f0cf694fe7680ad62d4d993"
     },
     "pyproject.toml": {
       "class": "generated",
@@ -274,6 +274,13 @@
       "source_hash": null,
       "rendered_hash": "4eb057078f861384ad4c4aa2ac9ee0f467aaadc19330ffb2adf63d1d5a452694"
     },
+    "scripts/check_risk_report.py": {
+      "class": "generated",
+      "producer": "template",
+      "source_path": "templates/boilerplate/scripts/check_risk_report.py",
+      "source_hash": "8f031fe9516a02f8a30d642a10d92f13a73e643493218c2bc2b9d02f8cdf1c07",
+      "rendered_hash": "3271881cc46dcbc3091d9e3289af8f797ee8106bde58321b07408c40fc49403e"
+    },
     "scripts/extract_skills.py": {
       "class": "generated",
       "producer": "template",
@@ -292,8 +299,15 @@
       "class": "generated",
       "producer": "template",
       "source_path": "templates/boilerplate/scripts/session_phase.py",
-      "source_hash": "4dc3e21e315e935bba0f76fb50cef6794fe19f5c22e71b9143119fa47bcd9d9c",
-      "rendered_hash": "4dc3e21e315e935bba0f76fb50cef6794fe19f5c22e71b9143119fa47bcd9d9c"
+      "source_hash": "d304dc024fe430af1565b205d5c3af51715ae282ffbf54f54eae0b28309abc41",
+      "rendered_hash": "0343dbb8c64ee61776bbc8cd71168dff4269b55c1ef75910aff58ef819587514"
+    },
+    "skills/adversary-pipeline/SKILL.md": {
+      "class": "customizable",
+      "producer": "template",
+      "source_path": "templates/boilerplate/skills/adversary-pipeline/SKILL.md",
+      "source_hash": "3fc09376da855b252e9659a6cd5c8e2f4cfb8dc2c41c3ebfaec2ea57367753f9",
+      "rendered_hash": "3fc09376da855b252e9659a6cd5c8e2f4cfb8dc2c41c3ebfaec2ea57367753f9"
     },
     "skills/continuous-learning/SKILL.md": {
       "class": "customizable",
@@ -341,8 +355,8 @@
       "class": "customizable",
       "producer": "template",
       "source_path": "templates/boilerplate/skills/harness-brainstorming-plans/SKILL.md",
-      "source_hash": "085f0e633b998da14e3e63eafbb7152387ea58861b1a43f31932b0ece15f7109",
-      "rendered_hash": "2991e5669222c421a05fee67fabb08451ec7659b008afdac841ce9b24dc5ede2"
+      "source_hash": "a6f23a9d1655f3b2fe1f05c43fdb8884df0381d1d6ec375c5f7de89bfc2d4bc1",
+      "rendered_hash": "754c8a79b5d2970139e7df059d7c2d2c8f5bba00cb4b72ad1d254d317bd593cc"
     },
     "skills/harness-brainstorming-plans/plan-document-reviewer-prompt.md": {
       "class": "customizable",
@@ -432,8 +446,8 @@
       "class": "customizable",
       "producer": "template",
       "source_path": "templates/boilerplate/skills/harness-requesting-code-review/SKILL.md",
-      "source_hash": "ba3337f5cd283a6cf462824ba0d7a48bc7ded0ebd18d06fa8bda87f98222e5d4",
-      "rendered_hash": "ba3337f5cd283a6cf462824ba0d7a48bc7ded0ebd18d06fa8bda87f98222e5d4"
+      "source_hash": "a08de56f97ff0fc8267f5182e5e72b86eed864949e57ebdc63845f8210cc415e",
+      "rendered_hash": "a08de56f97ff0fc8267f5182e5e72b86eed864949e57ebdc63845f8210cc415e"
     },
     "skills/harness-requesting-code-review/code-reviewer.md": {
       "class": "customizable",
@@ -551,8 +565,8 @@
       "class": "customizable",
       "producer": "template",
       "source_path": "templates/boilerplate/skills/search-first/SKILL.md",
-      "source_hash": "dd068f43f28e44f03fccfb44f135efdfa220af46be99df90626f41f2aa610049",
-      "rendered_hash": "dd068f43f28e44f03fccfb44f135efdfa220af46be99df90626f41f2aa610049"
+      "source_hash": "97a211e0750ce683e1ff273594abdddbe131a178da18740f33e0ba5eb57531b6",
+      "rendered_hash": "97a211e0750ce683e1ff273594abdddbe131a178da18740f33e0ba5eb57531b6"
     },
     "skills/using-harness-superpowers/SKILL.md": {
       "class": "customizable",
@@ -593,8 +607,8 @@
       "class": "generated",
       "producer": "template",
       "source_path": "templates/boilerplate/skills.json",
-      "source_hash": "cfb9e0fb0b4f9245c3282d38fd6d5092cc616232ee6dd557402e271380c73527",
-      "rendered_hash": "cfb9e0fb0b4f9245c3282d38fd6d5092cc616232ee6dd557402e271380c73527"
+      "source_hash": "726978ef0a8fac2148026df056f464bd58500763a6ee67c97d9a6fb1bca56642",
+      "rendered_hash": "726978ef0a8fac2148026df056f464bd58500763a6ee67c97d9a6fb1bca56642"
     },
     "src/__init__.py": {
       "class": "generated",
@@ -607,8 +621,8 @@
       "class": "generated",
       "producer": "runtime_copy",
       "source_path": "runtime/context_builder.py",
-      "source_hash": "a744ca96ed073e8fbfa7cd4eb8ad4fed0307e58ea88e49628624939a8716a8ab",
-      "rendered_hash": "a744ca96ed073e8fbfa7cd4eb8ad4fed0307e58ea88e49628624939a8716a8ab"
+      "source_hash": "8fd63f72bde144a9407135d9890be8b4c70f8d2b68f52e00dc6b8dd9c963d181",
+      "rendered_hash": "8fd63f72bde144a9407135d9890be8b4c70f8d2b68f52e00dc6b8dd9c963d181"
     },
     "src/discovery_engine.py": {
       "class": "generated",
@@ -621,8 +635,15 @@
       "class": "generated",
       "producer": "runtime_copy",
       "source_path": "runtime/dispatcher.py",
-      "source_hash": "a5708bc9e345506caf3e77da92c431dadd7082bdd00b3e7b5e5166001ecd23b6",
-      "rendered_hash": "490c5ba39329df1f649c920f51ac127d8664ccc1fac2b10ea49b622f257b6886"
+      "source_hash": "1a75c7567952aea4757be768f27d26f00b1390b4b092fcd0c5ee4dd919a06ddb",
+      "rendered_hash": "75de1403938b1f6699f948e82bbd1dc34c5155da9f98b5fdd9cb626218d4279b"
+    },
+    "src/fallback_keywords.py": {
+      "class": "generated",
+      "producer": "runtime_copy",
+      "source_path": "runtime/fallback_keywords.py",
+      "source_hash": "a71055c12b63ce5f8c0ce5fe6b55f578caedd3e1190b486abddc9ca23572e612",
+      "rendered_hash": "a71055c12b63ce5f8c0ce5fe6b55f578caedd3e1190b486abddc9ca23572e612"
     },
     "src/langfuse_compat.py": {
       "class": "generated",

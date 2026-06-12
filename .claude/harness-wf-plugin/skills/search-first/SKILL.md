@@ -14,7 +14,7 @@ Not every task deserves a research pipeline. **First**, ask: is the approach alr
 If YES — record a one-line waiver and exit (~30 seconds, no research):
 
 ```bash
-python3 "$CLAUDE_PLUGIN_ROOT/scripts/session_phase.py" set-research-done --note "waiver: <one line why research is unnecessary>"
+python3 "$CLAUDE_PLUGIN_ROOT/scripts/session_phase.py" set-research-done --session "<id from SYSTEM STATE>" --note "waiver: <one line why research is unnecessary>"
 ```
 
 Then stop. The gate is released; proceed with the work.
@@ -51,7 +51,7 @@ State the matrix outcome and its one-paragraph justification. **Adopt beats Exte
 ## Step 5 — Record the research
 
 ```bash
-python3 "$CLAUDE_PLUGIN_ROOT/scripts/session_phase.py" set-research-done --note "<matrix outcome>: <one-line summary>"
+python3 "$CLAUDE_PLUGIN_ROOT/scripts/session_phase.py" set-research-done --session "<id from SYSTEM STATE>" --note "<matrix outcome>: <one-line summary>"
 ```
 
 Attach the findings (unknowns → answers → citations → matrix outcome) to the working context: into the design doc's research section when one exists, otherwise as a compact summary in your next message.
@@ -63,7 +63,7 @@ The research is done; now right-size the rest of the process. Ask the user via `
 - **Quick implementation** — hand off to direct TDD execution with the research findings attached (Branch D semantics, no design doc). Clear the planning phase so the gate releases:
 
   ```bash
-  python3 "$CLAUDE_PLUGIN_ROOT/scripts/session_phase.py" clear-phase --artifact "research: <matrix outcome>"
+  python3 "$CLAUDE_PLUGIN_ROOT/scripts/session_phase.py" clear-phase --session "<id from SYSTEM STATE>" --artifact "research: <matrix outcome>"
   ```
 
 - **Full planning pipeline** — continue with `harness-brainstorming-plans` to a reviewed design doc; the findings feed Section 2 (Technical Plan) and Section 3 (Alternatives).

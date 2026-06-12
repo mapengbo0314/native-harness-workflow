@@ -24,7 +24,7 @@ def _render_business(business: dict) -> str:
     return block + "\n"
 
 
-def build_context(phase: str, target_agent: str, auth_msg: str, branch: str, missing_documents: list[str], manifest_state: dict = None, business: dict = None, search_first_pending: bool = False) -> str:
+def build_context(phase: str, target_agent: str, auth_msg: str, branch: str, missing_documents: list[str], manifest_state: dict = None, business: dict = None, search_first_pending: bool = False, session_id: str = None) -> str:
     if phase == "Unknown":
         return ""
 
@@ -38,6 +38,11 @@ def build_context(phase: str, target_agent: str, auth_msg: str, branch: str, mis
         f"Missing Documents: {documents_str}\n"
         f"Authorization: {auth_msg}\n"
     )
+
+    # Phase 6a: surface the live session id so skills can pass --session
+    # explicitly to session_phase.py (precision path; pointer is fallback).
+    if session_id:
+        system_state += f"Session: {session_id}\n"
 
     # Push the tiny business digest only where judgment matters (planning/questions).
     if business and branch in _BUSINESS_BRANCHES:

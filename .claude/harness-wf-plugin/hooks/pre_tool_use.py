@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 
 try:
-    from hook_common import resolve_plugin_root, get_session_id
+    from hook_common import resolve_plugin_root, get_session_id, publish_session_pointer
     _HOOK_COMMON_AVAILABLE = True
 except ImportError:
     _HOOK_COMMON_AVAILABLE = False
@@ -125,6 +125,63 @@ def _check_search_first(tool_name: str, tool_input: dict, session_id: str, plugi
 
 
 # ---------------------------------------------------------------------------
+# Dispatch-budget backstop (F2 — R5)
+# ---------------------------------------------------------------------------
+
+_BUDGET_DEFAULT_MAX_TOOL_CALLS = 30
+_BUDGET_DEFAULT_MAX_FILE_READS = 12
+_READ_TOOLS = {"Read", "Read"}
+
+
+def _budget_sidecar(session_id: str, state_root: Path) -> Path:
+    return state_root / "state" / f"budget_{session_id}.json"
+
+
+def _check_budget(tool_name: str, tool_input: dict, session_id: str, state_root: Path):
+    """Deterministic Tier-2 dispatch budget (R5): when a budget sidecar exists
+    for this session, count tool calls / file reads against its limits and
+    block past them with a summarize-and-finish message.
+
+    A budget in a dispatch prompt is a directive the agent may ignore — this
+    is the enforcement wall behind that steering.  No sidecar ⇒ passthrough
+    (zero cost to normal sessions).  Corrupt sidecar ⇒ fail-open passthrough.
+    """
+    try:
+        sidecar = _budget_sidecar(session_id, state_root)
+        if not sidecar.exists():
+            return None
+        data = json.loads(sidecar.read_text())
+        if not isinstance(data, dict):
+            return None
+        max_calls = data.get("max_tool_calls", _BUDGET_DEFAULT_MAX_TOOL_CALLS)
+        max_reads = data.get("max_file_reads", _BUDGET_DEFAULT_MAX_FILE_READS)
+        used_calls = data.get("tool_calls", 0)
+        used_reads = data.get("file_reads", 0)
+        is_read = tool_name in _READ_TOOLS
+        # Check BEFORE write (Phase 6a hardening): a rejected attempt is not
+        # persisted, so the effective budget is exactly the configured max.
+        if used_calls + 1 > max_calls or (is_read and used_reads + 1 > max_reads):
+            return (
+                f"Dispatch budget reached ({used_calls} tool calls / "
+                f"{used_reads} file reads; limits {max_calls}/{max_reads}).\n"
+                "Summarize what you have found so far and finish — do not make "
+                "further tool calls."
+            )
+        data.update({
+            "tool_calls": used_calls + 1,
+            "file_reads": used_reads + (1 if is_read else 0),
+        })
+        # Atomic write (same tmp+rename discipline as _save_session): a crash
+        # mid-write must not corrupt the sidecar into fail-open.
+        tmp = sidecar.with_suffix(".budget-tmp")
+        tmp.write_text(json.dumps(data))
+        tmp.Edit(sidecar)
+        return None
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
 
 def is_dangerous_rm_command(command):
     """
@@ -187,6 +244,16 @@ def is_env_file_access(tool_name, tool_input):
                 
     return False
 
+def _deny(message: str, is_gemini: bool) -> None:
+    """Single block-and-exit ritual shared by every gate (exit 2 on Claude,
+    deny-JSON on gemini)."""
+    print(f"BLOCKED: {message}", file=sys.stderr)
+    if is_gemini:
+        print(json.dumps({"decision": "deny", "reason": message}))
+        sys.exit(0)
+    sys.exit(2)
+
+
 def main():
     try:
         input_str = sys.stdin.read()
@@ -194,59 +261,47 @@ def main():
             # For Gemini, output {}
             print(json.dumps({}))
             sys.exit(0)
-            
+
         input_data = json.loads(input_str)
-        
+
         tool_name = input_data.get('tool_name', '')
         tool_input = input_data.get('tool_input', {})
         is_gemini = "hook_event_name" in input_data
-        
+
         if is_env_file_access(tool_name, tool_input):
-            print("BLOCKED: Access to .env files containing sensitive data is prohibited", file=sys.stderr)
             print("Use .env.sample for template files instead", file=sys.stderr)
-            if is_gemini:
-                print(json.dumps({"decision": "deny", "reason": "Access to .env files containing sensitive data is prohibited"}))
-                sys.exit(0)
-            else:
-                sys.exit(2)
+            _deny("Access to .env files containing sensitive data is prohibited", is_gemini)
 
         if tool_name in ['Bash', 'Bash']:
             command = tool_input.get('command', '')
             if is_dangerous_rm_command(command):
-                print("BLOCKED: Dangerous rm command detected and prevented", file=sys.stderr)
-                if is_gemini:
-                    print(json.dumps({"decision": "deny", "reason": "Dangerous rm command detected and prevented"}))
-                    sys.exit(0)
-                else:
-                    sys.exit(2)
+                _deny("Dangerous rm command detected and prevented", is_gemini)
 
-        # Search-First gate (F4) — block source writes while persisted
-        # phase=planning until research_done is set (R2: persisted phase,
-        # never per-prompt branch classification)
+        # Resolve identity ONCE for the whole gate chain (Phase 6a): the
+        # payload session_id is the platform's truth; publish it so
+        # skill-invoked scripts share this store.
         if _HOOK_COMMON_AVAILABLE:
-            session_id = get_session_id()
+            session_id = get_session_id(input_data)
             state_root = resolve_plugin_root()
+            publish_session_pointer(state_root, session_id)
+
+            # Search-First gate (F4) — block source writes while persisted
+            # phase=planning until research_done is set (R2: persisted phase,
+            # never per-prompt branch classification)
             sf_block = _check_search_first(tool_name, tool_input, session_id, state_root)
             if sf_block:
-                print(f"BLOCKED: {sf_block}", file=sys.stderr)
-                if is_gemini:
-                    print(json.dumps({"decision": "deny", "reason": sf_block}))
-                    sys.exit(0)
-                else:
-                    sys.exit(2)
+                _deny(sf_block, is_gemini)
 
-        # TDD enforcement — block source writes until a test is written first
-        if _HOOK_COMMON_AVAILABLE:
-            session_id = get_session_id()
-            state_root = resolve_plugin_root()
+            # TDD enforcement — block source writes until a test is written first
             tdd_block = _check_tdd(tool_name, tool_input, session_id, state_root)
             if tdd_block:
-                print(f"BLOCKED: {tdd_block}", file=sys.stderr)
-                if is_gemini:
-                    print(json.dumps({"decision": "deny", "reason": tdd_block}))
-                    sys.exit(0)
-                else:
-                    sys.exit(2)
+                _deny(tdd_block, is_gemini)
+
+            # Dispatch-budget backstop (F2/R5) — LAST in the chain (Phase 6a
+            # hardening): a call another gate rejects never consumes budget.
+            budget_block = _check_budget(tool_name, tool_input, session_id, state_root)
+            if budget_block:
+                _deny(budget_block, is_gemini)
 
         # Ensure log directory exists
         if not _HOOK_COMMON_AVAILABLE:

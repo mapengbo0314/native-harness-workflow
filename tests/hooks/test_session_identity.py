@@ -37,7 +37,8 @@ SCRIPTS_DIR = HOOKS_DIR.parent / "scripts"
 PRE_TOOL_USE = HOOKS_DIR / "pre_tool_use.py"
 SESSION_PHASE = SCRIPTS_DIR / "session_phase.py"
 
-_ID_ENV_VARS = ("HARNESS_SESSION_ID", "CLAUDE_SESSION_ID", "GEMINI_SESSION_ID")
+_ID_ENV_VARS = ("HARNESS_SESSION_ID", "CLAUDE_SESSION_ID",
+                "CLAUDE_CODE_SESSION_ID", "GEMINI_SESSION_ID")
 
 
 @pytest.fixture
@@ -81,6 +82,17 @@ class TestResolutionOrder:
 
     def test_ppid_last_resort(self, hook_common):
         assert hook_common.get_session_id() == str(os.getppid())
+
+    def test_claude_code_session_id_recognized(self, hook_common, monkeypatch):
+        """Claude Code exports CLAUDE_CODE_SESSION_ID into Bash tool envs —
+        scripts get the true conversation UUID without needing the pointer."""
+        monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "uuid-from-bash-env")
+        hook_common.publish_session_pointer(hook_common._test_plugin_root, "pointer-id")
+        assert hook_common.get_session_id() == "uuid-from-bash-env"
+
+    def test_payload_wins_over_claude_code_env(self, hook_common, monkeypatch):
+        monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "env-uuid")
+        assert hook_common.get_session_id({"session_id": "payload-id"}) == "payload-id"
 
     def test_empty_payload_id_ignored(self, hook_common):
         hook_common.publish_session_pointer(hook_common._test_plugin_root, "pointer-id")

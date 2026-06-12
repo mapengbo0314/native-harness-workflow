@@ -6,6 +6,9 @@
     "search-first": {
       "path": "search-first/SKILL.md"
     },
+    "adversary-pipeline": {
+      "path": "adversary-pipeline/SKILL.md"
+    },
     "diagnose": {
       "path": "diagnose/SKILL.md"
     },

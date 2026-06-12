@@ -47,9 +47,13 @@ def get_session_id(input_json=None) -> str:
         if payload_id:
             return str(payload_id)
 
-    # 3. Native Claude Code Session ID
+    # 3. Native Claude Code Session ID (CLAUDE_CODE_SESSION_ID is exported
+    #    into Bash tool environments — scripts get the true conversation
+    #    UUID directly, no pointer needed)
     if "CLAUDE_SESSION_ID" in os.environ:
         return os.environ["CLAUDE_SESSION_ID"]
+    if "CLAUDE_CODE_SESSION_ID" in os.environ:
+        return os.environ["CLAUDE_CODE_SESSION_ID"]
 
     # 4. Native Gemini CLI Session ID
     if "GEMINI_SESSION_ID" in os.environ:

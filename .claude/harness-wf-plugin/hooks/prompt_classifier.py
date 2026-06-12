@@ -47,19 +47,30 @@ except ImportError:
             return decorator
 
 def fallback_classify(prompt):
+    """Keyword fallback classification.
+
+    Phase 6a (review finding #1): prefers the SHARED table shipped in the
+    plugin's runtime slice (src/fallback_keywords.py) so this fallback can
+    never drift from the dispatcher fast-path.  The inline copy below is the
+    import-failure last resort only — tests/unit/test_fallback_parity.py pins
+    it against the shared table on a fixed corpus.
+    """
+    try:
+        from fallback_keywords import classify  # plugin src/ (slice-rewritten)
+        return classify(prompt)
+    except ImportError:
+        pass
     import re
     p = prompt.lower()
+    # Precedence contract (must mirror fallback_keywords.BRANCH_ORDER):
+    # A → B → C → D → E, first match wins; bias-to-D for implement verbs.
     if any(k in p for k in ["broken", "bug", "error", "fix", "stack trace", "failing", "exception", "traceback", "crash"]):
         return "A"
-    # Bias-to-D (F4 proportionality): B is reserved for genuinely open design
-    # work.  Implement-style verbs without design language fall through to D —
-    # D's pre-flight asks 1-2 clarifying questions when context is missing
-    # instead of escalating into the research/planning pipeline.
     elif any(k in p for k in ["design", "architecture", "brainstorm", "spec out", "roadmap"]) or re.search(r"\bplan\b", p):
         return "B"
-    elif any(k in p for k in ["how", "where", "explain", "what does", "walk me through", "which file"]):
+    elif any(k in p for k in ["how", "where", "explain", "what does", "walk me through", "which file", "which"]):
         return "C"
-    elif any(k in p for k in ["typo", "change color", "minor update", "fix the", "rename", "refactor", "add", "create", "write", "build", "set up", "update"]) or re.search(r"\bimplement\b", p):
+    elif any(k in p for k in ["typo", "change color", "minor update", "rename", "refactor", "add", "create", "write", "build", "set up", "update", "new"]) or re.search(r"\bimplement\b", p):
         return "D"
     else:
         return "E"
@@ -180,12 +191,24 @@ def main():
         target_agent = routing_decision.get("target_agent", "@generalist")
         manifest_state = routing_decision.get("manifest_state", None)
 
+        # Phase 6a: resolve identity ONCE from the hook payload (platform
+        # truth), publish the pointer so skill-invoked scripts share this
+        # store, and use one state root for every session/feature read
+        # (review #7: no dual resolution paths).
         try:
-            from hook_common import resolve_plugin_root, get_session_id
-            state_dir = resolve_plugin_root() / "state"
+            from hook_common import get_session_id, publish_session_pointer
+            state_root = resolve_plugin_root()
+            session_id = get_session_id(input_data)
+            publish_session_pointer(state_root, session_id)
+        except Exception:
+            state_root = plugin_root
+            session_id = None
+
+        try:
+            state_dir = state_root / "state"
             state_dir.mkdir(exist_ok=True)
             state_file = state_dir / "campaign_state.json"
-            
+
             state_data = {}
             if state_file.exists():
                 try:
@@ -193,9 +216,7 @@ def main():
                         state_data = json.load(f)
                 except json.JSONDecodeError:
                     pass
-                    
-            session_id = get_session_id()
-            
+
             if "sessions" not in state_data:
                 state_data["sessions"] = {}
                 
@@ -218,8 +239,10 @@ def main():
 
         # F4 steering: gate-status flag for Branch B (skips I/O on other branches).
         try:
-            from hook_common import get_session_id as _gsid
-            sf_pending = _search_first_pending(branch, plugin_root, _gsid())
+            sf_pending = (
+                _search_first_pending(branch, state_root, session_id)
+                if session_id else False
+            )
         except Exception:
             sf_pending = False
 
@@ -233,13 +256,16 @@ def main():
                 missing_documents=artifacts_missing,
                 manifest_state=manifest_state,
                 business=business,
-                search_first_pending=sf_pending
+                search_first_pending=sf_pending,
+                session_id=session_id
             )
         except Exception as e:
             print(f"DEBUG: context_builder failed: {e}", file=sys.stderr)
             system_state = ""
             if current_phase != "Unknown":
                 system_state = f"\n\n=== SYSTEM STATE ===\nActive Branch: {branch}\nCurrent Phase: {current_phase}\nTarget Agent: {target_agent}\nArtifacts Missing: {', '.join(artifacts_missing) if artifacts_missing else 'None'}\nAuthorization: {auth_msg}\n"
+                if session_id:
+                    system_state += f"Session: {session_id}\n"
                 if manifest_state and branch == "B":
                     system_state += f"Proposed Designs: {', '.join(manifest_state.get('designs_found', [])) or 'None'}\n"
                     system_state += f"In-Progress Designs: {', '.join(manifest_state.get('progress_found', [])) or 'None'}\n"
@@ -253,7 +279,7 @@ def main():
         # Append staleness warning when features.yaml is out-of-sync (fail-open).
         try:
             from hook_common import features_staleness_warning
-            _stale_warn = features_staleness_warning(plugin_root)
+            _stale_warn = features_staleness_warning(state_root)
             if _stale_warn:
                 system_state = (system_state.rstrip() + "\n" + _stale_warn + "\n") if system_state else (_stale_warn + "\n")
         except Exception:
