@@ -87,10 +87,12 @@ Phase 5 suite: 1252 passed / 34 skipped / 3 xfailed (+34 tests). Phase 5 is **co
 
 Pre-Phase-5 housekeeping (same session): two stale `tests/hooks` classifier contract tests still asserted pre-Phase-4 fallback behavior (`implement ⇒ B`) against the live deployed plugin — aligned with bias-to-D (4f5ddd6).
 
-## Phase 6 — Sticky Phase State Machine ⚠️ DEFERRED (outline in design doc Section 3; needs own HITL design pass — do NOT implement from the outline)
+## Phase 6 — Sticky Phase State Machine → design pass COMPLETE, scope narrowed to 6a
 
-- [ ] Run its own design pass (Sections 0–4) covering: artifact-based exit-condition detection (the C3 gap), classifier shrink ("still in phase?" instead of re-classification), misroute suppression + user override, stale-phase reaping
-- Persistence half already in scope per R2: phase keys + helpers (Phase 2), brainstorming-skill set/clear (Phase 4)
+- [x] Run its own design pass (Sections 0–4) — done 2026-06-11: [2026-06-11-sticky-phase-state-machine-design.md](2026-06-11-sticky-phase-state-machine-design.md), Tier-1 adversary-reviewed (first production use of the Phase 5 skill), commit 6ed19f3
+- **Scope decision (HITL):** fix-only **Phase 6a** — stable session identity (the design pass uncovered that skill-invoked scripts write to dead session stores, leaving the Phase 4 gate and Phase 5 budget wall live-inert; observed id drift `73171`→`80226`→`80490`), /clear-means-fresh, `tdd_*` prune gap, fallback-keyword unification. Tasks: [2026-06-11-sticky-phase-state-machine-progress.md](2026-06-11-sticky-phase-state-machine-progress.md)
+- Sticky-mode machinery (ledger merge, artifact exit detection, classifier shrink, misroute suppression) **deferred to Phase 6b** — re-open if within-conversation misrouting keeps hurting after the repair
+- Persistence half already shipped per R2: phase keys + helpers (Phase 2), brainstorming-skill set/clear (Phase 4)
 
 ## Phase 2 Implementation Summary
 
