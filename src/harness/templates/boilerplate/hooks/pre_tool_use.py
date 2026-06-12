@@ -134,7 +134,11 @@ _READ_TOOLS = {"Read", "read_file"}
 
 
 def _budget_sidecar(session_id: str, state_root: Path) -> Path:
-    return state_root / "state" / f"budget_{session_id}.json"
+    try:
+        from hook_common import budget_sidecar_path
+        return budget_sidecar_path(state_root, session_id)
+    except ImportError:
+        return state_root / "state" / f"budget_{session_id}.json"
 
 
 def _check_budget(tool_name: str, tool_input: dict, session_id: str, state_root: Path):
@@ -269,8 +273,8 @@ def main():
         is_gemini = "hook_event_name" in input_data
 
         if is_env_file_access(tool_name, tool_input):
-            print("Use .env.sample for template files instead", file=sys.stderr)
-            _deny("Access to .env files containing sensitive data is prohibited", is_gemini)
+            _deny("Access to .env files containing sensitive data is prohibited. "
+                  "Use .env.sample for template files instead", is_gemini)
 
         if tool_name in ['Bash', 'run_shell_command']:
             command = tool_input.get('command', '')

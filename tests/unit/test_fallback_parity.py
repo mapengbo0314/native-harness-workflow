@@ -30,8 +30,10 @@ HOOKS_DIR = (
 
 @pytest.fixture(scope="module")
 def fallback_classify():
-    """The deployed hook's fallback, loaded WITHOUT the plugin src/ on path —
-    exercises its inline last-resort copy, the real drift risk."""
+    """The deployed hook's fallback with the shared-table import BLOCKED —
+    deterministically exercises its inline last-resort copy (the real drift
+    risk).  Without the block, earlier tests that put a plugin src/ on
+    sys.path leak a stale `fallback_keywords` into this test."""
     spec = importlib.util.spec_from_file_location(
         "prompt_classifier_parity_test", HOOKS_DIR / "prompt_classifier.py"
     )
@@ -41,7 +43,19 @@ def fallback_classify():
         spec.loader.exec_module(mod)
     finally:
         sys.path.remove(str(HOOKS_DIR))
-    return mod.fallback_classify
+
+    def _inline_only(prompt):
+        saved = sys.modules.get("fallback_keywords", "absent")
+        sys.modules["fallback_keywords"] = None  # forces ImportError inside
+        try:
+            return mod.fallback_classify(prompt)
+        finally:
+            if saved == "absent":
+                sys.modules.pop("fallback_keywords", None)
+            else:
+                sys.modules["fallback_keywords"] = saved
+
+    return _inline_only
 
 
 # (prompt, expected branch) — covers every branch + the precedence cases.
@@ -75,6 +89,12 @@ CORPUS = [
     # E — no technical intent
     ("tell me a joke", "E"),
     ("good morning", "E"),
+    # word-boundary guards (review 2026-06-12): substrings must not over-trigger
+    ("renew the subscription reminder", "E"),     # 'new' inside 'renew' must not hit D
+    ("however, looks good to me", "E"),           # 'how' inside 'however' must not hit C
+    ("they went somewhere else", "E"),            # 'where' inside 'somewhere' must not hit C
+    ("a new endpoint for health checks", "D"),    # \bnew\b still routes D
+    ("how do I run the suite", "C"),              # \bhow\b still routes C
 ]
 
 
@@ -89,9 +109,10 @@ class TestSharedTable:
         from harness.runtime.fallback_keywords import KEYWORDS
         assert "fix the" not in KEYWORDS["D"]
 
-    def test_bare_which_in_c(self):
-        from harness.runtime.fallback_keywords import KEYWORDS
-        assert "which" in KEYWORDS["C"]
+    def test_bare_which_routes_c_with_word_boundary(self):
+        from harness.runtime.fallback_keywords import REGEX
+        assert REGEX["C"].search("which approach wins"), "bare 'which' must route C"
+        assert not REGEX["C"].search("sandwiches are great"), "word boundary required"
 
 
 class TestParity:

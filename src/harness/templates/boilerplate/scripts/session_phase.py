@@ -26,6 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
 
 from hook_common import (  # noqa: E402
+    budget_sidecar_path,
     clear_phase,
     get_session_id,
     resolve_plugin_root,
@@ -38,9 +39,9 @@ _BUDGET_DEFAULT_MAX_FILE_READS = 12
 
 
 def _budget_sidecar(plugin_root: Path, session_id: str) -> Path:
-    state_dir = Path(plugin_root) / "state"
-    state_dir.mkdir(parents=True, exist_ok=True)
-    return state_dir / f"budget_{session_id}.json"
+    sidecar = budget_sidecar_path(plugin_root, session_id)
+    sidecar.parent.mkdir(parents=True, exist_ok=True)
+    return sidecar
 
 
 def _arm_budget(plugin_root: Path, session_id: str, max_tool_calls: int, max_file_reads: int) -> Path:

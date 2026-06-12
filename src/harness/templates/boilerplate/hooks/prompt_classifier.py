@@ -63,14 +63,15 @@ def fallback_classify(prompt):
     import re
     p = prompt.lower()
     # Precedence contract (must mirror fallback_keywords.BRANCH_ORDER):
-    # A → B → C → D → E, first match wins; bias-to-D for implement verbs.
+    # A → B → C → D → E, first match wins; bias-to-D for implement verbs;
+    # short words use word boundaries ('new' in 'renew' must not match).
     if any(k in p for k in ["broken", "bug", "error", "fix", "stack trace", "failing", "exception", "traceback", "crash"]):
         return "A"
     elif any(k in p for k in ["design", "architecture", "brainstorm", "spec out", "roadmap"]) or re.search(r"\bplan\b", p):
         return "B"
-    elif any(k in p for k in ["how", "where", "explain", "what does", "walk me through", "which file", "which"]):
+    elif any(k in p for k in ["explain", "what does", "walk me through", "which file"]) or re.search(r"\b(?:how|where|which)\b", p):
         return "C"
-    elif any(k in p for k in ["typo", "change color", "minor update", "rename", "refactor", "add", "create", "write", "build", "set up", "update", "new"]) or re.search(r"\bimplement\b", p):
+    elif any(k in p for k in ["typo", "change color", "minor update", "rename", "refactor", "add", "create", "write", "build", "set up", "update"]) or re.search(r"\b(?:implement|new)\b", p):
         return "D"
     else:
         return "E"
@@ -205,6 +206,10 @@ def main():
             session_id = None
 
         try:
+            if session_id is None:
+                # Identity resolution failed (fail-open above) — skip the
+                # campaign-state write rather than keying a "null" session.
+                raise RuntimeError("no session id")
             state_dir = state_root / "state"
             state_dir.mkdir(exist_ok=True)
             state_file = state_dir / "campaign_state.json"

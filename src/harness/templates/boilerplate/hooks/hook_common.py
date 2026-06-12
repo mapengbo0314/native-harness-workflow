@@ -88,11 +88,24 @@ def publish_session_pointer(plugin_root, session_id: str) -> None:
         state_dir = Path(plugin_root) / "state"
         state_dir.mkdir(parents=True, exist_ok=True)
         pointer = state_dir / "current_session"
+        # Hot-path guard: hooks call this on every event — skip the write
+        # when the pointer already holds this id.
+        try:
+            if pointer.read_text(encoding="utf-8").strip() == str(session_id):
+                return
+        except Exception:
+            pass
         tmp = pointer.with_suffix(".tmp")
         tmp.write_text(str(session_id), encoding="utf-8")
         tmp.replace(pointer)
     except Exception:
         pass
+
+
+def budget_sidecar_path(plugin_root, session_id: str) -> Path:
+    """Single source of the dispatch-budget sidecar path (R5) — used by the
+    enforcing hook (pre_tool_use) and the arming script (session_phase.py)."""
+    return Path(plugin_root) / "state" / f"budget_{session_id}.json"
 
 def capped_text(value: str, max_chars: int) -> str:
     if not isinstance(value, str):
@@ -527,8 +540,10 @@ def prune_old_session_files(plugin_root, now=None, retention_days: int = _RETENT
                 fpath.unlink(missing_ok=True)
         # budget_* dispatch sidecars and tdd_* gate flags carry no updated_at
         # — age them by mtime (Phase 6a: tdd_* joins retention so a recycled
-        # session id can't inherit a stale test_written flag).
-        for pattern in ("budget_*.json", "tdd_*.json"):
+        # session id can't inherit a stale test_written flag).  *.tmp /
+        # *.budget-tmp strands from crashed atomic writes are swept the same
+        # way (recent ones may be in-flight writes — only past-cutoff go).
+        for pattern in ("budget_*.json", "tdd_*.json", "*.tmp", "*.budget-tmp"):
             for fpath in state_dir.glob(pattern):
                 try:
                     mtime = datetime.fromtimestamp(fpath.stat().st_mtime, tz=timezone.utc)

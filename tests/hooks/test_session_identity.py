@@ -124,6 +124,36 @@ class TestPointer:
         # Must never raise — enforcement plumbing cannot break hooks.
         hook_common.publish_session_pointer("/nonexistent/path/xyz", "id")
 
+    def test_republish_same_id_skips_write(self, hook_common):
+        """Hot-path guard (review 2026-06-12): re-publishing an unchanged id
+        must not rewrite the pointer file on every tool call."""
+        root = hook_common._test_plugin_root
+        hook_common.publish_session_pointer(root, "stable-id")
+        pointer = root / "state" / "current_session"
+        ancient = time.time() - 1000
+        os.utime(pointer, (ancient, ancient))
+        hook_common.publish_session_pointer(root, "stable-id")
+        assert pointer.stat().st_mtime == ancient, "unchanged id must skip the write"
+        hook_common.publish_session_pointer(root, "different-id")
+        assert pointer.read_text(encoding="utf-8").strip() == "different-id"
+
+    def test_stale_tmp_strands_pruned(self, hook_common):
+        """Crashed atomic writes leave *.tmp strands; retention sweeps them."""
+        root = hook_common._test_plugin_root
+        old_strand = root / "state" / "session_memory_x.tmp"
+        old_strand.write_text("{}")
+        budget_strand = root / "state" / "budget_x.budget-tmp"
+        budget_strand.write_text("{}")
+        ancient = time.time() - 60 * 60 * 24 * 40
+        for f in (old_strand, budget_strand):
+            os.utime(f, (ancient, ancient))
+        fresh_strand = root / "state" / "session_memory_y.tmp"
+        fresh_strand.write_text("{}")
+        hook_common.prune_old_session_files(root)
+        assert not old_strand.exists()
+        assert not budget_strand.exists()
+        assert fresh_strand.exists(), "recent tmp may be an in-flight write"
+
     def test_pointer_exempt_from_pruning(self, hook_common):
         root = hook_common._test_plugin_root
         hook_common.publish_session_pointer(root, "keep-me")

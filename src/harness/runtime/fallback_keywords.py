@@ -25,16 +25,17 @@ KEYWORDS = {
     "A": ["broken", "bug", "error", "fix", "stack trace", "failing",
           "exception", "traceback", "crash"],
     "B": ["design", "architecture", "brainstorm", "spec out", "roadmap"],
-    "C": ["how", "where", "explain", "what does", "walk me through",
-          "which file", "which"],
+    "C": ["explain", "what does", "walk me through", "which file"],
     "D": ["typo", "change color", "minor update", "rename", "refactor",
-          "add", "create", "write", "build", "set up", "update", "new"],
+          "add", "create", "write", "build", "set up", "update"],
 }
 
-# Word-boundary patterns that substring matching would over-trigger on.
+# Word-boundary patterns — short words that substring matching over-triggers
+# on ('new' in 'renew', 'how' in 'however', 'where' in 'somewhere').
 REGEX = {
     "B": re.compile(r"\bplan\b"),
-    "D": re.compile(r"\bimplement\b"),
+    "C": re.compile(r"\b(?:how|where|which)\b"),
+    "D": re.compile(r"\b(?:implement|new)\b"),
 }
 
 DEFAULT_BRANCH = "E"

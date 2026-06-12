@@ -800,14 +800,9 @@ _SCENARIO_IDS: list[str] = [s.get("name", "unknown") for s in _ASSERTABLE_SCENAR
 # classifier behavior.  Each entry: (scenario_name, reason).
 # These are marked xfail(strict) so the test suite documents the gap without
 # silently suppressing it.  Fix the routing classifier — not these entries.
-_KNOWN_ROUTING_MISMATCHES: dict[str, str] = {
-    "example_routing_miss": (
-        "BUG-2: keyword classifier routes 'Rename X to Y everywhere' to branch B "
-        "(default / feature) but expected_behavior declares branch D (code edit / TDD). "
-        "The D-branch keyword list lacks rename/refactor patterns. "
-        "Fix: extend classifier keywords before removing this xfail."
-    ),
-}
+# BUG-2 ('Rename X to Y everywhere' → B instead of D) was FIXED by Phase 6a's
+# shared fallback-keyword table (rename/refactor now route D) — entry removed.
+_KNOWN_ROUTING_MISMATCHES: dict[str, str] = {}
 
 
 def _make_routing_scenario_params() -> list[Any]:
