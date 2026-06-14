@@ -7,7 +7,7 @@
           {
             "name": "continuous-learning-session-end",
             "type": "command",
-            "command": "python3 \"${HARNESS_PLUGIN_ROOT}/hooks/session_end.py\"",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/session_end.py\"",
             "description": "Continuous Learning: triggers skill extraction on session end"
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run \"${HARNESS_PLUGIN_ROOT}/hooks/prompt_classifier.py\""
+            "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/prompt_classifier.py\""
           }
         ]
       }
@@ -30,13 +30,13 @@
           {
             "name": "compression-notifier",
             "type": "command",
-            "command": "python3 \"${HARNESS_PLUGIN_ROOT}/hooks/notify_compression.py\"",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/notify_compression.py\"",
             "description": "Alerts the user that context is being compressed so they can run /clear"
           },
           {
             "name": "session-memory-save-precompact",
             "type": "command",
-            "command": "python3 \"${HARNESS_PLUGIN_ROOT}/hooks/session_memory_save.py\"",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/session_memory_save.py\"",
             "description": "Heartbeat: persists session memory state before context compaction"
           }
         ]
@@ -50,7 +50,7 @@
           {
             "name": "pre-tool-use-security",
             "type": "command",
-            "command": "python3 \"${HARNESS_PLUGIN_ROOT}/hooks/pre_tool_use.py\""
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/pre_tool_use.py\""
           }
         ]
       }
@@ -63,7 +63,7 @@
           {
             "name": "post-tool-use-linting",
             "type": "command",
-            "command": "python3 \"${HARNESS_PLUGIN_ROOT}/hooks/post_tool_use.py\""
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/post_tool_use.py\""
           }
         ]
       }
