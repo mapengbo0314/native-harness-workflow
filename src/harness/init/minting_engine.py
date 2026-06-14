@@ -3,20 +3,15 @@ import re
 import shutil
 import json
 import yaml
-import urllib.request
-import difflib
 from pathlib import Path
-from harness.init.plugin_generator import generate_orchestrator_plugin
 from harness.adapters import get_adapter
 from harness.init.features import compile_features
-# Single source of truth for the two-pass render. TemplateRenderer and
-# process_includes were relocated to render.py; re-imported here to preserve the
-# existing minting_engine.process_includes / .TemplateRenderer call sites.
+# Single source of truth for the two-pass render. process_includes was relocated
+# to render.py; re-imported here to preserve the existing
+# minting_engine.process_includes / .render_pass1 call sites.
 from harness.init.render import (
-    TemplateRenderer,
     process_includes,
     render_pass1,
-    render_template,
 )
 from harness.init.runtime_slice import (
     RUNTIME_FILE_MAP,

@@ -11,6 +11,25 @@ except ImportError:
     _HOOK_COMMON_AVAILABLE = False
 
 
+# 5 MB cap before the tool-call log rotates (review 2026-06-12 C4).
+PRE_TOOL_LOG_MAX_BYTES = 5 * 1024 * 1024
+
+
+def _append_tool_log(log_path: Path, entry: dict, max_bytes: int = PRE_TOOL_LOG_MAX_BYTES) -> None:
+    """Append one JSON line per tool call, rotating past max_bytes.
+
+    O(1) per call — never reads or rewrites prior records (the old read-all /
+    json.dump-all array was O(n^2) over a session, review 2026-06-12 C4). When
+    the file crosses the cap it is rotated to `<name>.1` (replacing any prior
+    rotation) and a fresh file is started.
+    """
+    if log_path.exists() and log_path.stat().st_size >= max_bytes:
+        Path(str(log_path) + ".1").unlink(missing_ok=True)
+        log_path.rename(Path(str(log_path) + ".1"))
+    with open(log_path, "a") as f:
+        f.write(json.dumps(entry) + "\n")
+
+
 # ---------------------------------------------------------------------------
 # TDD enforcement helpers
 # ---------------------------------------------------------------------------
@@ -312,21 +331,8 @@ def main():
             sys.exit(0)
         log_dir = resolve_plugin_root() / 'logs'
         log_dir.mkdir(parents=True, exist_ok=True)
-        log_path = log_dir / 'pre_tool_use.json'
-        
-        log_data = []
-        if log_path.exists():
-            try:
-                with open(log_path, 'r') as f:
-                    log_data = json.load(f)
-            except (json.JSONDecodeError, ValueError):
-                log_data = []
-        
-        log_data.append(input_data)
-        
-        with open(log_path, 'w') as f:
-            json.dump(log_data, f, indent=2)
-            
+        _append_tool_log(log_dir / 'pre_tool_use.jsonl', input_data)
+
         if is_gemini:
             print(json.dumps({}))
             sys.exit(0)

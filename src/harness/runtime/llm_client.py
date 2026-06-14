@@ -2,7 +2,13 @@ import os
 import uuid
 import json
 import subprocess
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    stop_after_delay,
+    wait_exponential,
+    retry_if_exception_type,
+)
 from langfuse import observe
 from harness.runtime.langfuse_compat import langfuse_context
 
@@ -10,10 +16,37 @@ from harness.runtime.langfuse_compat import langfuse_context
 # can propagate the actual model name to their own Langfuse spans.
 last_actual_model: str = ""
 
+# Hard ceiling on total retry time so a flapping CLI can't stack
+# attempt×timeout+backoff into the synchronous prompt hook (review 2026-06-12 C1).
+LLM_RETRY_DEADLINE_SECONDS = 45
+
+
+class LLMConfigError(Exception):
+    """A deterministic, non-retryable LLM failure (e.g. a misconfigured/invalid
+    model pin returning 404). Deliberately NOT a RuntimeError so the retry
+    predicate below never retries it — retrying a deterministic 404 is pure
+    latency waste in the UserPromptSubmit hot path (review 2026-06-12 C1).
+    """
+
+
+# Substrings in CLI stderr that mark a deterministic config error (not transient).
+_DETERMINISTIC_LLM_ERROR_MARKERS = (
+    "model not found",
+    "model_not_found",
+    "invalid model",
+    "unknown model",
+    "404",
+)
+
+
+def _is_deterministic_llm_error(message: str) -> bool:
+    low = message.lower()
+    return any(marker in low for marker in _DETERMINISTIC_LLM_ERROR_MARKERS)
+
 
 @observe(as_type="generation")
 @retry(
-    stop=stop_after_attempt(3),
+    stop=stop_after_attempt(3) | stop_after_delay(LLM_RETRY_DEADLINE_SECONDS),
     wait=wait_exponential(multiplier=2, min=5, max=20),
     retry=retry_if_exception_type(RuntimeError),
     before_sleep=lambda retry_state: print(f"Retrying LLM call (attempt {retry_state.attempt_number})..."),
@@ -135,7 +168,10 @@ def query_llm(prompt: str, cli_name: str, model: str = None) -> str:
     except subprocess.TimeoutExpired as e:
         raise RuntimeError(f"Native CLI {cli_name} timed out: {e}")
     except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"Native CLI {cli_name} failed: {e.stderr or e.output or str(e)}")
+        detail = e.stderr or e.output or str(e)
+        if _is_deterministic_llm_error(detail):
+            raise LLMConfigError(f"Native CLI {cli_name} model misconfigured: {detail}")
+        raise RuntimeError(f"Native CLI {cli_name} failed: {detail}")
     except json.JSONDecodeError as e:
         raise RuntimeError(f"Native CLI {cli_name} returned invalid JSON: {e}")
     except Exception as e:

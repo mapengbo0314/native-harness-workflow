@@ -3,13 +3,10 @@ import importlib.util
 import json
 import shlex
 import sys
-import getpass
 import os
 import subprocess
 import shutil
-import time
 import uuid
-import logging
 from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
@@ -87,11 +84,27 @@ def _platform_name(platform_choice: str) -> str:
     }.get(platform_choice, platform_choice).lower()
 
 
-from pathlib import Path
 from harness.adapters import get_adapter
 from harness.domain.seed import run_domain_init, run_domain_refresh, _platform_paths
 from harness.domain.compiler import run_domain_compile
 from harness.init.features import compile_features, FeaturesValidationError
+
+def _run_plugin_validate(claude: str, target: Path) -> None:
+    """Run `claude plugin validate <target>` once, failing loudly on error.
+
+    review 2026-06-12 (C3): the previous version retried by re-running an
+    identical command — no flag was ever degraded, so the retry could never
+    behave differently. Single run, no retry.
+    """
+    result = subprocess.run(
+        [claude, "plugin", "validate", str(target)],
+        capture_output=True,
+        text=True,
+        env=os.environ.copy(),
+    )
+    if result.returncode != 0:
+        raise HarnessSetupError(result.stdout + result.stderr)
+
 
 def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
     required = [
@@ -149,25 +162,7 @@ def _validate_claude_plugin(project_path: Path, plugin_dir: Path) -> None:
     claude = shutil.which("claude")
     if claude:
         for target in [plugin_dir, project_path / ".claude"]:
-            cmd = [claude, "plugin", "validate", str(target)]
-            result = subprocess.run(
-                [claude, "plugin", "validate", str(target)],
-                capture_output=True, 
-                text=True,
-                env=os.environ.copy()
-            )
-            if result.returncode != 0 and any(
-                phrase in (result.stderr.lower() + result.stdout.lower())
-                for phrase in ["unknown option", "not a valid flag", "strict"]
-            ):
-                result = subprocess.run(
-                    cmd, 
-                    capture_output=True, 
-                    text=True,
-                    env=os.environ.copy()
-                )
-            if result.returncode != 0:
-                raise HarnessSetupError(result.stdout + result.stderr)
+            _run_plugin_validate(claude, Path(target))
 
     # Remove any __pycache__ / *.pyc artifacts that were created during
     # validation (e.g. exec_module() compiles dispatcher.py; hook scripts are
@@ -389,7 +384,6 @@ def run_domain_refresh_with_sync(
     # Recompute and persist rules_packs selection into the manifest so
     # plan_update's pack filter reflects the refreshed stack.  Fail-open.
     try:
-        import json as _json
         from harness.update.manifest import read_manifest, META_FILENAME, write_manifest as _wm
         import harness as _harness
 
@@ -512,7 +506,6 @@ def run_update(args) -> None:
     """`harness-wf update` — in-place refresh of harness-owned files.
     """
     import harness
-    from harness.adapters.profile import load_profile
     from harness.update.manifest import META_FILENAME, write_manifest, write_base_sidecar, read_manifest
     from harness.update.conflict import ConflictResolutionAborted, ConflictResolutionNeedsHuman
     from harness.update.updater import UpdateRequiresHuman, apply_update, plan_update, recover_journal, _migrate_b0_paths
@@ -601,8 +594,6 @@ def run_update(args) -> None:
         print(f"[HARNESS] update applied — {summary or 'no changes'}")
         return
 
-    from harness.update.manifest import read_manifest
-    from harness.update.updater import _migrate_b0_paths
     manifest = read_manifest(plugin_dir)
     _migrate_b0_paths(manifest, harness_dir, plugin_dir, package_root, dry_run=True)
     verdicts = plan_update(plugin_dir, package_root, manifest, force=args.force)

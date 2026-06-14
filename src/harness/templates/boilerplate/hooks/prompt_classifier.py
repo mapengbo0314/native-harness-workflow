@@ -187,7 +187,7 @@ def main():
                 pass
 
         current_phase = routing_decision.get("phase", "Unknown")
-        artifacts_missing = routing_decision.get("artifacts_missing", [])
+        artifacts_missing = routing_decision.get("missing_documents", [])
         auth_msg = routing_decision.get("auth_msg", "")
         target_agent = routing_decision.get("target_agent", "@generalist")
         manifest_state = routing_decision.get("manifest_state", None)

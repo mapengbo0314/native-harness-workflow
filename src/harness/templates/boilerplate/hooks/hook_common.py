@@ -1,12 +1,9 @@
 import json
 import os
 import re
-import tempfile
 import sys
-import shutil
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from contextlib import contextmanager
 
 def resolve_project_root(input_json: dict = None) -> Path:
     if os.environ.get("GEMINI_PROJECT_DIR"):

@@ -3,11 +3,8 @@ import json
 import os
 import shutil
 import time
-import re
-import subprocess
-import sys
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Tuple, Union
 from dotenv import load_dotenv
 from langfuse import observe
 from harness.runtime.langfuse_compat import langfuse_context
@@ -69,14 +66,17 @@ def get_active_platform_and_model(starting_dir: str = ".") -> Tuple[str, str]:
 
 try:
     import harness.runtime.llm_client as _llm_client_module
-    from harness.runtime.llm_client import query_llm
+    from harness.runtime.llm_client import query_llm, LLMConfigError
 except (ImportError, ValueError):
     try:
         from . import llm_client as _llm_client_module
-        from .llm_client import query_llm
+        from .llm_client import query_llm, LLMConfigError
     except (ImportError, ValueError):
         _llm_client_module = None
         query_llm = None
+
+        class LLMConfigError(Exception):
+            """Fallback when llm_client is unavailable; never raised here."""
 
 
 def keyword_fast_path(prompt: str) -> Dict[str, str]:
@@ -159,6 +159,29 @@ class OrchestratorDispatcher:
                 return json.load(f)
         return {"rules": {}}
 
+    # How long a "LLM is misconfigured" verdict suppresses retries (seconds).
+    LLM_HEALTH_TTL_SECONDS = 300
+
+    def _llm_health_path(self) -> Path:
+        return self.config_dir.parent / "state" / "llm_health.json"
+
+    def _llm_recently_broken(self) -> bool:
+        """True if a deterministic LLM failure was recorded within the TTL."""
+        try:
+            data = json.loads(self._llm_health_path().read_text(encoding="utf-8"))
+            return (time.time() - float(data.get("broken_at", 0))) < self.LLM_HEALTH_TTL_SECONDS
+        except (FileNotFoundError, ValueError, OSError):
+            return False
+
+    def _mark_llm_broken(self) -> None:
+        """Persist the broken-LLM verdict so other prompts in the window skip it."""
+        path = self._llm_health_path()
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps({"broken_at": time.time()}), encoding="utf-8")
+        except OSError:
+            pass
+
     @observe(name="classify_intent", as_type="span")
     def classify_intent(self, prompt: str) -> Dict[str, str]:
         """Classify user intent into Matrix Routing Branches A/B/C/D.
@@ -173,7 +196,7 @@ class OrchestratorDispatcher:
             elif shutil.which("gemini"):
                 cli_name = "gemini"
 
-        if query_llm and cli_name:
+        if query_llm and cli_name and not self._llm_recently_broken():
             branch_menu = "\n".join(f"  {k} - {v}" for k, v in self.BRANCHES.items())
             valid_keys = list(self.BRANCHES.keys())
             classification_prompt = f"""
@@ -221,8 +244,14 @@ selected_branch MUST be exactly one of: {valid_keys}
                     "branch": branch,
                     "justification": data.get("intent_analysis", "No justification provided.")
                 }
+            except LLMConfigError as e:
+                # Deterministic misconfiguration (e.g. bad model pin): record the
+                # verdict so subsequent prompts skip the doomed subprocess and go
+                # straight to keyword fallback (review 2026-06-12 C1).
+                print(f"DEBUG: LLM misconfigured, caching broken verdict: {e}")
+                self._mark_llm_broken()
             except Exception as e:
-                # Fallback to keyword matching if LLM fails
+                # Transient failure: fall back this once, but don't poison the cache.
                 print(f"DEBUG: LLM intent classification failed: {e}")
                 pass
 
@@ -382,10 +411,12 @@ selected_branch MUST be exactly one of: {valid_keys}
 
         # Basic intent classification if prompt is provided
         intent_branch = None
+        intent_justification = None
         routing_decision = {}
         if "prompt" in context:
             intent_info = self.classify_intent(context["prompt"])
             intent_branch = intent_info.get("branch")
+            intent_justification = intent_info.get("justification")
 
             if intent_branch:
                 project_root = context.get("project_root", ".")
@@ -426,6 +457,7 @@ selected_branch MUST be exactly one of: {valid_keys}
             "context": context,
             "orchestrator_applied": True,
             "intent_branch": intent_branch,
+            "intent_justification": intent_justification,
             "routing_decision": routing_decision,
             "trace_id": langfuse_context.get_current_trace_id()
         }

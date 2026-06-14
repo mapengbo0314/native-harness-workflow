@@ -1,10 +1,9 @@
 import os
 import shutil
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 from harness.adapters.base import PlatformAdapter
 from harness.adapters.profile import load_profile
-from harness.init.plugin_generator import generate_orchestrator_plugin
 
 
 class ClaudeAdapter(PlatformAdapter):
@@ -166,7 +165,6 @@ class ClaudeAdapter(PlatformAdapter):
 
     def configure_cli(self, project_path: Path) -> None:
         import subprocess
-        import shlex
         import json
         claude = shutil.which("claude")
         if not claude:
