@@ -4,9 +4,9 @@ Severity scale per `.claude/rules/harness/common/baseline.md`:
 **CRITICAL** = block | **HIGH** = should fix | **MEDIUM** = consider | **LOW** = optional.
 
 > **Resolution status — updated 2026-06-14** (branch `feat/ecc-feature-port`)
-> - ✅ **Resolved:** C1, C2, C3, C4 (all CRITICALs), H5, H9, M1.
+> - ✅ **Resolved:** C1, C2, C3, C4 (all CRITICALs), H5, H6, H9, M1.
 > - 🟡 **Partial:** M10 (read-key contract fixed via C2; `missing_documents` still never populated).
-> - ⬜ **Open:** H1–H4, H6–H8, M2–M9, all LOW. Next planned: H6 (needs care — see notes).
+> - ⬜ **Open:** H1–H4, H7–H8, M2–M9, all LOW.
 > Each item below is annotated inline. Verified by pyflakes (clean) + unit/integration/e2e suites.
 
 ---
@@ -103,7 +103,13 @@ exactly the cycle `plugin_generator.py:18-22` documents and works around with la
 (`plugin_generator → profile → adapters/__init__ → claude → plugin_generator`). Delete the
 import and the lazy-import workarounds become unnecessary.
 
-### H6. Dead code shipped into every minted plugin: `init/discovery_engine.py`
+### ✅ H6. Dead code shipped into every minted plugin: `init/discovery_engine.py`
+**RESOLVED (2026-06-14):** deleted the module and its `RUNTIME_FILE_MAP` entry (so it no longer
+ships into any plugin); `update/classification.py` + `minting_engine.py` derive from the map, so
+removal propagates cleanly. Repointed the one real `query_llm` caller (`tests/sandbox/runner.py`)
+to `harness.runtime.llm_client`; dropped 5 vestigial mint-path mocks that targeted a namespace
+mint never imports. Gate run **offline** (no `claude`/`gemini` on PATH): unit 999, integration 50,
+sandbox 16, e2e 137 — all green. Adversary-reviewed GO.
 Its public functions (`acquire_mcp_context`, `fetch_skill`, `fetch_remote_skill`, a duplicate
 `TemplateRenderer`) have **zero production callers** — only tests patch
 `discovery_engine.query_llm` (which is itself an unused re-import from `llm_client`). Yet
@@ -240,7 +246,7 @@ remove the plumbing.
 | Item | Where | Action |
 |---|---|---|
 | ✅ `generate_orchestrator_plugin` import | `adapters/claude.py:7` | **DONE** — deleted (lazy-import workaround left in place) |
-| `acquire_mcp_context`, `fetch_skill`, `fetch_remote_skill`, dup `TemplateRenderer` | `init/discovery_engine.py` | Delete module; drop from `RUNTIME_FILE_MAP`; repoint tests |
+| ✅ `acquire_mcp_context`, `fetch_skill`, `fetch_remote_skill`, dup `TemplateRenderer` | `init/discovery_engine.py` | **DONE** — module deleted, dropped from `RUNTIME_FILE_MAP`, tests repointed (H6) |
 | Claude copy of `format_hook_response` | `adapters/claude.py:227-276` | Replace with delegation to `RuntimeAdapter("claude")` |
 | 4× placeholder-rewrite loops | gemini/codex/cursor/claude adapters | Extract shared helper |
 | 3× platform digit maps + if/elif folder map | `cli.py`, `minting_engine.py` ×2 | One constant |
@@ -254,7 +260,7 @@ remove the plumbing.
 ## Suggested fix order
 
 1. ✅ **C1–C4** (routing latency, contract-mismatch keys, dead validator retry, unbounded log) — **DONE 2026-06-14**.
-2. 🟡 **H5 + H6 + M1** (delete unused import/module, ruff --fix) — H5 + M1 + H9 **DONE**; **H6 deferred** (not zero-risk: `discovery_engine` is wired into `RUNTIME_FILE_MAP`, derived in `update/classification.py`, and patched by ~6 e2e/integration/sandbox/hook tests).
+2. ✅ **H5 + H6 + M1** (delete unused import/module, ruff --fix) — **DONE 2026-06-14** (H5 + M1 + H9 + H6). H6 turned out non-trivial (test surface), executed carefully with an offline gate.
 3. **H2 + H3 + H4** (de-duplicate adapter logic) — guarded by the existing byte-identity tests.
 4. **H7 + H8 + H9** (generic parity, re-index, clean debris).
 5. **H1 + M2 + M9** (cli.py decomposition) — biggest refactor, do last with the e2e mint tests green.

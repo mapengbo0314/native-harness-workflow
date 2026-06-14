@@ -47,7 +47,6 @@ RUNTIME_FILE_MAP: dict[str, Optional[str]] = {
     "fallback_keywords.py":      "runtime/fallback_keywords.py",
     "langfuse_compat.py":        "runtime/langfuse_compat.py",
     "langfuse_instrumentation.py": "runtime/langfuse_instrumentation.py",
-    "discovery_engine.py":       "init/discovery_engine.py",
     # Domain runtime slice: the MCP server imports `model`. Flattened on deploy.
     "model.py":                  "domain/model.py",
     "server.py":                 "domain/server.py",

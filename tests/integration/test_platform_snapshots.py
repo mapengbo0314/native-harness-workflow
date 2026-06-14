@@ -83,27 +83,11 @@ def run_harness_init(
     enable_rtk=False,
 ):
     # Mock LLM response for discovery
-    with patch('harness.init.discovery_engine.query_llm') as mock_query_llm, \
-         patch('subprocess.run') as mock_run, \
+    with patch('subprocess.run') as mock_run, \
          patch('urllib.request.urlopen') as mock_urlopen, \
          patch('harness.init.cli.parse_args') as mock_parse_args, \
          patch('sys.exit'):
-        
-        # Mock LLM response
-        skills = []
-        if include_plugin:
-            skills.append({"name": "orchestrator-plugin", "url": "https://github.com/example/plugin", "type": "extension"})
-        
-        mock_query_llm.return_value = json.dumps({
-            "sme_name": "test-sme", 
-            "core_domain_value": "test value", 
-            "invariants": ["inv1"], 
-            "glossary": {"term": "def"}, 
-            "domain_events": ["event1"], 
-            "skills": skills, 
-            "mcps": []
-        })
-        
+
         # Mock subprocess.run for codegraph init
         mock_run.return_value = MagicMock(returncode=0)
         

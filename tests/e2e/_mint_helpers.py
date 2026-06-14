@@ -82,38 +82,14 @@ def mint_platform(tmp_path: Path, platform: str) -> Path:
 
     # LLM response: include orchestrator-plugin skill for claude so the plugin
     # stack is generated (which is what exposes harness-wf-plugin/).
-    skills = []
-    if platform == "claude":
-        skills = [
-            {
-                "name": "orchestrator-plugin",
-                "url": "https://github.com/example/plugin",
-                "type": "extension",
-            }
-        ]
-
-    llm_response = json.dumps(
-        {
-            "sme_name": "test-sme",
-            "core_domain_value": "test",
-            "invariants": [],
-            "glossary": {},
-            "domain_events": [],
-            "skills": skills,
-            "mcps": [],
-        }
-    )
-
     llm_choice = {"claude": "anthropic", "codex": "openai"}.get(platform, "gemini")
 
     with (
-        patch("harness.init.discovery_engine.query_llm") as mock_llm,
         patch("subprocess.run") as mock_run,
         patch("urllib.request.urlopen") as mock_url,
         patch("harness.init.cli.parse_args") as mock_args,
         patch("sys.exit"),
     ):
-        mock_llm.return_value = llm_response
         mock_run.return_value = MagicMock(returncode=0)
         mock_url.return_value.__enter__.return_value.read.return_value = b""
 

@@ -514,7 +514,7 @@ class TestCopyRuntimeModules:
         required = [
             "dispatcher.py", "llm_client.py", "context_builder.py",
             "langfuse_compat.py", "langfuse_instrumentation.py",
-            "platform_adapter.py", "discovery_engine.py",
+            "platform_adapter.py",
             "runtime_adapter.py", "profile.py", "platform_profiles.json"
         ]
         for name in required:

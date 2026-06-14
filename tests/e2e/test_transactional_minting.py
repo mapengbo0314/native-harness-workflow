@@ -33,8 +33,7 @@ def test_transactional_minting_and_smart_merge(tmp_path, monkeypatch):
         mock_run.return_value = MagicMock(returncode=0)
         
         # Mock query_llm to avoid real API calls
-        # We need to mock it in harness.init.discovery_engine
-        with patch("harness.init.discovery_engine.query_llm") as mock_query:
+        with patch("harness.runtime.llm_client.query_llm") as mock_query:
             # First call is for generate_onboarding_domain_doc
             # It expects a JSON string with tech_stack and strategy
             mock_query.return_value = '{"tech_stack": "Python", "strategy": {"test_cmd": "pytest"}}'
@@ -155,7 +154,7 @@ def test_atomic_swap_failure_cleanup(tmp_path, monkeypatch):
     
     # Mock mint_workspace to raise an error
     with patch("harness.init.minting_engine.mint_workspace", side_effect=ValueError("Minting failed")):
-        with patch("harness.init.discovery_engine.query_llm", return_value='{}'):
+        with patch("harness.runtime.llm_client.query_llm", return_value='{}'):
             import sys
             test_args = ["harness-wf", "init", "--project-path", str(project_path)]
             with patch.object(sys, 'argv', test_args):

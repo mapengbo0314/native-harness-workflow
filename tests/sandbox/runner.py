@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.join(project_root, "src"))
 from tests._env_utils import telemetry_safe_env  # noqa: E402
 
 from harness.runtime.dispatcher import OrchestratorDispatcher
-from harness.init.discovery_engine import query_llm
+from harness.runtime.llm_client import query_llm
 from harness.init.minting_engine import mint_workspace
 from harness.init.plugin_generator import generate_orchestrator_plugin
 from tests.sandbox.scorer import ScenarioScorer
