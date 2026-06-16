@@ -187,7 +187,6 @@ def main():
                 pass
 
         current_phase = routing_decision.get("phase", "Unknown")
-        artifacts_missing = routing_decision.get("missing_documents", [])
         auth_msg = routing_decision.get("auth_msg", "")
         target_agent = routing_decision.get("target_agent", "@generalist")
         manifest_state = routing_decision.get("manifest_state", None)
@@ -258,7 +257,6 @@ def main():
                 target_agent=target_agent,
                 auth_msg=auth_msg,
                 branch=branch,
-                missing_documents=artifacts_missing,
                 manifest_state=manifest_state,
                 business=business,
                 search_first_pending=sf_pending,
@@ -268,7 +266,7 @@ def main():
             print(f"DEBUG: context_builder failed: {e}", file=sys.stderr)
             system_state = ""
             if current_phase != "Unknown":
-                system_state = f"\n\n=== SYSTEM STATE ===\nActive Branch: {branch}\nCurrent Phase: {current_phase}\nTarget Agent: {target_agent}\nArtifacts Missing: {', '.join(artifacts_missing) if artifacts_missing else 'None'}\nAuthorization: {auth_msg}\n"
+                system_state = f"\n\n=== SYSTEM STATE ===\nActive Branch: {branch}\nCurrent Phase: {current_phase}\nTarget Agent: {target_agent}\nAuthorization: {auth_msg}\n"
                 if session_id:
                     system_state += f"Session: {session_id}\n"
                 if manifest_state and branch == "B":

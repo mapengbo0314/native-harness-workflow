@@ -2,8 +2,11 @@
 prompt_classifier hook reads (review 2026-06-12, C2).
 
 The hook reads result['intent_branch'], result['intent_justification'] and
-result['routing_decision'].{phase,target_agent,missing_documents,auth_msg}.
+result['routing_decision'].{phase,target_agent,auth_msg}.
 Silent key drift here blanks the SYSTEM STATE block, so we pin it.
+
+(review 2026-06-12, M10: the vestigial always-empty ``missing_documents`` field
+was removed — this test now pins its *absence*.)
 """
 from __future__ import annotations
 
@@ -48,7 +51,9 @@ def test_dispatch_agent_routing_decision_exposes_classifier_keys(tmp_path):
         )
 
     routing_decision = result["routing_decision"]
-    for key in ("phase", "target_agent", "auth_msg", "missing_documents"):
+    for key in ("phase", "target_agent", "auth_msg"):
         assert key in routing_decision, f"routing_decision missing {key!r}"
     # The hook must never have to read the old 'artifacts_missing' name.
     assert "artifacts_missing" not in routing_decision
+    # M10: the always-empty missing_documents plumbing was removed.
+    assert "missing_documents" not in routing_decision

@@ -322,7 +322,6 @@ selected_branch MUST be exactly one of: {valid_keys}
             harness_home = self.config_dir.parent.parent
             
         current_phase = "Unknown"
-        missing_documents = []
         target_agent = "@generalist"
         auth_msg = ""
 
@@ -359,7 +358,6 @@ selected_branch MUST be exactly one of: {valid_keys}
             "target_agent": target_agent,
             "target_skill": target_skill,
             "agent_invokes_skill": agent_invokes_skill,
-            "missing_documents": missing_documents,
             "auth_msg": auth_msg,
             "manifest_state": {
                 "designs_found": active_designs,

@@ -24,18 +24,15 @@ def _render_business(business: dict) -> str:
     return block + "\n"
 
 
-def build_context(phase: str, target_agent: str, auth_msg: str, branch: str, missing_documents: list[str], manifest_state: dict = None, business: dict = None, search_first_pending: bool = False, session_id: str = None) -> str:
+def build_context(phase: str, target_agent: str, auth_msg: str, branch: str, manifest_state: dict = None, business: dict = None, search_first_pending: bool = False, session_id: str = None) -> str:
     if phase == "Unknown":
         return ""
-
-    documents_str = ', '.join(missing_documents) if missing_documents else 'None'
 
     system_state = (
         f"\n\n=== SYSTEM STATE ===\n"
         f"Active Branch: {branch}\n"
         f"Current Phase: {phase}\n"
         f"Target Agent: {target_agent}\n"
-        f"Missing Documents: {documents_str}\n"
         f"Authorization: {auth_msg}\n"
     )
 

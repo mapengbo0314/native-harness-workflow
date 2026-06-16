@@ -7,14 +7,12 @@ def test_build_context_base():
         target_agent="@generalist",
         auth_msg="Authorized",
         branch="A",
-        missing_documents=["docs/plan.md"]
     )
-    
+
     assert "=== SYSTEM STATE ===" in result
     assert "Active Branch: A" in result
     assert "Current Phase: 1 (Discovery)" in result
     assert "Target Agent: @generalist" in result
-    assert "Missing Documents: docs/plan.md" in result
     assert "Authorization: Authorized" in result
     assert "JIT RULE:" not in result
 
@@ -26,7 +24,6 @@ def test_build_context_planning_no_ddd_jit():
         target_agent="@generalist",
         auth_msg="Authorized",
         branch="B",
-        missing_documents=[]
     )
 
     assert "=== SYSTEM STATE ===" in result
@@ -40,9 +37,8 @@ def test_build_context_execution_jit():
         target_agent="@implementer",
         auth_msg="Authorized",
         branch="C",
-        missing_documents=[]
     )
-    
+
     assert "=== SYSTEM STATE ===" in result
     assert "JIT RULE: You MUST strictly follow Test-Driven Development (TDD). Write the failing test first." in result
 
@@ -52,21 +48,20 @@ def test_build_context_unknown_phase():
         target_agent="@generalist",
         auth_msg="",
         branch="Unknown",
-        missing_documents=[]
     )
-    
+
     assert result == ""
 
-def test_build_context_no_missing_artifacts():
+def test_build_context_no_missing_documents_line():
+    # M10: the vestigial "Missing Documents" line (always "None") was removed.
     result = build_context(
         phase="2 (Design)",
         target_agent="@generalist",
         auth_msg="",
         branch="A",
-        missing_documents=[]
     )
 
-    assert "Missing Documents: None" in result
+    assert "Missing Documents" not in result
 
 
 _BIZ = {
@@ -79,7 +74,7 @@ _BIZ = {
 def test_business_injected_on_planning_and_question_branches(branch):
     result = build_context(
         phase="3 (Planning)", target_agent="@planner", auth_msg="",
-        branch=branch, missing_documents=[], business=_BIZ,
+        branch=branch, business=_BIZ,
     )
     assert 'Product direction (domain_ops "business")' in result
     assert "Win SMB invoicing on correctness" in result
@@ -90,7 +85,7 @@ def test_business_injected_on_planning_and_question_branches(branch):
 def test_business_absent_on_other_branches(branch):
     result = build_context(
         phase="4 (Execution)", target_agent="@implementer", auth_msg="",
-        branch=branch, missing_documents=[], business=_BIZ,
+        branch=branch, business=_BIZ,
     )
     assert "Product direction" not in result
 
@@ -98,7 +93,7 @@ def test_business_absent_on_other_branches(branch):
 def test_business_empty_omitted_on_b():
     result = build_context(
         phase="3 (Planning)", target_agent="@planner", auth_msg="",
-        branch="B", missing_documents=[], business={},
+        branch="B", business={},
     )
     assert "Product direction" not in result
 
@@ -107,7 +102,7 @@ def test_business_render_is_capped():
     big = {"direction": "x" * 5000, "priorities": ["y" * 5000]}
     result = build_context(
         phase="3 (Planning)", target_agent="@planner", auth_msg="",
-        branch="B", missing_documents=[], business=big,
+        branch="B", business=big,
     )
     # the business block must be bounded (cap 600 + a little framing), not 10k.
     assert len(result) < 1200
@@ -126,7 +121,6 @@ def test_branch_b_with_gate_pending_shows_gate_line():
         target_agent="@planner",
         auth_msg="Authorized",
         branch="B",
-        missing_documents=[],
         search_first_pending=True,
     )
     assert "Search-First Gate: research_done NOT set" in result
@@ -140,7 +134,6 @@ def test_branch_b_without_gate_flag_has_no_gate_line():
         target_agent="@planner",
         auth_msg="Authorized",
         branch="B",
-        missing_documents=[],
         search_first_pending=False,
     )
     assert "Search-First Gate" not in result
@@ -154,7 +147,6 @@ def test_non_b_branch_never_shows_gate_line():
             target_agent="@implementer",
             auth_msg="Authorized",
             branch=branch,
-            missing_documents=[],
             search_first_pending=True,
         )
         assert "Search-First Gate" not in result, f"branch {branch} must not carry the gate line"
@@ -167,7 +159,6 @@ def test_gate_line_default_off_for_legacy_callers():
         target_agent="@planner",
         auth_msg="Authorized",
         branch="B",
-        missing_documents=[],
     )
     assert "Search-First Gate" not in result
 
@@ -180,7 +171,6 @@ def test_session_id_line_present_when_provided():
         target_agent="@planner",
         auth_msg="ok",
         branch="B",
-        missing_documents=[],
         session_id="conv-123",
     )
     assert "Session: conv-123" in result
@@ -192,6 +182,5 @@ def test_session_id_line_absent_when_not_provided():
         target_agent="@planner",
         auth_msg="ok",
         branch="B",
-        missing_documents=[],
     )
     assert "Session:" not in result
