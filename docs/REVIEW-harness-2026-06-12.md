@@ -4,11 +4,34 @@ Severity scale per `.claude/rules/harness/common/baseline.md`:
 **CRITICAL** = block | **HIGH** = should fix | **MEDIUM** = consider | **LOW** = optional.
 
 > **Resolution status — updated 2026-06-15** (branch `feat/ecc-feature-port`)
-> - ✅ **Resolved:** C1, C2, C3, C4 (all CRITICALs), H5, H6, H9, M1, M4, M6, M7 (docstrings), M9, all easy LOW (asserts, `_missing_verdict`), **H4, M10, H8**.
+> - ✅ **Resolved:** C1, C2, C3, C4 (all CRITICALs), H4, H5, H6, H8, H9, M1, M4, M6, M7 (docstrings), M9, M10, all easy LOW (asserts, `_missing_verdict`).
 > - 🟡 **Partial:** M7 (docstrings fixed; `base.py` S2-T3/T4 shim removal still open).
-> - ⬜ **Open:** H1–H3, H7, M2–M3, M5, M8, remaining LOW (F541, E402).
+> - ⬜ **Open / pending:** H1, H2, H3, H7, M2, M3, M5, M8, remaining LOW (F541, E402). See **"Pending work"** below.
 > - 🗑 **Corrected/retracted:** H8's "36 files" figure was stale. Path typos: `minting_engine.py` lives in `init/`, not `runtime/`.
 > Each item below is annotated inline. Verified by pyflakes + unit / integration / e2e+hooks suites.
+>
+> ### Pending work — what still needs fixing (and merge-safety)
+> **All CRITICALs are closed; everything pending is refactor / parity / polish, not a correctness or
+> security blocker.** PR #37 is mechanically mergeable as-is (CI green, no rebase needed). The open
+> items are latent duplication — they do **not** change how `src/harness` mints or routes today; the
+> live behavior is pinned byte-identical to canonical by `tests/unit/test_runtime_adapter.py` +
+> `test_multiplatform_parity.py` (80 green, verified 2026-06-15).
+>
+> | Item | What | Fix-risk | Guard |
+> |---|---|---|---|
+> | **H2** | `ClaudeAdapter.format_hook_response` is a hand-rolled copy of canonical `RuntimeAdapter("claude")` | **None** — delegation is a provable no-op; the byte-identity test already asserts the two are equal | `test_runtime_adapter.py` (green) |
+> | **H3** | Placeholder-rewrite loop copy-pasted 4× (gemini/codex/cursor/claude) | **Low, needs care** — copies are *similar not identical* (different target dirs / extension sets; Claude's also injects hooks). Helper must parametrize per call-site, not blind-merge | `test_multiplatform_parity.py` (checks minted output) |
+> | **H7** | `GenericAdapter.format_hook_response` drifts from the `generic` profile | **Real behavior change** — generic currently emits a *different shape* (`system_prompt_extension`, top-level `target_agent`, no dispatch logic). Making it profile-driven changes generic's output; **not** a pure refactor | ⚠️ **unpinned** — write a parity test BEFORE touching |
+> | **H1** | `cli.py:main` 412-line god function (+ `mint_workspace` 297, `run_update` 107) | Medium — large mechanical decomposition; behavior-preserving but wide blast radius | existing mint/update suites |
+> | **M2** | `cli.py` mid-file imports + import-time side effects (`load_dotenv`, langfuse, `@observe`) | Low — move bootstrap into a function | — |
+> | **M3** | `mint_workspace` walks tree twice; Pass 2 could skip files with no `@` lines | Low — perf only | mint suite |
+> | **M5** | `.claude/harness-wf-plugin` hardcoded ~6 places; thread `profile.domain_root_rel()` | Low | — |
+> | **M8** | *overstated* — net is a **one-line** `learning_input_*` add to `prune_old_session_files` for the kill-9 edge | Trivial, low value | — |
+> | **M7** (partial) | `base.py` S2-T3/T4 back-compat shim removal — real migration work | Medium | — |
+> | **LOW** | 8× F541 (f-strings, no placeholder), 7× E402 (imports not at top); YAML-comment loss on re-mint; langfuse v4 SDK; doc naming | Cosmetic | — |
+>
+> **Recommended next batch:** H2 + H3 (lowest-risk, both guarded). H7 needs a parity test written first;
+> H1 is the larger decomposition to schedule on its own.
 
 ---
 
