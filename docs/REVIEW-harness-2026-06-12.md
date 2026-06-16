@@ -141,9 +141,16 @@ the index. Key findings for future reference:
 - The default config didn't exclude the deployed `.claude/harness-wf-plugin/` mirror or
   vendored `benchmark/`, so every hook was double-indexed. Added `**/.claude/**` +
   `**/benchmark/**` to `.codegraph/config.json` excludes → 347→**225 files**, no dup symbols.
-- **MCP retrieval never auto-reindexes** (the server just reads the static DB). The
-  package's auto-update path is the hook pair `mark-dirty` + `sync-if-dirty`, which is
-  **not wired** in this repo's settings — worth adding so the index self-maintains.
+- **ROOT CAUSE of the staleness (corrected 2026-06-15): this env runs a stale npx-cached
+  codegraph `0.6.8`, which predates the autosync file-watcher.** Latest is `1.0.1`; the
+  `0.9.x`/`1.0.x` line adds native-FSEvents auto-sync ("the index is never stale, nothing to
+  re-run"). 0.6.8 has no watcher dep, no autosync code — so the index only updates on a manual
+  `index`/`sync`, and only `index --force` GCs deletions. Two `serve --mcp` processes were live,
+  one orphaned from Jun 4.
+- **Real fix:** update codegraph (clear `~/.npm/_npx` cache or pin `@colbymchenry/codegraph@latest`
+  in `.mcp.json`; kill the stale Jun-4 `serve`). On ≥0.9 the watcher keeps the graph current and
+  the manual `index --force` above becomes unnecessary. The additive-`sync` / `index --force`
+  notes apply **only to the pinned 0.6.8**.
 
 
 **CORRECTED:** the "**36 files**" figure was itself stale — the index has since been re-indexed
