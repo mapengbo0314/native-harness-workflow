@@ -226,8 +226,12 @@ def is_dangerous_rm_command(command):
         if re.search(pattern, normalized):
             return True
             
+    # Anchored so a slash or dot inside an ordinary relative target
+    # (``build/dist``, ``my.folder``) is not mistaken for ``/`` or bare ``.``
+    # (review 2026-06-12 M6). ``(?:^|\s)/`` still catches any absolute path.
     dangerous_paths = [
-        r'/', r'/\*', r'~', r'~/', r'\$HOME', r'\.\.', r'\*', r'\.', r'\.\s*$'
+        r'(?:^|\s)/', r'/\*', r'~', r'~/', r'\$HOME', r'\.\.', r'\*',
+        r'(?:^|\s)\.(?:\s|$)', r'\.\s*$'
     ]
     
     if re.search(r'\brm\s+.*-[a-z]*r', normalized):

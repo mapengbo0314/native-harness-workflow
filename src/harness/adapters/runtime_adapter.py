@@ -11,9 +11,8 @@ Design rules:
 
 Behavior contracts:
   ``format_hook_response`` and ``get_subagent_text_call`` are byte-identical to
-  the canonical harness.adapters.{claude,gemini} adapters and the existing
-  standalone runtime/platform_adapter_{claude,gemini}.py files.  The drift guard
-  (tests/integration/test_adapter_drift_guard.py) pins this.
+  the canonical harness.adapters.{claude,gemini} adapters.  The parity guard
+  (tests/unit/test_runtime_adapter.py) pins this.
 
   Claude-specific logic preserved:
     - Agent-only branch: ``generalist`` → ``general-purpose`` remap

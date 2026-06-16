@@ -187,7 +187,7 @@ def plan_update(
             continue
 
         if not disk.exists():
-            results.append(FileVerdict(relpath, _missing_verdict(cls), cls))
+            results.append(FileVerdict(relpath, "restore-missing", cls))
             continue
 
         we_changed = hash_file(src) != entry.get("source_hash")
@@ -198,10 +198,6 @@ def plan_update(
         results.append(FileVerdict(relpath, v, cls))
 
     return results
-
-
-def _missing_verdict(cls: str) -> str:
-    return "restore-missing"
 
 
 def apply_update(

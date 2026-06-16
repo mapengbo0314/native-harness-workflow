@@ -1,1 +1,1 @@
-"""Harness in-place update subsystem (detection layer)."""
+"""Harness in-place update subsystem (detection, apply, journal, conflict, migration)."""

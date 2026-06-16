@@ -360,7 +360,7 @@ def perform_smart_merge(existing_path: Path, staged_path: Path):
                     if new_content != staged_content:
                         with open(staged_file, 'w', encoding='utf-8') as f:
                             f.write(new_content)
-                except (UnicodeDecodeError, Exception) as e:
+                except Exception as e:
                     print(f"Skipping merge for {rel_path}: {e}")
 
     # 2. Preserve custom files from existing that are NOT in staged

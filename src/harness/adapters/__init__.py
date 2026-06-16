@@ -28,7 +28,8 @@ def get_builder(platform: str) -> PlatformBuilder:
     """
     cls = _REGISTRY.get(platform.lower(), _DEFAULT_CLASS)
     instance = cls()
-    assert isinstance(instance, PlatformBuilder)
+    if not isinstance(instance, PlatformBuilder):
+        raise TypeError(f"{cls.__name__} does not implement PlatformBuilder")
     return instance
 
 
@@ -40,7 +41,8 @@ def get_runtime_adapter(platform: str) -> RuntimeAdapter:
     """
     cls = _REGISTRY.get(platform.lower(), _DEFAULT_CLASS)
     instance = cls()
-    assert isinstance(instance, RuntimeAdapter)
+    if not isinstance(instance, RuntimeAdapter):
+        raise TypeError(f"{cls.__name__} does not implement RuntimeAdapter")
     return instance
 
 

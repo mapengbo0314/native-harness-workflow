@@ -4,10 +4,11 @@ Severity scale per `.claude/rules/harness/common/baseline.md`:
 **CRITICAL** = block | **HIGH** = should fix | **MEDIUM** = consider | **LOW** = optional.
 
 > **Resolution status — updated 2026-06-14** (branch `feat/ecc-feature-port`)
-> - ✅ **Resolved:** C1, C2, C3, C4 (all CRITICALs), H5, H6, H9, M1.
-> - 🟡 **Partial:** M10 (read-key contract fixed via C2; `missing_documents` still never populated).
-> - ⬜ **Open:** H1–H4, H7–H8, M2–M9, all LOW.
-> Each item below is annotated inline. Verified by pyflakes (clean) + unit/integration/e2e suites.
+> - ✅ **Resolved:** C1, C2, C3, C4 (all CRITICALs), H5, H6, H9, M1, **M4, M6, M7 (docstrings), M9, all easy LOW (asserts, `_missing_verdict`)**.
+> - 🟡 **Partial:** M10 (read-key contract fixed via C2; `missing_documents` still never populated). M7 (docstrings fixed; `base.py` S2-T3/T4 shim removal still open).
+> - ⬜ **Open:** H1–H4, H7, M2–M3, M5, M8, remaining LOW (F541, E402).
+> - 🗑 **Corrected/retracted:** H8 (the "36 files" figure was stale — index now reports 188; ghost.py-staleness sub-point kept). Path typos: `minting_engine.py` lives in `init/`, not `runtime/`.
+> Each item below is annotated inline. Verified by pyflakes + unit (1013) / integration (50) suites.
 
 ---
 
@@ -124,9 +125,15 @@ extra `target_agent` key) differs from what `RuntimeAdapter("generic")` emits at
 mint-vs-runtime divergence is real and unpinned. Make GenericAdapter profile-driven and add it
 to the parity matrix (or document why generic is exempt).
 
-### H8. Codegraph index is stale and lying
-The index reports 36 files including `update/ghost.py` (deleted) while missing `domain/`,
-`init/rtk.py`, `init/features.py`, `runtime/fallback_keywords.py`, and several hooks. Anyone
+### 🗑 H8. Codegraph index is stale and lying — *partially retracted (2026-06-14)*
+**CORRECTED:** the "**36 files**" figure was itself stale — the index has since been re-indexed
+and now reports **188 files**, so the headline claim is no longer true. The underlying staleness
+sub-point still holds: codegraph still returns `update/ghost.py` (`split_ghost_injection`) even
+though that file is deleted on disk, and a `domain/` path query returns nothing despite the
+package existing. So: re-index is still worth wiring into a hook/CI step, but this is no longer a
+"36 files / missing domain/" situation. (Original text below, kept for history.)
+~~The index reports 36 files including `update/ghost.py` (deleted) while missing `domain/`,
+`init/rtk.py`, `init/features.py`, `runtime/fallback_keywords.py`, and several hooks.~~ Anyone
 following the project's "graph-first" rule gets wrong answers. Re-index, and consider wiring
 the re-index into a hook or CI step.
 
@@ -173,8 +180,11 @@ Pass 1 and Pass 2 each re-walk and rewrite. Fine at current scale, but each file
 even when unchanged. Single walk with both passes per file is not possible (cross-file include
 ordering — documented), but Pass 2 could skip files with no `@` lines cheaply.
 
-### M4. `perform_smart_merge` catch `(UnicodeDecodeError, Exception)` — redundant tuple
-`minting_engine.py:368`. `Exception` already covers it; the tuple suggests an intent to handle
+### ✅ M4. `perform_smart_merge` catch `(UnicodeDecodeError, Exception)` — redundant tuple
+**RESOLVED (2026-06-14):** collapsed to `except Exception as e` (`init/minting_engine.py:363` —
+the review's `runtime/...:368` path/line was off). The deeper "silently downgrades merge
+failures to a Skipping-merge print" concern is left as-is (out of easy-fix scope).
+~~`minting_engine.py:368`.~~ `Exception` already covers it; the tuple suggests an intent to handle
 decode errors specially that never materialized. Also the bare `except Exception` around
 merges silently downgrades real merge failures to a "Skipping merge" print.
 
@@ -184,20 +194,23 @@ merges silently downgrades real merge failures to a "Skipping merge" print.
 through instead — anyone renaming the plugin dir via the profile today would break these
 call sites silently.
 
-### M6. `pre_tool_use.is_dangerous_rm_command` over-blocks
-`dangerous_paths` includes `r'/'` and `r'\.'` — any `rm -r <path>` containing a slash or dot
-(i.e. virtually all of them) is blocked, making the earlier fine-grained patterns dead code.
-If "block all recursive rm" is the intent, say so in one pattern; otherwise fix the path list
-(`r'\.'` was probably meant as "bare `.`" — `r'(?:^|\s)\.(?:\s|$)'`).
+### ✅ M6. `pre_tool_use.is_dangerous_rm_command` over-blocks
+**RESOLVED (2026-06-14):** anchored `r'/'`→`r'(?:^|\s)/'` (still catches any absolute path) and
+`r'\.'`→`r'(?:^|\s)\.(?:\s|$)'` (bare current dir only), so `rm -r build/dist` / `./build` /
+`my.folder` are no longer false-positives while `/`, `/etc`, `~`, `..`, `.` stay blocked. TDD
+test added: `tests/unit/test_pre_tool_use_dangerous_rm.py`. **Scope note:** the over-block only
+ever bit the non-force `rm -r` form — `rm -rf`/`rm -fr` short-circuit on the force-recursive
+patterns *before* the path list is consulted, so the path list was already dead for `-rf`.
+~~`dangerous_paths` includes `r'/'` and `r'\.'` — any `rm -r <path>` containing a slash or dot
+(i.e. virtually all of them) is blocked, making the earlier fine-grained patterns dead code.~~
 
-### M7. `update/__init__.py` docstring is stale
-Says "detection layer" — the package has long since grown apply/journal/conflict/migration.
-Similarly `runtime_adapter.py`'s docstring references
-`tests/integration/test_adapter_drift_guard.py`, which does not exist (the real pin is
-`tests/unit/test_runtime_adapter.py`), and `copy_runtime_modules`' docstring still says the
-per-platform standalone files "are NOT deleted here — deferred to S2-T7" — they're already
-deleted. The S2-T3/T4 migration shims in `base.py` (`generate_core_infrastructure` ↔
-`assemble_layout` mutual delegation in claude/gemini) should be finished and the shim removed.
+### 🟡 M7. `update/__init__.py` docstring is stale
+**PARTIAL (2026-06-14):** fixed the two stale docstrings — `update/__init__.py` now reads
+"(detection, apply, journal, conflict, migration)", and `runtime_adapter.py` now cites the real
+pin `tests/unit/test_runtime_adapter.py` (dropping the non-existent
+`test_adapter_drift_guard.py` and the deleted-standalone-files clause). **Still open:** the
+`copy_runtime_modules` S2-T7 docstring note and the S2-T3/T4 `base.py` shim removal — left for a
+follow-up since they entail real migration work, not a docstring edit.
 
 ### M8. `session_end.py` lockfile race + leaked payload files
 Between stale-detection (`unlink`) and re-create, another process can acquire; acceptable for
@@ -206,9 +219,10 @@ this use, but the `learning_input_<session>.json` payload files are never cleane
 `prune_old_session_files` doesn't match that pattern (`learning_input_*` ∉
 `budget_*/tdd_*/...`). Add the pattern to the prune list.
 
-### M9. `cli.py:run_domain_refresh_with_sync` triple-imports json under three names
-`import json as _json`, `import json as _jmod` in the same function plus module-level `json`.
-Symptom of the function doing too much (see H1); collapse.
+### ✅ M9. `cli.py:run_domain_refresh_with_sync` triple-imports json under three names
+**RESOLVED (2026-06-14):** dropped the `import json as _json` / `import json as _jmod` / local
+`import json` re-imports; all three sites now use the module-level `json`. (The function still
+does too much — see H1 — but the import smell is gone.)
 
 ### 🟡 M10. `evaluate_artifacts` computes `active_designs` but never returns them used
 **PARTIAL (2026-06-14):** the read-side contract mismatch is fixed (C2: classifier reads
@@ -223,9 +237,8 @@ remove the plumbing.
 
 ## LOW
 
-- `adapters/__init__.py:get_builder/get_runtime_adapter` use `assert isinstance(...)` for type
-  narrowing — asserts vanish under `python -O`; they're tautological anyway (all concretes
-  subclass `PlatformAdapter`). Drop or raise properly.
+- ✅ **RESOLVED (2026-06-14):** `adapters/__init__.py:get_builder/get_runtime_adapter` now
+  `raise TypeError(...)` instead of `assert isinstance(...)` — survives `python -O`.
 - `profile.py` docstring says "ZERO harness.* imports … copied standalone (S2-T6)" — true, but
   `runtime_adapter.py` imports it as `harness.adapters.profile`; the doc usage example shows
   the harness-package import. Fine, just keep the claim precise.
@@ -235,7 +248,8 @@ remove the plumbing.
   ruamel if comment preservation matters.
 - `langfuse_compat.update_current_trace` stuffs `session_id`/`tags` into metadata — v4 has
   first-class `update_current_trace(session_id=…)` on recent SDKs; revisit when bumping.
-- `_missing_verdict(cls)` in `updater.py` ignores its argument — placeholder; inline it.
+- ✅ **RESOLVED (2026-06-14):** `_missing_verdict(cls)` in `updater.py` inlined to the literal
+  `"restore-missing"`; the placeholder function is deleted.
 - 8 ruff F541 f-strings without placeholders; 7 E402 module-import-not-at-top.
 - Naming: `harness_features_tree.md` at repo root vs `docs/` for everything else.
 
@@ -254,13 +268,18 @@ remove the plumbing.
 | ✅ 29 unused imports / 6 redefinitions | repo-wide (ruff list) | **DONE** — cleared (M1, pyflakes-verified) |
 | `S2-T3/T4` back-compat shims (`generate_core_infrastructure`) | `base.py`, claude, gemini | Finish migration, delete shim |
 | ✅ Stale `__pycache__` for deleted modules; boilerplate `state/*.json` | filesystem | **DONE** — cleaned (H9) |
-| Stale codegraph index (lists deleted `ghost.py`, misses `domain/`) | `.codegraph/` | Re-index |
+| 🟡 Stale codegraph index (still lists deleted `ghost.py`) | `.codegraph/` | Re-index — note "36 files" claim was itself stale (now 188), see H8 |
 | `missing_documents` plumbing (always `[]`) | dispatcher → context_builder → classifier | Implement or remove |
+| ✅ Redundant `(UnicodeDecodeError, Exception)` tuple | `init/minting_engine.py:363` | **DONE** — collapsed (M4) |
+| ✅ `_missing_verdict` placeholder fn | `update/updater.py` | **DONE** — inlined + deleted (LOW) |
+| ✅ Triple `json` re-import | `cli.py:run_domain_refresh_with_sync` | **DONE** — collapsed to module-level (M9) |
+| ✅ Tautological `assert isinstance` | `adapters/__init__.py` | **DONE** — now `raise TypeError` (LOW) |
 
 ## Suggested fix order
 
 1. ✅ **C1–C4** (routing latency, contract-mismatch keys, dead validator retry, unbounded log) — **DONE 2026-06-14**.
 2. ✅ **H5 + H6 + M1** (delete unused import/module, ruff --fix) — **DONE 2026-06-14** (H5 + M1 + H9 + H6). H6 turned out non-trivial (test surface), executed carefully with an offline gate.
-3. **H2 + H3 + H4** (de-duplicate adapter logic) — guarded by the existing byte-identity tests.
-4. **H7 + H8 + H9** (generic parity, re-index, clean debris).
-5. **H1 + M2 + M9** (cli.py decomposition) — biggest refactor, do last with the e2e mint tests green.
+3. ✅ **Easy correctness/cleanup batch** (M4, M6, M9, M7-docstrings, asserts, `_missing_verdict`) — **DONE 2026-06-14**, TDD test for M6, unit (1013) + integration (50) green. H8 "36 files" retracted.
+4. **H2 + H3 + H4** (de-duplicate adapter logic) — guarded by the existing byte-identity tests.
+5. **H7 + H8** (generic parity, re-index).
+6. **H1 + M2** (cli.py decomposition) — biggest refactor, do last with the e2e mint tests green.

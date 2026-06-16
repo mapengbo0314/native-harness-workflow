@@ -287,7 +287,6 @@ def sync_rules_packs(project_path: str, *, plugin_root: Optional[Path] = None) -
         ``<project>/.claude/harness-wf-plugin``.
     """
     from harness.init.minting_engine import install_rules_packs
-    import json as _json
 
     project = Path(project_path)
     resolved_plugin_root = plugin_root or (project / ".claude" / "harness-wf-plugin")
@@ -297,7 +296,7 @@ def sync_rules_packs(project_path: str, *, plugin_root: Optional[Path] = None) -
     features_json = resolved_plugin_root / "features.json"
     if features_json.exists():
         try:
-            features = _json.loads(features_json.read_text(encoding="utf-8"))
+            features = json.loads(features_json.read_text(encoding="utf-8"))
         except Exception:
             features = {}
 
@@ -395,12 +394,11 @@ def run_domain_refresh_with_sync(
             return  # no manifest to update
 
         # Read features that sync_rules_packs just worked with
-        import json as _jmod
         features: dict = {}
         features_json = deployed_plugin / "features.json"
         if features_json.exists():
             try:
-                features = _jmod.loads(features_json.read_text(encoding="utf-8"))
+                features = json.loads(features_json.read_text(encoding="utf-8"))
             except Exception:
                 features = {}
 
@@ -513,7 +511,6 @@ def run_update(args) -> None:
     project = Path(args.project_path)
     
     # Auto-detect active platform
-    import json
     from harness.adapters.profile import load_profile, _DEFAULT_PROFILES_PATH
     
     detected_platform = getattr(args, "platform", None)
