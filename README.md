@@ -12,6 +12,19 @@ This repository relies on a robust **Orchestrator** mechanism equipped with pre-
 
 The Harness is distributed as a Python CLI tool designed to be installed locally.
 
+#### Prerequisites
+
+Before minting, make sure these are available on the machine that runs `harness-wf`:
+
+| Requirement | Why it's needed |
+|---|---|
+| **Python ≥ 3.10** | Runs the `harness-wf` CLI and the deployed hooks/MCP servers. |
+| **`uv`** (recommended) or `pip` | Installs the CLI. |
+| **Node.js + `npx`** | The `init` step registers the **CodeGraph** MCP as `npx -y @colbymchenry/codegraph` — without `npx` the graph tools won't load. |
+| **A `claude` *or* `gemini` CLI on `PATH`** | Required for **`domain-compile`** (it shells out to the LLM CLI to compile your reference docs into `domain.json`'s `business` section) and used by `init` to auto-register the MCP servers. Without it, `init` warns and you must register MCP manually, and `domain-compile` cannot run. |
+
+> **Install gotcha:** to *use* the tool against other repos, prefer `uv tool install .` (from the clone) over `uv pip install -e .` — an editable/`uv run`-from-inside-a-target-repo install can leave a **stale `harness-wf` shim** in that repo's venv that shadows your real CLI. Use the editable install only when hacking on the harness itself.
+
 First, clone this repository to your local machine:
 
 ```bash
@@ -93,6 +106,46 @@ harness-wf domain-refresh --project-path .
 `domain.json` is **user-owned**: re-running `init` never clobbers it and
 `harness-wf update` never touches it. Schema reference:
 [`.claude/docs/domain/domain.schema.md`](.claude/docs/domain/domain.schema.md).
+
+### End-to-end: minting a project correctly
+
+The full sequence to get a correctly-minted, fully-operational workspace. Run
+each from the **target** project root unless noted:
+
+```bash
+# 0. (once) install the CLI from the clone — see Prerequisites for the gotcha
+uv tool install .
+
+# 1. Mint: scaffolds the platform dir (.claude/ etc.), skills, hooks, registers
+#    the codegraph + domain MCP servers, and scaffolds domain.json (stack auto-detected).
+harness-wf init --project-path .
+
+# 2. Drop your product docs (PRD, direction, business goals) into the platform's
+#    reference dir so domain-compile has something to read.
+#    Claude mint -> .claude/docs/reference/   (.gemini/docs/reference/ for embedded platforms)
+
+# 3. Compile those docs into domain.json's `business` section.
+#    Needs a `claude` or `gemini` CLI on PATH. A failed compile never wipes a prior section.
+harness-wf domain-compile --project-path . --platform claude
+
+# 4. Fill the env / test / deploy / infra slots by hand in domain.json
+#    (they are scaffolded empty — domain-compile only writes `business`).
+
+# 5. Re-detect the stack after dependencies change. This ALSO re-syncs
+#    features.json and re-selects the language rules packs for the new stack.
+harness-wf domain-refresh --project-path .
+
+# 6. Restart / relaunch your CLI so the freshly-registered codegraph + domain
+#    MCP servers load. Verify domain_ops("stack") and a codegraph query both respond.
+```
+
+**Notes**
+- Steps 2–4 are the part `init` *cannot* do for you — `init` scaffolds an empty
+  `business` section; you supply the docs and run the compile.
+- `domain-init` / `domain-compile` / `domain-refresh` are **offline & plugin-scoped**
+  (no CodeGraph/npx needed); only `domain-compile` reaches out to the LLM CLI.
+- Re-run **step 3** whenever the product docs change and **step 5** whenever the
+  stack changes. Neither clobbers the hand-filled slots from step 4.
 
 ---
 
