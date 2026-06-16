@@ -147,10 +147,14 @@ the index. Key findings for future reference:
   re-run"). 0.6.8 has no watcher dep, no autosync code — so the index only updates on a manual
   `index`/`sync`, and only `index --force` GCs deletions. Two `serve --mcp` processes were live,
   one orphaned from Jun 4.
-- **Real fix:** update codegraph (clear `~/.npm/_npx` cache or pin `@colbymchenry/codegraph@latest`
-  in `.mcp.json`; kill the stale Jun-4 `serve`). On ≥0.9 the watcher keeps the graph current and
-  the manual `index --force` above becomes unnecessary. The additive-`sync` / `index --force`
-  notes apply **only to the pinned 0.6.8**.
+- **FIX APPLIED (2026-06-15):** the 0.6.8 came from a **global** npm install
+  (`/opt/homebrew/lib/node_modules/@colbymchenry/codegraph`) that npx preferred over the
+  registry — so clearing the npx cache alone would not have helped. Did: `npm i -g
+  @colbymchenry/codegraph@latest` (→ **1.0.1**), pinned `.mcp.json` to
+  `@colbymchenry/codegraph@1.0.1`, killed the orphaned Jun-4 `serve` (PID 40451), removed the
+  stale `_npx` cache. 1.0.1 ships `dist/sync/watcher.*` (native FSEvents) — autosync works, so
+  the manual `index --force` is no longer needed. **Action required: restart Claude Code** so the
+  live MCP (still 0.6.8 in memory) relaunches on 1.0.1.
 
 
 **CORRECTED:** the "**36 files**" figure was itself stale — the index has since been re-indexed
