@@ -3,12 +3,12 @@
 Severity scale per `.claude/rules/harness/common/baseline.md`:
 **CRITICAL** = block | **HIGH** = should fix | **MEDIUM** = consider | **LOW** = optional.
 
-> **Resolution status — updated 2026-06-14** (branch `feat/ecc-feature-port`)
-> - ✅ **Resolved:** C1, C2, C3, C4 (all CRITICALs), H5, H6, H9, M1, **M4, M6, M7 (docstrings), M9, all easy LOW (asserts, `_missing_verdict`)**.
-> - 🟡 **Partial:** M10 (read-key contract fixed via C2; `missing_documents` still never populated). M7 (docstrings fixed; `base.py` S2-T3/T4 shim removal still open).
-> - ⬜ **Open:** H1–H4, H7, M2–M3, M5, M8, remaining LOW (F541, E402).
-> - 🗑 **Corrected/retracted:** H8 (the "36 files" figure was stale — index now reports 188; ghost.py-staleness sub-point kept). Path typos: `minting_engine.py` lives in `init/`, not `runtime/`.
-> Each item below is annotated inline. Verified by pyflakes + unit (1013) / integration (50) suites.
+> **Resolution status — updated 2026-06-15** (branch `feat/ecc-feature-port`)
+> - ✅ **Resolved:** C1, C2, C3, C4 (all CRITICALs), H5, H6, H9, M1, M4, M6, M7 (docstrings), M9, all easy LOW (asserts, `_missing_verdict`), **H4, M10, H8**.
+> - 🟡 **Partial:** M7 (docstrings fixed; `base.py` S2-T3/T4 shim removal still open).
+> - ⬜ **Open:** H1–H3, H7, M2–M3, M5, M8, remaining LOW (F541, E402).
+> - 🗑 **Corrected/retracted:** H8's "36 files" figure was stale. Path typos: `minting_engine.py` lives in `init/`, not `runtime/`.
+> Each item below is annotated inline. Verified by pyflakes + unit / integration / e2e+hooks suites.
 
 ---
 
@@ -88,12 +88,19 @@ appears in `gemini.py:31-63`, `codex.py:39-57`, `cursor.py:39-57`, and (with add
 event_mappings=None)` helper in `adapters/base.py` or a shared module; the gemini event-name
 remap and Claude hooks-injection stay as the per-platform extras.
 
-### H4. Platform-choice digit map duplicated in 3 places
-`cli.py:_platform_name`, `minting_engine.py:45`, `minting_engine.py:179` all hold
+### ✅ H4. Platform-choice digit map duplicated in 3 places
+**RESOLVED (2026-06-15):** extracted leaf module `harness/init/platforms.py`
+(`PLATFORM_BY_DIGIT` + `platform_name_from_choice` + `harness_folder_from_choice`);
+`cli.py` and `minting_engine.py` now both import it. The folder map collapses to
+`"." + name` with an `.agents` fallback — proven behavior-identical to the old
+if/elif. (The review's `load_profile(name).config_dir` idea doesn't fit the
+`agents` alias, which has no profile; the leaf-module approach is simpler and
+cycle-free.) TDD: `tests/unit/test_platform_digit_map.py`.
+~~`cli.py:_platform_name`, `minting_engine.py:45`, `minting_engine.py:179` all hold
 `{"1": "gemini", "2": "claude", "3": "cursor", "4": "agents", "5": "codex"}` — and
 `cli.py:783-792` re-derives the same mapping a 4th time as if/elif for `harness_folder`
 (whose values duplicate `config_dir` from the profiles). One constant + lookup of
-`load_profile(name).config_dir` removes all four.
+`load_profile(name).config_dir` removes all four.~~
 
 ### ✅ H5. Unused import in `claude.py` is the *cause* of the documented circular import
 **RESOLVED (2026-06-14):** deleted the unused `generate_orchestrator_plugin` import from
@@ -125,7 +132,20 @@ extra `target_agent` key) differs from what `RuntimeAdapter("generic")` emits at
 mint-vs-runtime divergence is real and unpinned. Make GenericAdapter profile-driven and add it
 to the parity matrix (or document why generic is exempt).
 
-### 🗑 H8. Codegraph index is stale and lying — *partially retracted (2026-06-14)*
+### ✅ H8. Codegraph index is stale and lying — *resolved locally (2026-06-15)*
+**RESOLVED (local-only; `.codegraph/` is gitignored, nothing committed):** clean-rebuilt
+the index. Key findings for future reference:
+- **`sync`/`index` are additive — they do NOT garbage-collect nodes for deleted files.**
+  Only `index --force` rebuilds the node table and drops phantoms (`ghost.py`,
+  `test_update_ghost.py` are gone now).
+- The default config didn't exclude the deployed `.claude/harness-wf-plugin/` mirror or
+  vendored `benchmark/`, so every hook was double-indexed. Added `**/.claude/**` +
+  `**/benchmark/**` to `.codegraph/config.json` excludes → 347→**225 files**, no dup symbols.
+- **MCP retrieval never auto-reindexes** (the server just reads the static DB). The
+  package's auto-update path is the hook pair `mark-dirty` + `sync-if-dirty`, which is
+  **not wired** in this repo's settings — worth adding so the index self-maintains.
+
+
 **CORRECTED:** the "**36 files**" figure was itself stale — the index has since been re-indexed
 and now reports **188 files**, so the headline claim is no longer true. The underlying staleness
 sub-point still holds: codegraph still returns `update/ghost.py` (`split_ghost_injection`) even
@@ -212,23 +232,28 @@ pin `tests/unit/test_runtime_adapter.py` (dropping the non-existent
 `copy_runtime_modules` S2-T7 docstring note and the S2-T3/T4 `base.py` shim removal — left for a
 follow-up since they entail real migration work, not a docstring edit.
 
-### M8. `session_end.py` lockfile race + leaked payload files
-Between stale-detection (`unlink`) and re-create, another process can acquire; acceptable for
-this use, but the `learning_input_<session>.json` payload files are never cleaned up if
-`extract_skills.py` crashes before deleting them (verify it does at all), and
-`prune_old_session_files` doesn't match that pattern (`learning_input_*` ∉
-`budget_*/tdd_*/...`). Add the pattern to the prune list.
+### M8. `session_end.py` lockfile race + leaked payload files — *partly overstated (adversary 2026-06-15)*
+**CORRECTION:** the "never cleaned up if `extract_skills.py` crashes" claim is mostly false —
+`extract_skills.py` unlinks the payload in a `finally:` block, so normal exceptions are covered.
+The only leak path is a hard SIGKILL/power-loss before the `finally`. **True sub-point:**
+`prune_old_session_files` (prunes `session_memory_*`, `budget_*`, `tdd_*`, `*.tmp`,
+`*.budget-tmp`) doesn't include `learning_input_*`. Net: a **one-line** belt-and-suspenders add
+for the kill-9 edge — low value, not the hygiene bug it was framed as.
+~~the `learning_input_<session>.json` payload files are never cleaned up if
+`extract_skills.py` crashes before deleting them.~~
 
 ### ✅ M9. `cli.py:run_domain_refresh_with_sync` triple-imports json under three names
 **RESOLVED (2026-06-14):** dropped the `import json as _json` / `import json as _jmod` / local
 `import json` re-imports; all three sites now use the module-level `json`. (The function still
 does too much — see H1 — but the import smell is gone.)
 
-### 🟡 M10. `evaluate_artifacts` computes `active_designs` but never returns them used
-**PARTIAL (2026-06-14):** the read-side contract mismatch is fixed (C2: classifier reads
-`missing_documents`), so the value now flows correctly. The deeper finding stands —
-`missing_documents` is still always `[]` because nothing populates it; decide implement vs.
-remove the plumbing.
+### ✅ M10. `evaluate_artifacts` computes `active_designs` but never returns them used
+**RESOLVED (2026-06-15):** decided **remove** (always-empty field shown to the agent every
+prompt). Stripped the `missing_documents` plumbing across dispatcher → classifier →
+context_builder, including the `build_context` param, the SYSTEM STATE line, and the matching
+"Artifacts Missing" line in the classifier's degraded fallback. Tests pin the field's absence.
+(`designs_found`/`active_designs` left as-is — separate field, out of scope.)
+Read-side contract was already fixed by C2.
 `dispatcher.py:300-312` scans `docs/designs` and `docs/progress`, but only `manifest_state`
 carries them and `context_builder` only renders `progress_found` (B branch). `designs_found`
 is rendered only by the classifier's *degraded* fallback path. Also `missing_documents` is
@@ -263,13 +288,13 @@ remove the plumbing.
 | ✅ `acquire_mcp_context`, `fetch_skill`, `fetch_remote_skill`, dup `TemplateRenderer` | `init/discovery_engine.py` | **DONE** — module deleted, dropped from `RUNTIME_FILE_MAP`, tests repointed (H6) |
 | Claude copy of `format_hook_response` | `adapters/claude.py:227-276` | Replace with delegation to `RuntimeAdapter("claude")` |
 | 4× placeholder-rewrite loops | gemini/codex/cursor/claude adapters | Extract shared helper |
-| 3× platform digit maps + if/elif folder map | `cli.py`, `minting_engine.py` ×2 | One constant |
+| ✅ 3× platform digit maps + if/elif folder map | `cli.py`, `minting_engine.py` ×2 | **DONE** — extracted `init/platforms.py` (H4) |
 | ✅ Dead validate-retry branch | `cli.py:159-168` | **DONE** — deleted (C3) |
 | ✅ 29 unused imports / 6 redefinitions | repo-wide (ruff list) | **DONE** — cleared (M1, pyflakes-verified) |
 | `S2-T3/T4` back-compat shims (`generate_core_infrastructure`) | `base.py`, claude, gemini | Finish migration, delete shim |
 | ✅ Stale `__pycache__` for deleted modules; boilerplate `state/*.json` | filesystem | **DONE** — cleaned (H9) |
-| 🟡 Stale codegraph index (still lists deleted `ghost.py`) | `.codegraph/` | Re-index — note "36 files" claim was itself stale (now 188), see H8 |
-| `missing_documents` plumbing (always `[]`) | dispatcher → context_builder → classifier | Implement or remove |
+| ✅ Stale codegraph index (listed deleted `ghost.py`) | `.codegraph/` | **DONE (local)** — `index --force` + exclude mirror/benchmark, 347→225 files (H8) |
+| ✅ `missing_documents` plumbing (always `[]`) | dispatcher → context_builder → classifier | **DONE** — removed (M10) |
 | ✅ Redundant `(UnicodeDecodeError, Exception)` tuple | `init/minting_engine.py:363` | **DONE** — collapsed (M4) |
 | ✅ `_missing_verdict` placeholder fn | `update/updater.py` | **DONE** — inlined + deleted (LOW) |
 | ✅ Triple `json` re-import | `cli.py:run_domain_refresh_with_sync` | **DONE** — collapsed to module-level (M9) |
@@ -280,6 +305,7 @@ remove the plumbing.
 1. ✅ **C1–C4** (routing latency, contract-mismatch keys, dead validator retry, unbounded log) — **DONE 2026-06-14**.
 2. ✅ **H5 + H6 + M1** (delete unused import/module, ruff --fix) — **DONE 2026-06-14** (H5 + M1 + H9 + H6). H6 turned out non-trivial (test surface), executed carefully with an offline gate.
 3. ✅ **Easy correctness/cleanup batch** (M4, M6, M9, M7-docstrings, asserts, `_missing_verdict`) — **DONE 2026-06-14**, TDD test for M6, unit (1013) + integration (50) green. H8 "36 files" retracted.
-4. **H2 + H3 + H4** (de-duplicate adapter logic) — guarded by the existing byte-identity tests.
-5. **H7 + H8** (generic parity, re-index).
-6. **H1 + M2** (cli.py decomposition) — biggest refactor, do last with the e2e mint tests green.
+4. ✅ **H4 + M10 + H8** (digit-map dedup, remove missing_documents, codegraph clean-rebuild) — **DONE 2026-06-15**, TDD for H4/M10, unit+integration 1076 / e2e+hooks 317 green.
+5. **H2 + H3** (de-duplicate adapter logic) — guarded by the existing byte-identity tests.
+6. **H7** (generic parity); optionally wire codegraph `mark-dirty`/`sync-if-dirty` hooks.
+7. **H1 + M2** (cli.py decomposition) — biggest refactor, do last with the e2e mint tests green.
