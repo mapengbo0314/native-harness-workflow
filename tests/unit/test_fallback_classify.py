@@ -45,19 +45,35 @@ def test_category_A(classify, prompt):
     assert classify(prompt) == "A", f"Expected A for: {prompt!r}"
 
 
-# --- Category B: Implementation / new feature ---
+# --- Category B: genuinely open design work (F4 bias-to-D: B is reserved) ---
+
+@pytest.mark.parametrize("prompt", [
+    "design the database schema for the new invoicing module",
+    "plan the migration strategy for the user data move",
+    "what architecture should the new billing system use",
+    "brainstorm approaches to caching the search results",
+])
+def test_category_B(classify, prompt):
+    assert classify(prompt) == "B", f"Expected B for: {prompt!r}"
+
+
+# --- Category D: implement-style prompts (F4 proportionality: bias-to-D) ---
+# These previously classified B; the search-first proportionality guard sends
+# concrete, scoped implementation requests to D so they are not dragged
+# through the research/planning pipeline.  D's pre-flight asks 1-2 clarifying
+# questions when context is missing instead of escalating to B.
 
 @pytest.mark.parametrize("prompt", [
     "implement the CSV export feature",
     "add a dark mode toggle to the settings page",
     "build a rate limiter for the API",
-    "design the database schema for the new invoicing module",
     "write a script to migrate user data to the new format",
     "create a webhook handler for Stripe events",
     "add pagination to the repos endpoint",
+    "rename the helper module",
 ])
-def test_category_B(classify, prompt):
-    assert classify(prompt) == "B", f"Expected B for: {prompt!r}"
+def test_category_D_bias(classify, prompt):
+    assert classify(prompt) == "D", f"Expected D for: {prompt!r}"
 
 
 # --- Category C: Explanation / navigation ---

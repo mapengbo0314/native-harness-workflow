@@ -17,6 +17,7 @@ Usage:
 
 from __future__ import annotations
 
+import functools
 import json
 import dataclasses
 from pathlib import Path
@@ -93,6 +94,22 @@ class PlatformProfile:
             .replace("{description}", description)
         )
 
+    def domain_root_rel(self) -> str:
+        """The deployed root (relative to the project root) that holds the
+        domain MCP's ``domain/`` and ``src/`` payload.
+
+        - plugin platforms (claude): ``<config_dir>/<plugin_dir_name>``
+          (e.g. ``.claude/harness-wf-plugin``).
+        - embedded platforms (gemini/cursor/codex/generic): ``<config_dir>``
+          (e.g. ``.gemini``).
+
+        DOMAIN_JSON_PATH = ``<root>/domain/domain.json`` and
+        PYTHONPATH = ``<root>/src`` are derived from this.
+        """
+        if self.supports_plugin and self.plugin_dir_name:
+            return f"{self.config_dir}/{self.plugin_dir_name}"
+        return self.config_dir
+
     def subagent_text_call(self, agent: str, skill: Optional[str] = None) -> str:
         """
         Format the subagent text-call template.
@@ -124,6 +141,9 @@ def load_profile(
     """
     Load and validate the profile for *platform* from platform_profiles.json.
 
+    Cached per (platform, path): adapters call this from nearly every getter,
+    so the JSON is read and validated once per process, not per call.
+
     Args:
         platform: Platform key (e.g. "claude", "gemini", "codex", "cursor", "generic").
         _profiles_path: Override the JSON path (for testing with synthetic data).
@@ -136,7 +156,11 @@ def load_profile(
         ProfileError: If a required key is absent from the platform's entry.
     """
     profiles_path = _profiles_path if _profiles_path is not None else _DEFAULT_PROFILES_PATH
+    return _load_profile_cached(platform, str(profiles_path))
 
+
+@functools.lru_cache(maxsize=None)
+def _load_profile_cached(platform: str, profiles_path: str) -> PlatformProfile:
     with open(profiles_path, encoding="utf-8") as fh:
         data: dict = json.load(fh)
 

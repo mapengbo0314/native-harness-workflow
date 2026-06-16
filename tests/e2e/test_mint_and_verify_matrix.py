@@ -109,8 +109,12 @@ _HOOK_ENV_VAR: dict[str, str] = {
 # all four Claude keys to BeforeAgent/BeforeTool/AfterTool/PreCompress.
 # (Gemini deep-research pass, June 2026 — see .claude/docs/platform-support.md.)
 _EXPECTED_HOOK_EVENTS: dict[str, set[str]] = {
-    "claude": {"UserPromptSubmit", "PreCompact", "PreToolUse", "PostToolUse"},
-    "gemini": {"BeforeAgent", "BeforeTool", "AfterTool", "PreCompress"},
+    "claude": {
+        "UserPromptSubmit", "PreCompact", "PreToolUse", "PostToolUse",
+        # Phase 2 (ECC): session memory hooks
+        "Stop", "SessionStart", "SessionEnd",
+    },
+    "gemini": {"BeforeAgent", "BeforeTool", "AfterTool", "PreCompress", "SessionEnd"},
 }
 
 # Minimum set of skill directories expected in skills/
@@ -796,14 +800,9 @@ _SCENARIO_IDS: list[str] = [s.get("name", "unknown") for s in _ASSERTABLE_SCENAR
 # classifier behavior.  Each entry: (scenario_name, reason).
 # These are marked xfail(strict) so the test suite documents the gap without
 # silently suppressing it.  Fix the routing classifier — not these entries.
-_KNOWN_ROUTING_MISMATCHES: dict[str, str] = {
-    "example_routing_miss": (
-        "BUG-2: keyword classifier routes 'Rename X to Y everywhere' to branch B "
-        "(default / feature) but expected_behavior declares branch D (code edit / TDD). "
-        "The D-branch keyword list lacks rename/refactor patterns. "
-        "Fix: extend classifier keywords before removing this xfail."
-    ),
-}
+# BUG-2 ('Rename X to Y everywhere' → B instead of D) was FIXED by Phase 6a's
+# shared fallback-keyword table (rename/refactor now route D) — entry removed.
+_KNOWN_ROUTING_MISMATCHES: dict[str, str] = {}
 
 
 def _make_routing_scenario_params() -> list[Any]:

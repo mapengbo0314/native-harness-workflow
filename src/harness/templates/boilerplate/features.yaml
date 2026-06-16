@@ -1,0 +1,41 @@
+# Harness feature toggles — operator-editable surface.
+#
+# Edit this file to enable or disable ECC-ported capabilities, then run:
+#   harness-wf features sync
+#
+# The compiled features.json is machine-read by the deployed hooks.
+# Do NOT hand-edit features.json — it will be overwritten on the next sync.
+#
+# All values default to true (fail-open).  Set a value to false to disable.
+
+rules_packs:
+  # Enable the rules-packs capability (language-specific rule sets).
+  enabled: true
+  languages:
+    # Per-language toggles may be added here freely, e.g.:
+    # python: true
+    # typescript: true
+
+services:
+  session_memory:
+    # Persist session context across prompts.
+    enabled: true
+
+hooks:
+  session_end:
+    # Extract learnings at end of session and store them for future sessions.
+    learning_extraction: true
+
+pipeline:
+  dispatcher:
+    gates:
+      # Require a search step before dispatching implementation tasks.
+      search_first: true
+      # Enable the adversary exit gate in the pipeline.
+      adversary_exit: true
+
+skills:
+  # ECC-ported skill toggles.
+  continuous-learning: true
+  search-first: true
+  adversary-pipeline: true

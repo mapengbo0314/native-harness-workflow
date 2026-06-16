@@ -263,7 +263,10 @@ class TestTask44MockInputProcessing:
 
         # Test various inputs
         assert prompt_classifier.fallback_classify("fix the bug") == "A"
-        assert prompt_classifier.fallback_classify("implement new feature") == "B"
+        # Bias-to-D (F4 proportionality): implement-style prompts route to
+        # direct implementation, not the Branch-B planning pipeline.
+        assert prompt_classifier.fallback_classify("implement new feature") == "D"
+        assert prompt_classifier.fallback_classify("design a new architecture") == "B"
         assert prompt_classifier.fallback_classify("how does this work") == "C"
         assert prompt_classifier.fallback_classify("random text") == "E"
 

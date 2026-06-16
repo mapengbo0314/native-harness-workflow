@@ -3,11 +3,8 @@ import json
 import os
 import shutil
 import time
-import re
-import subprocess
-import sys
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Tuple, Union
 from dotenv import load_dotenv
 from langfuse import observe
 from harness.runtime.langfuse_compat import langfuse_context
@@ -69,14 +66,31 @@ def get_active_platform_and_model(starting_dir: str = ".") -> Tuple[str, str]:
 
 try:
     import harness.runtime.llm_client as _llm_client_module
-    from harness.runtime.llm_client import query_llm
+    from harness.runtime.llm_client import query_llm, LLMConfigError
 except (ImportError, ValueError):
     try:
         from . import llm_client as _llm_client_module
-        from .llm_client import query_llm
+        from .llm_client import query_llm, LLMConfigError
     except (ImportError, ValueError):
         _llm_client_module = None
         query_llm = None
+
+        class LLMConfigError(Exception):
+            """Fallback when llm_client is unavailable; never raised here."""
+
+
+def keyword_fast_path(prompt: str) -> Dict[str, str]:
+    """Keyword fallback classification via the shared table (Phase 6a, M2:
+    module-level so the parity test exercises it without the LLM path).
+
+    Consumes src/harness/runtime/fallback_keywords.py — the same module the
+    deployed prompt_classifier fallback reads (slice-rewritten at mint).
+    """
+    from harness.runtime.fallback_keywords import classify, DEFAULT_BRANCH
+    branch = classify(prompt)
+    if branch == DEFAULT_BRANCH:
+        return {"branch": branch, "justification": "Keyword match: no technical intent detected."}
+    return {"branch": branch, "justification": f"Keyword match: branch {branch} keywords."}
 
 
 class OrchestratorDispatcher:
@@ -86,9 +100,9 @@ class OrchestratorDispatcher:
 
     BRANCHES = {
         "A": "Bug Fix / Diagnosis (stack trace, error, broken, bug, why is X failing)",
-        "B": "Feature Request & Architectural Planning (build, create, implement, add feature, new)",
+        "B": "Open-Ended Design & Architectural Planning (design, architecture, plan, brainstorm — genuinely open solution space)",
         "C": "Codebase Questioning & Knowledge Retrieval (how does, where is, what is, explain, why does)",
-        "D": "Code Edit / TDD Required (any code change: rename, refactor, new function, fix, update)",
+        "D": "Code Edit / TDD Required (concrete scoped changes: implement, add, create, rename, refactor, fix, update)",
         "E": "No Technical Intent (conversational, greetings, vague messages with zero actionable intent)",
     }
 
@@ -145,6 +159,29 @@ class OrchestratorDispatcher:
                 return json.load(f)
         return {"rules": {}}
 
+    # How long a "LLM is misconfigured" verdict suppresses retries (seconds).
+    LLM_HEALTH_TTL_SECONDS = 300
+
+    def _llm_health_path(self) -> Path:
+        return self.config_dir.parent / "state" / "llm_health.json"
+
+    def _llm_recently_broken(self) -> bool:
+        """True if a deterministic LLM failure was recorded within the TTL."""
+        try:
+            data = json.loads(self._llm_health_path().read_text(encoding="utf-8"))
+            return (time.time() - float(data.get("broken_at", 0))) < self.LLM_HEALTH_TTL_SECONDS
+        except (FileNotFoundError, ValueError, OSError):
+            return False
+
+    def _mark_llm_broken(self) -> None:
+        """Persist the broken-LLM verdict so other prompts in the window skip it."""
+        path = self._llm_health_path()
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps({"broken_at": time.time()}), encoding="utf-8")
+        except OSError:
+            pass
+
     @observe(name="classify_intent", as_type="span")
     def classify_intent(self, prompt: str) -> Dict[str, str]:
         """Classify user intent into Matrix Routing Branches A/B/C/D.
@@ -159,7 +196,7 @@ class OrchestratorDispatcher:
             elif shutil.which("gemini"):
                 cli_name = "gemini"
 
-        if query_llm and cli_name:
+        if query_llm and cli_name and not self._llm_recently_broken():
             branch_menu = "\n".join(f"  {k} - {v}" for k, v in self.BRANCHES.items())
             valid_keys = list(self.BRANCHES.keys())
             classification_prompt = f"""
@@ -167,6 +204,12 @@ Classify the following user prompt into exactly one routing branch.
 
 Choose a single letter from this list:
 {branch_menu}
+
+Disambiguation rule (proportionality): when uncertain between B and D, choose D.
+B is reserved for genuinely open design or architecture work where the solution
+space is unexplored. Concrete, scoped implementation requests ("implement X",
+"add Y to Z") are D even when non-trivial — D's pre-flight asks the user 1-2
+clarifying questions when context is missing; it never escalates to B for that.
 
 User Prompt: "{prompt}"
 
@@ -201,31 +244,21 @@ selected_branch MUST be exactly one of: {valid_keys}
                     "branch": branch,
                     "justification": data.get("intent_analysis", "No justification provided.")
                 }
+            except LLMConfigError as e:
+                # Deterministic misconfiguration (e.g. bad model pin): record the
+                # verdict so subsequent prompts skip the doomed subprocess and go
+                # straight to keyword fallback (review 2026-06-12 C1).
+                print(f"DEBUG: LLM misconfigured, caching broken verdict: {e}")
+                self._mark_llm_broken()
             except Exception as e:
-                # Fallback to keyword matching if LLM fails
+                # Transient failure: fall back this once, but don't poison the cache.
                 print(f"DEBUG: LLM intent classification failed: {e}")
                 pass
 
-        prompt_lower = prompt.lower()
-        
-        # Branch A: Bug Fix / Diagnosis
-        if any(keyword in prompt_lower for keyword in ["traceback", "stack trace", "error", "broken", "bug"]):
-            return {"branch": "A", "justification": "Keyword match: detected error-related keywords."}
-            
-        # Branch C: Question (Check before B as "How do I implement" is a question)
-        if any(keyword in prompt_lower for keyword in ["how does", "where is", "what is", "explain"]):
-            return {"branch": "C", "justification": "Keyword match: detected questioning keywords."}
-            
-        # Branch B: Feature Request & Architectural Planning
-        if any(keyword in prompt_lower for keyword in ["implement", "build", "create", "add feature", "new"]):
-            return {"branch": "B", "justification": "Keyword match: detected feature-creation keywords."}
-            
-        # Branch D: Surgical Edit (Fast Path)
-        if any(keyword in prompt_lower for keyword in ["typo", "change color", "minor update", "fix the"]):
-            return {"branch": "D", "justification": "Keyword match: detected surgical edit keywords."}
-            
-        # Default to B if we can't classify
-        return {"branch": "B", "justification": "Default branch: could not reliably classify intent."}
+        # Phase 6a (review finding #1): the fast-path consumes the SAME shared
+        # keyword table as the deployed prompt_classifier fallback — parity
+        # pinned by tests/unit/test_fallback_parity.py.
+        return keyword_fast_path(prompt)
 
     def validate_verb(self, verb: str) -> bool:
         """Validate if the intent starts with a valid 5-Verb."""
@@ -289,7 +322,6 @@ selected_branch MUST be exactly one of: {valid_keys}
             harness_home = self.config_dir.parent.parent
             
         current_phase = "Unknown"
-        missing_documents = []
         target_agent = "@generalist"
         auth_msg = ""
 
@@ -326,7 +358,6 @@ selected_branch MUST be exactly one of: {valid_keys}
             "target_agent": target_agent,
             "target_skill": target_skill,
             "agent_invokes_skill": agent_invokes_skill,
-            "missing_documents": missing_documents,
             "auth_msg": auth_msg,
             "manifest_state": {
                 "designs_found": active_designs,
@@ -378,10 +409,12 @@ selected_branch MUST be exactly one of: {valid_keys}
 
         # Basic intent classification if prompt is provided
         intent_branch = None
+        intent_justification = None
         routing_decision = {}
         if "prompt" in context:
             intent_info = self.classify_intent(context["prompt"])
             intent_branch = intent_info.get("branch")
+            intent_justification = intent_info.get("justification")
 
             if intent_branch:
                 project_root = context.get("project_root", ".")
@@ -422,6 +455,7 @@ selected_branch MUST be exactly one of: {valid_keys}
             "context": context,
             "orchestrator_applied": True,
             "intent_branch": intent_branch,
+            "intent_justification": intent_justification,
             "routing_decision": routing_decision,
             "trace_id": langfuse_context.get_current_trace_id()
         }

@@ -129,3 +129,81 @@ def test_domain_next_steps_for_embedded_platform():
     msg = cli._domain_next_steps("gemini")
     assert ".gemini/docs/reference" in msg
     assert "--platform gemini" in msg
+
+
+# ---------------------------------------------------------------------------
+# GAP B: domain-refresh rewrites manifest's render_context.rules_packs filter
+# ---------------------------------------------------------------------------
+
+def _setup_refresh_project(tmp_path):
+    """Scaffold a minimal project with a deployed plugin manifest (python-only)."""
+    import json as _json
+    import harness
+    from harness.update.manifest import write_manifest as _wm
+
+    project = tmp_path / "project"
+    project.mkdir()
+    plugin_dir = project / ".claude" / "harness-wf-plugin"
+    plugin_dir.mkdir(parents=True)
+
+    # Need a real pyproject.toml so write_manifest can read a version
+    package_root = (
+        __import__("pathlib").Path(harness.__file__).parent
+    )
+
+    # Minimal plugin structure so write_manifest can walk it
+    (plugin_dir / ".claude-plugin").mkdir(parents=True)
+    (plugin_dir / ".claude-plugin" / "plugin.json").write_text(
+        _json.dumps({"name": "orchestrator-plugin", "version": "1.0.0"}) + "\n"
+    )
+
+    # Write manifest with python-only rules_packs selection plus a sentinel key
+    # to verify other render_context fields are preserved.
+    _wm(plugin_dir, package_root, render_context={
+        "platform": "claude",
+        "harness_dir_name": ".claude",
+        "selected_agents": [],
+        "project_name": "my-proj",
+        "rules_packs": {"selected": ["python"], "enabled": True},
+        "sentinel_key": "must-survive",
+    })
+
+    # domain.json now reports Python + Go
+    domain_dir = plugin_dir / "domain"
+    domain_dir.mkdir(parents=True)
+    (domain_dir / "domain.json").write_text(
+        _json.dumps({"stack": ["Python", "Go"]}) + "\n"
+    )
+
+    return project, plugin_dir, package_root
+
+
+def test_domain_refresh_rewrites_manifest_rules_packs_selection(tmp_path, monkeypatch):
+    """After run_domain_refresh_with_sync with a new stack, the manifest's
+    render_context.rules_packs.selected reflects the new stack."""
+    import json as _json
+    from harness.update.manifest import read_manifest
+    from pathlib import Path as _P
+
+    project, plugin_dir, _pkg_root = _setup_refresh_project(tmp_path)
+
+    # Patch out the heavy external calls so only the manifest-rewrite path runs
+    with (
+        patch.object(cli, "run_domain_refresh", return_value=None),
+        patch.object(cli, "compile_features", return_value=None),
+        patch.object(cli, "sync_rules_packs", return_value=None),
+    ):
+        cli.run_domain_refresh_with_sync(str(project))
+
+    manifest = read_manifest(plugin_dir)
+    rc = manifest.get("render_context", {})
+    rp = rc.get("rules_packs", {})
+
+    assert set(rp.get("selected") or []) == {"golang", "python"}, (
+        f"Expected {{golang, python}} but got {rp.get('selected')!r}"
+    )
+    assert rp.get("enabled") is True
+
+    # Other render_context keys must survive
+    assert rc.get("sentinel_key") == "must-survive"
+    assert rc.get("platform") == "claude"

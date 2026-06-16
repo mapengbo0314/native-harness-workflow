@@ -4,6 +4,112 @@ import yaml
 from pathlib import Path
 from tests.integration.test_platform_snapshots import temp_project, run_harness_init
 
+# ---------------------------------------------------------------------------
+# rules/packs – shipped-file assertions (no fixture; reads source tree directly)
+# ---------------------------------------------------------------------------
+
+PACKS_DIR = (
+    Path(__file__).parents[2]
+    / "src" / "harness" / "templates" / "boilerplate" / "rules" / "packs"
+)
+LANGUAGE_DIRS = ["python", "typescript", "golang"]
+
+
+def test_rules_packs_ships_common_baseline():
+    """common/baseline.md must be present in the shipped packs directory."""
+    baseline = PACKS_DIR / "common" / "baseline.md"
+    assert baseline.exists(), f"Expected {baseline} to exist"
+
+
+def test_rules_packs_language_dirs_each_have_at_least_one_md():
+    """Each language directory (python, typescript, golang) must contain at least one .md file."""
+    for lang in LANGUAGE_DIRS:
+        lang_dir = PACKS_DIR / lang
+        assert lang_dir.is_dir(), f"Expected language dir {lang_dir} to exist"
+        md_files = list(lang_dir.glob("*.md"))
+        assert md_files, f"Expected at least one .md file in {lang_dir}"
+
+
+def test_rules_packs_language_mds_have_paths_frontmatter():
+    """Every .md in python/typescript/golang must open with YAML frontmatter that contains a 'paths' key."""
+    for lang in LANGUAGE_DIRS:
+        lang_dir = PACKS_DIR / lang
+        for md_file in sorted(lang_dir.glob("*.md")):
+            content = md_file.read_text(encoding="utf-8")
+            fm_match = re.match(r"^---\n(.*?)\n---", content, re.DOTALL)
+            assert fm_match, (
+                f"{md_file.relative_to(PACKS_DIR.parent)} must start with YAML frontmatter"
+            )
+            fm = yaml.safe_load(fm_match.group(1))
+            assert isinstance(fm, dict) and "paths" in fm, (
+                f"{md_file.relative_to(PACKS_DIR.parent)} frontmatter must contain a 'paths' key"
+            )
+
+
+def test_rules_packs_common_mds_have_no_paths_frontmatter():
+    """common/*.md files must NOT contain a 'paths' key in YAML frontmatter (they are universal rules)."""
+    common_dir = PACKS_DIR / "common"
+    assert common_dir.is_dir(), f"Expected common dir {common_dir} to exist"
+    for md_file in sorted(common_dir.glob("*.md")):
+        content = md_file.read_text(encoding="utf-8")
+        fm_match = re.match(r"^---\n(.*?)\n---", content, re.DOTALL)
+        if fm_match:
+            fm = yaml.safe_load(fm_match.group(1))
+            if isinstance(fm, dict):
+                assert "paths" not in fm, (
+                    f"{md_file.relative_to(PACKS_DIR.parent)} (common) must NOT have a 'paths' key in frontmatter"
+                )
+
+
+# ---------------------------------------------------------------------------
+# Phase 1c additions: size budgets, provenance comments, no placeholders
+# ---------------------------------------------------------------------------
+
+COMMON_BUDGET_BYTES = 6 * 1024   # 6 KB total for common/
+LANG_BUDGET_BYTES   = 8 * 1024   # 8 KB total per language dir
+
+
+def test_common_pack_total_size_within_budget():
+    """common/ directory total size must be ≤6 KB."""
+    common_dir = PACKS_DIR / "common"
+    assert common_dir.is_dir()
+    total = sum(f.stat().st_size for f in common_dir.glob("*.md"))
+    assert total <= COMMON_BUDGET_BYTES, (
+        f"common/ pack total size {total}B exceeds {COMMON_BUDGET_BYTES}B budget"
+    )
+
+
+def test_language_pack_dirs_within_size_budget():
+    """Each language pack dir total size must be ≤8 KB."""
+    for lang in LANGUAGE_DIRS:
+        lang_dir = PACKS_DIR / lang
+        assert lang_dir.is_dir(), f"Expected language dir {lang_dir} to exist"
+        total = sum(f.stat().st_size for f in lang_dir.glob("*.md"))
+        assert total <= LANG_BUDGET_BYTES, (
+            f"{lang}/ pack total size {total}B exceeds {LANG_BUDGET_BYTES}B budget"
+        )
+
+
+def test_language_mds_have_provenance_comment():
+    """Every .md in python/typescript/golang must contain a provenance comment after frontmatter."""
+    for lang in LANGUAGE_DIRS:
+        lang_dir = PACKS_DIR / lang
+        for md_file in sorted(lang_dir.glob("*.md")):
+            content = md_file.read_text(encoding="utf-8")
+            assert "<!-- ported from affaan-m/ECC@c888d2b" in content, (
+                f"{md_file.relative_to(PACKS_DIR.parent)} must contain a provenance comment"
+            )
+
+
+def test_no_placeholder_md_in_pack_dirs():
+    """No placeholder.md should remain in any pack directory."""
+    for lang in LANGUAGE_DIRS:
+        lang_dir = PACKS_DIR / lang
+        placeholder = lang_dir / "placeholder.md"
+        assert not placeholder.exists(), (
+            f"placeholder.md must be removed from {lang}/ (Task 1c)"
+        )
+
 def test_no_dangling_references_in_generated_templates(temp_project):
     run_harness_init(temp_project, "1")
     

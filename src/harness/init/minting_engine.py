@@ -3,19 +3,16 @@ import re
 import shutil
 import json
 import yaml
-import urllib.request
-import difflib
 from pathlib import Path
-from harness.init.plugin_generator import generate_orchestrator_plugin
 from harness.adapters import get_adapter
-# Single source of truth for the two-pass render. TemplateRenderer and
-# process_includes were relocated to render.py; re-imported here to preserve the
-# existing minting_engine.process_includes / .TemplateRenderer call sites.
+from harness.init.platforms import platform_name_from_choice
+from harness.init.features import compile_features
+# Single source of truth for the two-pass render. process_includes was relocated
+# to render.py; re-imported here to preserve the existing
+# minting_engine.process_includes / .render_pass1 call sites.
 from harness.init.render import (
-    TemplateRenderer,
     process_includes,
     render_pass1,
-    render_template,
 )
 from harness.init.runtime_slice import (
     RUNTIME_FILE_MAP,
@@ -41,8 +38,7 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
         shutil.copytree(boilerplate_dir, target_path, ignore=ignore_patterns, dirs_exist_ok=True)
         
         # Tool mapping for specific platforms
-        platform_map_normalized = {"1": "gemini", "2": "claude", "3": "cursor", "4": "agents", "5": "codex"}
-        current_platform = platform_map_normalized.get(platform_choice, platform_choice).lower()
+        current_platform = platform_name_from_choice(platform_choice)
         adapter = get_adapter(current_platform)
         
         # Cleanup files that are only used as source templates or specific to certain platforms
@@ -135,19 +131,47 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
         sentinel_path.touch()
         print(f"[HARNESS] Created formatter sentinel at {sentinel_path}")
 
+        # Compile features.yaml -> features.json so a freshly minted repo is
+        # always self-consistent (Phase 0b ECC port).
+        _compiled_features: dict = {}
+        try:
+            json_path = compile_features(target_path)
+            if json_path:
+                print(f"[HARNESS] features.json compiled at {json_path}")
+                try:
+                    import json as _json
+                    _compiled_features = _json.loads(Path(json_path).read_text(encoding="utf-8"))
+                except Exception:
+                    _compiled_features = {}
+        except Exception as e:
+            print(f"[HARNESS] Warning: features compile failed: {e}")
+
+        # Install rules packs: deploy matching stack packs into <project>/.claude/rules/harness/
+        # and prune unselected packs from the deployed plugin tree (Phase 1a ECC port).
+        # Must run AFTER compile_features so the toggle state is available.
+        # The returned set is stored so the post-generation re-inline reuses it
+        # instead of recomputing (single-source principle — fix 2).
+        _installed_lang_packs: set[str] = set()
+        try:
+            packs_root = target_path / "rules" / "packs"
+            if packs_root.exists():
+                _installed_lang_packs = install_rules_packs(
+                    project_path=Path(project_path),
+                    deployed_plugin_path=target_path,
+                    packs_root=packs_root,
+                    features=_compiled_features,
+                    platform=current_platform,
+                ) or set()
+                print(f"[HARNESS] Rules packs installed.")
+        except Exception as e:
+            print(f"[HARNESS] Warning: rules packs install failed: {e}")
+
     else:
         print("Error: Boilerplate directory not found.")
         return
 
     # Normalize platform choice
-    platform_map = {
-        "1": "gemini",
-        "2": "claude",
-        "3": "cursor",
-        "4": "agents",
-        "5": "codex"
-    }
-    active_platform = platform_map.get(platform_choice, platform_choice).lower()
+    active_platform = platform_name_from_choice(platform_choice)
 
     # Generate Platform Rules Pointers IN THE ROOT DIRECTORY
     adapter = get_adapter(active_platform)
@@ -264,6 +288,27 @@ tools:
         with open(agent_file_path, 'w') as f:
             f.write(final_content)
 
+    # Re-inline pack rules into dynamically generated agent personas (sequencing fix).
+    # install_rules_packs ran BEFORE the dynamic agent generation loop above, so newly
+    # created agent files missed the '## Stack Rules (auto-included)' section that
+    # static boilerplate agents receive.  Calling _inline_packs_into_personas again
+    # here (after all agents exist) is safe: the markers make it idempotent, so
+    # already-inlined static agents get their section replaced (same content), while
+    # dynamic agents receive it for the first time.
+    # Only applies to non-Claude platforms — Claude auto-loads .claude/rules/ natively.
+    # Reuses _installed_lang_packs returned by install_rules_packs above (single-source
+    # principle — fix 2) instead of recomputing via _read_domain_stack/stack_to_packs.
+    if active_platform != "claude" and selected_agents and _features_rules_packs_enabled(_compiled_features):
+        try:
+            _install_root = Path(project_path) / ".claude" / "rules" / "harness"
+            _inline_packs_into_personas(
+                install_root=_install_root,
+                agents_dir=target_path / "agents",
+                matched_lang_packs=_installed_lang_packs,
+            )
+        except Exception as _e:
+            print(f"[HARNESS] Warning: post-generation pack re-inline failed: {_e}")
+
     print(f"Successfully minted workspace at {target_dir}")
     print("\nNext Steps:")
     print("1. Activate your environment and Launch AI")
@@ -290,7 +335,15 @@ def perform_smart_merge(existing_path: Path, staged_path: Path):
                         new_content = merge_markdown(existing_content, staged_content)
                     elif file.endswith(('.json', '.yaml', '.yml')):
                         fmt = 'json' if file.endswith('.json') else 'yaml'
-                        new_content = merge_structured(existing_content, staged_content, format=fmt)
+                        # Only features.yaml gets reversed merge order so operator
+                        # values win over incoming template defaults.
+                        # features.json is intentionally excluded here: it will be
+                        # regenerated by compile_features() after the merge, so
+                        # smart-merging a stale compiled file would be wrong.
+                        if file == 'features.yaml':
+                            new_content = merge_structured(staged_content, existing_content, format=fmt)
+                        else:
+                            new_content = merge_structured(existing_content, staged_content, format=fmt)
                     elif file.endswith(('.py', '.sh', '.js')):
                         new_content = handle_code_conflicts(existing_content, staged_content, str(rel_path))
                     else:
@@ -300,7 +353,7 @@ def perform_smart_merge(existing_path: Path, staged_path: Path):
                     if new_content != staged_content:
                         with open(staged_file, 'w', encoding='utf-8') as f:
                             f.write(new_content)
-                except (UnicodeDecodeError, Exception) as e:
+                except Exception as e:
                     print(f"Skipping merge for {rel_path}: {e}")
 
     # 2. Preserve custom files from existing that are NOT in staged
@@ -452,6 +505,306 @@ def _deep_merge_logic(base, update):
         return res
     else:
         return update
+
+
+# ---------------------------------------------------------------------------
+# Phase 1a (ECC feature port): rules-pack selection and namespaced install
+# ---------------------------------------------------------------------------
+
+def select_rules_packs(stack: list[str], packs_root: Path) -> list[Path]:
+    """Return pack dirs to deploy: always ``common/`` plus stack-matched language dirs.
+
+    Parameters
+    ----------
+    stack:
+        Language display-name strings from ``domain.json`` (e.g. ``["Python", "Go"]``).
+    packs_root:
+        Absolute path to the ``rules/packs/`` directory (either in the boilerplate
+        source tree or in the deployed plugin).
+
+    Returns
+    -------
+    list[Path]
+        Directories that exist under *packs_root* and should be deployed, starting
+        with ``common/``.  Missing dirs (e.g. ``javascript/`` not yet authored) are
+        silently skipped.
+    """
+    from harness.init.lang_aliases import stack_to_packs
+
+    selected: list[Path] = []
+    common_dir = packs_root / "common"
+    if common_dir.exists():
+        selected.append(common_dir)
+
+    for pack_name in stack_to_packs(stack):
+        pack_dir = packs_root / pack_name
+        if pack_dir.exists():
+            selected.append(pack_dir)
+
+    return selected
+
+
+def _read_domain_stack(project_path: Path) -> list[str]:
+    """Read the ``stack`` list from the project's deployed domain.json.
+
+    Searches ``<project>/.claude/harness-wf-plugin/domain/domain.json``.
+    Returns an empty list if the file is missing or ``stack`` is absent.
+    """
+    domain_json = project_path / ".claude" / "harness-wf-plugin" / "domain" / "domain.json"
+    if not domain_json.exists():
+        return []
+    try:
+        data = json.loads(domain_json.read_text(encoding="utf-8"))
+        stack = data.get("stack", [])
+        return stack if isinstance(stack, list) else []
+    except Exception:
+        return []
+
+
+def _features_rules_packs_enabled(features: dict) -> bool:
+    """Return True if rules_packs is enabled (default: True when absent)."""
+    rp = features.get("rules_packs")
+    if rp is None:
+        return True
+    if isinstance(rp, bool):
+        return rp
+    if isinstance(rp, dict):
+        return rp.get("enabled", True)
+    return True
+
+
+def _features_language_enabled(features: dict, lang_pack_name: str) -> bool:
+    """Return True if a specific language pack is enabled (default: True when absent)."""
+    rp = features.get("rules_packs", {})
+    if not isinstance(rp, dict):
+        return True
+    langs = rp.get("languages", {})
+    if not isinstance(langs, dict):
+        return True
+    val = langs.get(lang_pack_name)
+    if val is None:
+        return True
+    # Honor only literal booleans; non-bool values (e.g. strings) => fail-open,
+    # matching hook_common semantics.
+    if isinstance(val, bool):
+        return val
+    return True
+
+
+def install_rules_packs(
+    project_path: Path,
+    deployed_plugin_path: Path,
+    packs_root: Path,
+    features: dict,
+    platform: str = "claude",
+) -> set[str]:
+    """Install selected pack dirs into ``<project>/.claude/rules/harness/`` and prune.
+
+    Parameters
+    ----------
+    project_path:
+        The user's project root (where ``.claude/rules/harness/`` will be written).
+    deployed_plugin_path:
+        The root of the deployed plugin directory (used only for pruning the
+        ``rules/packs/`` subtree so the plugin only carries matched packs).
+    packs_root:
+        The ``rules/packs/`` directory inside *deployed_plugin_path* (already copied
+        from boilerplate).  All language subdirs not selected will be removed from here.
+    features:
+        Parsed features dict (may be empty — all features default-enabled when absent).
+    platform:
+        Normalised platform name (e.g. ``"gemini"``, ``"claude"``, ``"cursor"``).
+        Claude auto-loads ``.claude/rules/`` so no persona inlining is needed there.
+        For all other platforms the selected pack content is inlined directly into
+        each agent persona file so the LLM always receives the rules.
+
+    Returns
+    -------
+    set[str]
+        The set of matched language pack names (e.g. ``{"python"}``).  Empty set
+        when the feature is disabled.  Callers may reuse this set to avoid
+        recomputing pack selection (single-source principle).
+    """
+    if not _features_rules_packs_enabled(features):
+        # Prune entire packs tree from the deployed plugin and skip install.
+        # Intentionally removes common/ too — the feature is fully disabled.
+        if packs_root.exists():
+            shutil.rmtree(packs_root)
+        return set()
+
+    stack = _read_domain_stack(project_path)
+
+    # Unknown stack (domain.json missing or empty — e.g. a fresh mint where the
+    # domain seed runs post-mint) must fail open: never prune language packs,
+    # or the post-seed re-sync has nothing left to select from.  A known stack
+    # that matches nothing is an explicit empty selection and prunes normally.
+    # Mirrors the `selected: None` fail-open semantics of _compute_rules_packs_rc.
+    stack_unknown = not stack
+
+    # Resolve which packs match the stack, then further filter by per-language flags
+    from harness.init.lang_aliases import stack_to_packs
+    matched_lang_packs = {
+        p for p in stack_to_packs(stack)
+        if _features_language_enabled(features, p)
+    }
+
+    # Install target: <project>/.claude/rules/harness/
+    install_root = project_path / ".claude" / "rules" / "harness"
+    install_root.mkdir(parents=True, exist_ok=True)
+
+    # Build the set of harness-managed pack dir names: canonical values from
+    # PACK_ALIASES plus any dirs that currently exist in packs_root.  This
+    # namespace is the only one we are authorised to prune — unknown dirs
+    # (e.g. user-created "team-conventions/") are left intact as
+    # defense-in-depth.
+    from harness.init.lang_aliases import PACK_ALIASES
+    known_pack_dirs: set[str] = set(PACK_ALIASES.values())
+    if packs_root.exists():
+        known_pack_dirs |= {d.name for d in packs_root.iterdir() if d.is_dir()}
+
+    # Prune stale language dirs from install_root: remove a child dir (or
+    # symlink) only when its name IS in known_pack_dirs AND is not in
+    # matched_lang_packs (and is not "common").
+    if install_root.exists() and not stack_unknown:
+        for child in list(install_root.iterdir()):
+            if child.name == "common":
+                continue  # always keep
+            if child.name not in known_pack_dirs:
+                continue  # not harness-managed — spare it
+            if child.name not in matched_lang_packs:
+                if child.is_symlink():
+                    child.unlink()
+                elif child.is_dir():
+                    shutil.rmtree(child)
+
+    # Always install common (if it exists in packs_root).
+    # Clean re-create to remove any files dropped from the pack source.
+    common_dir = packs_root / "common"
+    if common_dir.exists():
+        dest_common = install_root / "common"
+        if dest_common.exists():
+            shutil.rmtree(dest_common)
+        shutil.copytree(common_dir, dest_common)
+
+    # Install matched language packs.
+    # Clean re-create so files removed from the pack source don't linger.
+    for lang_name in matched_lang_packs:
+        lang_dir = packs_root / lang_name
+        if lang_dir.exists():
+            dest_lang = install_root / lang_name
+            if dest_lang.exists():
+                shutil.rmtree(dest_lang)
+            shutil.copytree(lang_dir, dest_lang)
+
+    # Prune unselected language dirs from the deployed plugin's packs tree
+    # (common is always kept; language dirs not in matched_lang_packs are removed)
+    if packs_root.exists() and not stack_unknown:
+        for child in list(packs_root.iterdir()):
+            if child.name == "common":
+                continue  # always keep
+            if child.is_symlink():
+                child.unlink()
+            elif child.is_dir() and child.name not in matched_lang_packs:
+                shutil.rmtree(child)
+
+    # Phase 1c: persona inlining for non-Claude platforms (design M3).
+    # Claude auto-loads .claude/rules/ — nothing needed there.
+    # For all other platforms, append pack content directly to each agent persona
+    # so the LLM always receives the rules regardless of platform support.
+    if platform != "claude":
+        _inline_packs_into_personas(
+            install_root=install_root,
+            agents_dir=deployed_plugin_path / "agents",
+            matched_lang_packs=matched_lang_packs,
+        )
+
+    return matched_lang_packs
+
+
+def _collect_pack_content(install_root: Path, matched_lang_packs: set[str]) -> str:
+    """Collect all pack file contents (common + matched languages) into a single string.
+
+    Strips YAML frontmatter from each file before concatenation so the inlined
+    section contains only the rule prose, not raw frontmatter blocks.
+    """
+    sections: list[str] = []
+    _fm_re = re.compile(r"^---\n.*?\n---\n?", re.DOTALL)
+
+    def _read_pack_dir(pack_dir: Path) -> None:
+        if not pack_dir.is_dir():
+            return
+        for md_file in sorted(pack_dir.glob("*.md")):
+            try:
+                raw = md_file.read_text(encoding="utf-8")
+                body = _fm_re.sub("", raw, count=1).strip()
+                if body:
+                    sections.append(body)
+            except Exception:
+                pass  # fail-open: skip unreadable files
+
+    _read_pack_dir(install_root / "common")
+    for lang_name in sorted(matched_lang_packs):
+        _read_pack_dir(install_root / lang_name)
+
+    return "\n\n---\n\n".join(sections)
+
+
+def _inline_packs_into_personas(
+    install_root: Path,
+    agents_dir: Path,
+    matched_lang_packs: set[str],
+) -> None:
+    """Append a ``## Stack Rules (auto-included)`` section to each agent persona file.
+
+    This is the non-Claude persona inlining mechanism (design M3).  Claude
+    auto-loads ``.claude/rules/`` natively; for all other platforms we inline
+    the content directly so the LLM always receives the rules.
+
+    Idempotent: if the marker is already present the section is replaced rather
+    than appended again.
+    """
+    if not agents_dir.is_dir():
+        return
+
+    pack_content = _collect_pack_content(install_root, matched_lang_packs)
+    if not pack_content:
+        return
+
+    marker_start = "<!-- harness:rules-packs:start -->"
+    marker_end   = "<!-- harness:rules-packs:end -->"
+    inline_block = (
+        f"\n\n## Stack Rules (auto-included)\n\n"
+        f"{marker_start}\n"
+        f"{pack_content}\n"
+        f"{marker_end}\n"
+    )
+    replacement_pattern = re.compile(
+        re.escape(marker_start) + r".*?" + re.escape(marker_end),
+        re.DOTALL,
+    )
+
+    for persona_file in sorted(agents_dir.glob("*.md")):
+        try:
+            existing = persona_file.read_text(encoding="utf-8")
+            if marker_start in existing:
+                if marker_end in existing:
+                    # Replace existing complete inline block (idempotent on re-mint)
+                    new_content = replacement_pattern.sub(
+                        f"{marker_start}\n{pack_content}\n{marker_end}",
+                        existing,
+                    )
+                else:
+                    # Orphan start marker (crashed previous write): strip broken tail
+                    # from the orphan start to end-of-file, then append fresh block.
+                    orphan_idx = existing.index(marker_start)
+                    new_content = existing[:orphan_idx].rstrip("\n") + inline_block
+            else:
+                # First time: append section
+                new_content = existing.rstrip("\n") + inline_block
+            if new_content != existing:
+                persona_file.write_text(new_content, encoding="utf-8")
+        except Exception:
+            pass  # fail-open: skip unwriteable files
 
 
 def copy_runtime_modules(target_dir: Path, platform_id: str = "generic") -> None:

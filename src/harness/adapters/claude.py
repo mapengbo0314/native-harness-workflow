@@ -1,10 +1,9 @@
 import os
 import shutil
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 from harness.adapters.base import PlatformAdapter
 from harness.adapters.profile import load_profile
-from harness.init.plugin_generator import generate_orchestrator_plugin
 
 
 class ClaudeAdapter(PlatformAdapter):
@@ -57,7 +56,7 @@ class ClaudeAdapter(PlatformAdapter):
 
         # Move payload directories into harness-wf-plugin
         payload_dirs = ["skills", "agents", "hooks", "scripts", "src", "rules"]
-        payload_files = ["pyproject.toml", "agent.json", "skills.json"]
+        payload_files = ["pyproject.toml", "agent.json", "skills.json", "features.yaml", "features.json"]
 
         for p_dir in payload_dirs:
             src_path = harness_dir / p_dir
@@ -97,13 +96,75 @@ class ClaudeAdapter(PlatformAdapter):
                                 with open(filepath, "w", encoding="utf-8") as f:
                                     f.write(new_content)
 
+        # Inject Claude-only hook events (Stop, SessionStart) that have no
+        # equivalent on other platforms and therefore must NOT live in the
+        # shared boilerplate hooks.json.
+        hooks_json = plugin_dir / "hooks" / "hooks.json"
+        self._inject_claude_only_hooks(hooks_json)
+
+    def _inject_claude_only_hooks(self, hooks_json_path: Path) -> None:
+        """Inject Claude-only hook events (Stop, SessionStart) into the minted hooks.json.
+
+        These events have no equivalent in other platforms (gemini remaps
+        UserPromptSubmit/PreCompact/PreToolUse/PostToolUse but does not
+        define Stop or SessionStart).  To avoid polluting the shared boilerplate
+        hooks.json and breaking the gemini platform test, we inject them here
+        after the hooks directory has been moved and templated.
+
+        Fail-open: any exception is silently swallowed to avoid breaking the
+        overall minting on a non-critical step.
+        """
+        import json as _json
+
+        try:
+            if not hooks_json_path.exists():
+                return
+            data = _json.loads(hooks_json_path.read_text(encoding="utf-8"))
+            hooks = data.setdefault("hooks", {})
+
+            plugin_env_var = self.get_plugin_env_var_name()
+
+            if "Stop" not in hooks:
+                hooks["Stop"] = [
+                    {
+                        "hooks": [
+                            {
+                                "name": "session-memory-save-stop",
+                                "type": "command",
+                                "command": f"python3 \"${{{plugin_env_var}}}/hooks/session_memory_save.py\"",
+                                "description": "Heartbeat: persists session memory state after each assistant response",
+                            }
+                        ]
+                    }
+                ]
+
+            if "SessionStart" not in hooks:
+                hooks["SessionStart"] = [
+                    {
+                        "hooks": [
+                            {
+                                "name": "session-memory-inject",
+                                "type": "command",
+                                "command": f"python3 \"${{{plugin_env_var}}}/hooks/session_start.py\"",
+                                "description": "Injects a digest of prior session memory entries as additional context",
+                            }
+                        ]
+                    }
+                ]
+
+            hooks_json_path.write_text(
+                _json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+        except Exception:
+            pass  # fail-open — minting must not be blocked by a hook-injection error
+
     def generate_core_infrastructure(self, project_path: Path) -> None:
         """Backward-compatible entry point: delegates to assemble_layout."""
         self.assemble_layout(project_path)
 
     def configure_cli(self, project_path: Path) -> None:
         import subprocess
-        import shlex
         import json
         claude = shutil.which("claude")
         if not claude:

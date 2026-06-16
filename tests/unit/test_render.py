@@ -167,3 +167,46 @@ def test_render_template_equals_pass1_then_process_includes(tmp_path):
     )
     manual = process_includes(manual_p1, str(main), tmp_path, {}, "dir-z")
     assert via_template == manual
+
+
+# --- Phase 6a: tool mappings must never rewrite Python source ---------------
+# (m3 risk class realized live: the update plane rendered hooks/*.py through
+# render_template, turning every `.replace(` method call into `.Edit(` and
+# collapsing the deliberately cross-platform tool sets to claude-only names.)
+
+_CLAUDE_MAPPINGS = {"replace": "Edit", "write_file": "Write", "read_file": "Read"}
+_PY_SOURCE = (
+    'tmp.replace(path)\n'
+    'ts = ts.replace(tzinfo=None)\n'
+    'TOOLS = {"Write", "Edit", "write_file", "replace"}\n'
+)
+
+
+def test_render_template_skips_tool_mappings_for_python(tmp_path):
+    out = render_template(
+        _PY_SOURCE,
+        file_path=str(tmp_path / "hooks" / "hook_common.py"),
+        target_root=tmp_path,
+        target_dir_name=".claude",
+        tool_replacements=_CLAUDE_MAPPINGS,
+        jinja_context={},
+    )
+    assert "tmp.replace(path)" in out, "method calls must survive"
+    assert "ts.replace(tzinfo=None)" in out, "datetime.replace must survive"
+    assert '"replace"' in out and '"write_file"' in out, (
+        "cross-platform tool sets must survive — hooks handle all platforms at runtime"
+    )
+    assert ".Edit(" not in out
+
+
+def test_render_template_still_maps_tools_in_markdown(tmp_path):
+    out = render_template(
+        "- replace\n- write_file\nUse the replace tool.\n",
+        file_path=str(tmp_path / "agents" / "persona.md"),
+        target_root=tmp_path,
+        target_dir_name=".claude",
+        tool_replacements=_CLAUDE_MAPPINGS,
+        jinja_context={},
+    )
+    assert "- Edit" in out and "- Write" in out
+    assert "Use the Edit tool." in out

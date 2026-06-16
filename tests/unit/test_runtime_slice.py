@@ -60,9 +60,10 @@ class TestDedupeRuntimeSourceMap:
             "dispatcher.py",
             "llm_client.py",
             "context_builder.py",
+            # Phase 6a: shared keyword table consumed by both fallback planes
+            "fallback_keywords.py",
             "langfuse_compat.py",
             "langfuse_instrumentation.py",
-            "discovery_engine.py",
             "runtime_adapter.py",
             "profile.py",
             "platform_profiles.json",
@@ -100,8 +101,8 @@ class TestRewriteImports:
         assert rewrite_imports(text) == "from dispatcher import Dispatcher"
 
     def test_from_harness_init(self):
-        text = "from harness.init.discovery_engine import acquire_mcp_context"
-        assert rewrite_imports(text) == "from discovery_engine import acquire_mcp_context"
+        text = "from harness.init.features import compile_features"
+        assert rewrite_imports(text) == "from features import compile_features"
 
     def test_from_harness_adapters(self):
         # "harness.adapters." is stripped wholesale; leaves just the module name
@@ -113,8 +114,8 @@ class TestRewriteImports:
         assert rewrite_imports(text) == "import dispatcher as d"
 
     def test_import_harness_init(self):
-        text = "import harness.init.discovery_engine"
-        assert rewrite_imports(text) == "import discovery_engine"
+        text = "import harness.init.features"
+        assert rewrite_imports(text) == "import features"
 
     def test_import_harness_adapters(self):
         # "harness.adapters." is stripped wholesale; leaves just the module name

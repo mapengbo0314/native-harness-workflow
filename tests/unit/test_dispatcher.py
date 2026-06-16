@@ -361,3 +361,40 @@ def test_dispatch_agent_captures_correct_model_from_platform(tmp_path, monkeypat
             assert call_kwargs.get('model') == "gemini-2.5-flash-lite"
         finally:
             os.chdir(original_cwd)
+
+
+def test_classify_intent_prompt_carries_bias_to_d_rule(tmp_path, monkeypatch):
+    """F4 proportionality: the classification prompt must instruct the LLM to
+    prefer D over B when uncertain — B is reserved for genuinely open design
+    work, and D's pre-flight handles missing context with clarifying
+    questions, never by escalating to B."""
+    from unittest.mock import MagicMock, patch
+
+    config_dir = tmp_path / "harness-wf-plugin" / "config"
+    config_dir.mkdir(parents=True)
+    dispatcher = OrchestratorDispatcher(str(config_dir))
+    monkeypatch.setenv("HARNESS_PLATFORM_CLI", "claude")
+
+    captured = {}
+
+    def fake_query(prompt, cli_name, **kwargs):
+        captured["prompt"] = prompt
+        return '{"intent_analysis": "x", "selected_branch": "D"}'
+
+    with patch('harness.runtime.dispatcher.langfuse_context', MagicMock()), \
+         patch('harness.runtime.dispatcher.query_llm', side_effect=fake_query):
+        dispatcher.classify_intent("implement the CSV export feature")
+
+    prompt = captured.get("prompt", "")
+    assert "choose D" in prompt, "bias-to-D disambiguation rule missing from classify prompt"
+    assert "genuinely open" in prompt
+    assert "clarifying questions" in prompt
+
+
+def test_branch_descriptions_reflect_bias_to_d(tmp_path):
+    """The branch menu itself must not steer implement-verbs toward B."""
+    d = OrchestratorDispatcher.BRANCHES["D"]
+    b = OrchestratorDispatcher.BRANCHES["B"]
+    assert "implement" in d.lower(), "implement-style verbs belong in D's description"
+    assert "implement" not in b.lower(), "B's description must not claim implement-verbs"
+    assert "design" in b.lower()

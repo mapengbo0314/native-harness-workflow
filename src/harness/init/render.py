@@ -163,11 +163,19 @@ def render_template(content: str, *, file_path: str, target_root: Path, target_d
         ``process_includes``).
 
     Output: fully rendered text with includes inlined.
+
+    Tool-name mappings apply to PROSE surfaces only (.md/.json/.yaml — the
+    same set mint renders).  Python source is exempt (Phase 6a, m3 risk class
+    realized live): naive substring mapping turns ``.replace(`` method calls
+    into ``.Edit(`` and collapses the deliberately cross-platform tool sets
+    in hooks — deployed hooks handle every platform's tool names at runtime.
     """
+    is_python = str(file_path).endswith(".py")
+    effective_mappings = {} if is_python else tool_replacements
     rendered = render_pass1(
         content,
         target_dir_name=target_dir_name,
-        tool_replacements=tool_replacements,
+        tool_replacements=effective_mappings,
         jinja_context=jinja_context,
     )
-    return process_includes(rendered, file_path, target_root, tool_replacements, target_dir_name)
+    return process_includes(rendered, file_path, target_root, effective_mappings, target_dir_name)

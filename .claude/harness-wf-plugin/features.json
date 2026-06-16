@@ -1,0 +1,29 @@
+{
+  "hooks": {
+    "session_end": {
+      "learning_extraction": true
+    }
+  },
+  "pipeline": {
+    "dispatcher": {
+      "gates": {
+        "adversary_exit": true,
+        "search_first": true
+      }
+    }
+  },
+  "rules_packs": {
+    "enabled": true,
+    "languages": null
+  },
+  "services": {
+    "session_memory": {
+      "enabled": true
+    }
+  },
+  "skills": {
+    "adversary-pipeline": true,
+    "continuous-learning": true,
+    "search-first": true
+  }
+}

@@ -79,6 +79,20 @@ except (ImportError, ValueError):
         query_llm = None
 
 
+def keyword_fast_path(prompt: str) -> Dict[str, str]:
+    """Keyword fallback classification via the shared table (Phase 6a, M2:
+    module-level so the parity test exercises it without the LLM path).
+
+    Consumes src/harness/runtime/fallback_keywords.py — the same module the
+    deployed prompt_classifier fallback reads (slice-rewritten at mint).
+    """
+    from fallback_keywords import classify, DEFAULT_BRANCH
+    branch = classify(prompt)
+    if branch == DEFAULT_BRANCH:
+        return {"branch": branch, "justification": "Keyword match: no technical intent detected."}
+    return {"branch": branch, "justification": f"Keyword match: branch {branch} keywords."}
+
+
 class OrchestratorDispatcher:
     """Routes agent requests through the project's orchestrator."""
 
@@ -86,9 +100,9 @@ class OrchestratorDispatcher:
 
     BRANCHES = {
         "A": "Bug Fix / Diagnosis (stack trace, error, broken, bug, why is X failing)",
-        "B": "Feature Request & Architectural Planning (build, create, implement, add feature, new)",
+        "B": "Open-Ended Design & Architectural Planning (design, architecture, plan, brainstorm — genuinely open solution space)",
         "C": "Codebase Questioning & Knowledge Retrieval (how does, where is, what is, explain, why does)",
-        "D": "Code Edit / TDD Required (any code change: rename, refactor, new function, fix, update)",
+        "D": "Code Edit / TDD Required (concrete scoped changes: implement, add, create, rename, refactor, fix, update)",
         "E": "No Technical Intent (conversational, greetings, vague messages with zero actionable intent)",
     }
 
@@ -168,6 +182,12 @@ Classify the following user prompt into exactly one routing branch.
 Choose a single letter from this list:
 {branch_menu}
 
+Disambiguation rule (proportionality): when uncertain between B and D, choose D.
+B is reserved for genuinely open design or architecture work where the solution
+space is unexplored. Concrete, scoped implementation requests ("implement X",
+"add Y to Z") are D even when non-trivial — D's pre-flight asks the user 1-2
+clarifying questions when context is missing; it never escalates to B for that.
+
 User Prompt: "{prompt}"
 
 Return ONLY valid JSON — no markdown, no extra text:
@@ -206,26 +226,10 @@ selected_branch MUST be exactly one of: {valid_keys}
                 print(f"DEBUG: LLM intent classification failed: {e}")
                 pass
 
-        prompt_lower = prompt.lower()
-        
-        # Branch A: Bug Fix / Diagnosis
-        if any(keyword in prompt_lower for keyword in ["traceback", "stack trace", "error", "broken", "bug"]):
-            return {"branch": "A", "justification": "Keyword match: detected error-related keywords."}
-            
-        # Branch C: Question (Check before B as "How do I implement" is a question)
-        if any(keyword in prompt_lower for keyword in ["how does", "where is", "what is", "explain"]):
-            return {"branch": "C", "justification": "Keyword match: detected questioning keywords."}
-            
-        # Branch B: Feature Request & Architectural Planning
-        if any(keyword in prompt_lower for keyword in ["implement", "build", "create", "add feature", "new"]):
-            return {"branch": "B", "justification": "Keyword match: detected feature-creation keywords."}
-            
-        # Branch D: Surgical Edit (Fast Path)
-        if any(keyword in prompt_lower for keyword in ["typo", "change color", "minor update", "fix the"]):
-            return {"branch": "D", "justification": "Keyword match: detected surgical edit keywords."}
-            
-        # Default to B if we can't classify
-        return {"branch": "B", "justification": "Default branch: could not reliably classify intent."}
+        # Phase 6a (review finding #1): the fast-path consumes the SAME shared
+        # keyword table as the deployed prompt_classifier fallback — parity
+        # pinned by tests/unit/test_fallback_parity.py.
+        return keyword_fast_path(prompt)
 
     def validate_verb(self, verb: str) -> bool:
         """Validate if the intent starts with a valid 5-Verb."""

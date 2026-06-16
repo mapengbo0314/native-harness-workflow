@@ -89,9 +89,11 @@ DERIVED_FROM: dict[str, str] = {
 }
 
 # Emitted plugin manifests with no single template source.
+# features.json is also emitted (compiled from features.yaml; no single template source).
 EMITTED_GENERATED: frozenset[str] = frozenset({
     ".claude-plugin/plugin.json",
     ".claude-plugin/marketplace.json",
+    "features.json",
 })
 
 # Boilerplate-derived directories whose subpath is identity under the package
@@ -113,6 +115,8 @@ _BOILERPLATE_FILES: dict[str, tuple[str, str, str]] = {
     # agents.json which is plural and derived).
     "agent.json": ("generated", "template", "templates/boilerplate/agent.json"),
     "skills.json": ("generated", "template", "templates/boilerplate/skills.json"),
+    # Operator-editable feature toggles surface (ECC Phase 0b).
+    "features.yaml": ("customizable", "template", "templates/boilerplate/features.yaml"),
 }
 
 

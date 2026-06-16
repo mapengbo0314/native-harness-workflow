@@ -35,6 +35,8 @@ from typing import Callable, Optional, Union
 
 from harness.update.classification import enumerate_source_producers
 from harness.update.conflict import ConflictResolutionNeedsHuman, resolve
+from harness.init.features import compile_features
+from harness.init.minting_engine import install_rules_packs
 from harness.update.manifest import (
     META_FILENAME,
     read_base,
@@ -47,6 +49,44 @@ from harness.update.manifest import (
 
 JOURNAL_FILENAME = ".harness-update-journal.json"
 STAGING_DIRNAME = ".harness_update_tmp"
+
+
+_PACKS_PREFIX = "rules/packs/"
+
+
+def _is_pack_excluded(relpath: str, rules_packs: dict) -> bool:
+    """Return True if *relpath* is under rules/packs/<lang>/ and <lang> is not
+    in the persisted selection (or rules_packs is entirely disabled).
+
+    ``rules/packs/common/`` is always included.
+    *rules_packs* is the ``render_context["rules_packs"]`` dict; if absent or
+    empty the filter is a no-op (fail-open).
+
+    Invariant: pack content lives under rules/packs/<lang>/ — files directly
+    under rules/packs/ (no sub-directory) have an empty lang segment and would
+    never match any selection; they are passed through unchanged.
+    """
+    if not rules_packs:
+        return False
+    if not relpath.startswith(_PACKS_PREFIX):
+        return False
+    # enabled=False ⇒ exclude all packs
+    if not rules_packs.get("enabled", True):
+        return True
+    # Extract language segment: rules/packs/<lang>/...
+    rest = relpath[len(_PACKS_PREFIX):]
+    lang_seg = rest.split("/", 1)[0]
+    if lang_seg == "common":
+        return False
+    selected = rules_packs.get("selected", None)
+    # None → no selection recorded → fail-open (unknown stack).
+    # [] → also treated as fail-open: an empty list is indistinguishable from
+    # "stack unknown at mint time" (e.g. first mint without domain.json), so
+    # silently excluding everything would be the worse failure mode (defense in
+    # depth).  A deliberate "exclude all" intent is expressed via enabled=False.
+    if not selected:
+        return False
+    return lang_seg not in selected
 
 
 def verdict(we_changed: bool, user_edited: bool) -> str:
@@ -89,6 +129,18 @@ def plan_update(
     manifest_owned = manifest.get("owned", {})
     current_producers = enumerate_source_producers(package_root)
     planned_relpaths = set(manifest_owned) | set(current_producers)
+
+    # Phase 1b: exclude pack producers that are outside the persisted stack selection.
+    rules_packs = manifest.get("render_context", {}).get("rules_packs", {})
+    if rules_packs:
+        planned_relpaths = {
+            rp for rp in planned_relpaths
+            if not _is_pack_excluded(rp, rules_packs)
+        }
+        current_producers = {
+            rp: v for rp, v in current_producers.items()
+            if not _is_pack_excluded(rp, rules_packs)
+        }
 
     results: list[FileVerdict] = []
     for relpath in sorted(planned_relpaths):
@@ -135,7 +187,7 @@ def plan_update(
             continue
 
         if not disk.exists():
-            results.append(FileVerdict(relpath, _missing_verdict(cls), cls))
+            results.append(FileVerdict(relpath, "restore-missing", cls))
             continue
 
         we_changed = hash_file(src) != entry.get("source_hash")
@@ -148,10 +200,6 @@ def plan_update(
     return results
 
 
-def _missing_verdict(cls: str) -> str:
-    return "restore-missing"
-
-
 def apply_update(
     plugin_dir: Union[str, Path],
     package_root: Union[str, Path],
@@ -162,12 +210,21 @@ def apply_update(
     editor: str | Callable[[Path], int | None] | None = None,
     force: bool = False,
     force_major: bool = False,
+    project_root: Optional[Union[str, Path]] = None,
 ) -> list[FileVerdict]:
     """Apply a planned update transactionally.
 
     All conflict decisions are collected before staging, and all live writes go
     through a journaled commit so startup recovery can restore the pre-update
     state after an interrupted commit.
+
+    Parameters
+    ----------
+    project_root:
+        The user's project root (parent of ``.claude/``).  When provided,
+        ``install_rules_packs`` regenerates the ``<project>/.claude/rules/harness/``
+        mirror and ``compile_features`` recompiles ``features.json`` after a
+        successful apply.  Both hooks are fail-open.
     """
     plugin_dir = Path(plugin_dir)
     package_root = Path(package_root)
@@ -231,6 +288,11 @@ def apply_update(
             extra_files=extra_files,
         )
         _cleanup_journal(plugin_dir)
+
+        # Phase 1b post-apply hooks (fail-open)
+        if project_root is not None:
+            _post_apply_hooks(plugin_dir, project_root)
+
         return verdicts
     except Exception:
         recover_journal(plugin_dir)
@@ -238,6 +300,58 @@ def apply_update(
     finally:
         if staging_dir.exists():
             shutil.rmtree(staging_dir)
+
+
+def _post_apply_hooks(plugin_dir: Path, project_root: Union[str, Path]) -> None:
+    """Run mirror regeneration and features recompile after a successful apply.
+
+    Both are fail-open: errors are logged to stdout and never abort the update.
+    """
+    project_root = Path(project_root)
+
+    # 1. Recompile features.json so the deployed plugin is self-consistent.
+    try:
+        compile_features(plugin_dir)
+    except Exception as exc:  # pragma: no cover — fail-open
+        print(f"[HARNESS] Warning: post-update features recompile failed: {exc}")
+
+    # 2. Regenerate the install-target mirror (<project>/.claude/rules/harness/).
+    # Always call install_rules_packs so the mirror is regenerated (never merged).
+    # The function itself handles a missing packs_root gracefully.
+    try:
+        packs_root = plugin_dir / "rules" / "packs"
+        features_path = plugin_dir / "features.json"
+        features: dict = {}
+        if features_path.exists():
+            import json as _json
+            try:
+                features = _json.loads(features_path.read_text(encoding="utf-8"))
+            except Exception:
+                features = {}
+        install_rules_packs(
+            project_path=project_root,
+            deployed_plugin_path=plugin_dir,
+            packs_root=packs_root,
+            features=features,
+        )
+    except Exception as exc:  # pragma: no cover — fail-open
+        print(f"[HARNESS] Warning: post-update mirror regeneration failed: {exc}")
+
+    # 3. Re-inject platform-only hook events (Claude's Stop/SessionStart).
+    # The shared boilerplate hooks.json deliberately omits them (no equivalent
+    # on other platforms); mint injects them via the adapter, so an apply that
+    # rewrites hooks.json from the template would otherwise drop them.
+    try:
+        from harness.adapters import get_adapter
+
+        manifest = read_manifest(plugin_dir)
+        platform = manifest.get("render_context", {}).get("platform", "claude")
+        adapter = get_adapter(platform)
+        inject = getattr(adapter, "_inject_claude_only_hooks", None)
+        if inject is not None:
+            inject(plugin_dir / "hooks" / "hooks.json")
+    except Exception as exc:  # pragma: no cover — fail-open
+        print(f"[HARNESS] Warning: post-update hook-event injection failed: {exc}")
 
 
 def recover_journal(plugin_dir: Union[str, Path]) -> None:
@@ -292,6 +406,11 @@ def _resolve_into_staging(
             if target.exists():
                 target.unlink()
             changed.add(v.relpath)
+            continue
+        if v.verdict == "emitted" and v.relpath == "features.json":
+            # Compiled from features.yaml — no template source to reproduce.
+            # _post_apply_hooks recompiles it after the commit; leave the
+            # staged copy untouched here.
             continue
 
         entry = owned.get(v.relpath)
@@ -517,9 +636,15 @@ def _migrate_b0_paths(manifest: dict, harness_dir: Path, plugin_dir: Path, packa
             
         dest_path = plugin_dir / b0_path
         
-        # Determine files to migrate
+        # Determine files to migrate.  <harness_dir>/rules/harness/ is the
+        # generated pack mirror (Phase 1 R1: install_rules_packs regenerates it
+        # post-apply) — never legacy B0 content, so it is exempt from migration.
         if src_path.is_dir():
-            rel_files = [p.relative_to(src_path) for p in src_path.rglob("*") if p.is_file()]
+            rel_files = [
+                p.relative_to(src_path) for p in src_path.rglob("*")
+                if p.is_file()
+                and not (b0_path == "rules" and p.relative_to(src_path).parts[:1] == ("harness",))
+            ]
         else:
             rel_files = [Path("")]
             
@@ -549,4 +674,15 @@ def _migrate_b0_paths(manifest: dict, harness_dir: Path, plugin_dir: Path, packa
                     
         if not dry_run and src_path.is_dir() and src_path.exists():
             import shutil
-            shutil.rmtree(str(src_path), ignore_errors=True)
+            if b0_path == "rules" and (src_path / "harness").is_dir():
+                # Spare the generated mirror; clean up only the migrated legacy
+                # content around it.
+                for child in list(src_path.iterdir()):
+                    if child.name == "harness":
+                        continue
+                    if child.is_dir():
+                        shutil.rmtree(str(child), ignore_errors=True)
+                    else:
+                        child.unlink(missing_ok=True)
+            else:
+                shutil.rmtree(str(src_path), ignore_errors=True)

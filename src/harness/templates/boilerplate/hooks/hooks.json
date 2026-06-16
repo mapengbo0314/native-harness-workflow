@@ -1,5 +1,18 @@
 {
   "hooks": {
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "continuous-learning-session-end",
+            "type": "command",
+            "command": "python3 \"${HARNESS_PLUGIN_ROOT}/hooks/session_end.py\"",
+            "description": "Continuous Learning: triggers skill extraction on session end"
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [
@@ -19,6 +32,12 @@
             "type": "command",
             "command": "python3 \"${HARNESS_PLUGIN_ROOT}/hooks/notify_compression.py\"",
             "description": "Alerts the user that context is being compressed so they can run /clear"
+          },
+          {
+            "name": "session-memory-save-precompact",
+            "type": "command",
+            "command": "python3 \"${HARNESS_PLUGIN_ROOT}/hooks/session_memory_save.py\"",
+            "description": "Heartbeat: persists session memory state before context compaction"
           }
         ]
       }

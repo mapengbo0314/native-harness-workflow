@@ -16,7 +16,7 @@ from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 
-from harness.domain.model import OpsManifest, TOPICS
+from harness.domain.model import OpsManifest
 
 # ---------------------------------------------------------------------------
 # Path resolution

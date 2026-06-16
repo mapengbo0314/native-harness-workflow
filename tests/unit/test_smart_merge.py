@@ -141,3 +141,65 @@ def test_merge_structured_plain_list_still_unions():
     new_json = '{"tags": ["b", "c"]}'
     merged = json.loads(merge_structured(old_json, new_json, format="json"))
     assert sorted(merged["tags"]) == ["a", "b", "c"]
+
+
+# ---------------------------------------------------------------------------
+# Phase 0b: features.yaml / features.json survive re-mint smart merge (M3)
+# ---------------------------------------------------------------------------
+
+def test_features_yaml_preserved_on_smart_merge(tmp_path, monkeypatch):
+    """Operator-toggled values in an existing deployed features.yaml must be
+    preserved when perform_smart_merge re-mints over the existing dir, and the
+    subsequent compile_features call must regenerate features.json from the merged
+    YAML (not from a stale smart-merged JSON)."""
+    from harness.init.minting_engine import perform_smart_merge
+    from harness.init.features import compile_features
+
+    existing_dir = tmp_path / "existing"
+    staged_dir = tmp_path / "staged"
+    existing_dir.mkdir()
+    staged_dir.mkdir()
+
+    # Operator has disabled search_first in the deployed copy
+    existing_features = (
+        "pipeline:\n"
+        "  dispatcher:\n"
+        "    gates:\n"
+        "      search_first: false\n"
+        "      adversary_exit: true\n"
+    )
+    (existing_dir / "features.yaml").write_text(existing_features)
+
+    # Staged (new template) has both as true
+    staged_features = (
+        "pipeline:\n"
+        "  dispatcher:\n"
+        "    gates:\n"
+        "      search_first: true\n"
+        "      adversary_exit: true\n"
+    )
+    (staged_dir / "features.yaml").write_text(staged_features)
+
+    # features.json in staged reflects stale template values (all true)
+    (existing_dir / "features.json").write_text('{"pipeline": {"dispatcher": {"gates": {"search_first": false}}}}')
+    (staged_dir / "features.json").write_text('{"pipeline": {"dispatcher": {"gates": {"search_first": true}}}}')
+
+    monkeypatch.setenv("HARNESS_HEADLESS", "1")
+    perform_smart_merge(existing_dir, staged_dir)
+
+    # features.yaml: operator override (search_first: false) must survive
+    merged_yaml = yaml.safe_load((staged_dir / "features.yaml").read_text())
+    assert merged_yaml["pipeline"]["dispatcher"]["gates"]["search_first"] is False, (
+        "Operator's search_first: false must be preserved through smart merge"
+    )
+    assert merged_yaml["pipeline"]["dispatcher"]["gates"]["adversary_exit"] is True
+
+    # features.json must be regenerated from the merged YAML (not smart-merged),
+    # so it reflects the operator's toggled value after compile_features runs.
+    compile_features(staged_dir)
+    recompiled_json = json.loads((staged_dir / "features.json").read_text())
+    assert recompiled_json["pipeline"]["dispatcher"]["gates"]["search_first"] is False, (
+        "Recompiled features.json must reflect operator's search_first: false from merged YAML"
+    )
+
+

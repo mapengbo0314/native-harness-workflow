@@ -24,20 +24,22 @@ def _render_business(business: dict) -> str:
     return block + "\n"
 
 
-def build_context(phase: str, target_agent: str, auth_msg: str, branch: str, missing_documents: list[str], manifest_state: dict = None, business: dict = None) -> str:
+def build_context(phase: str, target_agent: str, auth_msg: str, branch: str, manifest_state: dict = None, business: dict = None, search_first_pending: bool = False, session_id: str = None) -> str:
     if phase == "Unknown":
         return ""
-
-    documents_str = ', '.join(missing_documents) if missing_documents else 'None'
 
     system_state = (
         f"\n\n=== SYSTEM STATE ===\n"
         f"Active Branch: {branch}\n"
         f"Current Phase: {phase}\n"
         f"Target Agent: {target_agent}\n"
-        f"Missing Documents: {documents_str}\n"
         f"Authorization: {auth_msg}\n"
     )
+
+    # Phase 6a: surface the live session id so skills can pass --session
+    # explicitly to session_phase.py (precision path; pointer is fallback).
+    if session_id:
+        system_state += f"Session: {session_id}\n"
 
     # Push the tiny business digest only where judgment matters (planning/questions).
     if business and branch in _BUSINESS_BRANCHES:
@@ -46,6 +48,16 @@ def build_context(phase: str, target_agent: str, auth_msg: str, branch: str, mis
     if manifest_state and branch == "B":
 
         system_state += f"In-Progress Designs: {', '.join(manifest_state.get('progress_found', [])) or 'None'}\n"
+
+    # F4 steering layer: surface the search-first gate status on Branch-B
+    # prompts when research has not been recorded.  The caller computes the
+    # predicate (toggle on + research_done unset); enforcement lives in
+    # pre_tool_use, keyed to the persisted phase (R2) — this line only steers.
+    if search_first_pending and branch == "B":
+        system_state += (
+            "Search-First Gate: research_done NOT set — run the search-first skill "
+            "(or record its proportionality waiver) before source edits.\n"
+        )
 
     if "Execution" in phase:
         system_state += "JIT RULE: You MUST strictly follow Test-Driven Development (TDD). Write the failing test first.\n"

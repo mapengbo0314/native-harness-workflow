@@ -41,8 +41,10 @@ class TestHookExecutionWithMockedDispatcher:
         assert hook_module.fallback_classify("fix the broken login") == "A"
         assert hook_module.fallback_classify("there's a stack trace in the error") == "A"
 
-        # Category B: implementations and design
-        assert hook_module.fallback_classify("implement the feature") == "B"
+        # Category D (bias-to-D, F4 proportionality): implement-style prompts
+        # route to direct implementation, not the Branch-B planning pipeline.
+        assert hook_module.fallback_classify("implement the feature") == "D"
+        # Category B: genuinely open design work
         assert hook_module.fallback_classify("design a new architecture") == "B"
 
         # Category C: explanations
@@ -316,6 +318,26 @@ class TestPhase4EndToEndScenarios:
             pass
 
         assert callable(test_func)
+
+    def test_prompt_classifier_recursion_guard(self):
+        """Verify prompt_classifier.py exits immediately with 0 if HARNESS_INTERNAL_LLM_CALL=1 is set."""
+        import json
+        import subprocess
+        from pathlib import Path
+        import sys
+        import os
+        hook_path = Path(__file__).parent.parent.parent / ".claude/harness-wf-plugin/hooks/prompt_classifier.py"
+        env = {**os.environ, "HARNESS_INTERNAL_LLM_CALL": "1"}
+        p = subprocess.run(
+            [sys.executable, str(hook_path)],
+            input=json.dumps({"prompt": "hello"}),
+            capture_output=True,
+            text=True,
+            env=env
+        )
+        assert p.returncode == 0
+        assert p.stdout == ""
+        assert p.stderr == ""
 
 
 if __name__ == "__main__":
