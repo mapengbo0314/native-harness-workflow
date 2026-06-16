@@ -5,6 +5,7 @@ import json
 import yaml
 from pathlib import Path
 from harness.adapters import get_adapter
+from harness.init.platforms import platform_name_from_choice
 from harness.init.features import compile_features
 # Single source of truth for the two-pass render. process_includes was relocated
 # to render.py; re-imported here to preserve the existing
@@ -37,8 +38,7 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
         shutil.copytree(boilerplate_dir, target_path, ignore=ignore_patterns, dirs_exist_ok=True)
         
         # Tool mapping for specific platforms
-        platform_map_normalized = {"1": "gemini", "2": "claude", "3": "cursor", "4": "agents", "5": "codex"}
-        current_platform = platform_map_normalized.get(platform_choice, platform_choice).lower()
+        current_platform = platform_name_from_choice(platform_choice)
         adapter = get_adapter(current_platform)
         
         # Cleanup files that are only used as source templates or specific to certain platforms
@@ -171,14 +171,7 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
         return
 
     # Normalize platform choice
-    platform_map = {
-        "1": "gemini",
-        "2": "claude",
-        "3": "cursor",
-        "4": "agents",
-        "5": "codex"
-    }
-    active_platform = platform_map.get(platform_choice, platform_choice).lower()
+    active_platform = platform_name_from_choice(platform_choice)
 
     # Generate Platform Rules Pointers IN THE ROOT DIRECTORY
     adapter = get_adapter(active_platform)

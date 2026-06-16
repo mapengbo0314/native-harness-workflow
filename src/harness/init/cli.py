@@ -74,17 +74,8 @@ def _domain_next_steps(platform: str) -> str:
     )
 
 
-def _platform_name(platform_choice: str) -> str:
-    return {
-        "1": "gemini",
-        "2": "claude",
-        "3": "cursor",
-        "4": "agents",
-        "5": "codex",
-    }.get(platform_choice, platform_choice).lower()
-
-
 from harness.adapters import get_adapter
+from harness.init.platforms import platform_name_from_choice, harness_folder_from_choice
 from harness.domain.seed import run_domain_init, run_domain_refresh, _platform_paths
 from harness.domain.compiler import run_domain_compile
 from harness.init.features import compile_features, FeaturesValidationError
@@ -186,7 +177,7 @@ def run_embedded_setup(
     if sys.version_info < (3, 8):
         raise HarnessSetupError("Python 3.8+ is required.")
 
-    adapter = get_adapter(_platform_name(platform_choice))
+    adapter = get_adapter(platform_name_from_choice(platform_choice))
     adapter.configure_cli(project_path)
 
     if enable_rtk:
@@ -768,16 +759,7 @@ def main():
         if not platform_choice:
             platform_choice = "1"
     
-    if platform_choice == "1":
-        harness_folder = ".gemini"
-    elif platform_choice == "2":
-        harness_folder = ".claude"
-    elif platform_choice == "3":
-        harness_folder = ".cursor"
-    elif platform_choice == "5":
-        harness_folder = ".codex"
-    else:
-        harness_folder = ".agents"
+    harness_folder = harness_folder_from_choice(platform_choice)
 
     # Normalize project_path to avoid nesting if the user points directly to the harness folder
     # We check against ALL common harness folder names to be safe
@@ -819,11 +801,11 @@ def main():
             enable_rtk=enable_rtk,
         )
 
-        adapter = get_adapter(_platform_name(platform_choice))
+        adapter = get_adapter(platform_name_from_choice(platform_choice))
 
         # Copy runtime modules baked for the selected platform only
         from harness.init.minting_engine import copy_runtime_modules
-        copy_runtime_modules(temp_harness_dir, platform_id=_platform_name(platform_choice))
+        copy_runtime_modules(temp_harness_dir, platform_id=platform_name_from_choice(platform_choice))
 
         # Provision core infrastructure for all platforms
         adapter.generate_core_infrastructure(Path(args.project_path))
