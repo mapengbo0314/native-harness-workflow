@@ -63,9 +63,27 @@ def _setup(workspace: Path) -> None:
         cwd=str(workspace), check=True,
     )
     print("  [swe-setup] installing package …")
+    # This pylint commit pins astroid>=2.9,<=2.10-dev which in turn pins
+    # wrapt<1.14.  wrapt<1.14 uses inspect.formatargspec, removed in Python
+    # 3.14.  Fix: install pylint editable with --no-deps, then supply all
+    # declared deps manually, substituting astroid==2.11.7 which accepts
+    # wrapt<2 (i.e. wrapt>=1.15.0 works).  The fixme-checker test under
+    # repair does not exercise astroid AST internals so the version bump is safe.
     subprocess.run(
         [sys.executable, "-m", "pip", "install", "-e", ".", "--quiet",
-         "--disable-pip-version-check"],
+         "--disable-pip-version-check", "--no-deps", "--break-system-packages"],
         cwd=str(workspace), check=True,
+    )
+    subprocess.run(
+        [sys.executable, "-m", "pip", "install",
+         "wrapt>=1.15.0",
+         "astroid>=2.11,<3",
+         "dill>=0.2",
+         "platformdirs>=2.2.0",
+         "isort>=4.2.5,<6",
+         "mccabe>=0.6,<0.7",
+         "toml>=0.9.2",
+         "--quiet", "--disable-pip-version-check", "--break-system-packages"],
+        check=True,
     )
     print("  [swe-setup] done")

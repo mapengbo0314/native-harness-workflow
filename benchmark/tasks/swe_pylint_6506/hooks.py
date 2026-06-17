@@ -60,7 +60,8 @@ def prepare_runtime(state: dict) -> dict:
     subprocess.run(["git", "apply", "-"], input=TEST_PATCH, text=True, cwd=str(workspace), check=True)
     print("  [swe-setup] installing package …")
     subprocess.run(
-        [sys.executable, "-m", "pip", "install", "-e", ".", "--quiet", "--disable-pip-version-check"],
+        [sys.executable, "-m", "pip", "install", "-e", ".", "--quiet",
+         "--disable-pip-version-check", "--break-system-packages"],
         cwd=str(workspace), check=True,
     )
     print("  [swe-setup] done")

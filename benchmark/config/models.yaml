@@ -1,56 +1,69 @@
 models:
-  # --- Claude Code variants ---
+  # --- Claude (Sonnet, default model) ---
+  # Core comparison: baseline vs full harness vs full harness + RTK
   claude-no-harness:
     adapter: claude_code
     harness_config: no_harness
     session_prefix: bench-claude-no-harness
-    timeout_sec: 300
-
-  claude-minimal:
-    adapter: claude_code
-    harness_config: minimal
-    session_prefix: bench-claude-minimal
-    timeout_sec: 300
+    timeout_sec: 600
 
   claude-full-harness:
     adapter: claude_code
     harness_config: full_harness
     session_prefix: bench-claude-full-harness
-    timeout_sec: 300
-
-  claude-rtk:
-    adapter: claude_code
-    harness_config: rtk
-    session_prefix: bench-claude-rtk
-    timeout_sec: 300
+    timeout_sec: 600
 
   claude-full-harness-rtk:
     adapter: claude_code
     harness_config: full_harness_rtk
     session_prefix: bench-claude-full-harness-rtk
-    timeout_sec: 300
+    timeout_sec: 600
 
-  # --- Codex variants ---
+  # --- Claude Haiku (cheap iteration / smoke runs) ---
+  claude-haiku-no-harness:
+    adapter: claude_code
+    harness_config: no_harness
+    model: claude-haiku-4-5-20251001
+    session_prefix: bench-haiku-no-harness
+    timeout_sec: 600
+
+  claude-haiku-full-harness:
+    adapter: claude_code
+    harness_config: full_harness
+    model: claude-haiku-4-5-20251001
+    session_prefix: bench-haiku-full-harness
+    timeout_sec: 600
+
+  claude-haiku-full-harness-rtk:
+    adapter: claude_code
+    harness_config: full_harness_rtk
+    model: claude-haiku-4-5-20251001
+    session_prefix: bench-haiku-full-harness-rtk
+    timeout_sec: 600
+
+  # --- ECC (external plugin comparison) ---
+  claude-ecc:
+    adapter: claude_code
+    harness_config: ecc
+    session_prefix: bench-claude-ecc
+    timeout_sec: 600
+
+  claude-haiku-ecc:
+    adapter: claude_code
+    harness_config: ecc
+    model: claude-haiku-4-5-20251001
+    session_prefix: bench-haiku-ecc
+    timeout_sec: 600
+
+  # --- Codex ---
   codex-no-harness:
     adapter: codex
     harness_config: no_harness
     session_prefix: bench-codex-no-harness
-    timeout_sec: 300
+    timeout_sec: 600
 
   codex-full-harness:
     adapter: codex
     harness_config: full_harness
     session_prefix: bench-codex-full-harness
-    timeout_sec: 300
-
-  codex-rtk:
-    adapter: codex
-    harness_config: rtk
-    session_prefix: bench-codex-rtk
-    timeout_sec: 300
-
-  codex-full-harness-rtk:
-    adapter: codex
-    harness_config: full_harness_rtk
-    session_prefix: bench-codex-full-harness-rtk
-    timeout_sec: 300
+    timeout_sec: 600

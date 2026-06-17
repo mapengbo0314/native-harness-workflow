@@ -48,8 +48,13 @@ class CodexAdapter(BaseAdapter):
             "--dangerously-bypass-approvals-and-sandbox",
             "--dangerously-bypass-hook-trust",
             "-C", str(ctx.workspace),
-            "-",
         ]
+
+        model_override = str(ctx.model_config.get("model") or "").strip()
+        if model_override:
+            command.extend(["--model", model_override])
+
+        command.append("-")
 
         # Read the prompt from the prompt_file
         try:
@@ -71,6 +76,15 @@ class CodexAdapter(BaseAdapter):
         # Build environment
         env = os.environ.copy()
         env.update(ctx.env)
+
+        if ctx.mode == "dry":
+            return AdapterRunResult(
+                ok=True,
+                command=command,
+                stdout="",
+                stderr="",
+                metadata={"harness_config": harness_config, "dry_run": True},
+            )
 
         try:
             completed = subprocess.run(

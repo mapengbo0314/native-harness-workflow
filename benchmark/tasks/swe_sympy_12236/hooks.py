@@ -36,10 +36,50 @@ def prepare_runtime(state: dict) -> dict:
     subprocess.run(["git", "clone", "--quiet", REPO_URL, str(workspace)], check=True)
     subprocess.run(["git", "checkout", "--quiet", BASE_COMMIT], cwd=str(workspace), check=True)
     subprocess.run(["git", "apply", "-"], input=TEST_PATCH, text=True, cwd=str(workspace), check=True)
+    # Python 3.14 compat: collections.{Mapping,MutableMapping,Callable} were
+    # removed; they live in collections.abc since 3.3.  Patch the four affected
+    # files so pytest can import sympy at all, independent of the agent's fix.
+    _apply_py314_compat(workspace)
+
     print("  [swe-setup] installing package …")
     subprocess.run(
-        [sys.executable, "-m", "pip", "install", "-e", ".", "--quiet", "--disable-pip-version-check"],
+        [sys.executable, "-m", "pip", "install", "-e", ".", "--quiet",
+         "--disable-pip-version-check", "--break-system-packages"],
         cwd=str(workspace), check=True,
     )
     print("  [swe-setup] done")
     return {}
+
+
+def _apply_py314_compat(workspace: Path) -> None:
+    """Patch sympy source for Python 3.14 collections.abc compatibility."""
+    replacements = [
+        # (file relative to workspace, old text, new text)
+        (
+            "sympy/core/basic.py",
+            "from collections import Mapping",
+            "from collections.abc import Mapping",
+        ),
+        (
+            "sympy/assumptions/sathandlers.py",
+            "from collections import MutableMapping",
+            "from collections.abc import MutableMapping",
+        ),
+        (
+            "sympy/plotting/plot.py",
+            "from collections import Callable",
+            "from collections.abc import Callable",
+        ),
+        (
+            "sympy/matrices/matrices.py",
+            "from collections import Callable",
+            "from collections.abc import Callable",
+        ),
+    ]
+    for rel_path, old, new in replacements:
+        p = workspace / rel_path
+        if not p.exists():
+            continue
+        text = p.read_text(encoding="utf-8")
+        if old in text:
+            p.write_text(text.replace(old, new, 1), encoding="utf-8")
