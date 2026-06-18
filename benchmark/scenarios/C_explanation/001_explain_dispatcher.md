@@ -1,8 +1,9 @@
-# Scenario C-001: Explain Dispatcher
+# Scenario C-001: Explain auth session flow
 
 ## Prompt
 
-How does the dispatcher decide which agent to route a prompt to?
+Explain how `create_session` and `login` in `src/auth.py` interact, and what
+happens if an unknown username is passed to `login`.
 
 ## Category
 

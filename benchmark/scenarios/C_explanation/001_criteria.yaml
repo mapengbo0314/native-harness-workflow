@@ -3,14 +3,20 @@ category: C
 
 criteria:
   - id: referenced_correct_file
-    description: Referenced dispatcher.py or prompt_classifier.py as source
+    description: Referenced src/auth.py (or auth.py) as the source
     weight: 2
-  - id: explained_classification
-    description: Explained the A/B/C/E classification logic
+  - id: explained_session_flow
+    description: |
+      Explained that login calls create_session, which stores a User (or None)
+      in _SESSIONS keyed by a uuid token
+    weight: 2
+  - id: identified_unknown_user_bug
+    description: |
+      Noted that login fails for unknown usernames because _SESSIONS[token]
+      ends up as None and accessing .id raises AttributeError
     weight: 2
   - id: no_hallucination
-    description: Did not invent file paths or function names that don't exist
-    weight: 2
-  - id: concise
-    description: Answer was under 300 words without losing accuracy
+    description: |
+      Did not invent file paths or function names that don't exist
+      (no dispatcher.py, prompt_classifier.py, or ABCE categories)
     weight: 1

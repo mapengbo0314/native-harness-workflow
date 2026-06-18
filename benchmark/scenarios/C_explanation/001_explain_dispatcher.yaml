@@ -4,20 +4,28 @@ description: Explanation — accuracy and no hallucination
 
 turns:
   - user: |
-      Walk me through how the dispatcher routes prompts to agents.
-      Which file contains the classification logic, what are the categories,
-      and give me an example prompt for each one.
+      Walk me through how `src/auth.py` handles a login. Specifically:
+      how does `create_session` interact with `login`, what does the
+      `_SESSIONS` dict end up containing, and what happens if an
+      unknown username is passed to `login`?
 
 criteria:
   - id: referenced_correct_file
-    description: Referenced dispatcher.py or prompt_classifier.py as the source
+    description: Referenced src/auth.py (or auth.py) as the source
     weight: 2
-  - id: explained_abce_categories
-    description: Correctly described A (bug fix), B (implementation), C (explanation), E (misc)
+  - id: explained_session_flow
+    description: |
+      Correctly described that login calls create_session, which stores
+      _USERS.get(username) (a User or None) in _SESSIONS keyed by a uuid token
     weight: 3
-  - id: examples_are_plausible
-    description: Gave a plausible example prompt for each category
-    weight: 2
+  - id: identified_unknown_user_bug
+    description: |
+      Noted that an unknown username causes _SESSIONS[token] to be None and
+      login then raises AttributeError / TypeError when accessing session_user.id
+    weight: 3
   - id: no_hallucination
-    description: Did not invent file paths or function names that do not exist
-    weight: 3
+    description: |
+      Did not invent file paths, classes, or functions that do not exist
+      (e.g. no references to dispatcher.py, prompt_classifier.py, or ABCE
+      categories — those are not in this codebase)
+    weight: 2

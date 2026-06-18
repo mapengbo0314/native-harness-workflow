@@ -62,8 +62,26 @@ models:
     session_prefix: bench-codex-no-harness
     timeout_sec: 600
 
+  codex-minimal:
+    adapter: codex
+    harness_config: minimal
+    session_prefix: bench-codex-minimal
+    timeout_sec: 600
+
   codex-full-harness:
     adapter: codex
     harness_config: full_harness
     session_prefix: bench-codex-full-harness
+    timeout_sec: 600
+
+  codex-rtk:
+    adapter: codex
+    harness_config: rtk
+    session_prefix: bench-codex-rtk
+    timeout_sec: 600
+
+  codex-full-harness-rtk:
+    adapter: codex
+    harness_config: full_harness_rtk
+    session_prefix: bench-codex-full-harness-rtk
     timeout_sec: 600

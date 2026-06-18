@@ -35,7 +35,7 @@ class ScenarioScore:
     agent_usage: TokenUsage
     judge_usage: TokenUsage
     transcript: str
-    error: str | None
+    error: str | None = None
 
 
 def score_session(
@@ -51,9 +51,31 @@ def score_session(
         criteria_list = criteria_def
     transcript_text = result.full_transcript
 
-    judged, judge_usage = _judge_criteria(
+    judged, judge_usage, judge_error = _judge_criteria(
         transcript_text, criteria_list, judge_provider
     )
+
+    if judge_error is not None:
+        # Judge crashed — do not pretend criteria failed. Leave them empty so
+        # report.py can exclude this scenario from avg_score and count it as
+        # a judge failure.
+        return ScenarioScore(
+            scenario_id=result.scenario_id,
+            config=result.config,
+            session_id=result.session_id,
+            provider=result.provider,
+            judge_provider=judge_provider,
+            total_weight=0,
+            earned_weight=0,
+            score=0.0,
+            criteria=[],
+            turns=result.turn_count,
+            agent_usage=result.agent_usage,
+            judge_usage=judge_usage,
+            transcript=result.full_transcript,
+            error="judge_failed",
+        )
+
     scores = []
     for criterion in criteria_list:
         verdict = judged.get(
@@ -93,8 +115,14 @@ def _judge_criteria(
     transcript: str,
     criteria: list[dict],
     judge_provider: str,
-) -> tuple[dict[str, dict], TokenUsage]:
-    """Evaluate all criteria in one judge call to avoid repeating transcripts."""
+) -> tuple[dict[str, dict], TokenUsage, str | None]:
+    """Evaluate all criteria in one judge call to avoid repeating transcripts.
+
+    Returns:
+        (verdicts, usage, error). When the judge crashes, ``error`` is a short
+        diagnostic string and ``verdicts`` is empty — callers must treat this
+        as a judge failure rather than a criterion failure.
+    """
     requested = [
         {"id": item["id"], "description": item["description"]}
         for item in criteria
@@ -122,15 +150,9 @@ def _judge_criteria(
             }
             for item in parsed["criteria"]
         }
-        return verdicts, result.usage
+        return verdicts, result.usage, None
     except Exception as e:
-        return {
-            item["id"]: {
-                "passed": False,
-                "reasoning": f"judge error: {e}",
-            }
-            for item in criteria
-        }, TokenUsage()
+        return {}, TokenUsage(), f"judge error: {e}"
 
 
 def _compact_transcript(transcript: str, max_chars: int = 12000) -> str:

@@ -149,6 +149,11 @@ def _inject_rtk_hook(project: Path, provider: str) -> None:
         print("  WARNING: rtk not found on PATH — hook written but will fail at runtime")
 
     if provider != "claude":
+        print(
+            f"  WARNING: RTK hook skipped for {provider} — "
+            "only system prompt injection applied. "
+            "RTK compliance for this run depends entirely on the prompt."
+        )
         return
 
     claude_dir = project / ".claude"
