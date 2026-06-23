@@ -43,6 +43,18 @@ def prepare_runtime(state: dict) -> dict:
     return {}
 
 
+def _fix_ibo_encoding_typo(workspace: Path) -> None:
+    """Python 3.14 rejects 'IBO-8859-1' (typo for ISO-8859-1) at pytest collection time."""
+    for py_file in workspace.rglob("*.py"):
+        try:
+            raw = py_file.read_bytes()
+            if b"IBO-8859-1" in raw or b"ibo-8859-1" in raw:
+                fixed = raw.replace(b"IBO-8859-1", b"ISO-8859-1").replace(b"ibo-8859-1", b"iso-8859-1")
+                py_file.write_bytes(fixed)
+        except OSError:
+            pass
+
+
 def _setup(workspace: Path) -> None:
     # Clear anything harness-bench copied (no fixtures, but be safe)
     for item in list(workspace.iterdir()):
@@ -62,6 +74,7 @@ def _setup(workspace: Path) -> None:
         input=TEST_PATCH, text=True,
         cwd=str(workspace), check=True,
     )
+    _fix_ibo_encoding_typo(workspace)
     print("  [swe-setup] installing package …")
     # This pylint commit pins astroid>=2.9,<=2.10-dev which in turn pins
     # wrapt<1.14.  wrapt<1.14 uses inspect.formatargspec, removed in Python
