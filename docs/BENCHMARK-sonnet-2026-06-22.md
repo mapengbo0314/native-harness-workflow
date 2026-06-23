@@ -155,6 +155,51 @@ The harness agent's path-matched removal is arguably the "better engineering" an
 
 ---
 
+## Benchmark validity note
+
+A fair question: is the regression test itself well-specified, or does it check behavior the task instruction doesn't clearly require?
+
+### What the hidden tests actually check
+
+**core.sh** — verifies a Loguru message appears in the configured log file. Notably, the core test *pre-clears all RotatingFileHandlers* before calling `configure()`:
+
+```python
+for handler in logging.root.handlers[:]:
+    if isinstance(handler, logging.handlers.RotatingFileHandler):
+        logging.root.removeHandler(handler)
+        handler.close()
+configure(log_level="INFO", log_file=log_file, cache=False)
+```
+
+This is a signal: the test author expected that stale handlers might be present and chose to clear them externally rather than trust `configure()` to do it. It works around the exact cleanup behavior the regression test checks.
+
+**regression.sh** — three assertions:
+1. `assert "standard logging still routes" in first.read_text()` — first configure routes stdlib to first.log ✓
+2. `assert "new file only" in second.read_text()` — after second configure, Loguru goes to second.log ✓
+3. `assert "new file only" not in first.read_text()` — old handler for first.log must be gone ✗ (harness failed here)
+
+### The instruction's ambiguity
+
+The task instruction says:
+
+> *Route Loguru messages through the Langflow logger without duplicating stale file handlers.*
+
+"Stale file handlers" is ambiguous. A developer could reasonably read it as:
+- **Reading A (narrow)**: don't accumulate duplicate handlers for the *same* file on repeated configure calls — harness agent's path-matched removal satisfies this
+- **Reading B (broad)**: don't leave *any* previously-added file handler attached when reconfiguring — required to pass the regression test
+
+The actual merged PR (commit `d68b312`) uses Reading B — unconditional removal. The hidden test is aligned with the reference implementation and with Reading B of the instruction.
+
+### Verdict
+
+The hidden test is checking **correct behavior** as defined by the merged fix. It is not an unfair gotcha. However, the task instruction is underspecified: it does not clearly signal that "stale" means "any previous file handler regardless of path." An agent reading the instruction carefully and implementing path-matched removal is making a reasonable but wrong interpretation.
+
+**This is a benchmark design observation, not a defect**: the hidden test is tight and correct, but there is an instruction/test alignment gap that a more precise instruction would close. Suggested wording: *"…without leaving any stale file handlers from previous configure calls, regardless of their target path."*
+
+The harness-specific finding stands independently: the TDD mandate caused the agent to trust its own tests rather than probe deeper, and that process failure is what prevented it from discovering the gap. A baseline agent without that mandate explored iteratively and happened to land on the simpler, correct implementation. The instruction ambiguity made the process failure consequential — it would have been inconsequential if the instruction had been unambiguous.
+
+---
+
 ## Implications for harness design
 
 The TDD mandate is appropriate for **greenfield development** where the agent defines the acceptance criteria. It is harmful for **open-ended debugging in unfamiliar codebases** where a hidden oracle defines the acceptance criteria and the agent cannot know what edge cases it checks.
