@@ -260,6 +260,45 @@ The native harness tasks are synthetic and designed by the same team that built 
 
 ---
 
+---
+
+## Probe benchmark results (2026-06-22)
+
+Synthetic smoke benchmark: generated Python call-chain with a hidden arithmetic bug. Two axes: **depth** (how many calls deep the bug is buried: 1/3/5) and **clarity** (1.0 = clear identifiers, 0.0 = AST-scrambled obfuscated names). 1 rep per cell, 18 total runs.
+
+| depth | clarity | baseline | harness | ecc |
+|---|---|---|---|---|
+| 1 | 1.0 (clear) | ✓ | ✗ | ✓ |
+| 1 | 0.0 (scrambled) | ✓ | ✓ | ✓ |
+| 3 | 1.0 | ✓ | ✓ | ✓ |
+| 3 | 0.0 | ✓ | ✓ | ✓ |
+| 5 | 1.0 | ✓ | ✗ | ✓ |
+| 5 | 0.0 | ✓ | ✗ | ✓ |
+| **Total** | | **6/6 (100%)** | **3/6 (50%)** | **6/6 (100%)** |
+
+### Interpretation (caveats apply)
+
+The direction is consistent with harness-bench and native harness: baseline ≥ harness across all three benchmarks.
+
+However, with **n=1 per cell**, noise dominates. The pattern is internally inconsistent: harness fails depth=1 clarity=1.0 (the easiest cell) but passes depth=1 clarity=0.0 (harder). A systematic effect would expect the reverse. This suggests the three harness failures are a mix of genuine TDD false-confidence and run-to-run stochasticity on a small synthetic codebase.
+
+**What the probe can and cannot say at n=1:**
+- Cannot distinguish harness signal from noise on individual cells
+- Can say: harness is not *reliably* better — it drops cells that baseline and ECC hold
+- To separate the depth and clarity effects cleanly, need n≥3 per cell (54 runs per model)
+
+### Cross-benchmark summary (all three)
+
+| Benchmark | baseline | harness | ecc | note |
+|---|---|---|---|---|
+| harness-bench (27 real-repo tasks) | 50.0% | 42.3% | 48.1% | n=1 attempt per job |
+| native harness (9 synthetic tasks) | 75.7% | 73.0% | 75.7% | n=1 per task |
+| probe (6 depth×clarity cells) | 100% | 50% | 100% | n=1 per cell, noisy |
+
+**Consistent direction across all three benchmarks: harness does not outperform baseline. ECC matches baseline at higher cost.**
+
+---
+
 ## Artifact locations
 
 | Artifact | Path |
