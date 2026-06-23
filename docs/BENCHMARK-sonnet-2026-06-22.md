@@ -214,6 +214,52 @@ The "combine turns" instruction compounds this by reducing the iterative verific
 
 ---
 
+---
+
+## Native harness benchmark results (2026-06-22)
+
+Run on same day, same model (claude-sonnet-4-6 medium), 9 tasks (SWE tasks excluded — broken oracle on Python 3.14), 3 conditions in parallel. Wall time ~14 minutes.
+
+| Task | baseline | harness | ecc |
+|---|---|---|---|
+| A-bug-fix-001 | **1.000** | 0.667 | **1.000** |
+| B-implementation-001 | 1.000 | 1.000 | 1.000 |
+| C-explanation-001 | 0.714 | **1.000** | 0.714 |
+| D-workload-bug-001 | 1.000 | 1.000 | 1.000 |
+| E-scheduler-bug-001 | 1.000 | 1.000 | 1.000 |
+| F-report-bug-001 | 1.000 | 1.000 | 1.000 |
+| F-rtk-001 | 0.500 | 0.300 | 0.500 |
+| F-rtk-002 | 0.200 | 0.200 | 0.200 |
+| F-rtk-003 | 0.400 | 0.400 | 0.400 |
+| **MEAN** | **0.757** | **0.730** | **0.757** |
+
+Scores are `combined_score` (outcome-only blend; process rubric not run).
+
+### Contrast with harness-bench
+
+| Benchmark | baseline | harness | ecc | harness vs baseline |
+|---|---|---|---|---|
+| harness-bench (27 real-repo tasks) | 50.0 % | 42.3 % | 48.1 % | −8 pp |
+| native harness (9 synthetic tasks) | 75.7 % | 73.0 % | 75.7 % | −3 pp |
+
+The gap is smaller on native tasks but the direction is the same: **harness does not outperform baseline on either benchmark.**
+
+### Task-level observations
+
+**Harness wins on C-explanation-001** (1.0 vs 0.714): the explanation task asks the agent to navigate an unfamiliar codebase and describe dispatcher routing. The harness's graph-first navigation mandate and structured documentation rules likely help here — this is a task where structured process adds value because the agent doesn't need to discover unknown edge cases, just describe what's there.
+
+**Harness loses on A-bug-fix-001** (0.667 vs 1.0): a straightforward Python auth bug. Score 0.667 means 2/3 tests passed — the agent likely fixed the obvious path but missed an edge case. This is the same TDD false-confidence pattern as langflow-low: agent wrote tests, trusted them, stopped.
+
+**RTK tasks (F-rtk-*) are hard for all conditions** (0.2–0.5): these require using the RTK tool via specific CLI commands. Baseline and ECC tie; harness is slightly worse on F-rtk-001 (0.300 vs 0.500). RTK tasks are designed to test harness behaviour specifically — that the harness doesn't improve them is notable.
+
+**ECC = baseline exactly** (0.757 both): ECC neither helps nor hurts on these tasks.
+
+### Interpretation
+
+The native harness tasks are synthetic and designed by the same team that built the harness. Even on home-turf tasks, the harness does not outperform baseline. The one win (C-explanation) is a navigation/documentation task, not a debugging task — consistent with the hypothesis that structured process instructions help when the agent owns the acceptance criteria, and hurt when a hidden oracle defines it.
+
+---
+
 ## Artifact locations
 
 | Artifact | Path |
@@ -225,12 +271,14 @@ The "combine turns" instruction compounds this by reducing the iterative verific
 | langflow-low baseline run | `benchmark/harness-bench/benchmark/runs/2026-06-22T16-18-57-228Z-langflow-ai-langflow-low-loguru-file-routing-agent-claude-*` |
 | langflow-low harness run | `benchmark/harness-bench/benchmark/runs/2026-06-22T16-22-51-044Z-langflow-ai-langflow-low-loguru-file-routing-agent-claude-harness-*` |
 | Harness plugin rules | `src/harness/templates/boilerplate/rules/coding_mandate.md`, `core_mandates.md` |
+| Native harness logs | `/tmp/native-bench-{claude-no-harness,claude-full-harness,claude-ecc}.log` |
 
 ---
 
 ## Next steps
 
-1. **Run Haiku** — second model data point, cheap. If the pattern holds (harness ≤ baseline), the TDD false-confidence mechanism is model-agnostic.
-2. **Inspect langflow-high and bat-low** — both follow baseline-wins pattern; check whether TDD false confidence is the mechanism there too, or whether a different failure mode applies.
-3. **Design a debugging-safe harness variant** — strip TDD lifecycle mandate, relax "combine turns," test on harness-bench. Measure whether accuracy improves toward or past baseline.
-4. **ECC investigation** — ECC matched baseline (48 % vs 50 %) without the TDD mandate. Understanding what ECC injects vs what `claude-harness` injects isolates the causal variable.
+1. **Run Haiku** on both benchmarks — second model data point, cheap. If harness ≤ baseline holds across model sizes, the finding is robust.
+2. **Inspect A-bug-fix-001 harness failure** — confirm TDD false-confidence is the mechanism (mirrors langflow-low pattern).
+3. **Design a debugging-safe harness variant** — strip TDD lifecycle mandate, relax "combine turns." Test on harness-bench and native. Measure delta.
+4. **ECC investigation** — ECC matches baseline on both benchmarks at higher cost. Understanding what it injects vs `claude-harness` isolates the causal variable for the harness cost/accuracy gap.
+5. **Fix SWE task oracles on Python 3.14** — both pylint SWE tasks crash during oracle collection (`LookupError: unknown encoding: IBO-8859-1`). Either pin a Python 3.12 venv for SWE tasks or patch the oracle runner to handle the encoding error.
