@@ -234,6 +234,70 @@ def apply_toggle(data: dict, dotted_key: str, value: bool) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Key enumeration, validation, and status rendering
+# ---------------------------------------------------------------------------
+
+def _iter_known_leaves(schema: Any = None, prefix: str = ""):
+    """Yield ``(dotted_path, is_freeform)`` for every leaf in ``KNOWN_KEYS``.
+
+    A ``bool`` leaf yields ``(path, False)``; a free-form ``dict`` marker
+    (e.g. ``rules_packs.languages``) yields ``(path, True)``.
+    """
+    if schema is None:
+        schema = KNOWN_KEYS
+    for key, val in schema.items():
+        path = f"{prefix}.{key}" if prefix else key
+        if val is bool:
+            yield path, False
+        elif val is dict:
+            yield path, True
+        elif isinstance(val, dict):
+            yield from _iter_known_leaves(val, path)
+
+
+def known_feature_keys() -> tuple[set[str], set[str]]:
+    """Return ``(leaf_paths, freeform_prefixes)`` from ``KNOWN_KEYS``."""
+    leaves: set[str] = set()
+    freeform: set[str] = set()
+    for path, is_freeform in _iter_known_leaves():
+        (freeform if is_freeform else leaves).add(path)
+    return leaves, freeform
+
+
+def valid_feature_key(key: str) -> bool:
+    """True if *key* is a known toggle leaf or a free-form subtree member."""
+    leaves, freeform = known_feature_keys()
+    if key in leaves:
+        return True
+    return any(key.startswith(prefix + ".") for prefix in freeform)
+
+
+def _resolve(data: dict, dotted: str, default: bool = True) -> bool:
+    """Resolve a toggle value from *data* with feature_enabled semantics."""
+    node: Any = data
+    for part in dotted.split("."):
+        if not isinstance(node, dict) or part not in node:
+            return default
+        node = node[part]
+    if isinstance(node, bool):
+        return node
+    if isinstance(node, dict):
+        enabled = node.get("enabled")
+        return enabled if isinstance(enabled, bool) else default
+    return default
+
+
+def format_features_status(data: dict) -> str:
+    """Render every known toggle leaf as ``[x]``/``[ ] <path>`` (fail-open)."""
+    leaves, _ = known_feature_keys()
+    lines = []
+    for path in sorted(leaves):
+        mark = "[x]" if _resolve(data, path, default=True) else "[ ]"
+        lines.append(f"  {mark} {path}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 

@@ -78,7 +78,13 @@ from harness.adapters import get_adapter
 from harness.init.platforms import platform_name_from_choice, harness_folder_from_choice
 from harness.domain.seed import run_domain_init, run_domain_refresh, _platform_paths
 from harness.domain.compiler import run_domain_compile
-from harness.init.features import compile_features, FeaturesValidationError
+from harness.init.features import (
+    compile_features,
+    FeaturesValidationError,
+    apply_toggle,
+    valid_feature_key,
+    format_features_status,
+)
 
 def _run_plugin_validate(claude: str, target: Path) -> None:
     """Run `claude plugin validate <target>` once, failing loudly on error.
@@ -263,6 +269,59 @@ def run_features_sync(project_path: str) -> None:
     _print_features_result(result, plugin_root)
 
 
+def run_features_list(project_path: str) -> None:
+    """Print the on/off status of every known toggle.
+
+    Exposed as ``harness-wf features list --project-path <plugin_root>``.
+    Reads the compiled ``features.json``; absent/corrupt → defaults (all on).
+    """
+    plugin_root = Path(project_path)
+    features_json = plugin_root / "features.json"
+    data: dict = {}
+    if features_json.exists():
+        try:
+            data = json.loads(features_json.read_text(encoding="utf-8"))
+        except Exception:
+            data = {}
+    else:
+        print(f"[HARNESS] No features.json at {plugin_root}; showing defaults (all on).")
+    print(format_features_status(data))
+
+
+def run_features_set(project_path: str, key: str, value: bool) -> None:
+    """Toggle *key* to *value* in ``features.yaml`` (cascade-aware) and recompile.
+
+    Exposed as ``harness-wf features {enable,disable} <key>``.  Rejects unknown
+    keys and a missing ``features.yaml`` with exit code 1.
+    """
+    plugin_root = Path(project_path)
+    if not valid_feature_key(key):
+        print(f"[HARNESS] ERROR: unknown feature key {key!r}.")
+        sys.exit(1)
+    yaml_path = plugin_root / "features.yaml"
+    if not yaml_path.exists():
+        print(f"[HARNESS] ERROR: no features.yaml found at {plugin_root}.")
+        sys.exit(1)
+
+    import yaml
+
+    data = yaml.safe_load(yaml_path.read_text(encoding="utf-8")) or {}
+    new_data = apply_toggle(data, key, value)
+    yaml_path.write_text(
+        "# Harness feature toggles — edit values, then run 'harness-wf features sync'.\n"
+        "# Managed by 'features enable/disable'; comments are not preserved on toggle.\n"
+        + yaml.safe_dump(new_data, sort_keys=False, default_flow_style=False),
+        encoding="utf-8",
+    )
+    try:
+        result = compile_features(plugin_root)
+    except FeaturesValidationError as exc:
+        print(f"[HARNESS] ERROR: {exc}")
+        sys.exit(1)
+    print(f"[HARNESS] {key} {'enabled' if value else 'disabled'}.")
+    _print_features_result(result, plugin_root)
+
+
 def sync_rules_packs(project_path: str, *, plugin_root: Optional[Path] = None) -> None:
     """Re-run pack selection and install for the project.
 
@@ -416,7 +475,8 @@ def run_domain_refresh_with_sync(
 def parse_args():
     parser = argparse.ArgumentParser(description="Initialize or update a Harness agent workspace.")
     parser.add_argument("command", choices=["init", "update", "domain-init", "domain-refresh", "domain-compile", "features"], help="Command to run")
-    parser.add_argument("subcommand", nargs="?", help="Subcommand (e.g. 'sync' for features)")
+    parser.add_argument("subcommand", nargs="?", help="Subcommand (e.g. 'sync'/'list'/'enable'/'disable' for features)")
+    parser.add_argument("arg", nargs="?", help="Feature key for 'features enable/disable <key>'")
     parser.add_argument("--project-path", required=True, help="Path to the repository")
     parser.add_argument("--bundle", help="Path to an existing CodeGraph bundle (.codegraph directory)")
     parser.add_argument("--check", action="store_true", help="(update) Dry-run: report stale/edited/conflicting files, write nothing")
@@ -645,8 +705,19 @@ def main():
         sub = getattr(args, "subcommand", None)
         if sub == "sync":
             run_features_sync(args.project_path)
+        elif sub == "list":
+            run_features_list(args.project_path)
+        elif sub in ("enable", "disable"):
+            key = getattr(args, "arg", None)
+            if not key:
+                print(f"[HARNESS] ERROR: 'features {sub}' requires a feature key.")
+                sys.exit(1)
+            run_features_set(args.project_path, key, sub == "enable")
         else:
-            print(f"[HARNESS] Unknown features subcommand: {sub!r}. Use 'sync'.")
+            print(
+                f"[HARNESS] Unknown features subcommand: {sub!r}. "
+                "Use 'sync', 'list', 'enable', or 'disable'."
+            )
             sys.exit(1)
         langfuse_context.flush()
         return

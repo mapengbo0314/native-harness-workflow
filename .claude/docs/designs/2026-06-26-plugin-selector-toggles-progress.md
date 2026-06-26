@@ -28,15 +28,15 @@ breaking the rest.
 - [x] `harness_features_tree.md` branches section (marked implemented)
 - [x] Tests in `tests/hooks/test_feature_toggles.py` (5: passthrough/degrade/E-never/unknown)
 
-## Increment 2 — CLI: see & toggle non-interactively  ⬜ TODO
-- [ ] 2.1 `format_features_status(data) -> str` — pure tree-with-✓/✗ formatter
-      (`features.py`; tests in new `tests/unit/test_cli_features_toggle.py`)
-- [ ] 2.2 `run_features_list(plugin_root)` reads `features.json` + prints; wire `features list` in `cli.py`
-- [ ] 2.3 `valid_feature_key(key)` — validate against flattened `KNOWN_KEYS`; reject unknown
-- [ ] 2.4 `run_features_set(plugin_root, key, value)` — read yaml → `apply_toggle` → write yaml → `compile_features`
-      (assert yaml + json reflect the cascade)
-- [ ] 2.5 Wire `features enable/disable <key>` subcommands in `cli.py`
-- [ ] 2.6 Error paths — unknown key exits 1; missing `features.yaml` prints clear message
+## Increment 2 — CLI: see & toggle non-interactively  ✅ DONE
+- [x] 2.1 `format_features_status(data) -> str` — pure `[x]`/`[ ]` formatter
+      (`features.py`; tests in `tests/unit/test_cli_features_toggle.py`)
+- [x] 2.2 `run_features_list(plugin_root)` reads `features.json` + prints; wired `features list` in `cli.py`
+- [x] 2.3 `valid_feature_key(key)` + `known_feature_keys()` — validate against flattened `KNOWN_KEYS`
+- [x] 2.4 `run_features_set(plugin_root, key, value)` — read yaml → `apply_toggle` → write yaml → `compile_features`
+- [x] 2.5 Wired `features enable/disable <key>` subcommands (new `arg` positional) in `cli.py`
+- [x] 2.6 Error paths — unknown key exits 1; missing `features.yaml` exits 1
+- [x] Verified end-to-end through the real `harness-wf` binary in a temp dir (sync/list/disable/cascade/enable/unknown)
 
 ## Increment 3 — Interactive curses `features toggle`  ⬜ TODO
 - [ ] 3.1 `build_checklist(data) -> list[(key, label, is_on)]` — pure view-model from data + `KNOWN_KEYS`
