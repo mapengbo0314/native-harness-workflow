@@ -25,6 +25,13 @@ hooks:
   session_end:
     # Extract learnings at end of session and store them for future sessions.
     learning_extraction: true
+  # Per-hook listeners. post_tool_use and notify_compression early-exit when off.
+  # prompt_classifier/pre_tool_use are pipeline/security-critical: schema-valid
+  # but NOT runtime-gated (disabling belongs to hook registration, not a guard).
+  prompt_classifier: true
+  pre_tool_use: true
+  post_tool_use: true
+  notify_compression: true
 
 pipeline:
   dispatcher:
@@ -49,3 +56,21 @@ branches:
   plan_c_readonly: true    # Explain/where/which-file questions
   plan_d_execution: true   # Implement/create/refactor intents
   plan_e_answer: true      # Answer-only fallback (always on)
+
+agents:
+  # Persona toggles. A disabled persona degrades to @generalist at dispatch.
+  # Disabling an agent also cascades off the branch that requires it
+  # (e.g. debugger -> plan_a_bugs), which then degrades to plan_e.
+  generalist: true         # Always-on fallback persona
+  debugger: true           # Plan A (bugs)
+  planner: true            # Plan B (discovery)
+  implementer: true        # Plan D (execution)
+  verifier: true
+  reviewer: true
+  adversary: true
+
+mcp:
+  # MCP server toggles. 'features sync' regenerates .mcp.json from the
+  # mcp_servers.json catalog, dropping any server set to false here.
+  domain: true             # domain_ops project-context server
+  codegraph: true          # codegraph code-intelligence server

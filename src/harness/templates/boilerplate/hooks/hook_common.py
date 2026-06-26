@@ -232,6 +232,39 @@ def effective_branch(branch: str, plugin_root) -> str:
         return branch
 
 
+#: Persona that disabled agents degrade to (always on, never degraded).
+_FALLBACK_AGENT = "@generalist"
+
+
+def effective_agent(agent, plugin_root):
+    """Return the persona to use after applying ``agents.*`` toggles.
+
+    A disabled persona degrades to ``@generalist``.  Accepts ``"@name"`` or
+    ``"name"``.  Fail-open: ``@generalist``, an empty/``None`` agent, an
+    unknown persona, or any error returns *agent* unchanged.
+    """
+    try:
+        if not agent:
+            return agent
+        name = agent.lstrip("@")
+        if name == "generalist":
+            return agent
+        return agent if feature_enabled(f"agents.{name}", plugin_root) else _FALLBACK_AGENT
+    except Exception:
+        return agent
+
+
+def hook_enabled(hook_name: str, plugin_root) -> bool:
+    """True unless ``hooks.<hook_name>`` is explicitly disabled (fail-open).
+
+    The early-exit predicate for individually-toggleable hooks.
+    """
+    try:
+        return feature_enabled(f"hooks.{hook_name}", plugin_root)
+    except Exception:
+        return True
+
+
 # ---------------------------------------------------------------------------
 # Session Memory (Phase 2 – ECC port)
 # ---------------------------------------------------------------------------

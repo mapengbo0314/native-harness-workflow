@@ -45,13 +45,16 @@ breaking the rest.
 - [x] 3.4 Thin curses render/loop shell (`_run_curses_toggle`, logic-free; pure fns + `compile_features` on save); wired `features toggle`
 - [x] Verified non-TTY fallback end-to-end via the real `harness-wf` binary
 
-## Increment 4 — Breadth: agents, hooks, MCPs  ⬜ TODO
-- [ ] 4.1 `agents.*` in `KNOWN_KEYS`; `effective_agent(agent, root) -> @generalist` fallback; wire into dispatcher/classifier
-- [ ] 4.2 `hooks.*` in `KNOWN_KEYS`; each hook early-exits on its flag
-      (extend `session_end`/`post_tool_use`/`notify_compression`); guard the pipeline-killing hooks
-- [ ] 4.3 `mcp.*` in `KNOWN_KEYS`; `compile_mcp_config` generates `.mcp.json` from flags at sync/mint
-- [ ] 4.4 Fold `BRANCH_ROUTING` into `DEPENDENCIES` (branch→agent, branch→skill edges) so cascade spans classes
-- [ ] 4.5 Add new blocks to template `features.yaml`; reconcile `harness_features_tree.md`
+## Increment 4 — Breadth: agents, hooks, MCPs  ✅ DONE
+- [x] 4.1 `agents.*` in `KNOWN_KEYS`; `effective_agent(agent, root) -> @generalist` (hook_common); wired into prompt_classifier
+- [x] 4.2 `hooks.*` in `KNOWN_KEYS`; `hook_enabled()` early-exit in `post_tool_use` + `notify_compression`
+      (prompt_classifier/pre_tool_use schema-valid but intentionally NOT runtime-gated — pipeline/security-critical)
+- [x] 4.3 `mcp.*` in `KNOWN_KEYS`; `filter_mcp_servers()` + `compile_mcp_config()` regenerate `.mcp.json` from the
+      `mcp_servers.json` catalog on `features sync`/`enable`/`disable`/`toggle` (non-destructive; no-op without catalog)
+- [x] 4.4 Cross-class `DEPENDENCIES` edges branch→agent (plan_a→debugger, plan_b→planner, plan_d→implementer); cascade spans classes
+- [x] 4.5 Added agents/hooks/mcp blocks to template `features.yaml`; reconciled `harness_features_tree.md` sections 3/4/6
+- [x] Verified e2e via real binary: mcp drop, agent→branch cascade, effective_agent/effective_branch/hook_enabled consumers
+- Note: branch→skill edges deferred (DEPENDENCIES is one-dep-per-feature; branch→agent is the load-bearing edge)
 
 ## Increment 5 — Delivery & integration  ⬜ TODO
 - [ ] 5.1 Ownership entries in `src/harness/update/classification.py` for new generated files

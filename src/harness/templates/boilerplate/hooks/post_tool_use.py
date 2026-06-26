@@ -81,6 +81,14 @@ def main():
         input_data = json.loads(input_str)
         is_gemini = "hook_event_name" in input_data
 
+        # Increment 4: honour the hooks.post_tool_use toggle (fail-open).
+        try:
+            from hook_common import hook_enabled
+            if not hook_enabled("post_tool_use", Path(__file__).resolve().parent.parent):
+                _noop(is_gemini)
+        except Exception:
+            pass
+
         tool_name = input_data.get("tool_name", "")
         tool_input = input_data.get("tool_input", {})
 

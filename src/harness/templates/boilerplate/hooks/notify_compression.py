@@ -1,11 +1,24 @@
 #!/usr/bin/env python3
 import sys
 import json
+from pathlib import Path
 
 def main():
     try:
         input_data = json.load(sys.stdin)
-        
+
+        # Increment 4: honour the hooks.notify_compression toggle (fail-open).
+        try:
+            sys.path.insert(0, str(Path(__file__).parent))
+            from hook_common import hook_enabled
+            if not hook_enabled("notify_compression", Path(__file__).resolve().parent.parent):
+                print(json.dumps({}))
+                sys.exit(0)
+        except SystemExit:
+            raise
+        except Exception:
+            pass
+
         # Why is it compressing?
         trigger = input_data.get("trigger", "auto")
         

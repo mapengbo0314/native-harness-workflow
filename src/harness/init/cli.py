@@ -80,6 +80,7 @@ from harness.domain.seed import run_domain_init, run_domain_refresh, _platform_p
 from harness.domain.compiler import run_domain_compile
 from harness.init.features import (
     compile_features,
+    compile_mcp_config,
     FeaturesValidationError,
     apply_toggle,
     valid_feature_key,
@@ -269,6 +270,10 @@ def run_features_sync(project_path: str) -> None:
         print(f"[HARNESS] ERROR: {exc}")
         sys.exit(1)
     _print_features_result(result, plugin_root)
+    # Regenerate the active .mcp.json from the catalog + flags (no-op if no catalog).
+    mcp_path = compile_mcp_config(plugin_root)
+    if mcp_path is not None:
+        print(f"[HARNESS] .mcp.json regenerated -> {mcp_path}")
 
 
 def run_features_list(project_path: str) -> None:
@@ -317,6 +322,7 @@ def run_features_set(project_path: str, key: str, value: bool) -> None:
         sys.exit(1)
     print(f"[HARNESS] {key} {'enabled' if value else 'disabled'}.")
     _print_features_result(result, plugin_root)
+    compile_mcp_config(plugin_root)
 
 
 def run_features_toggle(project_path: str) -> None:
@@ -398,6 +404,7 @@ def _run_curses_toggle(plugin_root: Path) -> None:
         print(f"[HARNESS] ERROR: {exc}")
         sys.exit(1)
     _print_features_result(result, plugin_root)
+    compile_mcp_config(plugin_root)
 
 
 def sync_rules_packs(project_path: str, *, plugin_root: Optional[Path] = None) -> None:

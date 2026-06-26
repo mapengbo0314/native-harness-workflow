@@ -206,6 +206,12 @@ def main():
         current_phase = routing_decision.get("phase", "Unknown")
         auth_msg = routing_decision.get("auth_msg", "")
         target_agent = routing_decision.get("target_agent", "@generalist")
+        # Apply agents.* toggles: a disabled persona degrades to @generalist.
+        try:
+            from hook_common import effective_agent
+            target_agent = effective_agent(target_agent, plugin_root)
+        except Exception:
+            pass
         manifest_state = routing_decision.get("manifest_state", None)
 
         # Phase 6a: resolve identity ONCE from the hook payload (platform

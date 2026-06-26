@@ -46,6 +46,32 @@ KNOWN_KEYS: dict[str, Any] = {
         "session_end": {
             "learning_extraction": bool,
         },
+        # Per-hook listeners.  prompt_classifier/pre_tool_use are pipeline- and
+        # security-critical: their flags are schema-valid but intentionally NOT
+        # early-exited at runtime (disabling belongs to settings.json
+        # registration, not a hot-path guard).  post_tool_use and
+        # notify_compression are safe to early-exit on their flag.
+        "prompt_classifier": bool,
+        "pre_tool_use": bool,
+        "post_tool_use": bool,
+        "notify_compression": bool,
+    },
+    "agents": {
+        # Persona toggles.  A disabled persona degrades to @generalist
+        # (hook_common.effective_agent).  generalist is the always-on fallback.
+        "generalist": bool,
+        "debugger": bool,
+        "planner": bool,
+        "implementer": bool,
+        "verifier": bool,
+        "reviewer": bool,
+        "adversary": bool,
+    },
+    "mcp": {
+        # MCP server toggles.  compile_mcp_config drops disabled servers from
+        # the active .mcp.json (catalog mcp_servers.json is the source of truth).
+        "domain": bool,
+        "codegraph": bool,
     },
     "pipeline": {
         "dispatcher": {
@@ -77,6 +103,12 @@ KNOWN_KEYS: dict[str, Any] = {
 DEPENDENCIES: dict[str, str] = {
     "pipeline.dispatcher.gates.search_first": "services.session_memory.enabled",
     "hooks.session_end.learning_extraction": "services.session_memory.enabled",
+    # Cross-class edges (Increment 4): a Plan branch requires its agent persona.
+    # Disabling the agent cascades the branch off (which then degrades to E at
+    # dispatch via hook_common.effective_branch).  One dependency per feature.
+    "branches.plan_a_bugs": "agents.debugger",
+    "branches.plan_b_discovery": "agents.planner",
+    "branches.plan_d_execution": "agents.implementer",
 }
 
 
@@ -304,6 +336,59 @@ def build_checklist(data: dict) -> list[tuple[str, bool]]:
     """
     leaves, _ = known_feature_keys()
     return [(path, _resolve(data, path, default=True)) for path in sorted(leaves)]
+
+
+# ---------------------------------------------------------------------------
+# MCP server toggles
+# ---------------------------------------------------------------------------
+
+def filter_mcp_servers(mcp_config: dict, features: dict) -> dict:
+    """Return a copy of *mcp_config* with disabled servers removed (pure).
+
+    A server ``name`` is dropped when ``mcp.<name>`` resolves to False in
+    *features*.  Absent flags fail-open (server kept).  The input is not
+    mutated.
+    """
+    servers = mcp_config.get("mcpServers", {})
+    if not isinstance(servers, dict):
+        return dict(mcp_config)
+    kept = {
+        name: cfg
+        for name, cfg in servers.items()
+        if _resolve(features, f"mcp.{name}", default=True)
+    }
+    return {**mcp_config, "mcpServers": kept}
+
+
+def compile_mcp_config(plugin_root: Path) -> Optional[Path]:
+    """Generate ``.mcp.json`` from the ``mcp_servers.json`` catalog + flags.
+
+    The catalog (``<plugin_root>/mcp_servers.json``) is the non-destructive
+    source of truth; this writes the active ``<plugin_root>/.mcp.json`` with
+    disabled servers removed.  Returns the active path, or ``None`` when no
+    catalog is present (no-op).
+    """
+    plugin_root = Path(plugin_root)
+    catalog_path = plugin_root / "mcp_servers.json"
+    if not catalog_path.exists():
+        return None
+
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    features: dict = {}
+    features_json = plugin_root / "features.json"
+    if features_json.exists():
+        try:
+            features = json.loads(features_json.read_text(encoding="utf-8"))
+        except Exception:
+            features = {}
+
+    active = filter_mcp_servers(catalog, features)
+    active_path = plugin_root / ".mcp.json"
+    active_path.write_text(
+        json.dumps(active, sort_keys=True, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    return active_path
 
 
 def toggle_at(data: dict, index: int) -> dict:

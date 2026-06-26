@@ -356,3 +356,57 @@ def test_apply_toggle_returns_new_object_without_mutating_input():
     # Original is unchanged (immutability rule).
     assert data["services"]["session_memory"]["enabled"] is True
     assert result is not data
+
+
+# ---------------------------------------------------------------------------
+# Increment 4: breadth — agents / hooks / mcp schema + cross-class cascade
+# ---------------------------------------------------------------------------
+
+
+def test_agents_hooks_mcp_blocks_compile_and_round_trip(tmp_path):
+    yaml_text = """\
+agents:
+  generalist: true
+  debugger: true
+  planner: true
+  implementer: true
+hooks:
+  post_tool_use: false
+  notify_compression: true
+mcp:
+  domain: true
+  codegraph: false
+"""
+    write_yaml(tmp_path, yaml_text)
+    out = compile_features(tmp_path)
+    assert out is not None
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert data["agents"]["debugger"] is True
+    assert data["hooks"]["post_tool_use"] is False
+    assert data["mcp"]["codegraph"] is False
+
+
+def test_apply_toggle_disable_agent_cascades_to_its_branch():
+    # Cross-class edge: branches.plan_a_bugs requires agents.debugger.
+    start = {
+        "agents": {"debugger": True},
+        "branches": {"plan_a_bugs": True},
+    }
+    result = apply_toggle(start, "agents.debugger", False)
+    assert result["agents"]["debugger"] is False
+    assert result["branches"]["plan_a_bugs"] is False
+
+
+def test_cross_class_dependency_violation_raises_naming_both(tmp_path):
+    yaml_text = """\
+branches:
+  plan_a_bugs: true
+agents:
+  debugger: false
+"""
+    write_yaml(tmp_path, yaml_text)
+    with pytest.raises(FeaturesValidationError) as exc_info:
+        compile_features(tmp_path)
+    msg = str(exc_info.value)
+    assert "branches.plan_a_bugs" in msg
+    assert "agents.debugger" in msg
