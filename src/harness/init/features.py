@@ -297,6 +297,25 @@ def format_features_status(data: dict) -> str:
     return "\n".join(lines)
 
 
+def build_checklist(data: dict) -> list[tuple[str, bool]]:
+    """Return sorted ``(key, is_on)`` rows for every known toggle (fail-open).
+
+    The pure view-model behind the interactive ``features toggle`` UI.
+    """
+    leaves, _ = known_feature_keys()
+    return [(path, _resolve(data, path, default=True)) for path in sorted(leaves)]
+
+
+def toggle_at(data: dict, index: int) -> dict:
+    """Flip the toggle at checklist row *index* (cascade-aware).
+
+    Returns a new dict (immutability); raises ``IndexError`` if out of range.
+    """
+    rows = build_checklist(data)
+    key, is_on = rows[index]
+    return apply_toggle(data, key, not is_on)
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------

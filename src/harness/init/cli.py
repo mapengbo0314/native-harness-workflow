@@ -84,6 +84,8 @@ from harness.init.features import (
     apply_toggle,
     valid_feature_key,
     format_features_status,
+    build_checklist,
+    toggle_at,
 )
 
 def _run_plugin_validate(claude: str, target: Path) -> None:
@@ -307,18 +309,94 @@ def run_features_set(project_path: str, key: str, value: bool) -> None:
 
     data = yaml.safe_load(yaml_path.read_text(encoding="utf-8")) or {}
     new_data = apply_toggle(data, key, value)
-    yaml_path.write_text(
-        "# Harness feature toggles — edit values, then run 'harness-wf features sync'.\n"
-        "# Managed by 'features enable/disable'; comments are not preserved on toggle.\n"
-        + yaml.safe_dump(new_data, sort_keys=False, default_flow_style=False),
-        encoding="utf-8",
-    )
+    _write_features_yaml(yaml_path, new_data)
     try:
         result = compile_features(plugin_root)
     except FeaturesValidationError as exc:
         print(f"[HARNESS] ERROR: {exc}")
         sys.exit(1)
     print(f"[HARNESS] {key} {'enabled' if value else 'disabled'}.")
+    _print_features_result(result, plugin_root)
+
+
+def run_features_toggle(project_path: str) -> None:
+    """Interactive checklist to toggle features; non-TTY falls back to list.
+
+    Exposed as ``harness-wf features toggle``.  All decision logic lives in the
+    pure ``build_checklist``/``toggle_at`` helpers; the curses loop is a thin
+    render/input shell.
+    """
+    plugin_root = Path(project_path)
+    if not (sys.stdin.isatty() and sys.stdout.isatty()):
+        print(
+            "[HARNESS] Interactive toggle requires a TTY/terminal; showing current "
+            "status instead. Use 'features enable/disable <key>' to change a flag."
+        )
+        run_features_list(project_path)
+        return
+    _run_curses_toggle(plugin_root)
+
+
+def _write_features_yaml(yaml_path: Path, data: dict) -> None:
+    """Serialize *data* to *yaml_path* with the managed-file header."""
+    import yaml
+
+    yaml_path.write_text(
+        "# Harness feature toggles — edit values, then run 'harness-wf features sync'.\n"
+        "# Managed by 'features toggle'; comments are not preserved on toggle.\n"
+        + yaml.safe_dump(data, sort_keys=False, default_flow_style=False),
+        encoding="utf-8",
+    )
+
+
+def _run_curses_toggle(plugin_root: Path) -> None:
+    """Thin curses render/input loop over the pure checklist model."""
+    import curses
+    import yaml
+
+    yaml_path = plugin_root / "features.yaml"
+    if not yaml_path.exists():
+        print(f"[HARNESS] ERROR: no features.yaml found at {plugin_root}.")
+        sys.exit(1)
+    state = {"data": yaml.safe_load(yaml_path.read_text(encoding="utf-8")) or {}, "dirty": False}
+
+    def _loop(stdscr):
+        curses.curs_set(0)
+        idx = 0
+        while True:
+            rows = build_checklist(state["data"])
+            stdscr.clear()
+            stdscr.addstr(0, 0, "Harness feature toggles — up/down move, space toggle, s save, q quit")
+            for i, (key, on) in enumerate(rows):
+                mark = "[x]" if on else "[ ]"
+                attr = curses.A_REVERSE if i == idx else curses.A_NORMAL
+                stdscr.addstr(i + 2, 2, f"{mark} {key}", attr)
+            tag = " *unsaved*" if state["dirty"] else ""
+            stdscr.addstr(len(rows) + 3, 0, f"[{len(rows)} features]{tag}")
+            stdscr.refresh()
+            ch = stdscr.getch()
+            if ch in (curses.KEY_UP, ord("k")):
+                idx = (idx - 1) % len(rows)
+            elif ch in (curses.KEY_DOWN, ord("j")):
+                idx = (idx + 1) % len(rows)
+            elif ch in (ord(" "), curses.KEY_ENTER, 10, 13):
+                state["data"] = toggle_at(state["data"], idx)
+                state["dirty"] = True
+            elif ch == ord("s"):
+                return True
+            elif ch in (ord("q"), 27):
+                return False
+
+    saved = curses.wrapper(_loop)
+    if not saved:
+        print("[HARNESS] No changes saved.")
+        return
+    _write_features_yaml(yaml_path, state["data"])
+    try:
+        result = compile_features(plugin_root)
+    except FeaturesValidationError as exc:
+        print(f"[HARNESS] ERROR: {exc}")
+        sys.exit(1)
     _print_features_result(result, plugin_root)
 
 
@@ -707,6 +785,8 @@ def main():
             run_features_sync(args.project_path)
         elif sub == "list":
             run_features_list(args.project_path)
+        elif sub == "toggle":
+            run_features_toggle(args.project_path)
         elif sub in ("enable", "disable"):
             key = getattr(args, "arg", None)
             if not key:
@@ -716,7 +796,7 @@ def main():
         else:
             print(
                 f"[HARNESS] Unknown features subcommand: {sub!r}. "
-                "Use 'sync', 'list', 'enable', or 'disable'."
+                "Use 'sync', 'list', 'toggle', 'enable', or 'disable'."
             )
             sys.exit(1)
         langfuse_context.flush()

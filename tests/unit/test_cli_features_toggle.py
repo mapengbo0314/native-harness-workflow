@@ -153,3 +153,54 @@ def test_run_features_list_prints_status(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "[x] branches.plan_a_bugs" in out
     assert "services.session_memory.enabled" in out
+
+
+# ---------------------------------------------------------------------------
+# Increment 3: interactive toggle — pure view-model + non-TTY fallback
+# ---------------------------------------------------------------------------
+
+
+def test_build_checklist_rows_reflect_state():
+    from harness.init.features import build_checklist
+
+    data = {"services": {"session_memory": {"enabled": False}}}
+    rows = build_checklist(data)
+    # Rows are (key, is_on); ordering is stable/sorted.
+    assert rows == sorted(rows, key=lambda r: r[0])
+    by_key = dict(rows)
+    assert by_key["services.session_memory.enabled"] is False
+    # Absent keys read as on (fail-open).
+    assert by_key["branches.plan_a_bugs"] is True
+
+
+def test_toggle_at_flips_row_and_cascades():
+    from harness.init.features import build_checklist, toggle_at
+
+    data = {
+        "services": {"session_memory": {"enabled": True}},
+        "pipeline": {"dispatcher": {"gates": {"search_first": True}}},
+    }
+    rows = build_checklist(data)
+    idx = [k for k, _ in rows].index("services.session_memory.enabled")
+    new_data = toggle_at(data, idx)
+    # Flipped off, and the dependent cascaded off too.
+    assert new_data["services"]["session_memory"]["enabled"] is False
+    assert new_data["pipeline"]["dispatcher"]["gates"]["search_first"] is False
+    # Original untouched (immutability).
+    assert data["services"]["session_memory"]["enabled"] is True
+
+
+def test_run_features_toggle_non_tty_falls_back_to_list(tmp_path, capsys, monkeypatch):
+    from harness.init.cli import run_features_toggle
+    from harness.init.features import compile_features
+
+    _write_full_yaml(tmp_path)
+    compile_features(tmp_path)
+    monkeypatch.setattr("sys.stdout.isatty", lambda: False, raising=False)
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False, raising=False)
+
+    # Must not raise / must not enter curses; prints a message + the status list.
+    run_features_toggle(str(tmp_path))
+    out = capsys.readouterr().out
+    assert "[x] branches.plan_a_bugs" in out
+    assert "TTY" in out or "terminal" in out

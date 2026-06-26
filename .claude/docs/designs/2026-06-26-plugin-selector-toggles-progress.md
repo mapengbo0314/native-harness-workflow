@@ -38,11 +38,12 @@ breaking the rest.
 - [x] 2.6 Error paths — unknown key exits 1; missing `features.yaml` exits 1
 - [x] Verified end-to-end through the real `harness-wf` binary in a temp dir (sync/list/disable/cascade/enable/unknown)
 
-## Increment 3 — Interactive curses `features toggle`  ⬜ TODO
-- [ ] 3.1 `build_checklist(data) -> list[(key, label, is_on)]` — pure view-model from data + `KNOWN_KEYS`
-- [ ] 3.2 `toggle_at(data, index) -> data` — maps row → key, calls `apply_toggle` (pure)
-- [ ] 3.3 Non-TTY guard — `features toggle` without a terminal falls back to `features list` + message (CI-safe)
-- [ ] 3.4 Thin curses render/loop shell (logic-free; calls pure fns + `compile_features` on save); wire `features toggle`
+## Increment 3 — Interactive curses `features toggle`  ✅ DONE
+- [x] 3.1 `build_checklist(data) -> list[(key, is_on)]` — pure view-model from data + `KNOWN_KEYS`
+- [x] 3.2 `toggle_at(data, index) -> data` — maps row → key, calls `apply_toggle` (pure, immutable)
+- [x] 3.3 Non-TTY guard — `features toggle` without a terminal falls back to `features list` + message (CI-safe)
+- [x] 3.4 Thin curses render/loop shell (`_run_curses_toggle`, logic-free; pure fns + `compile_features` on save); wired `features toggle`
+- [x] Verified non-TTY fallback end-to-end via the real `harness-wf` binary
 
 ## Increment 4 — Breadth: agents, hooks, MCPs  ⬜ TODO
 - [ ] 4.1 `agents.*` in `KNOWN_KEYS`; `effective_agent(agent, root) -> @generalist` fallback; wire into dispatcher/classifier
