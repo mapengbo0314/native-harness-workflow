@@ -16,6 +16,7 @@ FeaturesValidationError
 """
 from __future__ import annotations
 
+import copy
 import json
 import warnings
 from pathlib import Path
@@ -58,6 +59,16 @@ KNOWN_KEYS: dict[str, Any] = {
         "continuous-learning": bool,
         "search-first": bool,
         "adversary-pipeline": bool,
+    },
+    "branches": {
+        # Plan A–E dispatch branches.  Disabling a branch makes the
+        # dispatcher degrade to plan_e (answer-only); plan_e is the
+        # always-on terminal fallback.
+        "plan_a_bugs": bool,
+        "plan_b_discovery": bool,
+        "plan_c_readonly": bool,
+        "plan_d_execution": bool,
+        "plan_e_answer": bool,
     },
 }
 
@@ -157,6 +168,69 @@ def _check_dependencies(data: dict) -> None:
                 f"Feature '{feature_key}' is enabled but its dependency "
                 f"'{dep_key}' is explicitly disabled."
             )
+
+
+# ---------------------------------------------------------------------------
+# Cascade-aware toggling
+# ---------------------------------------------------------------------------
+
+def _set_nested(data: dict, dotted: str, value: bool) -> None:
+    """Set *value* at *dotted* path in *data*, creating intermediate dicts."""
+    parts = dotted.split(".")
+    node = data
+    for part in parts[:-1]:
+        child = node.get(part)
+        if not isinstance(child, dict):
+            child = {}
+            node[part] = child
+        node = child
+    node[parts[-1]] = value
+
+
+def _cascade_disable(data: dict, disabled_key: str) -> None:
+    """Disable every feature that (transitively) requires *disabled_key*."""
+    stack = [disabled_key]
+    seen: set[str] = set()
+    while stack:
+        dep = stack.pop()
+        for feature_key, required in DEPENDENCIES.items():
+            if required == dep and feature_key not in seen:
+                seen.add(feature_key)
+                _set_nested(data, feature_key, False)
+                stack.append(feature_key)
+
+
+def _cascade_enable(data: dict, enabled_key: str) -> None:
+    """Enable whatever *enabled_key* (transitively) depends on."""
+    key = enabled_key
+    seen: set[str] = set()
+    while key in DEPENDENCIES and key not in seen:
+        seen.add(key)
+        dep = DEPENDENCIES[key]
+        _set_nested(data, dep, True)
+        key = dep
+
+
+def apply_toggle(data: dict, dotted_key: str, value: bool) -> dict:
+    """Return a NEW feature map with *dotted_key* set to *value*, cascaded.
+
+    Maintains dependency validity so a toggle never lands in a state that
+    ``_check_dependencies`` would reject:
+
+    - Disabling a key also disables every feature that requires it
+      (transitive reverse edges).
+    - Enabling a key also enables whatever it depends on (transitive
+      forward edges).
+
+    The input is never mutated (immutability rule); a deep copy is returned.
+    """
+    result = copy.deepcopy(data)
+    _set_nested(result, dotted_key, value)
+    if value:
+        _cascade_enable(result, dotted_key)
+    else:
+        _cascade_disable(result, dotted_key)
+    return result
 
 
 # ---------------------------------------------------------------------------

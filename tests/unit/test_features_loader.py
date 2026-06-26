@@ -44,6 +44,7 @@ def hook_common():
 # ---------------------------------------------------------------------------
 from harness.init.features import (
     FeaturesValidationError,
+    apply_toggle,
     compile_features,
 )
 
@@ -278,3 +279,80 @@ def test_known_keys_disjoint_from_codex_tool_mapping(tmp_path):
     assert not collision, (
         f"KNOWN_KEYS segments collide with codex tool_mapping keys: {collision}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Plan A–E branch toggles: schema coverage
+# ---------------------------------------------------------------------------
+
+
+def test_branches_block_compiles_and_round_trips(tmp_path):
+    yaml_text = """\
+branches:
+  plan_a_bugs: true
+  plan_b_discovery: false
+  plan_c_readonly: true
+  plan_d_execution: false
+  plan_e_answer: true
+"""
+    write_yaml(tmp_path, yaml_text)
+    out = compile_features(tmp_path)
+    assert out is not None
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert data["branches"]["plan_b_discovery"] is False
+    assert data["branches"]["plan_d_execution"] is False
+
+
+def test_branches_wrong_type_raises(tmp_path):
+    write_yaml(tmp_path, 'branches:\n  plan_a_bugs: "yes"\n')
+    with pytest.raises(FeaturesValidationError):
+        compile_features(tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# Cascade-aware toggling: apply_toggle(data, dotted_key, value) -> new dict
+# ---------------------------------------------------------------------------
+
+
+def _baseline() -> dict:
+    """All dependency-linked features on (matches features.yaml defaults)."""
+    return {
+        "services": {"session_memory": {"enabled": True}},
+        "hooks": {"session_end": {"learning_extraction": True}},
+        "pipeline": {"dispatcher": {"gates": {"search_first": True, "adversary_exit": True}}},
+        "rules_packs": {"enabled": True},
+    }
+
+
+def test_apply_toggle_disable_dependency_cascades_to_dependents():
+    # Turning OFF a dependency turns OFF every feature that requires it.
+    result = apply_toggle(_baseline(), "services.session_memory.enabled", False)
+    assert result["services"]["session_memory"]["enabled"] is False
+    assert result["pipeline"]["dispatcher"]["gates"]["search_first"] is False
+    assert result["hooks"]["session_end"]["learning_extraction"] is False
+
+
+def test_apply_toggle_enable_feature_pulls_in_dependency():
+    # Turning ON a feature turns ON whatever it depends on.
+    start = {
+        "services": {"session_memory": {"enabled": False}},
+        "pipeline": {"dispatcher": {"gates": {"search_first": False}}},
+    }
+    result = apply_toggle(start, "pipeline.dispatcher.gates.search_first", True)
+    assert result["pipeline"]["dispatcher"]["gates"]["search_first"] is True
+    assert result["services"]["session_memory"]["enabled"] is True
+
+
+def test_apply_toggle_independent_key_leaves_others_untouched():
+    result = apply_toggle(_baseline(), "rules_packs.enabled", False)
+    assert result["rules_packs"]["enabled"] is False
+    # No dependency edge touches session_memory.
+    assert result["services"]["session_memory"]["enabled"] is True
+
+
+def test_apply_toggle_returns_new_object_without_mutating_input():
+    data = _baseline()
+    result = apply_toggle(data, "services.session_memory.enabled", False)
+    # Original is unchanged (immutability rule).
+    assert data["services"]["session_memory"]["enabled"] is True
+    assert result is not data

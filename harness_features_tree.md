@@ -127,6 +127,16 @@ features:
         search_first: true    # Require search step before implementation dispatch
         adversary_exit: true  # Enable adversary exit gate in pipeline
 
+  # Plan A–E dispatch branches (implemented: hook_common.effective_branch).
+  # Disabling a branch degrades that intent to plan_e (answer-only).
+  # plan_e is the always-on terminal fallback and is never degraded.
+  branches:
+    plan_a_bugs: true        # Bug / error / stack-trace intents
+    plan_b_discovery: true   # Design / planning / brainstorming intents
+    plan_c_readonly: true    # Explain / where / which-file questions
+    plan_d_execution: true   # Implement / create / refactor intents
+    plan_e_answer: true      # Answer-only fallback (always on)
+
   # ---------------------------------------------------------
   # 6. Specific Hook Listeners (The physical triggers)
   #    Disabling these stops listening to specific platform events.

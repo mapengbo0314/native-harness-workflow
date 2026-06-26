@@ -203,6 +203,35 @@ def feature_enabled(dotted_path: str, plugin_root, default: bool = True) -> bool
     return default  # unexpected leaf type — honour default
 
 
+#: Dispatch branch letter -> its features.json toggle path.  "E" has no entry:
+#: branch E (answer-only) is the always-on terminal fallback and is never
+#: degraded.
+_BRANCH_FLAGS = {
+    "A": "branches.plan_a_bugs",
+    "B": "branches.plan_b_discovery",
+    "C": "branches.plan_c_readonly",
+    "D": "branches.plan_d_execution",
+}
+
+
+def effective_branch(branch: str, plugin_root) -> str:
+    """Return the branch to run after applying Plan A–E branch toggles.
+
+    If *branch* is disabled via its ``branches.*`` flag, degrade to ``"E"``
+    (answer-only — the always-on fallback).  Fail-open in every other case:
+    branch ``"E"``, an unknown branch, or any error returns *branch*
+    unchanged.  ``feature_enabled`` defaults to True, so absent flags keep
+    every branch active (backward compatible).
+    """
+    try:
+        flag = _BRANCH_FLAGS.get(branch)
+        if flag is None:
+            return branch  # "E" or unknown — never degraded
+        return branch if feature_enabled(flag, plugin_root) else "E"
+    except Exception:
+        return branch
+
+
 # ---------------------------------------------------------------------------
 # Session Memory (Phase 2 – ECC port)
 # ---------------------------------------------------------------------------

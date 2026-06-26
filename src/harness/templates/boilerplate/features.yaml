@@ -39,3 +39,13 @@ skills:
   continuous-learning: true
   search-first: true
   adversary-pipeline: true
+
+branches:
+  # Plan A–E dispatch branches. Disable a branch to make the dispatcher
+  # degrade that intent to plan_e (answer-only). plan_e is the always-on
+  # terminal fallback and is never degraded.
+  plan_a_bugs: true        # Bug/error/stack-trace intents
+  plan_b_discovery: true   # Design/planning/brainstorming intents
+  plan_c_readonly: true    # Explain/where/which-file questions
+  plan_d_execution: true   # Implement/create/refactor intents
+  plan_e_answer: true      # Answer-only fallback (always on)

@@ -282,3 +282,34 @@ def test_template_features_yaml_compiles_and_all_keys_readable(plugin_root):
     for key in design_keys:
         val = mod.feature_enabled(key, plugin_root)
         assert val is True, f"Expected True for {key!r}, got {val!r}"
+
+
+# ---------------------------------------------------------------------------
+# Plan A–E branch toggles: effective_branch consumer
+# ---------------------------------------------------------------------------
+
+
+def test_effective_branch_passthrough_when_no_features_file(hook_common, plugin_root):
+    # Fail-open: absent flags keep every branch active (backward compatible).
+    assert hook_common.effective_branch("B", plugin_root) == "B"
+    assert hook_common.effective_branch("D", plugin_root) == "D"
+
+
+def test_effective_branch_passthrough_when_flag_enabled(hook_common, plugin_root):
+    write_features(plugin_root, {"branches": {"plan_b_discovery": True}})
+    assert hook_common.effective_branch("B", plugin_root) == "B"
+
+
+def test_effective_branch_degrades_to_E_when_disabled(hook_common, plugin_root):
+    write_features(plugin_root, {"branches": {"plan_d_execution": False}})
+    assert hook_common.effective_branch("D", plugin_root) == "E"
+
+
+def test_effective_branch_E_is_never_degraded(hook_common, plugin_root):
+    write_features(plugin_root, {"branches": {"plan_e_answer": False}})
+    assert hook_common.effective_branch("E", plugin_root) == "E"
+
+
+def test_effective_branch_unknown_branch_passthrough(hook_common, plugin_root):
+    write_features(plugin_root, {"branches": {"plan_a_bugs": False}})
+    assert hook_common.effective_branch("Z", plugin_root) == "Z"
