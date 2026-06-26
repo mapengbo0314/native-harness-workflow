@@ -1,0 +1,28 @@
+{
+  "mcpServers": {
+    "codegraph": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@colbymchenry/codegraph@1.0.1",
+        "serve",
+        "--mcp"
+      ],
+      "alwaysLoad": true
+    },
+    "domain": {
+      "type": "stdio",
+      "command": "python3",
+      "args": [
+        "-m",
+        "harness.domain.server"
+      ],
+      "env": {
+        "PYTHONPATH": "src",
+        "DOMAIN_JSON_PATH": ".claude/harness-wf-plugin/domain/domain.json"
+      },
+      "alwaysLoad": true
+    }
+  }
+}

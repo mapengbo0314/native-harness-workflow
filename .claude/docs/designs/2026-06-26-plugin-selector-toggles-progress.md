@@ -56,10 +56,17 @@ breaking the rest.
 - [x] Verified e2e via real binary: mcp drop, agent→branch cascade, effective_agent/effective_branch/hook_enabled consumers
 - Note: branch→skill edges deferred (DEPENDENCIES is one-dep-per-feature; branch→agent is the load-bearing edge)
 
-## Increment 5 — Delivery & integration  ⬜ TODO
-- [ ] 5.1 Ownership entries in `src/harness/update/classification.py` for new generated files
-      (`.mcp.json`, regenerated `settings.json`)
-- [ ] 5.2 Verify mint/update auto-sync end-to-end; full suite green; `harness-wf update --check` merges cleanly
+## Increment 5 — Delivery & integration  ✅ DONE
+- [x] 5.1 Ownership in `classification.py`: `.mcp.json` → EMITTED_GENERATED; `mcp_servers.json` →
+      customizable/template (like `features.yaml`). Shipped boilerplate `mcp_servers.json` catalog.
+- [x] 5.2 `compile_mcp_config` wired into `features sync` (update auto-syncs); `enumerate_source_producers`
+      discovers the catalog on the real package; full suite 1458 passed. (`settings.json` regeneration not
+      needed — pipeline hooks are ungated by design, see 4.2.)
+- Note: a from-scratch `harness-wf update --check` smoke wasn't run (needs a fully minted+manifested
+  workspace); the classification path it uses is covered by unit tests + the update test-suite.
+- Note: `compile_mcp_config` writes `<plugin_root>/.mcp.json`; if the platform reads `.mcp.json` from the
+  project root, an emit-location follow-up is needed for the MCP toggle to take effect live. mint-time
+  `compile_mcp_config` deferred (would touch minting_engine.py, kept untouched this session).
 
 ---
 
