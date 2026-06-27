@@ -6,6 +6,7 @@ import { getDb } from './db'
 import { reposRouter } from './routes/repos'
 import { repoRouter } from './routes/repo'
 import { scanRouter } from './routes/scan'
+import { benchmarkRouter } from './routes/benchmark'
 
 dotenv.config({ path: path.join(__dirname, '../../.env') })
 
@@ -18,6 +19,7 @@ app.use(express.json())
 app.use('/api/repos', reposRouter)
 app.use('/api/repos', repoRouter)
 app.use('/api/repos', scanRouter)
+app.use('/api', benchmarkRouter)
 
 if (process.env.NODE_ENV === 'production') {
   const clientDist = path.join(__dirname, '../../../dist/client')
