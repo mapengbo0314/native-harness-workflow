@@ -45,6 +45,11 @@ def prepare_workspace_for_config(workspace: Path, harness_config: str, provider:
     elif harness_config == "full_harness_rtk":
         _mint_harness(workspace, provider, enable_rtk=True)
 
+    elif harness_config == "ecc":
+        # ECC plugin lives in the shared cache; no per-workspace copy needed.
+        # _ensure_git_repo already called above; nothing else to prepare here.
+        pass
+
     else:
         raise ValueError(f"Unknown harness_config: {harness_config!r}")
 
@@ -110,6 +115,27 @@ def _mint_harness(
         text=True,
         env=env,
     )
+    _populate_benchmark_domain_json(project, provider)
+
+
+def _populate_benchmark_domain_json(project: Path, provider: str) -> None:
+    """Fill in test/stack in the scaffolded domain.json so domain_ops returns useful data."""
+    config_dir = {"claude": ".claude", "codex": ".codex"}.get(provider, ".claude")
+    domain_json_path = project / config_dir / "harness-wf-plugin" / "domain" / "domain.json"
+    if not domain_json_path.exists():
+        return
+    try:
+        data = json.loads(domain_json_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return
+    data["stack"] = ["Python", "pytest"]
+    data["test"] = {"default": "pytest tests/ -v"}
+    data["references"] = {
+        "README.md": "Benchmark target project — minimal Python codebase with deliberate defects",
+        "src/": "Source modules under test",
+        "tests/": "pytest test suite",
+    }
+    domain_json_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
 def _inject_rtk_hook(project: Path, provider: str) -> None:
@@ -123,6 +149,11 @@ def _inject_rtk_hook(project: Path, provider: str) -> None:
         print("  WARNING: rtk not found on PATH — hook written but will fail at runtime")
 
     if provider != "claude":
+        print(
+            f"  WARNING: RTK hook skipped for {provider} — "
+            "only system prompt injection applied. "
+            "RTK compliance for this run depends entirely on the prompt."
+        )
         return
 
     claude_dir = project / ".claude"

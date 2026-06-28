@@ -98,3 +98,28 @@ export interface ScanState {
   total_commits: number
   last_scanned_at: string | null
 }
+
+export interface BenchmarkCondition {
+  label: string
+  pass: number
+  total: number
+  rate: number
+}
+
+export interface BenchmarkModel {
+  label: string
+  cases_total: number
+  conditions: { [condId: string]: BenchmarkCondition }
+  delta_pp: number
+  by_difficulty: {
+    [diff: string]: {
+      [condId: string]: { pass: number; total: number }
+    }
+  }
+}
+
+export interface BenchmarkResults {
+  generated_at: string
+  runs_count: number
+  models: { [modelId: string]: BenchmarkModel }
+}

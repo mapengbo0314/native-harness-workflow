@@ -4,6 +4,7 @@ import { api } from '../api'
 import type { RepoSummary } from '../types'
 import { BarChart, Bar, ResponsiveContainer, Tooltip } from 'recharts'
 import { useTheme, ThemeSwitcher } from '../ThemeContext'
+import { BenchmarkPanel } from '../components/BenchmarkPanel'
 
 export function Overview() {
   const [repos, setRepos] = useState<RepoSummary[]>([])
@@ -35,6 +36,7 @@ export function Overview() {
         <h1 style={{ fontSize: 18, fontWeight: 700, color: theme.textPrimary, margin: 0 }}>Repository overview</h1>
         <ThemeSwitcher />
       </div>
+      <BenchmarkPanel />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {repos.map(r => <RepoRow key={`${r.org}/${r.repo}`} r={r} onClick={() => navigate(`/${r.org}/${r.repo}`)} />)}
       </div>

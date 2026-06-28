@@ -100,9 +100,11 @@ def run_judge(provider: str, prompt: str, timeout: int = 60) -> ProviderJudgeRes
             "--ignore-rules",
             "-",
         ]
+        max_attempts = 5
         result = None
+        last_error: str | None = None
         with tempfile.TemporaryDirectory(prefix="harness-bench-judge-") as tmp:
-            for attempt in range(2):
+            for attempt in range(max_attempts):
                 result = subprocess.run(
                     command,
                     input=prompt,
@@ -112,10 +114,26 @@ def run_judge(provider: str, prompt: str, timeout: int = 60) -> ProviderJudgeRes
                     timeout=timeout,
                 )
                 if result.returncode == 0:
+                    last_error = None
                     break
-                if attempt == 0:
-                    time.sleep(1)
-        _check_result(result, "Codex judge")
+                last_error = _result_error(result) or ""
+                if attempt == max_attempts - 1:
+                    break
+                # Exponential backoff: 2, 4, 8, 16 seconds between the 5 attempts.
+                # Add an extra dose of patience when stderr smells like a rate limit
+                # — codex returns transient 429s during burst judging.
+                backoff = 2 ** (attempt + 1)
+                if _looks_like_rate_limit(last_error):
+                    backoff *= 2
+                time.sleep(backoff)
+        if result is None or result.returncode != 0:
+            # Final failure — raise rather than returning junk zeros so the
+            # caller (scorer._judge_criteria) records a judge_failed scenario
+            # instead of silently scoring criteria as failed.
+            raise RuntimeError(
+                f"Codex judge failed after {max_attempts} attempts: "
+                f"{last_error or 'unknown error'}"
+            )
         _, transcript, usage = _parse_codex_jsonl(result.stdout)
         return ProviderJudgeResult(text=transcript.strip(), usage=usage)
 
@@ -284,6 +302,25 @@ def _result_error(result: subprocess.CompletedProcess[str]) -> str | None:
         return None
     stderr = result.stderr.strip()
     return stderr or f"process exited with status {result.returncode}"
+
+
+_RATE_LIMIT_NEEDLES = (
+    "rate limit",
+    "rate_limit",
+    "ratelimit",
+    "429",
+    "too many requests",
+    "quota",
+    "throttle",
+)
+
+
+def _looks_like_rate_limit(stderr: str) -> bool:
+    """Best-effort detection of rate-limit / throttling messages in stderr."""
+    if not stderr:
+        return False
+    lowered = stderr.lower()
+    return any(needle in lowered for needle in _RATE_LIMIT_NEEDLES)
 
 
 def _check_result(result: subprocess.CompletedProcess[str], label: str) -> None:

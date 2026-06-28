@@ -58,10 +58,24 @@ def prepare_runtime(state: dict) -> dict:
     subprocess.run(["git", "clone", "--quiet", REPO_URL, str(workspace)], check=True)
     subprocess.run(["git", "checkout", "--quiet", BASE_COMMIT], cwd=str(workspace), check=True)
     subprocess.run(["git", "apply", "-"], input=TEST_PATCH, text=True, cwd=str(workspace), check=True)
+    _fix_ibo_encoding_typo(workspace)
     print("  [swe-setup] installing package …")
     subprocess.run(
-        [sys.executable, "-m", "pip", "install", "-e", ".", "--quiet", "--disable-pip-version-check"],
+        [sys.executable, "-m", "pip", "install", "-e", ".", "--quiet",
+         "--disable-pip-version-check", "--break-system-packages"],
         cwd=str(workspace), check=True,
     )
     print("  [swe-setup] done")
     return {}
+
+
+def _fix_ibo_encoding_typo(workspace: Path) -> None:
+    """Python 3.14 rejects 'IBO-8859-1' (typo for ISO-8859-1) at pytest collection time."""
+    for py_file in workspace.rglob("*.py"):
+        try:
+            raw = py_file.read_bytes()
+            if b"IBO-8859-1" in raw or b"ibo-8859-1" in raw:
+                fixed = raw.replace(b"IBO-8859-1", b"ISO-8859-1").replace(b"ibo-8859-1", b"iso-8859-1")
+                py_file.write_bytes(fixed)
+        except OSError:
+            pass

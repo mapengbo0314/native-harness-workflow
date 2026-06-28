@@ -21,6 +21,80 @@ _RTK_SYSTEM_PROMPT = (
     "This reduces token consumption 60-90% per command."
 )
 
+_RATE_LIMIT_MARKERS = (
+    "rate limit",
+    "usage limit",
+    "credit limit",
+    "quota exceeded",
+    "insufficient quota",
+    "out of credits",
+)
+
+_CONTEXT_LIMIT_MARKERS = (
+    "context length",
+    "context window",
+    "context_length_exceeded",
+    "too long to process",
+    "prompt is too long",
+    "exceeds the maximum",
+    "maximum context",
+)
+
+
+def classify_codex_failure(stdout: str, stderr: str, returncode: int) -> dict[str, object]:
+    error_text = "\n".join(_extract_codex_error_messages(stdout))
+    text = f"{error_text}\n{stderr}".strip()
+    lowered = text.lower()
+    if text and any(marker in lowered for marker in _CONTEXT_LIMIT_MARKERS):
+        return {
+            "error_type": "context_limit",
+            "retryable": False,
+            "message": text.splitlines()[0] if text else "Codex context limit",
+        }
+    if returncode != 0 and any(marker in lowered for marker in _RATE_LIMIT_MARKERS):
+        return {
+            "error_type": "rate_limit",
+            "retryable": True,
+            "message": text.splitlines()[0] if text else "Codex CLI rate limit",
+        }
+    if returncode != 0 and not text:
+        return {
+            "error_type": "empty_cli_failure",
+            "retryable": False,
+            "message": "Codex CLI exited non-zero without stdout or stderr",
+        }
+    if returncode != 0:
+        return {
+            "error_type": "cli_failure",
+            "retryable": False,
+            "message": text.splitlines()[0] if text else f"Codex CLI exited {returncode}",
+        }
+    return {}
+
+
+def _extract_codex_error_messages(output: str) -> list[str]:
+    messages: list[str] = []
+    for line in output.splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if event.get("type") == "error" and event.get("message"):
+            messages.append(str(event["message"]))
+            continue
+        if event.get("type") == "turn.failed":
+            err = event.get("error")
+            if isinstance(err, dict) and err.get("message"):
+                messages.append(str(err["message"]))
+            continue
+        item = event.get("item")
+        if isinstance(item, dict) and item.get("type") == "error" and item.get("message"):
+            message = str(item["message"])
+            if "dangerously-bypass-hook-trust" in message:
+                continue
+            messages.append(message)
+    return messages
+
 
 class CodexAdapter(BaseAdapter):
     name = "codex"
@@ -48,8 +122,13 @@ class CodexAdapter(BaseAdapter):
             "--dangerously-bypass-approvals-and-sandbox",
             "--dangerously-bypass-hook-trust",
             "-C", str(ctx.workspace),
-            "-",
         ]
+
+        model_override = str(ctx.model_config.get("model") or "").strip()
+        if model_override:
+            command.extend(["--model", model_override])
+
+        command.append("-")
 
         # Read the prompt from the prompt_file
         try:
@@ -72,6 +151,15 @@ class CodexAdapter(BaseAdapter):
         env = os.environ.copy()
         env.update(ctx.env)
 
+        if ctx.mode == "dry":
+            return AdapterRunResult(
+                ok=True,
+                command=command,
+                stdout="",
+                stderr="",
+                metadata={"harness_config": harness_config, "dry_run": True},
+            )
+
         try:
             completed = subprocess.run(
                 command,
@@ -93,19 +181,25 @@ class CodexAdapter(BaseAdapter):
             )
 
         thread_id, transcript, usage = _parse_codex_jsonl(completed.stdout)
+        failure = classify_codex_failure(completed.stdout, completed.stderr, completed.returncode)
         _save_transcript(ctx.workspace, transcript)
+        stderr = completed.stderr
+        if failure and not stderr:
+            stderr = str(failure.get("message") or "")
+        ok = completed.returncode == 0 and failure.get("error_type") != "context_limit"
 
         return AdapterRunResult(
-            ok=completed.returncode == 0,
+            ok=ok,
             command=command,
             stdout=completed.stdout,
-            stderr=completed.stderr,
+            stderr=stderr,
             metadata={
                 "returncode": completed.returncode,
                 "harness_config": harness_config,
                 "thread_id": thread_id,
                 "transcript": transcript,
                 "usage": usage,
+                **failure,
             },
         )
 

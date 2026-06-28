@@ -448,15 +448,6 @@ def run_task(app: AppConfig, task: TaskSpec, model_id: str, model_cfg: dict[str,
             "notes": "compute_scoring failed",
         }
 
-    try:
-        scoring = compute_scoring(task, sandbox, oracle_result)
-    except Exception as exc:
-        scoring = {
-            "error": str(exc),
-            "combined_score": None,
-            "notes": "compute_scoring failed",
-        }
-
     result = TaskRunResult(
         task_id=task.task_id,
         model_id=model_id,
@@ -480,8 +471,7 @@ def run_task(app: AppConfig, task: TaskSpec, model_id: str, model_cfg: dict[str,
     result_dir.mkdir(parents=True, exist_ok=True)
     out_file = result_dir / f"{task.task_id}.json"
     proxy_dir = sandbox / "usage-proxy"
-    trace_for_stdout = extract_proxy_trace(proxy_dir, all_rounds=False)
-    adapter_stdout_saved = json.dumps(trace_for_stdout, ensure_ascii=False, indent=2)
+    proxy_trace = extract_proxy_trace(proxy_dir, all_rounds=False)
     out_file.write_text(
         json.dumps(
             {
@@ -495,7 +485,7 @@ def run_task(app: AppConfig, task: TaskSpec, model_id: str, model_cfg: dict[str,
                 "adapter_result": {
                     "ok": result.adapter_result.ok,
                     "command": result.adapter_result.command,
-                    "stdout": adapter_stdout_saved,
+                    "stdout": result.adapter_result.stdout,
                     "stderr": result.adapter_result.stderr,
                     "metadata": result.adapter_result.metadata,
                 },
@@ -510,6 +500,7 @@ def run_task(app: AppConfig, task: TaskSpec, model_id: str, model_cfg: dict[str,
                     for item in result.adapter_results
                 ],
                 "usage_summary": result.usage_summary,
+                "proxy_trace": proxy_trace,
                 "oracle_result": result.oracle_result,
                 "scoring": scoring,
                 "process_result": result.process_result,

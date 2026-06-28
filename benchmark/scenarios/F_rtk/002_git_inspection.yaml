@@ -8,15 +8,18 @@ turns:
       what the git history looks like, and whether there are any uncommitted changes.
 
 criteria:
-  - id: used_rtk_git_status
-    description: Used rtk git status instead of bare git status
-    weight: 3
-  - id: used_rtk_git_log
-    description: Used rtk git log instead of bare git log
-    weight: 3
-  - id: used_rtk_for_listing
-    description: Used rtk ls, rtk tree, or another rtk-prefixed command to list project files
-    weight: 2
+  # Outcome carries 50% of total (5/10) — the agent's actual answer matters
+  # more than which command flavour it reached for.
   - id: accurate_summary
     description: Provided an accurate description of the project state (files, history, working tree cleanliness)
+    weight: 5
+  # Process criteria collectively carry the remaining 50% (2 + 2 + 1 = 5).
+  - id: used_rtk_git_status
+    description: Used rtk git status instead of bare git status
     weight: 2
+  - id: used_rtk_git_log
+    description: Used rtk git log instead of bare git log
+    weight: 2
+  - id: used_rtk_for_listing
+    description: Used rtk ls, rtk tree, or another rtk-prefixed command to list project files
+    weight: 1
