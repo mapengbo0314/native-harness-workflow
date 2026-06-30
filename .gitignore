@@ -46,6 +46,10 @@ artifacts/
 test_repro_dir/
 local_outputs/
 
+# benchmark/harness-bench is a separate git repo (nyosegawa/harness-bench).
+# Tracked here as a submodule once push access is coordinated with Pengbo.
+benchmark/harness-bench/
+
 # Caches and Build Artifacts
 .superpowers/
 *.egg-info/
