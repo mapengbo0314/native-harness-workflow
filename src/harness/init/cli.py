@@ -78,7 +78,16 @@ from harness.adapters import get_adapter
 from harness.init.platforms import platform_name_from_choice, harness_folder_from_choice
 from harness.domain.seed import run_domain_init, run_domain_refresh, _platform_paths
 from harness.domain.compiler import run_domain_compile
-from harness.init.features import compile_features, FeaturesValidationError
+from harness.init.features import (
+    compile_features,
+    compile_mcp_config,
+    FeaturesValidationError,
+    apply_toggle,
+    valid_feature_key,
+    format_features_status,
+    build_checklist,
+    toggle_at,
+)
 
 def _run_plugin_validate(claude: str, target: Path) -> None:
     """Run `claude plugin validate <target>` once, failing loudly on error.
@@ -261,6 +270,141 @@ def run_features_sync(project_path: str) -> None:
         print(f"[HARNESS] ERROR: {exc}")
         sys.exit(1)
     _print_features_result(result, plugin_root)
+    # Regenerate the active .mcp.json from the catalog + flags (no-op if no catalog).
+    mcp_path = compile_mcp_config(plugin_root)
+    if mcp_path is not None:
+        print(f"[HARNESS] .mcp.json regenerated -> {mcp_path}")
+
+
+def run_features_list(project_path: str) -> None:
+    """Print the on/off status of every known toggle.
+
+    Exposed as ``harness-wf features list --project-path <plugin_root>``.
+    Reads the compiled ``features.json``; absent/corrupt → defaults (all on).
+    """
+    plugin_root = Path(project_path)
+    features_json = plugin_root / "features.json"
+    data: dict = {}
+    if features_json.exists():
+        try:
+            data = json.loads(features_json.read_text(encoding="utf-8"))
+        except Exception:
+            data = {}
+    else:
+        print(f"[HARNESS] No features.json at {plugin_root}; showing defaults (all on).")
+    print(format_features_status(data))
+
+
+def run_features_set(project_path: str, key: str, value: bool) -> None:
+    """Toggle *key* to *value* in ``features.yaml`` (cascade-aware) and recompile.
+
+    Exposed as ``harness-wf features {enable,disable} <key>``.  Rejects unknown
+    keys and a missing ``features.yaml`` with exit code 1.
+    """
+    plugin_root = Path(project_path)
+    if not valid_feature_key(key):
+        print(f"[HARNESS] ERROR: unknown feature key {key!r}.")
+        sys.exit(1)
+    yaml_path = plugin_root / "features.yaml"
+    if not yaml_path.exists():
+        print(f"[HARNESS] ERROR: no features.yaml found at {plugin_root}.")
+        sys.exit(1)
+
+    import yaml
+
+    data = yaml.safe_load(yaml_path.read_text(encoding="utf-8")) or {}
+    new_data = apply_toggle(data, key, value)
+    _write_features_yaml(yaml_path, new_data)
+    try:
+        result = compile_features(plugin_root)
+    except FeaturesValidationError as exc:
+        print(f"[HARNESS] ERROR: {exc}")
+        sys.exit(1)
+    print(f"[HARNESS] {key} {'enabled' if value else 'disabled'}.")
+    _print_features_result(result, plugin_root)
+    compile_mcp_config(plugin_root)
+
+
+def run_features_toggle(project_path: str) -> None:
+    """Interactive checklist to toggle features; non-TTY falls back to list.
+
+    Exposed as ``harness-wf features toggle``.  All decision logic lives in the
+    pure ``build_checklist``/``toggle_at`` helpers; the curses loop is a thin
+    render/input shell.
+    """
+    plugin_root = Path(project_path)
+    if not (sys.stdin.isatty() and sys.stdout.isatty()):
+        print(
+            "[HARNESS] Interactive toggle requires a TTY/terminal; showing current "
+            "status instead. Use 'features enable/disable <key>' to change a flag."
+        )
+        run_features_list(project_path)
+        return
+    _run_curses_toggle(plugin_root)
+
+
+def _write_features_yaml(yaml_path: Path, data: dict) -> None:
+    """Serialize *data* to *yaml_path* with the managed-file header."""
+    import yaml
+
+    yaml_path.write_text(
+        "# Harness feature toggles — edit values, then run 'harness-wf features sync'.\n"
+        "# Managed by 'features toggle'; comments are not preserved on toggle.\n"
+        + yaml.safe_dump(data, sort_keys=False, default_flow_style=False),
+        encoding="utf-8",
+    )
+
+
+def _run_curses_toggle(plugin_root: Path) -> None:
+    """Thin curses render/input loop over the pure checklist model."""
+    import curses
+    import yaml
+
+    yaml_path = plugin_root / "features.yaml"
+    if not yaml_path.exists():
+        print(f"[HARNESS] ERROR: no features.yaml found at {plugin_root}.")
+        sys.exit(1)
+    state = {"data": yaml.safe_load(yaml_path.read_text(encoding="utf-8")) or {}, "dirty": False}
+
+    def _loop(stdscr):
+        curses.curs_set(0)
+        idx = 0
+        while True:
+            rows = build_checklist(state["data"])
+            stdscr.clear()
+            stdscr.addstr(0, 0, "Harness feature toggles — up/down move, space toggle, s save, q quit")
+            for i, (key, on) in enumerate(rows):
+                mark = "[x]" if on else "[ ]"
+                attr = curses.A_REVERSE if i == idx else curses.A_NORMAL
+                stdscr.addstr(i + 2, 2, f"{mark} {key}", attr)
+            tag = " *unsaved*" if state["dirty"] else ""
+            stdscr.addstr(len(rows) + 3, 0, f"[{len(rows)} features]{tag}")
+            stdscr.refresh()
+            ch = stdscr.getch()
+            if ch in (curses.KEY_UP, ord("k")):
+                idx = (idx - 1) % len(rows)
+            elif ch in (curses.KEY_DOWN, ord("j")):
+                idx = (idx + 1) % len(rows)
+            elif ch in (ord(" "), curses.KEY_ENTER, 10, 13):
+                state["data"] = toggle_at(state["data"], idx)
+                state["dirty"] = True
+            elif ch == ord("s"):
+                return True
+            elif ch in (ord("q"), 27):
+                return False
+
+    saved = curses.wrapper(_loop)
+    if not saved:
+        print("[HARNESS] No changes saved.")
+        return
+    _write_features_yaml(yaml_path, state["data"])
+    try:
+        result = compile_features(plugin_root)
+    except FeaturesValidationError as exc:
+        print(f"[HARNESS] ERROR: {exc}")
+        sys.exit(1)
+    _print_features_result(result, plugin_root)
+    compile_mcp_config(plugin_root)
 
 
 def sync_rules_packs(project_path: str, *, plugin_root: Optional[Path] = None) -> None:
@@ -416,7 +560,8 @@ def run_domain_refresh_with_sync(
 def parse_args():
     parser = argparse.ArgumentParser(description="Initialize or update a Harness agent workspace.")
     parser.add_argument("command", choices=["init", "update", "domain-init", "domain-refresh", "domain-compile", "features"], help="Command to run")
-    parser.add_argument("subcommand", nargs="?", help="Subcommand (e.g. 'sync' for features)")
+    parser.add_argument("subcommand", nargs="?", help="Subcommand (e.g. 'sync'/'list'/'enable'/'disable' for features)")
+    parser.add_argument("arg", nargs="?", help="Feature key for 'features enable/disable <key>'")
     parser.add_argument("--project-path", required=True, help="Path to the repository")
     parser.add_argument("--bundle", help="Path to an existing CodeGraph bundle (.codegraph directory)")
     parser.add_argument("--check", action="store_true", help="(update) Dry-run: report stale/edited/conflicting files, write nothing")
@@ -645,8 +790,21 @@ def main():
         sub = getattr(args, "subcommand", None)
         if sub == "sync":
             run_features_sync(args.project_path)
+        elif sub == "list":
+            run_features_list(args.project_path)
+        elif sub == "toggle":
+            run_features_toggle(args.project_path)
+        elif sub in ("enable", "disable"):
+            key = getattr(args, "arg", None)
+            if not key:
+                print(f"[HARNESS] ERROR: 'features {sub}' requires a feature key.")
+                sys.exit(1)
+            run_features_set(args.project_path, key, sub == "enable")
         else:
-            print(f"[HARNESS] Unknown features subcommand: {sub!r}. Use 'sync'.")
+            print(
+                f"[HARNESS] Unknown features subcommand: {sub!r}. "
+                "Use 'sync', 'list', 'toggle', 'enable', or 'disable'."
+            )
             sys.exit(1)
         langfuse_context.flush()
         return

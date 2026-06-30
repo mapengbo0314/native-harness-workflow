@@ -186,9 +186,32 @@ def main():
             except Exception:
                 pass
 
+        # Apply Plan A–E branch toggles: a disabled branch degrades to E
+        # (answer-only). Recompute routing on the effective branch so the
+        # SYSTEM STATE (phase/auth/agent) reflects the branch that runs.
+        try:
+            from hook_common import effective_branch
+            _eff = effective_branch(branch, plugin_root)
+            if _eff != branch:
+                branch = _eff
+                try:
+                    if dispatcher is None:
+                        dispatcher = OrchestratorDispatcher(str(config_dir))
+                    routing_decision = dispatcher.evaluate_artifacts(branch, project_root)
+                except Exception:
+                    routing_decision = {}
+        except Exception:
+            pass
+
         current_phase = routing_decision.get("phase", "Unknown")
         auth_msg = routing_decision.get("auth_msg", "")
         target_agent = routing_decision.get("target_agent", "@generalist")
+        # Apply agents.* toggles: a disabled persona degrades to @generalist.
+        try:
+            from hook_common import effective_agent
+            target_agent = effective_agent(target_agent, plugin_root)
+        except Exception:
+            pass
         manifest_state = routing_decision.get("manifest_state", None)
 
         # Phase 6a: resolve identity ONCE from the hook payload (platform

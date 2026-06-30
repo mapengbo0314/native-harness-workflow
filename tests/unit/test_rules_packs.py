@@ -198,6 +198,43 @@ class TestMintWorkspacePackInstall:
         assert (install_root / "python" / "placeholder.md").exists()
         assert not (install_root / "golang").exists()
 
+    def test_install_root_override_targets_staging_not_live_claude(self, tmp_path):
+        """Regression: during the initial mint, packs must install into the staging
+        harness dir, never the live <project>/.claude.
+
+        Previously install_rules_packs hardcoded <project>/.claude/rules/harness, so a
+        fresh mint created a phantom .claude before the atomic swap. The swap then saw
+        an "existing" harness and moved it to a spurious .claude.backup.<ts> containing
+        only the rules md files. Honouring install_root keeps the live .claude untouched
+        until the swap, so no phantom -> no backup.
+        """
+        from harness.init.minting_engine import install_rules_packs
+
+        bp = _make_boilerplate(tmp_path)
+        project = tmp_path / "project"
+        project.mkdir()
+        # Fresh mint: no domain.json yet (the domain seed runs post-mint), so the
+        # stack is unknown and only the common pack is installed (fail-open).
+
+        target = tmp_path / "target_plugin"
+        target.mkdir()
+        shutil.copytree(bp / "rules" / "packs", target / "rules" / "packs")
+
+        staging_install_root = tmp_path / ".harness_tmp" / "rules" / "harness"
+
+        install_rules_packs(
+            project_path=project,
+            deployed_plugin_path=target,
+            packs_root=target / "rules" / "packs",
+            features={},
+            install_root=staging_install_root,
+        )
+
+        # Packs land in the staging dir...
+        assert (staging_install_root / "common" / "baseline.md").exists()
+        # ...and the live .claude is never created, so the swap cannot back it up.
+        assert not (project / ".claude").exists()
+
     def test_golang_excluded_from_deployed_packs_when_not_in_stack(self, tmp_path):
         from harness.init.minting_engine import install_rules_packs
 

@@ -37,14 +37,20 @@ features:
 
   # ---------------------------------------------------------
   # 3. Standalone Services (Background Processes)
+  #    MCP servers IMPLEMENTED (Increment 4) as flat mcp.<name> bool leaves:
+  #    `features sync` runs compile_mcp_config to regenerate .mcp.json from the
+  #    mcp_servers.json catalog, dropping any server toggled off.
   # ---------------------------------------------------------
   services:
     mcp_domain_server:
-      enabled: true # The `domain_ops` local server
+      enabled: true # The `domain_ops` local server (see mcp.domain below)
 
   # ---------------------------------------------------------
   # 4. Agent Personas (Modular Sub-Agents)
   #    Disabling one forces the dispatcher to use the fallback (@generalist).
+  #    IMPLEMENTED (Increment 4): flat agents.<name> bool leaves in features.yaml;
+  #    consumer hook_common.effective_agent degrades a disabled persona to
+  #    @generalist; disabling an agent cascades off its branch (DEPENDENCIES).
   # ---------------------------------------------------------
   agents:
     generalist:
@@ -127,9 +133,23 @@ features:
         search_first: true    # Require search step before implementation dispatch
         adversary_exit: true  # Enable adversary exit gate in pipeline
 
+  # Plan A–E dispatch branches (implemented: hook_common.effective_branch).
+  # Disabling a branch degrades that intent to plan_e (answer-only).
+  # plan_e is the always-on terminal fallback and is never degraded.
+  branches:
+    plan_a_bugs: true        # Bug / error / stack-trace intents
+    plan_b_discovery: true   # Design / planning / brainstorming intents
+    plan_c_readonly: true    # Explain / where / which-file questions
+    plan_d_execution: true   # Implement / create / refactor intents
+    plan_e_answer: true      # Answer-only fallback (always on)
+
   # ---------------------------------------------------------
   # 6. Specific Hook Listeners (The physical triggers)
   #    Disabling these stops listening to specific platform events.
+  #    IMPLEMENTED (Increment 4) as flat hooks.<name> bool leaves: post_tool_use
+  #    and notify_compression early-exit on their flag via hook_common.hook_enabled.
+  #    prompt_classifier/pre_tool_use are schema-valid but intentionally NOT
+  #    runtime-gated (pipeline/security-critical; disable via hook registration).
   # ---------------------------------------------------------
   hooks:
     prompt_classifier:
@@ -137,7 +157,7 @@ features:
     pre_tool_use:
       enabled: true # Listens before tools fire. Disabling this kills security/TDD wrappers.
     post_tool_use:
-      enabled: true # Listens after tools fire.
+      enabled: true # Listens after tools fire (hooks.post_tool_use gates this).
     notify_compression:
-      enabled: true # Listens when context window is full.
+      enabled: true # Listens when context window is full (hooks.notify_compression gates this).
 ```

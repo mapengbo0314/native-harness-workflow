@@ -161,6 +161,12 @@ def mint_workspace(target_dir: str, selected_agents: list[dict], project_path: s
                     packs_root=packs_root,
                     features=_compiled_features,
                     platform=current_platform,
+                    # Install into the staging harness dir (target_path), not the live
+                    # <project>/.claude. Writing to .claude here would create a phantom
+                    # harness that the atomic swap backs up as a spurious .claude.backup.<ts>.
+                    # After the swap, target_path becomes .claude and the post-swap re-sync
+                    # repopulates it; rules end up in the correct final location either way.
+                    install_root=Path(target_path) / "rules" / "harness",
                 ) or set()
                 print(f"[HARNESS] Rules packs installed.")
         except Exception as e:
@@ -597,6 +603,7 @@ def install_rules_packs(
     packs_root: Path,
     features: dict,
     platform: str = "claude",
+    install_root: Path | None = None,
 ) -> set[str]:
     """Install selected pack dirs into ``<project>/.claude/rules/harness/`` and prune.
 
@@ -617,6 +624,14 @@ def install_rules_packs(
         Claude auto-loads ``.claude/rules/`` so no persona inlining is needed there.
         For all other platforms the selected pack content is inlined directly into
         each agent persona file so the LLM always receives the rules.
+    install_root:
+        Optional explicit target for the installed packs (the ``rules/harness``
+        directory).  During the initial mint this MUST point inside the staging
+        harness dir (e.g. ``.harness_tmp/rules/harness``) so the live
+        ``<project>/.claude`` is never created before the atomic swap — otherwise
+        the swap mistakes the freshly-written rules dir for a pre-existing harness
+        and emits a spurious ``.claude.backup.<ts>``.  When ``None`` (post-swap
+        re-sync callers), defaults to ``<project>/.claude/rules/harness``.
 
     Returns
     -------
@@ -648,8 +663,10 @@ def install_rules_packs(
         if _features_language_enabled(features, p)
     }
 
-    # Install target: <project>/.claude/rules/harness/
-    install_root = project_path / ".claude" / "rules" / "harness"
+    # Install target: the staging harness dir during the initial mint (passed by
+    # the caller), or the live <project>/.claude/rules/harness for post-swap re-syncs.
+    if install_root is None:
+        install_root = project_path / ".claude" / "rules" / "harness"
     install_root.mkdir(parents=True, exist_ok=True)
 
     # Build the set of harness-managed pack dir names: canonical values from
