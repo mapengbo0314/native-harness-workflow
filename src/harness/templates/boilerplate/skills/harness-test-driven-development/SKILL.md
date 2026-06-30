@@ -61,6 +61,22 @@ Write code before the test? Delete it. Start over.
 
 Implement fresh from tests. Period.
 
+## Bug Fix Fast Path
+
+**Applies only when fixing existing behavior, not adding new features.**
+
+Before writing a new test, run the existing test suite:
+
+```bash
+# Run relevant tests first
+<test-command>
+```
+
+- **Existing tests already fail** on the affected behavior → those tests ARE your RED phase. Skip to fixing production code, then verify all tests pass.
+- **No existing tests fail** → no existing coverage catches the bug. You MUST write a new failing test before touching production code (Iron Law applies in full).
+
+Rationale: The Iron Law exists to prove your test catches the bug. If existing tests already prove this by failing, that proof exists — writing a duplicate new test adds ceremony without value, and risks building false confidence around the wrong assertion.
+
 ## Red-Green-Refactor
 
 ```dot
